@@ -1,13 +1,23 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import * as L from 'leaflet';
-import { CITIES, DISTRICTS, CATEGORIES, CITY_COORDINATES, MOCK_SALON_TYPES, MOCK_SERVICES } from '../constants';
-import { Layout } from '../components/Layout';
-import { GeminiChat } from '../components/GeminiChat';
-import { SalonService } from '../services/db';
-import { Salon } from '../types';
+'use client';
+
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+// Dynamic Import for Leaflet Map to avoid SSR "window is not defined" error
+const HomeMap = dynamic(() => import('@/components/Map/HomeMap'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse flex items-center justify-center text-gray-400">Harita Yükleniyor...</div>
+});
+
+import { CITIES, DISTRICTS, CATEGORIES, CITY_COORDINATES, MOCK_SALON_TYPES, MOCK_SERVICES } from '@/constants';
+import { Layout } from '@/components/Layout';
+import { GeminiChat } from '@/components/GeminiChat';
+import { SalonService } from '@/services/db';
+import { Salon } from '@/types';
 
 type SearchTab = 'service' | 'type' | 'salon';
 
@@ -16,46 +26,6 @@ const normalize = (text: string) => {
     return text.toLocaleLowerCase('tr').trim();
 };
 
-// --- Helper: Strict Coordinate Validation ---
-const isValidLatLng = (lat: any, lng: any): boolean => {
-    const numLat = Number(lat);
-    const numLng = Number(lng);
-    return !isNaN(numLat) && !isNaN(numLng) && isFinite(numLat) && isFinite(numLng);
-};
-
-// --- Leaflet Map Helpers ---
-
-// Updates map center when city changes
-const MapUpdater: React.FC<{ center: { lat: number; lng: number } }> = ({ center }) => {
-    const map = useMap();
-    useEffect(() => {
-        // Strict validation before flying
-        if (isValidLatLng(center?.lat, center?.lng)) {
-            map.flyTo([center.lat, center.lng], 12, { duration: 2 });
-        }
-    }, [center, map]);
-    return null;
-};
-
-// Custom Marker Icon (Price Tag Style)
-const createCustomIcon = (price: number, isHovered: boolean) => {
-    return L.divIcon({
-        className: 'custom-pin',
-        html: `
-            <div class="relative transition-all duration-300 ${isHovered ? 'scale-110 z-50' : 'scale-100 z-10'}">
-                <div class="flex items-center justify-center px-3 py-1.5 bg-white border-2 ${isHovered ? 'border-primary text-primary' : 'border-gray-800 text-gray-900'} rounded-xl shadow-lg font-bold text-sm whitespace-nowrap">
-                    ${price} ₺
-                </div>
-                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-b-2 border-r-2 ${isHovered ? 'border-primary' : 'border-gray-800'} transform rotate-45"></div>
-            </div>
-        `,
-        iconSize: [60, 40],
-        iconAnchor: [30, 40],
-        popupAnchor: [0, -45],
-    });
-};
-
-// --- Service Icon Helper ---
 const getServiceIcon = (serviceName: string) => {
     const lower = serviceName.toLowerCase();
     if (lower.includes('saç') || lower.includes('fön') || lower.includes('kesim') || lower.includes('röfle') || lower.includes('ombre')) return 'content_cut';
@@ -70,18 +40,19 @@ const getServiceIcon = (serviceName: string) => {
     return 'star'; 
 };
 
-export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
+// Component Wrapper for SearchParams to handle Suspense boundary
+const HomePageContent = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [salons, setSalons] = useState<Salon[]>([]);
   const [loading, setLoading] = useState(true);
-  const location = useLocation();
 
   // Search Parameters from URL
-  const searchParams = new URLSearchParams(location.search);
   const typeParam = searchParams.get('type');
   const searchParam = searchParams.get('search');
   const cityParam = searchParams.get('city');
-  const modeParam = searchParams.get('mode'); // 'service', 'type', 'salon'
+  const modeParam = searchParams.get('mode'); 
 
   // Mode Check
   const isSearchMode = !!(typeParam || searchParam || cityParam);
@@ -112,19 +83,17 @@ export const HomePage: React.FC = () => {
         setLoading(false);
     };
     fetchData();
-  }, []); // Run once on mount
+  }, []);
 
-  // Sync URL params to State when URL changes (e.g. back button)
+  // Sync URL params to State
   useEffect(() => {
     if (searchParam !== null) setLocalSearch(searchParam);
     if (cityParam !== null) setSelectedCity(cityParam);
-    // Note: We don't sync district from URL yet as it's not in the main query params typically, but could be added.
   }, [searchParam, cityParam]);
 
   // District Reset logic
   const availableDistricts = selectedCity !== 'Tümü' ? (DISTRICTS[selectedCity] || []) : [];
   useEffect(() => {
-    // Only reset if the current selected district is not in the new city's list
     if (selectedCity !== 'Tümü' && selectedDistrict !== 'Tümü' && !availableDistricts.includes(selectedDistrict)) {
         setSelectedDistrict('Tümü');
     }
@@ -136,7 +105,6 @@ export const HomePage: React.FC = () => {
     if (selectedCity !== 'Tümü') {
         const salonCity = normalize(salon.city || '');
         const targetCity = normalize(selectedCity);
-        // Strict check for city (prevents "Istanbul" matching inside "Istanbul yolu")
         if (salonCity !== targetCity && !normalize(salon.location).includes(targetCity)) return false;
     }
 
@@ -144,28 +112,22 @@ export const HomePage: React.FC = () => {
     if (selectedDistrict !== 'Tümü') {
         const salonDistrict = normalize(salon.district || '');
         const targetDistrict = normalize(selectedDistrict);
-        // Use includes for location string fallback
         if (salonDistrict !== targetDistrict && !normalize(salon.location).includes(targetDistrict)) return false;
     }
     
-    // 3. Type/Category Filter (from URL)
+    // 3. Type/Category Filter
     if (typeParam && typeParam !== 'all') {
         const typeSlug = normalize(typeParam);
-        
-        // Find ID from slug if possible
         const targetType = MOCK_SALON_TYPES.find(t => normalize(t.slug) === typeSlug || normalize(t.id) === typeSlug);
         
         if (targetType) {
-            // Strict ID check if available in salon data
             if (salon.typeIds && salon.typeIds.length > 0) {
                 if (!salon.typeIds.includes(targetType.id)) return false;
             } else {
-                // Fallback to name check in tags
                 const normalizedTagName = normalize(targetType.name);
                 if (!salon.tags.some(t => normalize(t) === normalizedTagName)) return false;
             }
         } else {
-            // Fallback: Fuzzy check against tags/slug
             const salonTags = salon.tags.map(t => normalize(t));
             const isMatch = salonTags.some(tag => {
                  if (typeSlug === 'kuafor' && tag.includes('kuaför')) return true;
@@ -176,21 +138,16 @@ export const HomePage: React.FC = () => {
         }
     }
 
-    // 4. Search Term Filter (Context Aware)
+    // 4. Search Term Filter
     if (localSearch) {
         const term = normalize(localSearch);
         
-        // Use modeParam to be specific if provided
         if (modeParam === 'salon') {
-             // Strict Name Search
              if (!normalize(salon.name).includes(term)) return false;
         } else if (modeParam === 'type' || modeParam === 'service') {
-             // Tag/Category/Service Search
              const matchesTags = salon.tags.some(t => normalize(t).includes(term));
-             // Also check services implicitly if we had deep service data here, but tags cover most
              if (!matchesTags) return false;
         } else {
-             // Generic Fallback (Name OR Tags)
              const matchesName = normalize(salon.name).includes(term);
              const matchesTags = salon.tags.some(t => normalize(t).includes(term));
              if (!matchesName && !matchesTags) return false;
@@ -202,31 +159,22 @@ export const HomePage: React.FC = () => {
   const visibleSalons = filteredSalons.slice(0, visibleCount);
   const handleLoadMore = () => setVisibleCount(prev => prev + 5);
 
-  // Popular Services List
   const popularServices = Array.from(new Set(MOCK_SERVICES.map(s => s.name))).sort().slice(0, 30);
 
   // --- Safe Map Center Calculation ---
   const defaultCenter = { lat: 41.0082, lng: 28.9784 }; // Istanbul
-  
-  // Safeguard: Ensure CITY_COORDINATES["İstanbul"] exists, if not use hardcoded default
   const istanbulCoords = CITY_COORDINATES["İstanbul"] || defaultCenter;
-
   const targetCityCoords = CITY_COORDINATES[selectedCity];
-  // If we have filtered salons, try to center on the first one
   const firstSalonCoords = filteredSalons.length > 0 && filteredSalons[0].coordinates ? filteredSalons[0].coordinates : null;
   
   const mapCenterRaw = firstSalonCoords || targetCityCoords || istanbulCoords;
   
-  // Robust conversion to numbers and check validity
-  const finalLat = isValidLatLng(mapCenterRaw?.lat, mapCenterRaw?.lng) ? Number(mapCenterRaw.lat) : defaultCenter.lat;
-  const finalLng = isValidLatLng(mapCenterRaw?.lat, mapCenterRaw?.lng) ? Number(mapCenterRaw.lng) : defaultCenter.lng;
-
   const safeMapCenter = {
-      lat: finalLat,
-      lng: finalLng
+      lat: Number(mapCenterRaw?.lat) || defaultCenter.lat,
+      lng: Number(mapCenterRaw?.lng) || defaultCenter.lng
   };
 
-  // --- Combobox / Autocomplete Logic ---
+  // --- Combobox Logic ---
   const handleSearchChange = (val: string) => {
       setLocalSearch(val);
       if (val.length < 2) {
@@ -238,9 +186,6 @@ export const HomePage: React.FC = () => {
       const term = normalize(val);
       const newSuggestions: typeof suggestions = [];
 
-      // Filter logic based on Active Tab
-      
-      // 1. Salons (Only if tab is Salon or Generic)
       if (activeTab === 'salon') {
           salons.forEach(s => {
               if (normalize(s.name).includes(term)) {
@@ -249,16 +194,14 @@ export const HomePage: React.FC = () => {
           });
       }
 
-      // 2. Categories (Only if tab is Type or Generic)
       if (activeTab === 'type') {
           MOCK_SALON_TYPES.forEach(t => {
               if (normalize(t.name).includes(term)) {
-                  newSuggestions.push({ type: 'category', text: t.name, id: t.slug }); // Pass slug for filtering
+                  newSuggestions.push({ type: 'category', text: t.name, id: t.slug });
               }
           });
       }
 
-      // 3. Services (Only if tab is Service or Generic)
       if (activeTab === 'service') {
           const matchedServices = Array.from(new Set(MOCK_SERVICES.filter(s => normalize(s.name).includes(term)).map(s => s.name))).slice(0, 5);
           matchedServices.forEach(s => {
@@ -274,27 +217,23 @@ export const HomePage: React.FC = () => {
       setLocalSearch(item.text);
       setShowSuggestions(false);
       
-      // Direct Navigation for Salons
       if (item.type === 'salon' && item.id) {
-          navigate(`/salon/${item.id}`);
+          router.push(`/salon/${item.id}`);
           return;
       }
 
-      // Filter Navigation for Categories
       if (item.type === 'category' && item.id) {
-          // item.id here holds the slug because we passed it in handleSearchChange
           let query = `/?type=${item.id}`;
           if (selectedCity !== 'Tümü') query += `&city=${selectedCity}`;
-          navigate(query);
+          router.push(query);
           return;
       }
 
-      // Search Navigation for Services
       let query = `/?search=${encodeURIComponent(item.text)}`;
       if (selectedCity !== 'Tümü') query += `&city=${selectedCity}`;
       query += `&mode=service`;
 
-      navigate(query);
+      router.push(query);
   };
 
   const executeSearch = () => {
@@ -302,13 +241,11 @@ export const HomePage: React.FC = () => {
       if (selectedCity && selectedCity !== 'Tümü') {
           query += `&city=${selectedCity}`;
       }
-      // Pass the active tab as mode to refine results
       query += `&mode=${activeTab}`;
-      navigate(query);
+      router.push(query);
       setShowSuggestions(false);
   };
 
-  // Close suggestions on click outside
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
           if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target as Node)) {
@@ -320,17 +257,15 @@ export const HomePage: React.FC = () => {
   }, []);
 
 
-  // --- VIEW 1: SEARCH & LISTING (PROFESSIONAL SPLIT VIEW) ---
+  // --- VIEW 1: SEARCH & LISTING ---
   if (isSearchMode) {
       return (
           <Layout>
-              {/* Fixed Layout Container: Header is handled by Layout, we handle the rest full height */}
               <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)] overflow-hidden bg-background">
                   
-                  {/* Left Side: Scrollable List */}
+                  {/* Left Side: List */}
                   <div className="w-full lg:w-[500px] xl:w-[550px] flex flex-col border-r border-border bg-white shadow-xl z-20 shrink-0 h-full">
                       
-                      {/* Filter Header */}
                       <div className="p-5 border-b border-border bg-white sticky top-0 z-10 shadow-sm">
                           <div className="relative mb-3" ref={searchWrapperRef}>
                               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary">search</span>
@@ -343,7 +278,6 @@ export const HomePage: React.FC = () => {
                                   className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-text-main placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary text-sm transition-all"
                                   onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
                               />
-                               {/* Sidebar Suggestions Dropdown */}
                                {showSuggestions && suggestions.length > 0 && (
                                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
                                       {suggestions.map((item, idx) => (
@@ -388,11 +322,10 @@ export const HomePage: React.FC = () => {
                           </div>
                           <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50">
                               <span className="text-xs font-bold text-text-main">{filteredSalons.length} işletme bulundu</span>
-                              <Link to="/" onClick={() => { setLocalSearch(''); setSelectedCity('Tümü'); }} className="text-xs text-primary font-bold hover:underline">Temizle & Çık</Link>
+                              <Link href="/" onClick={() => { setLocalSearch(''); setSelectedCity('Tümü'); }} className="text-xs text-primary font-bold hover:underline">Temizle & Çık</Link>
                           </div>
                       </div>
 
-                      {/* Salon List */}
                       <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5 bg-gray-50/50">
                           {loading ? (
                               <div className="space-y-4">
@@ -405,12 +338,17 @@ export const HomePage: React.FC = () => {
                                           key={salon.id}
                                           onMouseEnter={() => setHoveredSalonId(salon.id)}
                                           onMouseLeave={() => setHoveredSalonId(null)}
-                                          onClick={() => navigate(`/salon/${salon.id}`)}
+                                          onClick={() => router.push(`/salon/${salon.id}`)}
                                           className={`group bg-white rounded-2xl border p-4 flex gap-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-lg ${hoveredSalonId === salon.id ? 'border-primary ring-1 ring-primary' : 'border-gray-200 hover:border-primary/30'}`}
                                       >
                                           <div className="relative w-32 h-32 shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                                              <img src={salon.image} alt={salon.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                              {salon.isSponsored && <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-primary text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Öne Çıkan</div>}
+                                              <Image 
+                                                src={salon.image} 
+                                                alt={salon.name} 
+                                                fill 
+                                                className="object-cover transition-transform duration-500 group-hover:scale-110" 
+                                              />
+                                              {salon.isSponsored && <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-primary text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm z-10">Öne Çıkan</div>}
                                           </div>
                                           
                                           <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -470,57 +408,16 @@ export const HomePage: React.FC = () => {
                       </div>
                   </div>
 
-                  {/* Right Side: Map (Hidden on mobile initially, visible on desktop) */}
+                  {/* Right Side: Map */}
                   <div className="hidden lg:block flex-1 relative bg-gray-100 h-full z-0">
-                       <MapContainer center={[safeMapCenter.lat, safeMapCenter.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none">
-                            <TileLayer
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                            />
-                            <MapUpdater center={safeMapCenter} />
-                            
-                            {filteredSalons.map(salon => {
-                                // Strict Coordinate Validation
-                                if (!isValidLatLng(salon.coordinates?.lat, salon.coordinates?.lng)) {
-                                    return null;
-                                }
-                                const salonLat = Number(salon.coordinates.lat);
-                                const salonLng = Number(salon.coordinates.lng);
-
-                                return (
-                                    <Marker 
-                                        key={salon.id} 
-                                        position={[salonLat, salonLng]}
-                                        icon={createCustomIcon(salon.startPrice, hoveredSalonId === salon.id)}
-                                        eventHandlers={{
-                                            mouseover: () => setHoveredSalonId(salon.id),
-                                            mouseout: () => setHoveredSalonId(null),
-                                            click: () => navigate(`/salon/${salon.id}`)
-                                        }}
-                                    >
-                                        <Popup className="custom-popup" closeButton={false} offset={[0, -40]}>
-                                            <div className="p-0 w-48 overflow-hidden rounded-xl shadow-lg border-0">
-                                                <div className="h-28 bg-cover bg-center" style={{ backgroundImage: `url("${salon.image}")` }}>
-                                                    <div className="absolute top-2 right-2 bg-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm flex items-center gap-0.5">
-                                                        <span className="material-symbols-outlined text-[10px] filled text-yellow-500">star</span> {salon.rating}
-                                                    </div>
-                                                </div>
-                                                <div className="p-3 bg-white">
-                                                    <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{salon.name}</h3>
-                                                    <p className="text-[10px] text-gray-500 truncate mb-2">{salon.district}</p>
-                                                    <div className="flex justify-between items-center border-t border-gray-100 pt-2">
-                                                        <span className="text-primary font-bold text-sm">{salon.startPrice} ₺</span>
-                                                        <span className="text-[10px] text-gray-400">başlayan</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Popup>
-                                    </Marker>
-                                );
-                            })}
-                       </MapContainer>
+                       <HomeMap 
+                          center={safeMapCenter}
+                          salons={filteredSalons}
+                          hoveredSalonId={hoveredSalonId}
+                          setHoveredSalonId={setHoveredSalonId}
+                          onMarkerClick={(id) => router.push(`/salon/${id}`)}
+                       />
                        
-                       {/* Floating Map Controls */}
                        <div className="absolute bottom-8 right-8 flex flex-col gap-2 z-[400]">
                            <button className="size-10 bg-white rounded-xl shadow-lg flex items-center justify-center text-gray-600 hover:text-primary transition-colors border border-gray-100" onClick={() => {}} title="Konumum">
                                <span className="material-symbols-outlined">my_location</span>
@@ -539,12 +436,13 @@ export const HomePage: React.FC = () => {
     <Layout>
       {/* Hero Section */}
       <div className="relative bg-gray-900 overflow-visible min-h-[550px] lg:min-h-[650px] flex items-center justify-center z-10">
-        {/* Background Image with Overlay */}
         <div className="absolute inset-0 z-0">
-          <img 
+          <Image 
             alt="Luxury Salon Background" 
-            className="w-full h-full object-cover opacity-60" 
             src="https://images.unsplash.com/photo-1633681926022-2292608933c0?q=80&w=2000&auto=format&fit=crop" 
+            fill
+            className="object-cover opacity-60" 
+            priority
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80"></div>
         </div>
@@ -560,34 +458,16 @@ export const HomePage: React.FC = () => {
              Size en yakın kuaför, berber ve güzellik merkezlerini keşfedin, fiyatları karşılaştırın ve saniyeler içinde randevunuzu oluşturun.
           </p>
 
-          {/* New Tabbed Search Bar Box */}
+          {/* Search Box */}
           <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-2 mx-auto border border-white/20 backdrop-blur-sm relative z-50 animate-fade-in-up">
               
-              {/* Tabs */}
               <div className="flex border-b border-gray-100 mb-2 px-2">
-                <button 
-                    onClick={() => { setActiveTab('service'); setLocalSearch(''); setSuggestions([]); }}
-                    className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'service' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}
-                >
-                    Hizmet
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('type'); setLocalSearch(''); setSuggestions([]); }}
-                    className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'type' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}
-                >
-                    Salon Türü
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('salon'); setLocalSearch(''); setSuggestions([]); }}
-                    className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'salon' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}
-                >
-                    Salon Adı
-                </button>
+                <button onClick={() => { setActiveTab('service'); setLocalSearch(''); setSuggestions([]); }} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'service' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}>Hizmet</button>
+                <button onClick={() => { setActiveTab('type'); setLocalSearch(''); setSuggestions([]); }} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'type' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}>Salon Türü</button>
+                <button onClick={() => { setActiveTab('salon'); setLocalSearch(''); setSuggestions([]); }} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 outline-none ${activeTab === 'salon' ? 'text-primary border-primary' : 'text-text-secondary border-transparent hover:text-primary'}`}>Salon Adı</button>
               </div>
 
-              {/* Inputs */}
               <div className="flex flex-col md:flex-row gap-2 p-2">
-                 {/* Combobox Search Input */}
                  <div className="flex-grow relative group" ref={searchWrapperRef}>
                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                          <span className="material-symbols-outlined">search</span>
@@ -606,7 +486,6 @@ export const HomePage: React.FC = () => {
                         onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
                      />
                      
-                     {/* Suggestions Dropdown (Landing Page) */}
                      {showSuggestions && suggestions.length > 0 && (
                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-xl shadow-xl z-[100] max-h-80 overflow-y-auto">
                             <div className="p-2 border-b border-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-wider pl-4">Önerilenler</div>
@@ -658,7 +537,6 @@ export const HomePage: React.FC = () => {
                  </button>
               </div>
 
-              {/* Footer / Tags */}
               <div className="px-4 py-2 flex items-center justify-start gap-2 text-xs text-text-secondary border-t border-gray-50 mt-1 pt-3">
                   <button className="flex items-center gap-1 hover:text-primary transition-colors font-medium" onClick={() => {}}>
                       <span className="material-symbols-outlined text-sm">my_location</span>
@@ -667,14 +545,14 @@ export const HomePage: React.FC = () => {
                   <span className="mx-2 opacity-30">|</span>
                   <span className="hidden sm:inline opacity-70">Popüler: </span>
                   {CATEGORIES.slice(0, 3).map(cat => (
-                       <Link key={cat} to={`/?type=${MOCK_SALON_TYPES.find(t => t.name === cat)?.slug}`} className="hover:text-primary hover:underline font-medium">{cat}</Link>
+                       <Link key={cat} href={`/?type=${MOCK_SALON_TYPES.find(t => t.name === cat)?.slug}`} className="hover:text-primary hover:underline font-medium">{cat}</Link>
                   ))}
               </div>
           </div>
         </div>
       </div>
 
-      {/* Featured Salons - Compact Cards (MOVED UP) */}
+      {/* Featured Salons */}
       <div className="bg-white py-20 relative z-0">
            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                <div className="flex justify-between items-end mb-10">
@@ -686,16 +564,13 @@ export const HomePage: React.FC = () => {
                
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                     {salons.slice(0, 4).map((salon) => (
-                        <Link to={`/salon/${salon.id}`} key={salon.id} className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-300 hover:shadow-xl transition-all duration-300 flex flex-col h-full">
+                        <Link href={`/salon/${salon.id}`} key={salon.id} className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-300 hover:shadow-xl transition-all duration-300 flex flex-col h-full">
                             <div className="relative overflow-hidden aspect-[4/3]">
-                                <img alt={salon.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={salon.image} />
+                                <Image src={salon.image} alt={salon.name} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 {salon.isSponsored && (
-                                    <div className="absolute top-3 left-3 bg-white text-text-main text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded shadow-sm">Sponsorlu</div>
+                                    <div className="absolute top-3 left-3 bg-white text-text-main text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded shadow-sm z-10">Sponsorlu</div>
                                 )}
-                                <div className="absolute top-3 right-3 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-red-500 transition-colors">
-                                    <span className="material-symbols-outlined text-sm block">favorite</span>
-                                </div>
                                 <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-2 group-hover:translate-y-0">
                                     <span className="w-full block bg-white text-text-main text-center py-2 rounded-lg font-bold text-sm shadow-lg">Randevu Al</span>
                                 </div>
@@ -732,7 +607,7 @@ export const HomePage: React.FC = () => {
            </div>
       </div>
 
-      {/* Popular Categories Section - Grid Alignment (Background changed to gray) */}
+      {/* Popular Categories */}
       <div className="bg-gray-50 py-20 border-y border-gray-200">
          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-end mb-10">
@@ -740,24 +615,23 @@ export const HomePage: React.FC = () => {
                     <h2 className="text-3xl font-display font-bold text-text-main">Popüler Kategoriler</h2>
                     <p className="text-text-secondary mt-2">İhtiyacınıza uygun uzmanı kategorilere göre bulun.</p>
                 </div>
-                <Link to="/?type=all" className="hidden sm:flex items-center text-primary font-bold text-sm hover:underline gap-1">
+                <Link href="/?type=all" className="hidden sm:flex items-center text-primary font-bold text-sm hover:underline gap-1">
                     Tümünü Gör <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </Link>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {MOCK_SALON_TYPES.slice(0, 8).map((type) => (
-                    <Link to={`/?type=${type.slug}`} key={type.id} className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-2xl transition-all duration-500 bg-white">
-                        {/* Background Image */}
-                        <div 
-                           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" 
-                           style={{ backgroundImage: `url("${type.image}")` }}
-                        ></div>
-                        
-                        {/* Gradient Overlay - Better Readability */}
+                    <Link href={`/?type=${type.slug}`} key={type.id} className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-2xl transition-all duration-500 bg-white">
+                        <div className="absolute inset-0">
+                            <Image 
+                                src={type.image || ''} 
+                                alt={type.name}
+                                fill
+                                className="object-cover transition-transform duration-700 group-hover:scale-110" 
+                            />
+                        </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-300"></div>
-                        
-                        {/* Content */}
                         <div className="absolute inset-0 p-6 flex flex-col justify-end items-start z-10">
                             <h3 className="text-xl lg:text-2xl font-bold text-white mb-1 transform group-hover:-translate-y-1 transition-transform duration-300">{type.name}</h3>
                             <div className="h-0 group-hover:h-auto opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300">
@@ -772,7 +646,7 @@ export const HomePage: React.FC = () => {
          </div>
       </div>
 
-      {/* Popular Services Section - Clean List Layout (MOVED TO BOTTOM, Background White) */}
+      {/* Popular Services */}
       <div className="bg-white py-20">
           <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-12">
@@ -783,12 +657,11 @@ export const HomePage: React.FC = () => {
                   <div className="h-1 w-16 bg-primary mx-auto mt-4 rounded-full"></div>
               </div>
 
-              {/* The "Clean List" Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {popularServices.map((service, idx) => (
                       <Link 
                         key={idx} 
-                        to={`/?search=${encodeURIComponent(service)}&mode=service`}
+                        href={`/?search=${encodeURIComponent(service)}&mode=service`}
                         className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-primary hover:shadow-md transition-all group"
                       >
                           <div className="size-10 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
@@ -800,7 +673,7 @@ export const HomePage: React.FC = () => {
               </div>
               
               <div className="mt-10 text-center">
-                  <Link to="/?type=all" className="inline-flex items-center justify-center px-8 py-3 border border-gray-300 shadow-sm text-sm font-bold rounded-xl text-text-secondary bg-white hover:bg-gray-50 transition-all">
+                  <Link href="/?type=all" className="inline-flex items-center justify-center px-8 py-3 border border-gray-300 shadow-sm text-sm font-bold rounded-xl text-text-secondary bg-white hover:bg-gray-50 transition-all">
                       Tüm Hizmetleri Görüntüle
                   </Link>
               </div>
@@ -811,3 +684,11 @@ export const HomePage: React.FC = () => {
     </Layout>
   );
 };
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>}>
+      <HomePageContent />
+    </Suspense>
+  );
+}

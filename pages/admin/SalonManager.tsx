@@ -36,7 +36,9 @@ export const SalonManager: React.FC = () => {
             startPrice: 0,
             image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop',
             tags: [],
-            coordinates: { lat: 41.0082, lng: 28.9784 }
+            typeIds: [],
+            coordinates: { lat: 41.0082, lng: 28.9784 },
+            createdAt: new Date().toISOString()
         });
         setIsModalOpen(true);
     };
@@ -157,7 +159,7 @@ export const SalonManager: React.FC = () => {
                         <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase tracking-wider text-text-secondary font-semibold">
                             <th className="p-4">Salon Adı</th>
                             <th className="p-4">Konum</th>
-                            <th className="p-4">Kategori</th>
+                            <th className="p-4">Kategori (Tür)</th>
                             <th className="p-4">Fiyat (Başlangıç)</th>
                             <th className="p-4 text-right">İşlemler</th>
                         </tr>
@@ -182,9 +184,19 @@ export const SalonManager: React.FC = () => {
                                 </td>
                                 <td className="p-4">
                                     <div className="flex flex-wrap gap-1">
-                                        {salon.tags.slice(0, 2).map(tag => (
-                                            <span key={tag} className="text-[10px] bg-gray-100 text-text-secondary px-2 py-1 rounded-full">{tag}</span>
-                                        ))}
+                                        {salon.typeIds && salon.typeIds.length > 0 ? (
+                                            salon.typeIds.map(tid => {
+                                                const t = MOCK_SALON_TYPES.find(type => type.id === tid);
+                                                return t ? (
+                                                    <span key={tid} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full border border-blue-100">{t.name}</span>
+                                                ) : null;
+                                            })
+                                        ) : (
+                                            // Fallback for legacy data
+                                            salon.tags.slice(0, 2).map(tag => (
+                                                <span key={tag} className="text-[10px] bg-gray-100 text-text-secondary px-2 py-1 rounded-full">{tag}</span>
+                                            ))
+                                        )}
                                     </div>
                                 </td>
                                 <td className="p-4 text-sm font-bold text-text-main">{salon.startPrice} ₺</td>
@@ -312,20 +324,31 @@ export const SalonManager: React.FC = () => {
                                         </div>
 
                                         <div className="space-y-2 pt-4 border-t border-gray-100">
-                                            <label className="block text-sm font-bold text-text-main">Özellikler & Etiketler</label>
+                                            <label className="block text-sm font-bold text-text-main">Salon Tipi (Kategoriler)</label>
                                             <div className="flex flex-wrap gap-2">
                                                 {MOCK_SALON_TYPES.map(type => (
-                                                    <label key={type.id} className={`cursor-pointer border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors select-none ${editingSalon.tags?.includes(type.name) ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:border-primary'}`}>
+                                                    <label key={type.id} className={`cursor-pointer border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors select-none ${editingSalon.typeIds?.includes(type.id) ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:border-primary'}`}>
                                                         <input 
                                                             type="checkbox" 
                                                             className="hidden" 
-                                                            checked={editingSalon.tags?.includes(type.name)}
+                                                            checked={editingSalon.typeIds?.includes(type.id)}
                                                             onChange={(e) => {
+                                                                // Sync tags as well for search fallback
+                                                                const typeIds = editingSalon.typeIds || [];
                                                                 const tags = editingSalon.tags || [];
+                                                                
                                                                 if (e.target.checked) {
-                                                                    setEditingSalon({...editingSalon, tags: [...tags, type.name]});
+                                                                    setEditingSalon({
+                                                                        ...editingSalon, 
+                                                                        typeIds: [...typeIds, type.id],
+                                                                        tags: [...tags, type.name]
+                                                                    });
                                                                 } else {
-                                                                    setEditingSalon({...editingSalon, tags: tags.filter(t => t !== type.name)});
+                                                                    setEditingSalon({
+                                                                        ...editingSalon, 
+                                                                        typeIds: typeIds.filter(id => id !== type.id),
+                                                                        tags: tags.filter(t => t !== type.name)
+                                                                    });
                                                                 }
                                                             }}
                                                         />
@@ -333,7 +356,7 @@ export const SalonManager: React.FC = () => {
                                                     </label>
                                                 ))}
                                             </div>
-                                            <div className="flex items-center gap-2 mt-2">
+                                            <div className="flex items-center gap-2 mt-4">
                                                 <input 
                                                     type="checkbox" 
                                                     id="isSponsored" 

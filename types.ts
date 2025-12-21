@@ -33,13 +33,15 @@ export interface Salon {
   rating: number; // Dynamically calculated
   reviewCount: number; // Dynamically calculated
   image: string;
-  tags: string[]; // These will map to SalonType names in the UI
+  tags: string[]; // Legacy descriptive tags
+  typeIds: string[]; // Foreign Keys linking to SalonType.id
   startPrice: number;
   isSponsored?: boolean;
   coordinates: {
     lat: number;
     lng: number;
   };
+  createdAt?: string;
 }
 
 export interface Staff {

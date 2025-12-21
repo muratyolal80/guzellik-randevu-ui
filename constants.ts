@@ -210,9 +210,11 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?q=80&w=800&auto=format&fit=crop",
     tags: ["Kuaför Salonları", "Masaj ve Spa", "Lüks", "Saç", "Fön", "Boyama", "Masaj", "Spa"],
+    typeIds: ["st1", "st4"], // Kuaför & Spa
     startPrice: 450,
     isSponsored: true,
-    coordinates: { lat: 41.0422, lng: 29.0067 }
+    coordinates: { lat: 41.0422, lng: 29.0067 },
+    createdAt: "2023-01-15T10:00:00Z"
   },
   {
     id: "2",
@@ -224,8 +226,10 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1503951914875-452162b7f304?q=80&w=800&auto=format&fit=crop",
     tags: ["Berber Salonları", "Sakal Tıraşı", "Erkek", "Saç Kesimi", "Erkek Bakım"],
+    typeIds: ["st2"], // Berber
     startPrice: 200,
-    coordinates: { lat: 40.9911, lng: 29.0234 }
+    coordinates: { lat: 40.9911, lng: 29.0234 },
+    createdAt: "2023-02-10T12:00:00Z"
   },
   {
     id: "4",
@@ -237,8 +241,10 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80&w=800&auto=format&fit=crop",
     tags: ["Tırnak Tasarım", "Manikür", "Tırnak", "Pedikür", "Nail Art", "Kalıcı Oje"],
+    typeIds: ["st6"], // Tırnak
     startPrice: 300,
-    coordinates: { lat: 41.0518, lng: 28.9945 }
+    coordinates: { lat: 41.0518, lng: 28.9945 },
+    createdAt: "2023-03-05T09:30:00Z"
   },
   
   // ANKARA
@@ -252,21 +258,25 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop",
     tags: ["Masaj ve Spa", "Sağlıklı Yaşam ve Diyet Merkezleri", "Masaj", "Spa", "Terapi"],
+    typeIds: ["st4", "st7"], // Spa & Fizyoterapi
     startPrice: 900,
-    coordinates: { lat: 39.9208, lng: 32.8541 }
+    coordinates: { lat: 39.9208, lng: 32.8541 },
+    createdAt: "2023-04-12T14:15:00Z"
   },
   {
     id: "ank1",
     name: "Ankara Estetik",
     location: "Kızılay, Ankara",
     city: "Ankara",
-    district: "Çankaya", // Corrected for mock data consistency with new dataset
+    district: "Çankaya",
     rating: 0,
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=800&auto=format&fit=crop",
     tags: ["Güzellik Merkezleri", "Lazer Epilasyon", "Lazer", "Epilasyon", "Cilt Bakımı"],
+    typeIds: ["st3"], // Güzellik
     startPrice: 750,
-    coordinates: { lat: 39.9250, lng: 32.8500 }
+    coordinates: { lat: 39.9250, lng: 32.8500 },
+    createdAt: "2023-05-20T11:00:00Z"
   },
 
   // İZMİR
@@ -275,13 +285,15 @@ export const MOCK_SALONS: Salon[] = [
     name: "Elite Hair Studio",
     location: "Alsancak, İzmir",
     city: "İzmir",
-    district: "Konak", // Adjusted to match real district list (Alsancak is a neighborhood in Konak)
+    district: "Konak",
     rating: 0,
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop",
     tags: ["Kuaför Salonları", "Renklendirme", "Saç", "Ombre", "Gelin Saçı"],
+    typeIds: ["st1"], // Kuaför
     startPrice: 550,
-    coordinates: { lat: 38.4357, lng: 27.1408 }
+    coordinates: { lat: 38.4357, lng: 27.1408 },
+    createdAt: "2023-06-15T15:45:00Z"
   },
   {
     id: "izm1",
@@ -293,8 +305,10 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop",
     tags: ["Berber Salonları", "VIP", "Erkek", "Tıraş", "Saç"],
+    typeIds: ["st2"], // Berber
     startPrice: 350,
-    coordinates: { lat: 38.4192, lng: 27.1287 }
+    coordinates: { lat: 38.4192, lng: 27.1287 },
+    createdAt: "2023-07-01T10:30:00Z"
   },
 
   // ANTALYA
@@ -303,13 +317,15 @@ export const MOCK_SALONS: Salon[] = [
     name: "Zen Therapy Center",
     location: "Lara, Antalya",
     city: "Antalya",
-    district: "Muratpaşa", // Lara is in Muratpaşa
+    district: "Muratpaşa",
     rating: 0,
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?q=80&w=800&auto=format&fit=crop",
     tags: ["Fizyoterapi", "Masaj ve Spa", "Masaj", "Fizyoterapi"],
+    typeIds: ["st7", "st4"], // Fizyoterapi & Spa
     startPrice: 1200,
-    coordinates: { lat: 36.8524, lng: 30.7960 }
+    coordinates: { lat: 36.8524, lng: 30.7960 },
+    createdAt: "2023-08-10T13:20:00Z"
   },
   {
     id: "ant1",
@@ -321,8 +337,10 @@ export const MOCK_SALONS: Salon[] = [
     reviewCount: 0,
     image: "https://images.unsplash.com/photo-1552693673-1bf958298935?q=80&w=800&auto=format&fit=crop",
     tags: ["Solaryum", "Solaryum", "Bronzlaşma", "Vücut Bakımı"],
+    typeIds: ["st8"], // Solaryum
     startPrice: 200,
-    coordinates: { lat: 36.8850, lng: 30.6500 }
+    coordinates: { lat: 36.8850, lng: 30.6500 },
+    createdAt: "2023-09-05T16:00:00Z"
   }
 ];
 
