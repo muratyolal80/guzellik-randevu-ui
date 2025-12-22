@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MOCK_SERVICES } from '@/constants';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonService, ReviewService } from '@/services/db';
-import { Salon, Review } from '@/types';
+import { SalonDataService, ReviewService, ServiceService } from '@/services/db';
+import { SalonDetail, Review, SalonServiceDetail } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SalonDetailPage() {
@@ -15,8 +14,9 @@ export default function SalonDetailPage() {
   const id = params.id as string;
   const { user } = useAuth();
 
-  const [salon, setSalon] = useState<Salon | null>(null);
+  const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [services, setServices] = useState<SalonServiceDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Review Form States
@@ -26,13 +26,14 @@ export default function SalonDetailPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Group services by category
-  const groupedServices = MOCK_SERVICES.reduce((acc: Record<string, any[]>, service: any) => {
-    if (!acc[service.category]) {
-      acc[service.category] = [];
+  const groupedServices = services.reduce((acc: Record<string, SalonServiceDetail[]>, service) => {
+    const category = service.category_name || 'Diğer';
+    if (!acc[category]) {
+      acc[category] = [];
     }
-    acc[service.category].push(service);
+    acc[category].push(service);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, SalonServiceDetail[]>);
 
   // State for collapsible categories (default all open)
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
@@ -43,14 +44,16 @@ export default function SalonDetailPage() {
     const fetchData = async () => {
         if (!id) return;
         setLoading(true);
-        // Fetch salon (with dynamic rating) and reviews in parallel
-        const [salonData, reviewsData] = await Promise.all([
-            SalonService.getSalonById(id),
-            ReviewService.getReviewsBySalon(id)
+        // Fetch salon, reviews, and services in parallel
+        const [salonData, reviewsData, servicesData] = await Promise.all([
+            SalonDataService.getSalonById(id),
+            ReviewService.getReviewsBySalon(id),
+            ServiceService.getServicesBySalon(id)
         ]);
 
         if (salonData) setSalon(salonData);
         setReviews(reviewsData);
+        setServices(servicesData);
         setLoading(false);
     };
     fetchData();
@@ -70,7 +73,7 @@ export default function SalonDetailPage() {
 
       setSubmitting(true);
       try {
-          const newReviewData = await ReviewService.addReview({
+          const newReviewData = await ReviewService.createReview({
               salon_id: salon.id,
               user_id: user.id,
               user_name: user.full_name,
@@ -85,7 +88,7 @@ export default function SalonDetailPage() {
           setNewComment('');
 
           // Re-fetch salon to update average header immediately
-          const updatedSalon = await SalonService.getSalonById(salon.id);
+          const updatedSalon = await SalonDataService.getSalonById(salon.id);
           if (updatedSalon) setSalon(updatedSalon);
 
       } catch (error) {
@@ -130,22 +133,24 @@ export default function SalonDetailPage() {
             <div className="flex flex-col md:flex-row items-end justify-between gap-6">
                <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                     {salon.isSponsored && <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full tracking-wide shadow-md">ÖNERİLEN</span>}
+                     {salon.is_sponsored && <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full tracking-wide shadow-md">ÖNERİLEN</span>}
                      <a href="#reviews" className="flex items-center gap-1.5 text-sm font-bold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white border border-white/20 shadow-sm hover:bg-white/30 transition-colors">
                         <span className="material-symbols-outlined text-base filled text-yellow-400">star</span>
-                        {salon.rating} <span className="text-gray-300 font-normal">({reviews.length} Değerlendirme)</span>
+                        {salon.rating || salon.average_rating} <span className="text-gray-300 font-normal">({reviews.length} Değerlendirme)</span>
                      </a>
                   </div>
                   <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
                   <div className="flex flex-wrap items-center gap-4 text-gray-200 text-sm font-medium">
                      <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm">
-                        <span className="material-symbols-outlined text-primary">location_on</span> {salon.location}
+                        <span className="material-symbols-outlined text-primary">location_on</span> {salon.address || `${salon.district_name}, ${salon.city_name}`}
                      </span>
-                     <span className="flex items-center gap-2">
-                        {salon.tags.map(tag => (
-                           <span key={tag} className="text-gray-300 hover:text-white transition-colors cursor-pointer">#{tag}</span>
-                        ))}
-                     </span>
+                     {salon.tags && salon.tags.length > 0 && (
+                        <span className="flex items-center gap-2">
+                           {salon.tags.map(tag => (
+                              <span key={tag} className="text-gray-300 hover:text-white transition-colors cursor-pointer">#{tag}</span>
+                           ))}
+                        </span>
+                     )}
                   </div>
                </div>
                <div className="flex gap-3">
@@ -232,10 +237,10 @@ export default function SalonDetailPage() {
                                           </span>
                                        </div>
                                        <div>
-                                          <h5 className="text-base font-bold text-text-main group-hover:text-primary transition-colors mb-1">{service.name}</h5>
+                                          <h5 className="text-base font-bold text-text-main group-hover:text-primary transition-colors mb-1">{service.service_name}</h5>
                                           <div className="flex items-center gap-3 text-xs text-text-secondary">
                                              <span className="flex items-center gap-1 bg-surface-alt px-2 py-0.5 rounded border border-border">
-                                                <span className="material-symbols-outlined text-[14px]">schedule</span> {service.duration}
+                                                <span className="material-symbols-outlined text-[14px]">schedule</span> {service.duration_min} dk
                                              </span>
                                              <span>•</span>
                                              <span>Uzman eşliğinde</span>
@@ -334,10 +339,10 @@ export default function SalonDetailPage() {
                       {/* Summary Dashboard */}
                       <div className="p-8 grid grid-cols-1 md:grid-cols-12 gap-8 border-b border-border bg-gray-50">
                           <div className="md:col-span-4 flex flex-col items-center justify-center text-center p-6 bg-white rounded-2xl border border-border shadow-sm">
-                              <span className="text-6xl font-black text-text-main leading-none">{salon.rating}</span>
+                              <span className="text-6xl font-black text-text-main leading-none">{salon.rating || salon.average_rating || 0}</span>
                               <div className="flex gap-1 my-3 text-yellow-400">
                                   {[1, 2, 3, 4, 5].map(s => (
-                                      <span key={s} className={`material-symbols-outlined text-2xl ${s <= Math.round(salon.rating) ? 'filled' : ''}`}>star</span>
+                                      <span key={s} className={`material-symbols-outlined text-2xl ${s <= Math.round(salon.rating || salon.average_rating || 0) ? 'filled' : ''}`}>star</span>
                                   ))}
                               </div>
                               <span className="text-text-secondary text-sm font-medium">{reviews.length} Değerlendirme</span>
@@ -374,7 +379,7 @@ export default function SalonDetailPage() {
                                               ></div>
                                               <div>
                                                   <h5 className="font-bold text-text-main text-sm">{review.user_name}</h5>
-                                                  <span className="text-xs text-text-secondary">{new Date(review.date).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                  <span className="text-xs text-text-secondary">{new Date(review.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                                               </div>
                                           </div>
                                           <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100">

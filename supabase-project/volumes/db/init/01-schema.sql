@@ -197,7 +197,7 @@ CREATE INDEX idx_iys_logs_status ON iys_logs(status);
 -- ==============================================
 
 -- View: Salon ratings calculated from reviews
-CREATE OR REPLACE VIEW salon_ratings AS
+CREATE OR REPLACE VIEW salon_ratings WITH (security_invoker = on) AS
 SELECT
     s.id AS salon_id,
     s.name AS salon_name,
@@ -208,7 +208,7 @@ LEFT JOIN reviews r ON s.id = r.salon_id
 GROUP BY s.id, s.name;
 
 -- View: Salon details with location and rating
-CREATE OR REPLACE VIEW salon_details AS
+CREATE OR REPLACE VIEW salon_details WITH (security_invoker = on) AS
 SELECT
     s.id,
     s.name,
@@ -232,7 +232,7 @@ JOIN salon_types st ON s.type_id = st.id
 LEFT JOIN salon_ratings sr ON s.id = sr.salon_id;
 
 -- View: Services with category and salon info
-CREATE OR REPLACE VIEW salon_service_details AS
+CREATE OR REPLACE VIEW salon_service_details WITH (security_invoker = on) AS
 SELECT
     ss.id,
     ss.salon_id,

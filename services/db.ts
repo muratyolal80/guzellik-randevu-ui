@@ -104,12 +104,22 @@ export const MasterDataService = {
    * Get navigation menu data (for header)
    */
   async getNavMenuData() {
-    const [salonTypes, categories] = await Promise.all([
+    const [salonTypes, categories, allServices] = await Promise.all([
       this.getSalonTypes(),
       this.getServiceCategories(),
+      this.getAllGlobalServices(),
     ]);
 
-    return { salonTypes, categories };
+    // Group services by category ID
+    const servicesByCatId: Record<string, string[]> = {};
+    allServices.forEach(service => {
+      if (!servicesByCatId[service.category_id]) {
+        servicesByCatId[service.category_id] = [];
+      }
+      servicesByCatId[service.category_id].push(service.name);
+    });
+
+    return { salonTypes, categories, servicesByCatId };
   },
 };
 
@@ -117,7 +127,7 @@ export const MasterDataService = {
 // SALON SERVICE (Business/Tenant Data)
 // ==============================================
 
-export const SalonService = {
+export const SalonDataService = {
   /**
    * Get all salons with detailed information (using view)
    */
@@ -620,7 +630,7 @@ export const MasterService = MasterDataService;
 export default {
   MasterDataService,
   MasterService,
-  SalonService,
+  SalonDataService,
   StaffService,
   ServiceService,
   WorkingHoursService,

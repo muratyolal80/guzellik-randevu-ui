@@ -1,24 +1,63 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { MOCK_SALONS, MOCK_STAFF, MOCK_SERVICES } from '../../../../constants';
-import { Layout } from '../../../../components/Layout';
-import { BookingSummary } from '../../../../components/BookingSummary';
-import { GeminiChat } from '../../../../components/GeminiChat';
+import { SalonDataService, StaffService } from '@/services/db';
+import { Layout } from '@/components/Layout';
+import { BookingSummary } from '@/components/BookingSummary';
+import { GeminiChat } from '@/components/GeminiChat';
+import type { SalonDetail, Staff } from '@/types';
 
 export default function StaffSelection() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const salon = MOCK_SALONS.find(s => s.id === id) || MOCK_SALONS[0];
+
+  const [salon, setSalon] = useState<SalonDetail | null>(null);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
-  const selectedStaff = selectedStaffId ? MOCK_STAFF.find(s => s.id === selectedStaffId) : null;
-  // Mock selected services (normally comes from context)
-  const selectedServices = MOCK_SERVICES.slice(0, 2);
-  const totalPrice = selectedServices.reduce((sum: number, s: any) => sum + s.price, 0);
+  // Fetch salon and staff data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const [salonData, staffData] = await Promise.all([
+          SalonDataService.getSalonById(id),
+          StaffService.getStaffBySalon(id)
+        ]);
+
+        if (salonData) {
+          setSalon(salonData);
+        }
+
+        // Map staff data to include display properties
+        const mappedStaff = staffData.map(s => ({
+          ...s,
+          image: s.photo || `https://i.pravatar.cc/150?u=${s.id}`,
+          role: s.specialty || 'Uzman',
+          rating: 4.5, // TODO: Get from reviews/ratings
+          isOnline: s.is_active
+        }));
+
+        setStaff(mappedStaff);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  const selectedStaff = selectedStaffId ? staff.find(s => s.id === selectedStaffId) : null;
+
+  // TODO: Get selected services from context/state management
+  const selectedServices: any[] = []; // Mock for now
+  const totalPrice = selectedServices.reduce((sum: number, s: any) => sum + (s.price || 0), 0);
   const totalDuration = "1 saat 5 dk";
 
   const handleStaffSelect = (staffId: string) => {
@@ -30,6 +69,34 @@ export default function StaffSelection() {
           router.push(`/booking/${id}/time`);
       }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="layout-container px-4 md:px-10 py-8 max-w-[1440px] mx-auto w-full bg-background min-h-screen">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-text-secondary">Personel bilgileri yükleniyor...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!salon) {
+    return (
+      <Layout>
+        <div className="layout-container px-4 md:px-10 py-8 max-w-[1440px] mx-auto w-full bg-background min-h-screen">
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-text-main mb-4">Salon bulunamadı</h2>
+            <Link href="/" className="text-primary hover:underline">Ana sayfaya dön</Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -94,7 +161,12 @@ export default function StaffSelection() {
 
             {/* Staff Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               {MOCK_STAFF.map((s: any) => (
+               {staff.length === 0 ? (
+                  <div className="col-span-2 text-center py-12">
+                    <p className="text-text-secondary">Bu salon için kayıtlı personel bulunamadı.</p>
+                  </div>
+               ) : (
+                  staff.map((s) => (
                   <div
                     key={s.id}
                     onClick={() => handleStaffSelect(s.id)}
@@ -127,7 +199,8 @@ export default function StaffSelection() {
                         </button>
                      </div>
                   </div>
-               ))}
+               ))
+               )}
             </div>
 
             {/* Fixed Bottom Next Button Container */}
@@ -152,7 +225,17 @@ export default function StaffSelection() {
           <BookingSummary
              salon={salon}
              services={selectedServices}
-             staff={selectedStaffId === 'any' ? { id: 'any', name: 'Herhangi Bir Personel', role: 'Otomatik Atama', rating: 0, image: 'https://i.pravatar.cc/150?u=any', specialty: '' } : selectedStaff}
+             staff={selectedStaffId === 'any' ? {
+               id: 'any',
+               name: 'Herhangi Bir Personel',
+               role: 'Otomatik Atama',
+               rating: 0,
+               image: 'https://i.pravatar.cc/150?u=any',
+               specialty: '',
+               salon_id: id,
+               is_active: true,
+               created_at: new Date().toISOString()
+             } as Staff : selectedStaff}
              totalPrice={totalPrice}
              totalDuration={totalDuration}
              step={1}

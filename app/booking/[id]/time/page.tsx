@@ -1,20 +1,75 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { MOCK_SALONS, MOCK_STAFF, MOCK_SERVICES } from '../../../../constants';
-import { Layout } from '../../../../components/Layout';
-import { BookingSummary } from '../../../../components/BookingSummary';
-import { GeminiChat } from '../../../../components/GeminiChat';
+import { useParams, useSearchParams } from 'next/navigation';
+import { SalonDataService, StaffService, ServiceService } from '@/services/db';
+import { Layout } from '@/components/Layout';
+import { BookingSummary } from '@/components/BookingSummary';
+import { GeminiChat } from '@/components/GeminiChat';
+import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
 
 export default function TimeSelection() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
-  const salon = MOCK_SALONS.find((s: any) => s.id === id) || MOCK_SALONS[0];
-  const staff = MOCK_STAFF[0]; // Mock selected staff
-  const services = MOCK_SERVICES.slice(0, 2);
+  const staffId = searchParams.get('staffId');
+
+  const [salon, setSalon] = useState<SalonDetail | null>(null);
+  const [staff, setStaff] = useState<Staff | null>(null);
+  const [services, setServices] = useState<SalonServiceDetail[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const [salonData, servicesData] = await Promise.all([
+          SalonDataService.getSalonById(id),
+          ServiceService.getServicesBySalon(id)
+        ]);
+
+        setSalon(salonData);
+        setServices(servicesData);
+
+        // Fetch staff if staffId is provided
+        if (staffId && staffId !== 'any') {
+          const staffData = await StaffService.getStaffById(staffId);
+          if (staffData) {
+            setStaff({
+              ...staffData,
+              image: staffData.photo || `https://i.pravatar.cc/150?u=${staffData.id}`,
+              role: staffData.specialty || 'Uzman',
+              rating: 4.5,
+              isOnline: staffData.is_active
+            });
+          }
+        } else {
+          // "Any staff" option
+          setStaff({
+            id: 'any',
+            salon_id: id,
+            name: 'Herhangi Bir Personel',
+            specialty: 'Otomatik Atama',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            role: 'Otomatik Atama',
+            rating: 0,
+            image: 'https://i.pravatar.cc/150?u=any',
+            isOnline: false
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id, staffId]);
 
   const dates = [
       { day: 12, month: 'Ekim', name: 'Bugün', active: true },
@@ -26,6 +81,39 @@ export default function TimeSelection() {
 
   const morningSlots = ['09:00', '09:30', '10:15', '11:00', '11:45'];
   const afternoonSlots = ['13:30', '14:15', '15:00', '15:45', '16:30', '17:15'];
+
+  // Calculate totals from services
+  const totalPrice = services.reduce((sum, s) => sum + Number(s.price || 0), 0);
+  const totalDuration = services.reduce((sum, s) => sum + (s.duration_min || 0), 0);
+  const totalDurationStr = `${Math.floor(totalDuration / 60)} sa ${totalDuration % 60} dk`;
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-text-secondary">Yükleniyor...</p>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!salon) {
+    return (
+      <Layout>
+        <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-text-main mb-4">Salon bulunamadı</h2>
+            <Link href="/" className="text-primary hover:underline">Ana sayfaya dön</Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -45,10 +133,10 @@ export default function TimeSelection() {
                  <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-24 order-2 lg:order-1">
                      <BookingSummary
                         salon={salon}
-                        services={services}
+                        services={services as any}
                         staff={staff}
-                        totalPrice={650}
-                        totalDuration="1 sa 5 dk"
+                        totalPrice={totalPrice}
+                        totalDuration={totalDurationStr}
                         step={2}
                     />
                  </div>

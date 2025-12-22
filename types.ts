@@ -33,6 +33,7 @@ export interface SalonType {
   name: string;
   slug: string;
   icon?: string;
+  image?: string;  // For display/marketing purposes
   created_at: string;
 }
 
@@ -79,6 +80,15 @@ export interface SalonDetail extends Salon {
   type_slug: string;
   review_count: number;
   average_rating: number;
+
+  // Legacy/compatibility properties (for existing code)
+  city?: string;        // Alias for city_name
+  district?: string;    // Alias for district_name
+  location?: string;    // Combined location string
+  tags?: string[];      // Service/category tags (will be populated from services)
+  typeIds?: string[];   // Array of type IDs
+  rating?: number;      // Alias for average_rating
+  startPrice?: number;  // Minimum service price
 }
 
 export interface Staff {
@@ -89,6 +99,12 @@ export interface Staff {
   specialty?: string;
   is_active: boolean;
   created_at: string;
+
+  // Display/compatibility properties
+  image?: string;       // Alias for photo
+  role?: string;        // Job title/role
+  rating?: number;      // Staff rating
+  isOnline?: boolean;   // Online status
 }
 
 export interface SalonService {

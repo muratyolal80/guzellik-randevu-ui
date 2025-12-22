@@ -1,11 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
-import { Salon, Staff, Service } from '@/types';
+import { Salon, Staff, Service, SalonServiceDetail, SalonDetail } from '@/types';
 
 interface BookingSummaryProps {
-  salon: Salon;
+  salon: Salon | SalonDetail;
   staff?: Staff | null;
-  services: Service[];
+  services: Service[] | SalonServiceDetail[];
   totalPrice: number;
   totalDuration: string;
   step: number; // 1: Staff, 2: Time, 3: Confirm
@@ -32,8 +32,8 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                  <h3 className="text-white text-lg font-bold leading-tight">{salon.name}</h3>
                  <div className="flex items-center gap-1 text-primary text-sm mt-1">
                    <span className="material-symbols-outlined text-[16px] fill-current" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                   <span className="font-bold">{salon.rating}</span>
-                   <span className="text-gray-300 font-normal">• {salon.location}</span>
+                   <span className="font-bold">{'average_rating' in salon ? salon.average_rating : 0}</span>
+                   <span className="text-gray-300 font-normal">• {'city_name' in salon ? `${salon.district_name}, ${salon.city_name}` : salon.address}</span>
                  </div>
                </div>
              </div>
@@ -47,15 +47,22 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
           </div>
           
           <div className="p-4 flex flex-col gap-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-            {services.map((service) => (
-              <div key={service.id} className="flex justify-between items-start gap-2">
-                <div className="flex flex-col">
-                  <span className="text-text-main text-sm font-medium">{service.name}</span>
-                  <span className="text-text-secondary text-xs">{service.duration}</span>
+            {services.map((service) => {
+              // Handle both Service and SalonServiceDetail types
+              const serviceName = 'service_name' in service ? service.service_name : service.name;
+              const serviceDuration = 'duration_min' in service ? `${service.duration_min} dk` : service.duration;
+              const servicePrice = service.price;
+
+              return (
+                <div key={service.id} className="flex justify-between items-start gap-2">
+                  <div className="flex flex-col">
+                    <span className="text-text-main text-sm font-medium">{serviceName}</span>
+                    <span className="text-text-secondary text-xs">{serviceDuration}</span>
+                  </div>
+                  <span className="text-primary font-bold text-sm whitespace-nowrap">{servicePrice} TL</span>
                 </div>
-                <span className="text-primary font-bold text-sm whitespace-nowrap">{service.price} TL</span>
-              </div>
-            ))}
+              );
+            })}
 
             {staff && (
               <div className="mt-2 pt-4 border-t border-dashed border-gray-200">

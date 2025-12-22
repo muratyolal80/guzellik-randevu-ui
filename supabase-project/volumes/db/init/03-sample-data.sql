@@ -70,35 +70,40 @@ DO $$
 DECLARE
     salon_record RECORD;
     staff_count INTEGER;
+    staff_names TEXT[] := ARRAY[
+        'Ayşe Koç', 'Mehmet Erdoğan', 'Zeynep Aksoy', 'Ahmet Yurt', 'Fatma Demir',
+        'Elif Güneş', 'Mustafa Kılıç', 'Selin Yavuz', 'Can Çelik', 'Büşra Arslan',
+        'Emre Özkan', 'Merve Şahin', 'Burak Toprak', 'Deniz Acar', 'Ceren Polat',
+        'Oğuz Öztürk', 'Gizem Uzun', 'Barış Kaya', 'Nazlı Yılmaz', 'Serkan Şimşek',
+        'Pınar Aydın', 'Kerem Aslan', 'Eylül Demirci', 'Mert Yıldız', 'Seda Özdemir',
+        'Tolga Çetin', 'İrem Şen', 'Ege Aksoy', 'Damla Kurt', 'Berkay Demir'
+    ];
+    staff_specialties TEXT[] := ARRAY[
+        'Saç Kesimi ve Boyama', 'Sakal Tıraşı ve Şekillendirme', 'Makyaj ve Cilt Bakımı',
+        'Masaj Terapisti', 'Tırnak Tasarımı ve Bakımı', 'Kaş ve Kirpik Uygulamaları',
+        'Saç Bakımı Uzmanı', 'Epilasyon Uzmanı', 'Kalıcı Makyaj', 'Cilt Analizi ve Bakım',
+        'Medikal Estetik', 'Saç Dökülmesi Tedavisi', 'Protez Tırnak Uygulaması',
+        'Gelin Saçı ve Makyajı', 'Keratin ve Botoks Uygulaması'
+    ];
+    random_name TEXT;
+    random_specialty TEXT;
 BEGIN
-    -- Add 3-5 staff members for each salon
+    -- Add 3-5 staff members for each salon with random names
     FOR salon_record IN SELECT id, name FROM salons LOOP
-        staff_count := 3 + floor(random() * 3)::INTEGER; -- Random 3-5 staff
+        staff_count := 3 + floor(random() * 3)::INTEGER; -- Random 3-5 staff per salon
 
         FOR i IN 1..staff_count LOOP
+            -- Get random name and specialty
+            random_name := staff_names[1 + floor(random() * array_length(staff_names, 1))::INTEGER];
+            random_specialty := staff_specialties[1 + floor(random() * array_length(staff_specialties, 1))::INTEGER];
+
             INSERT INTO staff (salon_id, name, photo, specialty, is_active) VALUES
             (
                 salon_record.id,
-                CASE i
-                    WHEN 1 THEN 'Ayşe Yılmaz'
-                    WHEN 2 THEN 'Mehmet Kaya'
-                    WHEN 3 THEN 'Zeynep Demir'
-                    WHEN 4 THEN 'Ahmet Çelik'
-                    WHEN 5 THEN 'Fatma Şahin'
-                END,
-                CASE (i % 3)
-                    WHEN 0 THEN 'https://i.pravatar.cc/300?img=' || (i + 10)::TEXT
-                    WHEN 1 THEN 'https://i.pravatar.cc/300?img=' || (i + 20)::TEXT
-                    ELSE 'https://i.pravatar.cc/300?img=' || (i + 30)::TEXT
-                END,
-                CASE i
-                    WHEN 1 THEN 'Saç Kesimi ve Boyama'
-                    WHEN 2 THEN 'Sakal Tıraşı'
-                    WHEN 3 THEN 'Makyaj ve Cilt Bakımı'
-                    WHEN 4 THEN 'Masaj Terapisti'
-                    WHEN 5 THEN 'Tırnak Tasarımı'
-                END,
-                true
+                random_name,
+                'https://i.pravatar.cc/300?img=' || (1 + floor(random() * 70)::INTEGER)::TEXT,
+                random_specialty,
+                CASE WHEN random() > 0.1 THEN true ELSE false END -- 90% active, 10% inactive
             );
         END LOOP;
     END LOOP;
@@ -179,8 +184,9 @@ END $$;
 DO $$
 DECLARE
     salon_record RECORD;
-    staff_record RECORD;
-    service_record RECORD;
+    staff_id_var UUID;
+    service_id_var UUID;
+    service_duration_var INTEGER;
     appointment_date TIMESTAMPTZ;
     appointment_count INTEGER;
 BEGIN
@@ -190,16 +196,26 @@ BEGIN
 
         FOR i IN 1..appointment_count LOOP
             -- Get random staff from this salon
-            SELECT id INTO staff_record FROM staff
+            SELECT id INTO staff_id_var FROM staff
+            WHERE salon_id = salon_record.id AND is_active = true
+            ORDER BY RANDOM()
+            LIMIT 1;
+
+            -- Skip if no staff found
+            IF staff_id_var IS NULL THEN
+                CONTINUE;
+            END IF;
+
+            -- Get random service from this salon
+            SELECT id, duration_min INTO service_id_var, service_duration_var FROM salon_services
             WHERE salon_id = salon_record.id
             ORDER BY RANDOM()
             LIMIT 1;
 
-            -- Get random service from this salon
-            SELECT id, duration_min INTO service_record FROM salon_services
-            WHERE salon_id = salon_record.id
-            ORDER BY RANDOM()
-            LIMIT 1;
+            -- Skip if no service found
+            IF service_id_var IS NULL THEN
+                CONTINUE;
+            END IF;
 
             -- Random date in next 7 days, between 10:00-16:00
             appointment_date := NOW() +
@@ -231,10 +247,10 @@ BEGIN
                 END,
                 '555' || lpad((1000000 + floor(random() * 9000000))::TEXT, 7, '0'),
                 salon_record.id,
-                staff_record.id,
-                service_record.id,
+                staff_id_var,
+                service_id_var,
                 appointment_date,
-                appointment_date + (service_record.duration_min || ' minutes')::INTERVAL,
+                appointment_date + (service_duration_var || ' minutes')::INTERVAL,
                 CASE (i % 4)
                     WHEN 0 THEN 'PENDING'
                     WHEN 1 THEN 'CONFIRMED'
@@ -327,6 +343,8 @@ INSERT INTO iys_logs (phone, message_type, content, status) VALUES
 -- ==============================================
 
 DO $$
+DECLARE
+    rec RECORD;
 BEGIN
     RAISE NOTICE '==============================================';
     RAISE NOTICE 'Sample business data loaded successfully!';

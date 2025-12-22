@@ -5,11 +5,11 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { CITIES, DISTRICTS, CATEGORIES, CITY_COORDINATES, MOCK_SALON_TYPES, MOCK_SERVICES } from '@/constants';
+import { CITIES, DISTRICTS, CATEGORIES, CITY_COORDINATES } from '@/constants';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonService } from '@/services/db';
-import { Salon } from '@/types';
+import { SalonDataService, MasterDataService } from '@/services/db';
+import { SalonDetail, SalonType, GlobalService } from '@/types';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -30,7 +30,8 @@ const SalonMap = dynamic(
 type SearchTab = 'service' | 'type' | 'salon';
 
 // --- Helper: Turkish Character Normalization ---
-const normalize = (text: string) => {
+const normalize = (text: string | undefined | null) => {
+    if (!text) return '';
     return text.toLocaleLowerCase('tr').trim();
 };
 
@@ -59,7 +60,9 @@ const getServiceIcon = (serviceName: string) => {
 
 function HomePageContent() {
   const router = useRouter();
-  const [salons, setSalons] = useState<Salon[]>([]);
+  const [salons, setSalons] = useState<SalonDetail[]>([]);
+  const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
+  const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
 
@@ -93,8 +96,25 @@ function HomePageContent() {
   useEffect(() => {
     const fetchData = async () => {
         setLoading(true);
-        const data = await SalonService.getSalons();
-        setSalons(data);
+        const [salonsData, typesData, servicesData] = await Promise.all([
+          SalonDataService.getSalons(),
+          MasterDataService.getSalonTypes(),
+          MasterDataService.getAllGlobalServices()
+        ]);
+
+        // Map database fields to display-friendly properties
+        const mappedData = salonsData.map(salon => ({
+          ...salon,
+          city: salon.city_name,
+          district: salon.district_name,
+          rating: salon.average_rating || 0,
+          tags: [salon.type_name], // Use type as a tag for now
+          startPrice: 100, // TODO: Get from salon_services minimum price
+        }));
+
+        setSalons(mappedData);
+        setSalonTypes(typesData);
+        setGlobalServices(servicesData);
         setLoading(false);
     };
     fetchData();
@@ -120,46 +140,35 @@ function HomePageContent() {
   const filteredSalons = salons.filter(salon => {
     // 1. City Filter
     if (selectedCity !== 'Tümü') {
-        const salonCity = normalize(salon.city || '');
+        const salonCity = normalize(salon.city_name);
         const targetCity = normalize(selectedCity);
         // Strict check for city (prevents "Istanbul" matching inside "Istanbul yolu")
-        if (salonCity !== targetCity && !normalize(salon.location).includes(targetCity)) return false;
+        const salonAddress = normalize(salon.address);
+        if (salonCity !== targetCity && !salonAddress.includes(targetCity)) return false;
     }
 
     // 2. District Filter
     if (selectedDistrict !== 'Tümü') {
-        const salonDistrict = normalize(salon.district || '');
+        const salonDistrict = normalize(salon.district_name);
         const targetDistrict = normalize(selectedDistrict);
-        // Use includes for location string fallback
-        if (salonDistrict !== targetDistrict && !normalize(salon.location).includes(targetDistrict)) return false;
+        // Use includes for address string fallback
+        const salonAddress = normalize(salon.address);
+        if (salonDistrict !== targetDistrict && !salonAddress.includes(targetDistrict)) return false;
     }
 
     // 3. Type/Category Filter (from URL)
     if (typeParam && typeParam !== 'all') {
         const typeSlug = normalize(typeParam);
+        const salonTypeSlug = normalize(salon.type_slug);
+        const salonTypeName = normalize(salon.type_name);
 
-        // Find ID from slug if possible
-        const targetType = MOCK_SALON_TYPES.find(t => normalize(t.slug) === typeSlug || normalize(t.id) === typeSlug);
+        // Check if salon type matches the requested type
+        const isMatch = salonTypeSlug === typeSlug ||
+                       salonTypeName.includes(typeSlug) ||
+                       (typeSlug === 'kuafor' && salonTypeName.includes('kuaför')) ||
+                       (typeSlug === 'sac' && salonTypeName.includes('saç'));
 
-        if (targetType) {
-            // Strict ID check if available in salon data
-            if (salon.typeIds && salon.typeIds.length > 0) {
-                if (!salon.typeIds.includes(targetType.id)) return false;
-            } else {
-                // Fallback to name check in tags
-                const normalizedTagName = normalize(targetType.name);
-                if (!salon.tags.some(t => normalize(t) === normalizedTagName)) return false;
-            }
-        } else {
-            // Fallback: Fuzzy check against tags/slug
-            const salonTags = salon.tags.map(t => normalize(t));
-            const isMatch = salonTags.some(tag => {
-                 if (typeSlug === 'kuafor' && tag.includes('kuaför')) return true;
-                 if (typeSlug === 'sac' && tag.includes('saç')) return true;
-                 return tag.includes(typeSlug);
-            });
-            if (!isMatch) return false;
-        }
+        if (!isMatch) return false;
     }
 
     // 4. Search Term Filter (Context Aware)
@@ -171,15 +180,16 @@ function HomePageContent() {
              // Strict Name Search
              if (!normalize(salon.name).includes(term)) return false;
         } else if (modeParam === 'type' || modeParam === 'service') {
-             // Tag/Category/Service Search
-             const matchesTags = salon.tags.some(t => normalize(t).includes(term));
-             // Also check services implicitly if we had deep service data here, but tags cover most
-             if (!matchesTags) return false;
+             // Type/Category Search - check type_name
+             const matchesType = normalize(salon.type_name).includes(term);
+             const matchesAddress = normalize(salon.address).includes(term);
+             if (!matchesType && !matchesAddress) return false;
         } else {
-             // Generic Fallback (Name OR Tags)
+             // Generic Fallback (Name OR Type OR Address)
              const matchesName = normalize(salon.name).includes(term);
-             const matchesTags = salon.tags.some(t => normalize(t).includes(term));
-             if (!matchesName && !matchesTags) return false;
+             const matchesType = normalize(salon.type_name).includes(term);
+             const matchesAddress = normalize(salon.address).includes(term);
+             if (!matchesName && !matchesType && !matchesAddress) return false;
         }
     }
     return true;
@@ -188,8 +198,8 @@ function HomePageContent() {
   const visibleSalons = filteredSalons.slice(0, visibleCount);
   const handleLoadMore = () => setVisibleCount(prev => prev + 5);
 
-  // Popular Services List
-  const popularServices = Array.from(new Set(MOCK_SERVICES.map(s => s.name))).sort().slice(0, 30);
+  // Popular Services List - Use real data from database
+  const popularServices = Array.from(new Set(globalServices.map(s => s.name))).sort().slice(0, 30);
 
   // --- Safe Map Center Calculation ---
   const defaultCenter = { lat: 41.0082, lng: 28.9784 }; // Istanbul
@@ -200,7 +210,10 @@ function HomePageContent() {
 
   const targetCityCoords = CITY_COORDINATES[selectedCity];
   // If we have filtered salons, try to center on the first one
-  const firstSalonCoords = filteredSalons.length > 0 && filteredSalons[0].coordinates ? filteredSalons[0].coordinates : null;
+  const firstSalon = filteredSalons.length > 0 ? filteredSalons[0] : null;
+  const firstSalonCoords = firstSalon && firstSalon.geo_latitude && firstSalon.geo_longitude
+    ? { lat: firstSalon.geo_latitude, lng: firstSalon.geo_longitude }
+    : null;
 
   const mapCenterRaw = firstSalonCoords || targetCityCoords || istanbulCoords;
 
@@ -238,7 +251,7 @@ function HomePageContent() {
 
       // 2. Categories (Only if tab is Type or Generic)
       if (activeTab === 'type') {
-          MOCK_SALON_TYPES.forEach(t => {
+          salonTypes.forEach(t => {
               if (normalize(t.name).includes(term)) {
                   newSuggestions.push({ type: 'category', text: t.name, id: t.slug }); // Pass slug for filtering
               }
@@ -247,7 +260,7 @@ function HomePageContent() {
 
       // 3. Services (Only if tab is Service or Generic)
       if (activeTab === 'service') {
-          const matchedServices = Array.from(new Set(MOCK_SERVICES.filter(s => normalize(s.name).includes(term)).map(s => s.name))).slice(0, 5);
+          const matchedServices = Array.from(new Set(globalServices.filter(s => normalize(s.name).includes(term)).map(s => s.name))).slice(0, 5);
           matchedServices.forEach(s => {
               newSuggestions.push({ type: 'service', text: s });
           });
@@ -399,7 +412,7 @@ function HomePageContent() {
                                       >
                                           <div className="relative w-32 h-32 shrink-0 rounded-xl overflow-hidden bg-gray-100">
                                               <img src={salon.image} alt={salon.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                              {salon.isSponsored && <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-primary text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Öne Çıkan</div>}
+                                              {salon.is_sponsored && <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-primary text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Öne Çıkan</div>}
                                           </div>
 
                                           <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -415,10 +428,10 @@ function HomePageContent() {
                                                   </p>
 
                                                   <div className="flex flex-wrap gap-1.5 mt-3">
-                                                      {salon.tags.slice(0, 2).map(tag => (
+                                                      {salon.tags && salon.tags.slice(0, 2).map(tag => (
                                                           <span key={tag} className="text-[10px] text-text-secondary bg-gray-100 px-2 py-1 rounded-md font-medium">{tag}</span>
                                                       ))}
-                                                      {salon.tags.length > 2 && <span className="text-[10px] text-text-muted bg-gray-50 px-2 py-1 rounded-md">+ {salon.tags.length - 2}</span>}
+                                                      {salon.tags && salon.tags.length > 2 && <span className="text-[10px] text-text-muted bg-gray-50 px-2 py-1 rounded-md">+ {salon.tags.length - 2}</span>}
                                                   </div>
                                               </div>
 
@@ -614,8 +627,8 @@ function HomePageContent() {
                   </button>
                   <span className="mx-2 opacity-30">|</span>
                   <span className="hidden sm:inline opacity-70">Popüler: </span>
-                  {CATEGORIES.slice(0, 3).map(cat => (
-                       <Link key={cat} href={`/?type=${MOCK_SALON_TYPES.find(t => t.name === cat)?.slug}`} className="hover:text-primary hover:underline font-medium">{cat}</Link>
+                  {salonTypes.slice(0, 3).map(type => (
+                       <Link key={type.id} href={`/?type=${type.slug}`} className="hover:text-primary hover:underline font-medium">{type.name}</Link>
                   ))}
               </div>
           </div>
@@ -638,7 +651,7 @@ function HomePageContent() {
                             <div className="relative overflow-hidden aspect-[4/3]">
                                 <img alt={salon.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={salon.image} />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                {salon.isSponsored && (
+                                {salon.is_sponsored && (
                                     <div className="absolute top-3 left-3 bg-white text-text-main text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded shadow-sm">Sponsorlu</div>
                                 )}
                                 <div className="absolute top-3 right-3 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white hover:text-red-500 transition-colors">
@@ -663,7 +676,7 @@ function HomePageContent() {
                                         {salon.district}, {salon.city}
                                     </p>
                                     <div className="flex gap-1 mb-4 overflow-hidden">
-                                        {salon.tags.slice(0, 3).map(t => (
+                                        {salon.tags && salon.tags.slice(0, 3).map(t => (
                                             <span key={t} className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md whitespace-nowrap">{t}</span>
                                         ))}
                                     </div>
@@ -694,12 +707,12 @@ function HomePageContent() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {MOCK_SALON_TYPES.slice(0, 8).map((type) => (
+                {salonTypes.slice(0, 8).map((type) => (
                     <Link href={`/?type=${type.slug}`} key={type.id} className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-2xl transition-all duration-500 bg-white">
                         {/* Background Image */}
                         <div
                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                           style={{ backgroundImage: `url("${type.image}")` }}
+                           style={{ backgroundImage: `url("${type.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600'}")` }}
                         ></div>
 
                         {/* Gradient Overlay - Better Readability */}
