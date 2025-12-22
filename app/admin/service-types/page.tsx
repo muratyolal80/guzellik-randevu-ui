@@ -1,14 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../../../components/AdminLayout';
-import { MOCK_SERVICE_CATEGORIES } from '../../../constants';
+import { MasterDataService } from '@/services/db';
 import { ServiceCategory } from '../../../types';
 
 export default function ServiceCategoryManager() {
-    const [categories, setCategories] = useState<ServiceCategory[]>(MOCK_SERVICE_CATEGORIES);
+    const [categories, setCategories] = useState<ServiceCategory[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Partial<ServiceCategory> | null>(null);
+
+    // Load data from database
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const data = await MasterDataService.getServiceCategories();
+            setCategories(data);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
 
     const handleEdit = (cat: ServiceCategory) => {
         setEditingCategory(cat);

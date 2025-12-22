@@ -60,7 +60,7 @@ export const NetgsmService = {
         await new Promise(r => setTimeout(r, 1200)); // Simulate network latency
         
         // Log as DEMO
-        await IYSService.addLog({
+        await IYSService.logSMS({
             phone: cleanPhone,
             message_type: 'OTP',
             content: `[DEMO] ${msg}`,
@@ -90,7 +90,7 @@ export const NetgsmService = {
       }
 
       // Log success
-      await IYSService.addLog({
+      await IYSService.logSMS({
           phone: cleanPhone,
           message_type: 'OTP',
           content: msg,
@@ -102,7 +102,7 @@ export const NetgsmService = {
       console.error("Netgsm Real API Error:", error);
       
       // Log failure
-      await IYSService.addLog({
+      await IYSService.logSMS({
           phone: cleanPhone,
           message_type: 'OTP',
           content: msg,
@@ -140,7 +140,7 @@ async function sendGenericSms(phone: string, message: string, iysFilter: "0" | "
     // DEMO MODE
     if (!isConfigured) {
         await new Promise(r => setTimeout(r, 1000));
-        await IYSService.addLog({
+        await IYSService.logSMS({
             phone: cleanPhone,
             message_type: type,
             content: `[DEMO] ${message}`,
@@ -169,7 +169,7 @@ async function sendGenericSms(phone: string, message: string, iysFilter: "0" | "
 
         if (!response.ok) throw new Error("API Hatası");
         
-        await IYSService.addLog({
+        await IYSService.logSMS({
             phone: cleanPhone,
             message_type: type,
             content: message,
@@ -179,7 +179,7 @@ async function sendGenericSms(phone: string, message: string, iysFilter: "0" | "
 
     } catch (error) {
         console.error("Netgsm SMS Gönderilemedi:", error);
-        await IYSService.addLog({
+        await IYSService.logSMS({
             phone: cleanPhone,
             message_type: type,
             content: message,

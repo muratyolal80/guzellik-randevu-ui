@@ -1,14 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AdminLayout } from '../../../components/AdminLayout';
-import { MOCK_SALON_TYPES } from '../../../constants';
-import { SalonType } from '../../../types';
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '@/components/AdminLayout';
+import { MasterDataService } from '@/services/db';
+import { SalonType } from '@/types';
 
 export default function SalonTypeManager() {
-    const [types, setTypes] = useState<SalonType[]>(MOCK_SALON_TYPES);
+    const [types, setTypes] = useState<SalonType[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingType, setEditingType] = useState<Partial<SalonType> | null>(null);
+
+    // Load data from database
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const data = await MasterDataService.getSalonTypes();
+            setTypes(data);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
 
     const handleEdit = (type: SalonType) => {
         setEditingType(type);

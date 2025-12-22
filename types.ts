@@ -1,4 +1,3 @@
-
 export type UserRole = 'user' | 'staff' | 'admin';
 
 export interface Profile {
@@ -18,14 +17,14 @@ export interface City {
   id: string;
   name: string;
   plate_code: number;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface District {
   id: string;
   city_id: string;
   name: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface SalonType {
@@ -34,7 +33,7 @@ export interface SalonType {
   slug: string;
   icon?: string;
   image?: string;  // For display/marketing purposes
-  created_at: string;
+  created_at?: string;
 }
 
 export interface ServiceCategory {
@@ -42,14 +41,14 @@ export interface ServiceCategory {
   name: string;
   slug: string;
   icon?: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface GlobalService {
   id: string;
   category_id: string;
   name: string;
-  created_at: string;
+  created_at?: string;
 }
 
 // ==============================================
@@ -59,21 +58,35 @@ export interface GlobalService {
 export interface Salon {
   id: string;
   name: string;
-  city_id: string;
-  district_id: string;
-  type_id: string;
+  city_id?: string;
+  district_id?: string;
+  type_id?: string;
   address?: string;
   phone?: string;
   geo_latitude?: number;
   geo_longitude?: number;
   image?: string;
-  is_sponsored: boolean;
-  created_at: string;
-  updated_at: string;
+  is_sponsored?: boolean;
+  created_at?: string;
+  updated_at?: string;
+
+  // UI/card fields used by MOCK_SALONS and components
+  location?: string;
+  city?: string;
+  district?: string;
+  rating?: number;
+  reviewCount?: number;
+  tags?: string[];
+  typeIds?: string[];
+  startPrice?: number;
+  isSponsored?: boolean;
+  coordinates?: { lat: number; lng: number };
+  createdAt?: string;
 }
 
 // Extended Salon with joined data for display
 export interface SalonDetail extends Salon {
+  coordinates: any;
   city_name: string;
   district_name: string;
   type_name: string;
@@ -93,12 +106,12 @@ export interface SalonDetail extends Salon {
 
 export interface Staff {
   id: string;
-  salon_id: string;
+  salon_id?: string;
   name: string;
   photo?: string;
   specialty?: string;
-  is_active: boolean;
-  created_at: string;
+  is_active?: boolean;
+  created_at?: string;
 
   // Display/compatibility properties
   image?: string;       // Alias for photo
@@ -161,7 +174,8 @@ export interface Review {
   user_avatar?: string;
   rating: number; // 1 to 5
   comment?: string;
-  created_at: string;
+  created_at?: string;
+  date?: string;
 }
 
 export interface IYSLog {
@@ -199,3 +213,4 @@ export interface Booking {
   total_price: number;
 }
 
+export {};

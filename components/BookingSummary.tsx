@@ -8,7 +8,7 @@ interface BookingSummaryProps {
   services: Service[] | SalonServiceDetail[];
   totalPrice: number;
   totalDuration: string;
-  step: number; // 1: Staff, 2: Time, 3: Confirm
+  step: number; // 1: Staff, 2: Time, 3: User Info, 4: Confirm
 }
 
 export const BookingSummary: React.FC<BookingSummaryProps> = ({ 
@@ -23,10 +23,10 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
     <div className="w-full lg:w-80 shrink-0">
       <div className="sticky top-24 flex flex-col gap-4">
         
-        {/* Step 3 & 4 Visuals (Salon Image Card for Time/Confirm pages) */}
+        {/* Step 2+ Visuals (Salon Image Card for Time/User-Info/Confirm pages) */}
         {step >= 2 && (
              <div className="rounded-xl bg-white border border-border overflow-hidden shadow-md mb-2">
-             <div className="h-32 w-full bg-cover bg-center relative" style={{ backgroundImage: `url("${salon.image}")` }}>
+             <div className="h-32 w-full bg-cover bg-center relative" style={{ backgroundImage: `url(\"${salon.image}\")` }}>
                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent"></div>
                <div className="absolute bottom-4 left-4">
                  <h3 className="text-white text-lg font-bold leading-tight">{salon.name}</h3>
@@ -67,7 +67,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
             {staff && (
               <div className="mt-2 pt-4 border-t border-dashed border-gray-200">
                 <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-border relative">
-                  <div className="size-8 rounded-full bg-cover bg-center border border-gray-200" style={{ backgroundImage: `url("${staff.image}")` }}></div>
+                  <div className="size-8 rounded-full bg-cover bg-center border border-gray-200" style={{ backgroundImage: `url(\"${staff.image}\")` }}></div>
                   <div className="flex flex-col">
                     <span className="text-text-main text-xs font-bold">{staff.name}</span>
                     <span className="text-primary text-[10px]">{staff.role}</span>
@@ -77,7 +77,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                         <span className="material-symbols-outlined text-[16px]">close</span>
                      </button>
                   )}
-                   {step === 2 && (
+                   {(step === 2 || step === 3) && (
                        <Link href={`/booking/${salon.id}/staff`} className="ml-auto text-primary text-[10px] font-bold hover:underline">Değiştir</Link>
                   )}
                 </div>
@@ -102,7 +102,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                 </button>
             )}
             
-            {step < 3 && (
+            {step < 4 && (
                 <p className="text-center text-text-muted text-[10px] mt-2">Ödeme aşamasına henüz geçilmedi.</p>
             )}
           </div>

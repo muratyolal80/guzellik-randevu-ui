@@ -7,17 +7,25 @@ import { SalonDataService, StaffService } from '@/services/db';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { GeminiChat } from '@/components/GeminiChat';
+import { useBooking } from '@/context/BookingContext';
 import type { SalonDetail, Staff } from '@/types';
 
 export default function StaffSelection() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const {
+    salon: bookingSalon,
+    setSalon: setBookingSalon,
+    selectedService,
+    selectedStaff: bookingStaff,
+    setSelectedStaff: setBookingStaff
+  } = useBooking();
 
-  const [salon, setSalon] = useState<SalonDetail | null>(null);
+  const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(bookingStaff?.id || null);
 
   // Fetch salon and staff data
   useEffect(() => {
@@ -26,12 +34,15 @@ export default function StaffSelection() {
       setLoading(true);
       try {
         const [salonData, staffData] = await Promise.all([
-          SalonDataService.getSalonById(id),
+          bookingSalon || SalonDataService.getSalonById(id),
           StaffService.getStaffBySalon(id)
         ]);
 
         if (salonData) {
           setSalon(salonData);
+          if (!bookingSalon) {
+            setBookingSalon(salonData);
+          }
         }
 
         // Map staff data to include display properties
@@ -51,17 +62,21 @@ export default function StaffSelection() {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, bookingSalon, setBookingSalon]);
 
   const selectedStaff = selectedStaffId ? staff.find(s => s.id === selectedStaffId) : null;
 
-  // TODO: Get selected services from context/state management
-  const selectedServices: any[] = []; // Mock for now
-  const totalPrice = selectedServices.reduce((sum: number, s: any) => sum + (s.price || 0), 0);
-  const totalDuration = "1 saat 5 dk";
+  // Get selected service from booking context
+  const selectedServices = selectedService ? [selectedService] : [];
+  const totalPrice = selectedService?.price || 0;
+  const totalDuration = selectedService?.duration_min ? `${selectedService.duration_min} dakika` : 'Belirsiz';
 
   const handleStaffSelect = (staffId: string) => {
     setSelectedStaffId(staffId);
+    const selectedStaffMember = staff.find(s => s.id === staffId);
+    if (selectedStaffMember) {
+      setBookingStaff(selectedStaffMember);
+    }
   };
 
   const handleNext = () => {

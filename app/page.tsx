@@ -5,11 +5,25 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { CITIES, DISTRICTS, CATEGORIES, CITY_COORDINATES } from '@/constants';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonDataService, MasterDataService } from '@/services/db';
-import { SalonDetail, SalonType, GlobalService } from '@/types';
+import { SalonDataService, MasterDataService, ServiceService } from '@/services/db';
+import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
+
+// Helper: Default coordinates for major cities
+const getCityCoordinates = (cityName: string): { lat: number; lng: number } | null => {
+    const cityCoords: Record<string, { lat: number; lng: number }> = {
+        "İstanbul": { lat: 41.0082, lng: 28.9784 },
+        "Ankara": { lat: 39.9208, lng: 32.8541 },
+        "İzmir": { lat: 38.4237, lng: 27.1428 },
+        "Antalya": { lat: 36.8969, lng: 30.7133 },
+        "Bursa": { lat: 40.1885, lng: 29.0610 },
+        "Adana": { lat: 37.0000, lng: 35.3213 },
+        "Gaziantep": { lat: 37.0662, lng: 37.3833 },
+        "Konya": { lat: 37.8667, lng: 32.4833 }
+    };
+    return cityCoords[cityName] || null;
+};
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -63,6 +77,9 @@ function HomePageContent() {
   const [salons, setSalons] = useState<SalonDetail[]>([]);
   const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
   const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [salonServicesMap, setSalonServicesMap] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
 
@@ -96,10 +113,11 @@ function HomePageContent() {
   useEffect(() => {
     const fetchData = async () => {
         setLoading(true);
-        const [salonsData, typesData, servicesData] = await Promise.all([
+        const [salonsData, typesData, servicesData, citiesData] = await Promise.all([
           SalonDataService.getSalons(),
           MasterDataService.getSalonTypes(),
-          MasterDataService.getAllGlobalServices()
+          MasterDataService.getAllGlobalServices(),
+          MasterDataService.getCities()
         ]);
 
         // Map database fields to display-friendly properties
@@ -110,11 +128,32 @@ function HomePageContent() {
           rating: salon.average_rating || 0,
           tags: [salon.type_name], // Use type as a tag for now
           startPrice: 100, // TODO: Get from salon_services minimum price
+          coordinates: {
+            lat: salon.geo_latitude || 0,
+            lng: salon.geo_longitude || 0
+          }
         }));
 
         setSalons(mappedData);
         setSalonTypes(typesData);
         setGlobalServices(servicesData);
+        setCities(citiesData);
+
+        // Load services for all salons to enable service-based search
+        const servicesMap: Record<string, string[]> = {};
+        await Promise.all(
+          salonsData.map(async (salon) => {
+            try {
+              const salonServices = await ServiceService.getServicesBySalon(salon.id);
+              servicesMap[salon.id] = salonServices.map(s => s.service_name);
+            } catch (error) {
+              console.error(`Error loading services for salon ${salon.id}:`, error);
+              servicesMap[salon.id] = [];
+            }
+          })
+        );
+        setSalonServicesMap(servicesMap);
+
         setLoading(false);
     };
     fetchData();
@@ -127,8 +166,24 @@ function HomePageContent() {
     // Note: We don't sync district from URL yet as it's not in the main query params typically, but could be added.
   }, [searchParam, cityParam]);
 
+  // Load districts when city changes
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (selectedCity && selectedCity !== 'Tümü') {
+        const selectedCityData = cities.find(c => c.name === selectedCity);
+        if (selectedCityData) {
+          const districtsData = await MasterDataService.getDistrictsByCity(selectedCityData.id);
+          setDistricts(districtsData);
+        }
+      } else {
+        setDistricts([]);
+      }
+    };
+    loadDistricts();
+  }, [selectedCity, cities]);
+
   // District Reset logic
-  const availableDistricts = selectedCity !== 'Tümü' ? (DISTRICTS[selectedCity] || []) : [];
+  const availableDistricts = districts.map(d => d.name);
   useEffect(() => {
     // Only reset if the current selected district is not in the new city's list
     if (selectedCity !== 'Tümü' && selectedDistrict !== 'Tümü' && !availableDistricts.includes(selectedDistrict)) {
@@ -180,16 +235,30 @@ function HomePageContent() {
              // Strict Name Search
              if (!normalize(salon.name).includes(term)) return false;
         } else if (modeParam === 'type' || modeParam === 'service') {
-             // Type/Category Search - check type_name
+             // Type/Category/Service Search - check type_name and actual services
              const matchesType = normalize(salon.type_name).includes(term);
              const matchesAddress = normalize(salon.address).includes(term);
-             if (!matchesType && !matchesAddress) return false;
+
+             // Check if any of the salon's services match
+             const salonServices = salonServicesMap[salon.id] || [];
+             const matchesService = salonServices.some(serviceName =>
+               normalize(serviceName).includes(term)
+             );
+
+             if (!matchesType && !matchesAddress && !matchesService) return false;
         } else {
-             // Generic Fallback (Name OR Type OR Address)
+             // Generic Fallback (Name OR Type OR Address OR Services)
              const matchesName = normalize(salon.name).includes(term);
              const matchesType = normalize(salon.type_name).includes(term);
              const matchesAddress = normalize(salon.address).includes(term);
-             if (!matchesName && !matchesType && !matchesAddress) return false;
+
+             // Check if any of the salon's services match
+             const salonServices = salonServicesMap[salon.id] || [];
+             const matchesService = salonServices.some(serviceName =>
+               normalize(serviceName).includes(term)
+             );
+
+             if (!matchesName && !matchesType && !matchesAddress && !matchesService) return false;
         }
     }
     return true;
@@ -204,11 +273,11 @@ function HomePageContent() {
   // --- Safe Map Center Calculation ---
   const defaultCenter = { lat: 41.0082, lng: 28.9784 }; // Istanbul
 
-  // Safeguard: Ensure CITY_COORDINATES["İstanbul"] exists, if not use hardcoded default
+  // Get city coordinates using helper function
   const ISTANBUL_KEY = "İstanbul";
-  const istanbulCoords = CITY_COORDINATES[ISTANBUL_KEY] || defaultCenter;
+  const istanbulCoords = getCityCoordinates(ISTANBUL_KEY) || defaultCenter;
 
-  const targetCityCoords = CITY_COORDINATES[selectedCity];
+  const targetCityCoords = getCityCoordinates(selectedCity);
   // If we have filtered salons, try to center on the first one
   const firstSalon = filteredSalons.length > 0 ? filteredSalons[0] : null;
   const firstSalonCoords = firstSalon && firstSalon.geo_latitude && firstSalon.geo_longitude
@@ -260,7 +329,19 @@ function HomePageContent() {
 
       // 3. Services (Only if tab is Service or Generic)
       if (activeTab === 'service') {
-          const matchedServices = Array.from(new Set(globalServices.filter(s => normalize(s.name).includes(term)).map(s => s.name))).slice(0, 5);
+          // Get all unique services from global services
+          const globalServiceNames = globalServices
+            .filter(s => normalize(s.name).includes(term))
+            .map(s => s.name);
+
+          // Get all unique services from actual salon services
+          const allSalonServices = Object.values(salonServicesMap).flat();
+          const salonServiceNames = allSalonServices
+            .filter(s => normalize(s).includes(term));
+
+          // Combine and deduplicate
+          const matchedServices = Array.from(new Set([...globalServiceNames, ...salonServiceNames])).slice(0, 10);
+
           matchedServices.forEach(s => {
               newSuggestions.push({ type: 'service', text: s });
           });
@@ -371,7 +452,8 @@ function HomePageContent() {
                                       onChange={(e) => setSelectedCity((e.target as HTMLSelectElement).value)}
                                       className="w-full bg-white border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 text-text-main text-xs font-medium appearance-none cursor-pointer focus:border-primary focus:ring-1 focus:ring-primary"
                                   >
-                                      {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                      <option value="Tümü">Tüm Şehirler</option>
+                                      {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                   </select>
                                   <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">expand_more</span>
                               </div>
@@ -383,7 +465,7 @@ function HomePageContent() {
                                       className="w-full bg-white border border-gray-200 rounded-lg py-2.5 pl-3 pr-8 text-text-main text-xs font-medium appearance-none cursor-pointer focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-400"
                                   >
                                       <option value="Tümü">Tüm İlçeler</option>
-                                      {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+                                      {districts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                                   </select>
                                   <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">expand_more</span>
                               </div>
@@ -604,7 +686,7 @@ function HomePageContent() {
                         onChange={(e) => setSelectedCity((e.target as HTMLSelectElement).value)}
                      >
                         <option value="Tümü">Tüm Şehirler</option>
-                        {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                        {cities.map(city => <option key={city.id} value={city.name}>{city.name}</option>)}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                         <span className="material-symbols-outlined text-gray-400 text-sm">expand_more</span>

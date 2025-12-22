@@ -1,18 +1,38 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, ReviewService, ServiceService } from '@/services/db';
 import { SalonDetail, Review, SalonServiceDetail } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useBooking } from '@/context/BookingContext';
+
+// Dynamically import Map component with no SSR
+const SalonMap = dynamic(
+  () => import('@/components/Map/SalonMap').then((mod) => mod.SalonMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-text-muted text-xs">Harita yükleniyor...</p>
+        </div>
+      </div>
+    )
+  }
+);
 
 export default function SalonDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const { user } = useAuth();
+  const { setSalon: setBookingSalon, setSelectedService } = useBooking();
 
   const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -51,13 +71,16 @@ export default function SalonDetailPage() {
             ServiceService.getServicesBySalon(id)
         ]);
 
-        if (salonData) setSalon(salonData);
+        if (salonData) {
+            setSalon(salonData);
+            setBookingSalon(salonData); // Store in booking context
+        }
         setReviews(reviewsData);
         setServices(servicesData);
         setLoading(false);
     };
     fetchData();
-  }, [id]);
+  }, [id, setBookingSalon]);
 
   const toggleCategory = (category: string) => {
       setOpenCategories(prev => ({ ...prev, [category]: !prev[category] }));
@@ -252,12 +275,15 @@ export default function SalonDetailPage() {
                                        <div className="text-right">
                                           <div className="text-lg font-bold text-text-main">{service.price} ₺</div>
                                        </div>
-                                       <Link
-                                          href={`/booking/${id}/staff`}
+                                       <button
+                                          onClick={() => {
+                                            setSelectedService(service);
+                                            router.push(`/booking/${id}/staff`);
+                                          }}
                                           className="h-10 px-5 bg-white text-text-main border border-border hover:bg-primary hover:text-white hover:border-primary font-bold rounded-xl transition-all flex items-center gap-2 text-sm shadow-sm active:scale-95"
                                        >
                                           Randevu
-                                       </Link>
+                                       </button>
                                     </div>
                                  </div>
                               ))}
@@ -379,7 +405,15 @@ export default function SalonDetailPage() {
                                               ></div>
                                               <div>
                                                   <h5 className="font-bold text-text-main text-sm">{review.user_name}</h5>
-                                                  <span className="text-xs text-text-secondary">{new Date(review.created_at).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                  {(() => {
+                                                      const rawDate = review.created_at ?? review.date;
+                                                      if (!rawDate) return null;
+                                                      return (
+                                                          <span className="text-xs text-text-secondary">
+                                                              {new Date(rawDate).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                          </span>
+                                                      );
+                                                  })()}
                                               </div>
                                           </div>
                                           <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100">
@@ -412,18 +446,43 @@ export default function SalonDetailPage() {
                   <h4 className="font-bold text-text-main mb-5 flex items-center gap-2">
                      <span className="material-symbols-outlined text-primary">pin_drop</span> Konum
                   </h4>
-                  <div className="aspect-[4/3] w-full rounded-2xl bg-gray-100 mb-5 relative overflow-hidden group border border-border">
-                      <div className="absolute inset-0 bg-cover bg-center opacity-90 group-hover:opacity-100 transition-all duration-500 scale-100 group-hover:scale-110" style={{backgroundImage: 'url("https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=600&auto=format&fit=crop")'}}></div>
-                      <div className="absolute bottom-4 left-4 right-4">
-                         <button className="w-full bg-white/95 hover:bg-white text-text-main py-3 rounded-xl font-bold text-sm shadow-md transition-transform hover:-translate-y-1 flex items-center justify-center gap-2 backdrop-blur-md border border-gray-100">
+                  <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden mb-5 relative border border-border">
+                      {salon.geo_latitude && salon.geo_longitude ? (
+                        <SalonMap
+                          center={{
+                            lat: salon.geo_latitude,
+                            lng: salon.geo_longitude
+                          }}
+                          salons={[{
+                            ...salon,
+                            coordinates: {
+                              lat: salon.geo_latitude,
+                              lng: salon.geo_longitude
+                            }
+                          }]}
+                          hoveredSalonId={null}
+                          onSalonHover={() => {}}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <p className="text-text-muted text-sm">Konum bilgisi mevcut değil</p>
+                        </div>
+                      )}
+                      <div className="absolute bottom-4 left-4 right-4 z-[400]">
+                         <a
+                           href={`https://www.google.com/maps/search/?api=1&query=${salon.geo_latitude},${salon.geo_longitude}`}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="w-full bg-white/95 hover:bg-white text-text-main py-3 rounded-xl font-bold text-sm shadow-md transition-transform hover:-translate-y-1 flex items-center justify-center gap-2 backdrop-blur-md border border-gray-100"
+                         >
                             <span className="material-symbols-outlined text-lg">directions</span> Yol Tarifi Al
-                         </button>
+                         </a>
                       </div>
                   </div>
                   <div className="flex gap-3 items-start">
                      <span className="material-symbols-outlined text-primary shrink-0 mt-0.5">location_on</span>
                      <p className="text-text-secondary text-sm leading-relaxed">
-                        Vişnezade, Şair Nedim Cd. No:12, <br/>34357 Beşiktaş/İstanbul
+                        {salon.address || `${salon.district_name}, ${salon.city_name}`}
                      </p>
                   </div>
                </div>

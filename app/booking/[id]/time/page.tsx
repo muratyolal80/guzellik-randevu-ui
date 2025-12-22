@@ -7,6 +7,7 @@ import { SalonDataService, StaffService, ServiceService } from '@/services/db';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { GeminiChat } from '@/components/GeminiChat';
+import { useBooking } from '@/context/BookingContext';
 import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
 
 export default function TimeSelection() {
@@ -14,12 +15,20 @@ export default function TimeSelection() {
   const searchParams = useSearchParams();
   const id = params.id as string;
   const staffId = searchParams.get('staffId');
+  const {
+    salon: bookingSalon,
+    setSalon: setBookingSalon,
+    selectedService,
+    selectedStaff: bookingStaff
+  } = useBooking();
 
-  const [salon, setSalon] = useState<SalonDetail | null>(null);
-  const [staff, setStaff] = useState<Staff | null>(null);
-  const [services, setServices] = useState<SalonServiceDetail[]>([]);
+  const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
+  const [staff, setStaff] = useState<Staff | null>(bookingStaff);
+  const [services, setServices] = useState<SalonServiceDetail[]>(selectedService ? [selectedService] : []);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateOffset, setDateOffset] = useState(0); // For scrolling through dates
 
   // Fetch data
   useEffect(() => {
@@ -27,16 +36,27 @@ export default function TimeSelection() {
       if (!id) return;
       setLoading(true);
       try {
-        const [salonData, servicesData] = await Promise.all([
-          SalonDataService.getSalonById(id),
-          ServiceService.getServicesBySalon(id)
-        ]);
+        // Use booking context data if available, otherwise fetch
+        let salonData = bookingSalon;
+        if (!salonData) {
+          salonData = await SalonDataService.getSalonById(id);
+          setSalon(salonData);
+          if(salonData) setBookingSalon(salonData);
+        }
 
-        setSalon(salonData);
-        setServices(servicesData);
+        // If we have selected service from context, use it
+        if (selectedService) {
+          setServices([selectedService]);
+        } else {
+          // Fallback: fetch all services
+          const servicesData = await ServiceService.getServicesBySalon(id);
+          setServices(servicesData);
+        }
 
-        // Fetch staff if staffId is provided
-        if (staffId && staffId !== 'any') {
+        // Use booking context staff if available
+        if (bookingStaff) {
+          setStaff(bookingStaff);
+        } else if (staffId && staffId !== 'any') {
           const staffData = await StaffService.getStaffById(staffId);
           if (staffData) {
             setStaff({
@@ -69,15 +89,56 @@ export default function TimeSelection() {
       }
     };
     fetchData();
-  }, [id, staffId]);
+  }, [id, staffId, bookingSalon, bookingStaff, selectedService, setBookingSalon]);
 
-  const dates = [
-      { day: 12, month: 'Ekim', name: 'Bugün', active: true },
-      { day: 13, month: 'Ekim', name: 'Yarın' },
-      { day: 14, month: 'Ekim', name: 'Cmt' },
-      { day: 15, month: 'Ekim', name: 'Paz', disabled: true },
-      { day: 16, month: 'Ekim', name: 'Pzt' },
-  ];
+  // Generate dynamic dates array starting from today
+  const generateDates = () => {
+    const dates = [];
+    const today = new Date();
+    const dayNames = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+                        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+    for (let i = dateOffset; i < dateOffset + 5; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+
+      const dayOfWeek = date.getDay();
+      const isSunday = dayOfWeek === 0; // Sunday is typically closed
+
+      let displayName = dayNames[dayOfWeek];
+      if (i === 0) displayName = 'Bugün';
+      else if (i === 1) displayName = 'Yarın';
+
+      dates.push({
+        date: date,
+        day: date.getDate(),
+        month: monthNames[date.getMonth()],
+        name: displayName,
+        disabled: isSunday,
+        active: date.toDateString() === selectedDate.toDateString()
+      });
+    }
+
+    return dates;
+  };
+
+  const dates = generateDates();
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedSlot(null); // Reset selected time slot when date changes
+  };
+
+  const handlePrevDates = () => {
+    if (dateOffset > 0) {
+      setDateOffset(dateOffset - 1);
+    }
+  };
+
+  const handleNextDates = () => {
+    setDateOffset(dateOffset + 1);
+  };
 
   const morningSlots = ['09:00', '09:30', '10:15', '11:00', '11:45'];
   const afternoonSlots = ['13:30', '14:15', '15:00', '15:45', '16:30', '17:15'];
@@ -151,11 +212,20 @@ export default function TimeSelection() {
 
                         {/* Date Picker */}
                         <div className="flex items-center gap-4 w-full overflow-x-auto pb-4 pt-2 no-scrollbar">
-                            <button className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm">
+                            <button
+                                onClick={handlePrevDates}
+                                disabled={dateOffset === 0}
+                                className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 <span className="material-symbols-outlined">chevron_left</span>
                             </button>
                             {dates.map((d, i) => (
-                                <button key={i} disabled={d.disabled} className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[80px] h-[90px] rounded-xl border transition-all relative overflow-hidden group shadow-sm ${d.active ? 'border-2 border-primary bg-primary/5' : d.disabled ? 'border-border bg-gray-100 opacity-50 cursor-not-allowed' : 'border-border bg-white hover:border-primary/50'}`}>
+                                <button
+                                    key={i}
+                                    disabled={d.disabled}
+                                    onClick={() => !d.disabled && handleDateSelect(d.date)}
+                                    className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[80px] h-[90px] rounded-xl border transition-all relative overflow-hidden group shadow-sm ${d.active ? 'border-2 border-primary bg-primary/5' : d.disabled ? 'border-border bg-gray-100 opacity-50 cursor-not-allowed' : 'border-border bg-white hover:border-primary/50 hover:bg-primary/5 cursor-pointer'}`}
+                                >
                                     {d.active && <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors"></div>}
                                     <span className={`relative text-xs font-bold uppercase tracking-wider mb-1 ${d.active ? 'text-primary' : 'text-text-secondary'}`}>{d.name}</span>
                                     <span className="relative text-text-main text-2xl font-bold">{d.day}</span>
@@ -163,7 +233,10 @@ export default function TimeSelection() {
                                     {d.disabled && <span className="absolute bottom-1 text-[10px] text-red-500">Kapalı</span>}
                                 </button>
                             ))}
-                            <button className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm">
+                            <button
+                                onClick={handleNextDates}
+                                className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm"
+                            >
                                 <span className="material-symbols-outlined">chevron_right</span>
                             </button>
                         </div>

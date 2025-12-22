@@ -422,6 +422,20 @@ export const WorkingHoursService = {
 
 export const AppointmentService = {
   /**
+   * Get appointment by ID
+   */
+  async getAppointmentById(id: string): Promise<Appointment | null> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
    * Get appointments for a salon
    */
   async getAppointmentsBySalon(salonId: string, startDate?: string, endDate?: string): Promise<Appointment[]> {

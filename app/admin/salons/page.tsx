@@ -2,29 +2,108 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
-import { MOCK_SALONS, MOCK_SALON_TYPES, CITIES, DISTRICTS, CITY_COORDINATES } from '@/constants';
-import { Salon } from '@/types';
+import { MasterDataService, SalonDataService } from '@/services/db';
+import { City, District, SalonType, SalonDetail } from '@/types';
+
+// Helper: Default coordinates for major cities (fallback until we have all in DB)
+const getCityCoordinates = (cityName: string): { lat: number; lng: number } => {
+    const defaults: Record<string, { lat: number; lng: number }> = {
+        "Istanbul": { lat: 41.0082, lng: 28.9784 },
+        "Ankara": { lat: 39.9208, lng: 32.8541 },
+        "Izmir": { lat: 38.4237, lng: 27.1428 },
+        "Antalya": { lat: 36.8969, lng: 30.7133 },
+        "Bursa": { lat: 40.1885, lng: 29.0610 }
+    };
+    return defaults[cityName] || defaults["Istanbul"];
+};
+
+// Form data type for editing (matches the form structure, not DB structure)
+interface SalonFormData {
+    id?: string;
+    name?: string;
+    city?: string;
+    district?: string;
+    location?: string;
+    phone?: string;
+    image?: string;
+    coordinates?: { lat: number; lng: number };
+    typeIds?: string[];
+    tags?: string[];
+    startPrice?: number;
+    isSponsored?: boolean;
+}
+
+// Adapter: Convert SalonDetail (from DB) to SalonFormData (for editing)
+const salonDetailToFormData = (detail: SalonDetail): SalonFormData => {
+    return {
+        id: detail.id,
+        name: detail.name,
+        city: detail.city_name,
+        district: detail.district_name,
+        location: detail.address,
+        phone: detail.phone,
+        image: detail.image,
+        coordinates: {
+            lat: detail.geo_latitude || 0,
+            lng: detail.geo_longitude || 0
+        },
+        typeIds: [detail.type_slug],
+        tags: [detail.type_name],
+        startPrice: 0, // TODO: Get from salon_services
+        isSponsored: detail.is_sponsored
+    };
+};
 
 export default function SalonManager() {
-    // In a real app, this state would be managed via server state (React Query/SWR)
-    const [salons, setSalons] = useState<Salon[]>(MOCK_SALONS);
+    // State management
+    const [salons, setSalons] = useState<SalonDetail[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
+    const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
+    const [districts, setDistricts] = useState<District[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingSalon, setEditingSalon] = useState<Partial<Salon> | null>(null);
+    const [editingSalon, setEditingSalon] = useState<SalonFormData | null>(null);
     const mapRef = useRef<HTMLDivElement>(null);
+
+    // Load initial data
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const [salonsData, citiesData, typesData] = await Promise.all([
+                SalonDataService.getSalons(),
+                MasterDataService.getCities(),
+                MasterDataService.getSalonTypes()
+            ]);
+            setSalons(salonsData);
+            setCities(citiesData);
+            setSalonTypes(typesData);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
 
     // State for Districts dependent on selected City
     const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
 
     useEffect(() => {
-        if (editingSalon?.city) {
-            setAvailableDistricts(DISTRICTS[editingSalon.city] || []);
-        } else {
-            setAvailableDistricts([]);
-        }
-    }, [editingSalon?.city]);
+        const loadDistricts = async () => {
+            if (editingSalon?.city) {
+                const selectedCityData = cities.find(c => c.name === editingSalon.city);
+                if (selectedCityData) {
+                    const districtsData = await MasterDataService.getDistrictsByCity(selectedCityData.id);
+                    setDistricts(districtsData);
+                    setAvailableDistricts(districtsData.map(d => d.name));
+                }
+            } else {
+                setDistricts([]);
+                setAvailableDistricts([]);
+            }
+        };
+        loadDistricts();
+    }, [editingSalon?.city, cities]);
 
-    const handleEdit = (salon: Salon) => {
-        setEditingSalon(salon);
+    const handleEdit = (salon: SalonDetail) => {
+        setEditingSalon(salonDetailToFormData(salon));
         setIsModalOpen(true);
     };
 
@@ -39,7 +118,7 @@ export default function SalonManager() {
             tags: [],
             typeIds: [],
             coordinates: { lat: 41.0082, lng: 28.9784 },
-            createdAt: new Date().toISOString()
+            isSponsored: false
         });
         setIsModalOpen(true);
     };
@@ -50,17 +129,25 @@ export default function SalonManager() {
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Mock save logic
+
+        // TODO: Convert SalonFormData to database format and save via SalonDataService
+        // For now, just refresh the data
         if (editingSalon?.id) {
-            setSalons(prev => prev.map(s => s.id === editingSalon.id ? editingSalon as Salon : s));
+            // Update existing salon
+            alert('Salon güncelleme özelliği yakında eklenecek');
         } else {
-            const newSalon = { ...editingSalon, id: Math.random().toString(36).substr(2, 9), rating: 0, reviewCount: 0 } as Salon;
-            setSalons(prev => [newSalon, ...prev]);
+            // Create new salon
+            alert('Yeni salon ekleme özelliği yakında eklenecek');
         }
+
         setIsModalOpen(false);
         setEditingSalon(null);
+
+        // Refresh data
+        const salonsData = await SalonDataService.getSalons();
+        setSalons(salonsData);
     };
 
     // --- Geocoding & Map Logic ---
@@ -71,7 +158,7 @@ export default function SalonManager() {
             alert("Lütfen önce bir şehir seçiniz.");
             return;
         }
-        const base = CITY_COORDINATES[editingSalon.city] || CITY_COORDINATES["İstanbul"];
+        const base = getCityCoordinates(editingSalon.city);
 
         // Simulate finding specific coords for the address (random offset near city center)
         const newLat = base.lat + (Math.random() - 0.5) * 0.05;
@@ -100,7 +187,7 @@ export default function SalonManager() {
         // y = 50 - (lat - center.lat) * 800
         // x = 50 + (lng - center.lng) * 800
 
-        const center = CITY_COORDINATES[editingSalon.city] || CITY_COORDINATES["İstanbul"];
+        const center = getCityCoordinates(editingSalon.city);
 
         // Derived Inverse:
         // lat = center.lat - (yPercent - 50) / 800
@@ -123,7 +210,7 @@ export default function SalonManager() {
         if (!editingSalon?.coordinates || !editingSalon?.city) return { top: '50%', left: '50%' };
 
         // Safe defaults
-        const center = CITY_COORDINATES[editingSalon.city] || CITY_COORDINATES["İstanbul"];
+        const center = getCityCoordinates(editingSalon.city);
         const lat = Number(editingSalon.coordinates.lat);
         const lng = Number(editingSalon.coordinates.lng);
 
@@ -166,41 +253,47 @@ export default function SalonManager() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {salons.map(salon => (
+                        {loading ? (
+                            <tr>
+                                <td colSpan={5} className="p-8 text-center text-text-secondary">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                                        <span>Yükleniyor...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : salons.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="p-8 text-center text-text-secondary">
+                                    Henüz salon eklenmemiş.
+                                </td>
+                            </tr>
+                        ) : (
+                            salons.map(salon => (
                             <tr key={salon.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="size-10 rounded-lg bg-cover bg-center border border-border" style={{backgroundImage: `url('${salon.image}')`}}></div>
                                         <div>
                                             <p className="font-bold text-text-main">{salon.name}</p>
-                                            {salon.isSponsored && <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">ÖNERİLEN</span>}
+                                            {salon.is_sponsored && <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">ÖNERİLEN</span>}
                                         </div>
                                     </div>
                                 </td>
                                 <td className="p-4 text-sm text-text-secondary">
                                     <div className="flex flex-col">
-                                        <span>{salon.district}, {salon.city}</span>
-                                        <span className="text-xs text-text-muted truncate max-w-[150px]">{salon.location}</span>
+                                        <span>{salon.district_name}, {salon.city_name}</span>
+                                        <span className="text-xs text-text-muted truncate max-w-[150px]">{salon.address}</span>
                                     </div>
                                 </td>
                                 <td className="p-4">
                                     <div className="flex flex-wrap gap-1">
-                                        {salon.typeIds && salon.typeIds.length > 0 ? (
-                                            salon.typeIds.map(tid => {
-                                                const t = MOCK_SALON_TYPES.find(type => type.id === tid);
-                                                return t ? (
-                                                    <span key={tid} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full border border-blue-100">{t.name}</span>
-                                                ) : null;
-                                            })
-                                        ) : (
-                                            // Fallback for legacy data
-                                            salon.tags.slice(0, 2).map(tag => (
-                                                <span key={tag} className="text-[10px] bg-gray-100 text-text-secondary px-2 py-1 rounded-full">{tag}</span>
-                                            ))
+                                        {salon.type_name && (
+                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full border border-blue-100">{salon.type_name}</span>
                                         )}
                                     </div>
                                 </td>
-                                <td className="p-4 text-sm font-bold text-text-main">{salon.startPrice} ₺</td>
+                                <td className="p-4 text-sm font-bold text-text-main">N/A ₺</td>
                                 <td className="p-4 text-right">
                                     <div className="flex justify-end gap-2">
                                         <button onClick={() => handleEdit(salon)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
@@ -208,7 +301,7 @@ export default function SalonManager() {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )))}
                     </tbody>
                 </table>
             </div>
@@ -243,7 +336,7 @@ export default function SalonManager() {
                                                     }}
                                                 >
                                                     <option value="">Seçiniz</option>
-                                                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                                 </select>
                                             </div>
                                             <div>
@@ -327,12 +420,12 @@ export default function SalonManager() {
                                         <div className="space-y-2 pt-4 border-t border-gray-100">
                                             <label className="block text-sm font-bold text-text-main">Salon Tipi (Kategoriler)</label>
                                             <div className="flex flex-wrap gap-2">
-                                                {MOCK_SALON_TYPES.map(type => (
-                                                    <label key={type.id} className={`cursor-pointer border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors select-none ${editingSalon.typeIds?.includes(type.id) ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:border-primary'}`}>
+                                                {salonTypes.map(type => (
+                                                    <label key={type.id} className={`cursor-pointer border px-3 py-1.5 rounded-lg text-xs font-medium transition-colors select-none ${editingSalon.typeIds?.includes(type.slug) ? 'bg-primary text-white border-primary' : 'bg-white border-border text-text-secondary hover:border-primary'}`}>
                                                         <input
                                                             type="checkbox"
                                                             className="hidden"
-                                                            checked={editingSalon.typeIds?.includes(type.id)}
+                                                            checked={editingSalon.typeIds?.includes(type.slug)}
                                                             onChange={(e) => {
                                                                 // Sync tags as well for search fallback
                                                                 const typeIds = editingSalon.typeIds || [];
@@ -341,13 +434,13 @@ export default function SalonManager() {
                                                                 if ((e.target as HTMLInputElement).checked) {
                                                                     setEditingSalon({
                                                                         ...editingSalon,
-                                                                        typeIds: [...typeIds, type.id],
+                                                                        typeIds: [...typeIds, type.slug],
                                                                         tags: [...tags, type.name]
                                                                     });
                                                                 } else {
                                                                     setEditingSalon({
                                                                         ...editingSalon,
-                                                                        typeIds: typeIds.filter(id => id !== type.id),
+                                                                        typeIds: typeIds.filter(slug => slug !== type.slug),
                                                                         tags: tags.filter(t => t !== type.name)
                                                                     });
                                                                 }

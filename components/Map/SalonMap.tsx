@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import * as L from 'leaflet';
-import { Salon } from '@/types';
+import { SalonDetail } from '@/types';
 import { useRouter } from 'next/navigation';
 
 // Helper: Strict Coordinate Validation
@@ -25,27 +25,47 @@ const MapUpdater: React.FC<{ center: { lat: number; lng: number } }> = ({ center
     return null;
 };
 
-// Custom Marker Icon (Price Tag Style)
-const createCustomIcon = (price: number, isHovered: boolean) => {
+// Custom Marker Icon (Water Droplet with G Logo)
+const createCustomIcon = (isHovered: boolean) => {
     return L.divIcon({
         className: 'custom-pin',
         html: `
-            <div class="relative transition-all duration-300 ${isHovered ? 'scale-110 z-50' : 'scale-100 z-10'}">
-                <div class="flex items-center justify-center px-3 py-1.5 bg-white border-2 ${isHovered ? 'border-primary text-primary' : 'border-gray-800 text-gray-900'} rounded-xl shadow-lg font-bold text-sm whitespace-nowrap">
-                    ${price} ₺
-                </div>
-                <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white border-b-2 border-r-2 ${isHovered ? 'border-primary' : 'border-gray-800'} transform rotate-45"></div>
-            </div>
+            <div class="relative transition-all duration-300 ${isHovered ? 'scale-125 z-50' : 'scale-100 z-10'}">
+    <div class="relative filter drop-shadow-lg">
+        <svg width="40" height="52" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(180deg);">
+            <defs>
+                 <linearGradient id="dropletGradient-${isHovered ? 'Hover' : ''}" x1="20" y1="0" x2="20" y2="52">
+                    <stop offset="0%" stop-color="${isHovered ? '#D4AF6A' : '#C59F59'}" />
+                    <stop offset="100%" stop-color="${isHovered ? '#C59F59' : '#B48F4A'}" />
+                </linearGradient>
+            </defs>
+            <path d="M20 0C20 0 0 20 0 32C0 43.0457 8.95431 52 20 52C31.0457 52 40 43.0457 40 32C40 20 20 0 20 0Z" 
+                  fill="url(#dropletGradient-${isHovered ? 'Hover' : ''})" 
+                  class="transition-all duration-300"/>
+            <path d="M20 0C20 0 0 20 0 32C0 43.0457 8.95431 52 20 52C31.0457 52 40 43.0457 40 32C40 20 20 0 20 0Z" 
+                  stroke="white" 
+                  stroke-width="2.5" 
+                  fill="none"/>
+        </svg>
+        
+        <div class="absolute inset-0 flex items-center justify-center pb-3">
+            <span class="text-white font-black text-2xl tracking-tight" 
+                  style="font-family: 'Inter', sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">
+                G
+            </span>
+        </div>
+    </div>
+</div>
         `,
-        iconSize: [60, 40],
-        iconAnchor: [30, 40],
-        popupAnchor: [0, -45],
+        iconSize: [40, 52],
+        iconAnchor: [20, 52], // Tip of the droplet (bottom after rotation, pointing to location)
+        popupAnchor: [0, -52],
     });
 };
 
 interface SalonMapProps {
     center: { lat: number; lng: number };
-    salons: Salon[];
+    salons: SalonDetail[];
     hoveredSalonId: string | null;
     onSalonHover: (id: string | null) => void;
 }
@@ -54,7 +74,7 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
     const router = useRouter();
 
     return (
-        <MapContainer center={[center.lat, center.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none">
+        <MapContainer center={[center.lat, center.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none" attributionControl={false}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -66,21 +86,21 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
                 if (!isValidLatLng(salon.coordinates?.lat, salon.coordinates?.lng)) {
                     return null;
                 }
-                const salonLat = Number(salon.coordinates.lat);
-                const salonLng = Number(salon.coordinates.lng);
+                const salonLat = Number(salon.coordinates?.lat);
+                const salonLng = Number(salon.coordinates?.lng);
 
                 return (
                     <Marker
                         key={salon.id}
                         position={[salonLat, salonLng]}
-                        icon={createCustomIcon(salon.startPrice, hoveredSalonId === salon.id)}
+                        icon={createCustomIcon(hoveredSalonId === salon.id)}
                         eventHandlers={{
                             mouseover: () => onSalonHover(salon.id),
                             mouseout: () => onSalonHover(null),
                             click: () => router.push(`/salon/${salon.id}`)
                         }}
                     >
-                        <Popup className="custom-popup" closeButton={false} offset={[0, -40]}>
+                        <Popup className="custom-popup" closeButton={false} offset={[0, -52]}>
                             <div className="p-0 w-48 overflow-hidden rounded-xl shadow-lg border-0">
                                 <div className="h-28 bg-cover bg-center" style={{ backgroundImage: `url("${salon.image}")` }}>
                                     <div className="absolute top-2 right-2 bg-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm flex items-center gap-0.5">

@@ -1,23 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AdminLayout } from '../../../components/AdminLayout';
-import { MOCK_SERVICES, MOCK_SERVICE_CATEGORIES } from '../../../constants';
-import { Service } from '../../../types';
+import React, { useState, useEffect } from 'react';
+import { AdminLayout } from '@/components/AdminLayout';
+import { MasterDataService } from '@/services/db';
+import { GlobalService, ServiceCategory } from '@/types';
 
 export default function ServiceManager() {
-    const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
+    const [services, setServices] = useState<GlobalService[]>([]);
+    const [categories, setCategories] = useState<ServiceCategory[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+    const [editingService, setEditingService] = useState<Partial<GlobalService> | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('Tümü');
 
-    const handleEdit = (service: Service) => {
+    // Load data from database
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const [servicesData, categoriesData] = await Promise.all([
+                MasterDataService.getAllGlobalServices(),
+                MasterDataService.getServiceCategories()
+            ]);
+            setServices(servicesData);
+            setCategories(categoriesData);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
+    const handleEdit = (service: GlobalService) => {
         setEditingService(service);
         setIsModalOpen(true);
     };
 
     const handleCreate = () => {
-        setEditingService({ name: '', duration: '', price: 0, category_id: '' });
+        // global_services only: name + category
+        setEditingService({ name: '', category_id: '' });
         setIsModalOpen(true);
     };
 
@@ -29,16 +47,16 @@ export default function ServiceManager() {
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        const categoryName = MOCK_SERVICE_CATEGORIES.find(c => c.id === editingService?.category_id)?.name || '';
+
+        if (!editingService?.name || !editingService?.category_id) return;
 
         if (editingService?.id) {
-            setServices(prev => prev.map(s => s.id === editingService.id ? { ...editingService, category: categoryName } as Service : s));
+            setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...editingService } as GlobalService : s));
         } else {
             const newService = {
                 ...editingService,
                 id: Math.random().toString(36).substr(2, 9),
-                category: categoryName
-            } as Service;
+            } as GlobalService;
             setServices(prev => [...prev, newService]);
         }
         setIsModalOpen(false);
@@ -47,7 +65,10 @@ export default function ServiceManager() {
 
     const filteredServices = filterCategory === 'Tümü'
         ? services
-        : services.filter(s => s.category === filterCategory);
+        : services.filter(s => {
+            const category = categories.find(c => c.id === s.category_id);
+            return category?.name === filterCategory;
+        });
 
     return (
         <AdminLayout>
@@ -69,7 +90,7 @@ export default function ServiceManager() {
                 >
                     Tümü
                 </button>
-                {MOCK_SERVICE_CATEGORIES.map((cat: any) => (
+                {categories.map((cat) => (
                     <button
                         key={cat.id}
                         onClick={() => setFilterCategory(cat.name)}
@@ -92,14 +113,16 @@ export default function ServiceManager() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {filteredServices.map(service => (
+                        {filteredServices.map(service => {
+                            const category = categories.find(c => c.id === service.category_id);
+                            return (
                             <tr key={service.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4 font-bold text-text-main">{service.name}</td>
                                 <td className="p-4">
-                                    <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary font-medium">{service.category}</span>
+                                    <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary font-medium">{category?.name || 'N/A'}</span>
                                 </td>
-                                <td className="p-4 text-sm text-text-secondary">{service.duration}</td>
-                                <td className="p-4 text-sm font-bold text-text-main">{service.price} ₺</td>
+                                <td className="p-4 text-sm text-text-secondary">N/A</td>
+                                <td className="p-4 text-sm font-bold text-text-main">N/A</td>
                                 <td className="p-4 text-right">
                                     <div className="flex justify-end gap-2">
                                         <button onClick={() => handleEdit(service)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
@@ -107,7 +130,8 @@ export default function ServiceManager() {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -122,25 +146,28 @@ export default function ServiceManager() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Hizmet Adı</label>
-                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingService.name} onChange={e => setEditingService({...editingService, name: e.target.value})} />
+                                <input
+                                    required
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none"
+                                    value={editingService.name || ''}
+                                    onChange={e => setEditingService({ ...editingService, name: e.target.value })}
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Kategori</label>
-                                <select required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingService.category_id} onChange={e => setEditingService({...editingService, category_id: e.target.value})}>
+                                <select
+                                    required
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none"
+                                    value={editingService.category_id || ''}
+                                    onChange={e => setEditingService({ ...editingService, category_id: e.target.value })}
+                                >
                                     <option value="">Seçiniz</option>
-                                    {MOCK_SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-text-main mb-2">Süre (dk/saat)</label>
-                                    <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingService.duration} onChange={e => setEditingService({...editingService, duration: e.target.value})} />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-text-main mb-2">Ortalama Fiyat (₺)</label>
-                                    <input type="number" required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingService.price} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingService({...editingService, price: Number(e.target.value)})} />
-                                </div>
-                            </div>
+
+                            {/* Duration & price are not part of global_services; they belong to salon_services per salon. */}
+
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 rounded-lg border border-border text-text-secondary font-bold">İptal</button>
                                 <button type="submit" className="px-8 py-2.5 rounded-lg bg-primary text-white font-bold">Kaydet</button>
@@ -152,4 +179,3 @@ export default function ServiceManager() {
         </AdminLayout>
     );
 };
-

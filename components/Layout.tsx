@@ -47,7 +47,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <div className="relative group px-3 py-3">
              <Link 
                 href="/"
-className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
+                className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
+                suppressHydrationWarning
               >
                 Salonlar
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
