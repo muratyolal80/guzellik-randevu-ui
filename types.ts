@@ -10,59 +10,166 @@ export interface Profile {
   phone?: string;
 }
 
+// ==============================================
+// MASTER DATA TYPES (Admin-Managed Global Data)
+// ==============================================
+
+export interface City {
+  id: string;
+  name: string;
+  plate_code: number;
+  created_at: string;
+}
+
+export interface District {
+  id: string;
+  city_id: string;
+  name: string;
+  created_at: string;
+}
+
 export interface SalonType {
   id: string;
   name: string;
   slug: string;
-  image?: string; // Added image support for visual categories
+  icon?: string;
+  created_at: string;
 }
 
 export interface ServiceCategory {
   id: string;
   name: string;
   slug: string;
-  icon?: string; // Optional icon for UI
+  icon?: string;
+  created_at: string;
 }
+
+export interface GlobalService {
+  id: string;
+  category_id: string;
+  name: string;
+  created_at: string;
+}
+
+// ==============================================
+// BUSINESS/TENANT DATA TYPES
+// ==============================================
 
 export interface Salon {
   id: string;
   name: string;
-  location: string;
-  city?: string;
-  district?: string;
-  rating: number; // Dynamically calculated
-  reviewCount: number; // Dynamically calculated
-  image: string;
-  tags: string[]; // Legacy descriptive tags
-  typeIds: string[]; // Foreign Keys linking to SalonType.id
-  startPrice: number;
-  isSponsored?: boolean;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  createdAt?: string;
+  city_id: string;
+  district_id: string;
+  type_id: string;
+  address?: string;
+  phone?: string;
+  geo_latitude?: number;
+  geo_longitude?: number;
+  image?: string;
+  is_sponsored: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Extended Salon with joined data for display
+export interface SalonDetail extends Salon {
+  city_name: string;
+  district_name: string;
+  type_name: string;
+  type_slug: string;
+  review_count: number;
+  average_rating: number;
 }
 
 export interface Staff {
   id: string;
-  salon_id?: string;
+  salon_id: string;
   name: string;
-  role: string;
-  rating: number;
-  image: string;
-  isOnline?: boolean;
-  specialty: string;
+  photo?: string;
+  specialty?: string;
+  is_active: boolean;
+  created_at: string;
 }
 
+export interface SalonService {
+  id: string;
+  salon_id: string;
+  global_service_id: string;
+  duration_min: number;
+  price: number;
+  created_at: string;
+}
+
+// Extended SalonService with joined data for display
+export interface SalonServiceDetail extends SalonService {
+  service_name: string;
+  category_name: string;
+  category_slug: string;
+  salon_name: string;
+}
+
+// ==============================================
+// OPERATIONS TYPES
+// ==============================================
+
+export interface WorkingHours {
+  id: string;
+  staff_id: string;
+  day_of_week: number; // 0=Sunday, 6=Saturday
+  start_time: string;
+  end_time: string;
+  is_day_off: boolean;
+  created_at: string;
+}
+
+export interface Appointment {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  salon_id: string;
+  staff_id: string;
+  salon_service_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Review {
+  id: string;
+  salon_id: string;
+  user_id?: string;
+  user_name: string;
+  user_avatar?: string;
+  rating: number; // 1 to 5
+  comment?: string;
+  created_at: string;
+}
+
+export interface IYSLog {
+  id: string;
+  phone: string;
+  message_type: 'OTP' | 'INFO' | 'CAMPAIGN';
+  content: string;
+  status: 'SENT' | 'FAILED' | 'DEMO';
+  created_at: string;
+}
+
+// ==============================================
+// LEGACY/COMPATIBILITY TYPES
+// ==============================================
+
+// For backward compatibility with existing components
 export interface Service {
   id: string;
-  category_id: string; // Link to ServiceCategory
-  salon_id?: string; // Optional: If a specific salon overrides a global service
+  category_id: string;
+  salon_id?: string;
   name: string;
   duration: string;
   price: number;
-  category: string; // Denormalized name for display convenience
+  category: string;
 }
 
 export interface Booking {
@@ -76,22 +183,3 @@ export interface Booking {
   total_price: number;
 }
 
-export interface Review {
-  id: string;
-  salon_id: string;
-  user_id: string;
-  user_name: string;
-  user_avatar?: string;
-  rating: number; // 1 to 5
-  comment: string;
-  date: string;
-}
-
-export interface IYSLog {
-    id: string;
-    phone: string;
-    message_type: 'OTP' | 'INFO' | 'CAMPAIGN';
-    content: string;
-    status: 'SENT' | 'FAILED' | 'DEMO'; // DEMO indicates simulated send
-    created_at: string;
-}

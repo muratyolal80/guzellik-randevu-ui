@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { MasterService } from '../services/db';
-import { SalonType, ServiceCategory } from '../types';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { MasterService } from '@/services/db';
+import { SalonType, ServiceCategory } from '@/types';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const location = useLocation();
+  const pathname = usePathname();
   const { user, signOut, isAdmin } = useAuth();
-  const isBooking = location.pathname.includes('/booking');
+  const isBooking = pathname.includes('/booking');
 
   // Dynamic Menu State
   const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
@@ -29,7 +30,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     <div className="flex flex-col min-h-screen bg-background">
       <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-border bg-surface/90 backdrop-blur-md px-4 md:px-6 py-4 shadow-sm">
         <div className="flex items-center gap-4 shrink-0">
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group">
             <div className="size-10 flex items-center justify-center bg-primary rounded-full text-white shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
               <span className="font-display font-bold text-xl">G</span>
             </div>
@@ -45,8 +46,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           {/* 1. Salonlar Dropdown (Salon Types) */}
           <div className="relative group px-3 py-3">
              <Link 
-                to="/" 
-                className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary ${location.pathname === '/' && !location.search.includes('search') ? 'text-primary' : 'text-text-secondary'}`}
+                href="/"
+className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
               >
                 Salonlar
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
@@ -54,11 +55,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               
               <div className="absolute top-full left-0 mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left overflow-hidden z-50 max-h-[80vh] overflow-y-auto">
                   <div className="py-2">
-                      <Link to="/?type=all" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all font-bold">Tüm Salonlar</Link>
+                      <Link href="/?type=all" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all font-bold">Tüm Salonlar</Link>
                       {salonTypes.map((type) => (
                           <Link 
                             key={type.id} 
-                            to={`/?type=${type.slug}`} 
+                            href={`/?type=${type.slug}`}
                             className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
                           >
                               {type.name}
@@ -80,7 +81,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   return (
                     <div key={cat.id} className="relative group px-2 py-3">
                         <Link 
-                            to={`/?search=${encodeURIComponent(cat.name)}`}
+                            href={`/?search=${encodeURIComponent(cat.name)}`}
                             className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-0.5"
                         >
                             {cat.name}
@@ -88,13 +89,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         </Link>
                         <div className={`absolute top-full mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform overflow-hidden z-50 max-h-[80vh] overflow-y-auto custom-scrollbar ${isRightAligned ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
                             <div className="py-2">
-                                <Link to={`/?search=${encodeURIComponent(cat.name)}`} className="block px-4 py-2 text-sm font-bold text-text-main hover:bg-surface-alt hover:pl-5 transition-all border-b border-gray-100">
+                                <Link href={`/?search=${encodeURIComponent(cat.name)}`} className="block px-4 py-2 text-sm font-bold text-text-main hover:bg-surface-alt hover:pl-5 transition-all border-b border-gray-100">
                                     Tüm {cat.name} Hizmetleri
                                 </Link>
                                 {services.map((serviceName, idx) => (
                                     <Link 
                                         key={idx} 
-                                        to={`/?search=${encodeURIComponent(serviceName)}`}
+                                        href={`/?search=${encodeURIComponent(serviceName)}`}
                                         className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
                                     >
                                         {serviceName}
@@ -110,7 +111,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               return (
                 <Link 
                     key={cat.id} 
-                    to={`/?search=${encodeURIComponent(cat.name)}`} 
+                    href={`/?search=${encodeURIComponent(cat.name)}`}
                     className="px-2 py-3 text-sm font-medium text-text-secondary hover:text-primary transition-colors"
                 >
                     {cat.name}
@@ -121,12 +122,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         
         <div className="flex flex-1 justify-end gap-3 items-center shrink-0">
            {!isBooking && isAdmin && (
-              <Link to="/admin" className="hidden xl:flex items-center justify-center px-4 py-2 bg-text-main hover:bg-black text-white text-xs font-bold rounded-full shadow-lg transition-all hover:scale-105 whitespace-nowrap">
+              <Link href="/admin" className="hidden xl:flex items-center justify-center px-4 py-2 bg-text-main hover:bg-black text-white text-xs font-bold rounded-full shadow-lg transition-all hover:scale-105 whitespace-nowrap">
                 Yönetim
               </Link>
            )}
            {!isBooking && user?.role === 'staff' && !isAdmin && (
-              <Link to="/booking/1/staff" className="hidden xl:flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 whitespace-nowrap">
+              <Link href="/booking/1/staff" className="hidden xl:flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 whitespace-nowrap">
                 İşletme Ekle
               </Link>
            )}
@@ -141,9 +142,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         ></div>
                         <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
                              <div className="p-2">
-                                 {isAdmin && <Link to="/admin" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg font-bold">Admin Paneli</Link>}
-                                 <Link to="/profile" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg">Profilim</Link>
-                                 <Link to="/bookings" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg">Randevularım</Link>
+                                 {isAdmin && <Link href="/admin" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg font-bold">Admin Paneli</Link>}
+                                 <Link href="/profile" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg">Profilim</Link>
+                                 <Link href="/bookings" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-text-main rounded-lg">Randevularım</Link>
                                  <div className="h-px bg-border my-1"></div>
                                  <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-surface-alt hover:text-red-600 rounded-lg">Çıkış Yap</button>
                              </div>
@@ -152,10 +153,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </div>
             ) : (
                 <div className="flex items-center gap-3">
-                  <Link to="/login" className="text-text-secondary hover:text-primary transition-colors text-sm font-medium whitespace-nowrap hidden sm:block">
+                  <Link href="/login" className="text-text-secondary hover:text-primary transition-colors text-sm font-medium whitespace-nowrap hidden sm:block">
                       Giriş Yap
                   </Link>
-                  <Link to="/login" className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 hidden sm:block whitespace-nowrap">
+                  <Link href="/login" className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 hidden sm:block whitespace-nowrap">
                       Kayıt Ol
                   </Link>
                 </div>
@@ -197,7 +198,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <h4 className="text-text-main font-bold mb-6">Kategoriler</h4>
                     <ul className="space-y-3 text-sm text-text-secondary">
                         {salonTypes.slice(0, 5).map(t => (
-                            <li key={t.id}><Link to={`/?type=${t.slug}`} className="hover:text-primary transition-colors">{t.name}</Link></li>
+                            <li key={t.id}><Link href={`/?type=${t.slug}`} className="hover:text-primary transition-colors">{t.name}</Link></li>
                         ))}
                     </ul>
                 </div>

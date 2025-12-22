@@ -1,4 +1,3 @@
-
 import { IYSService } from './db';
 
 // Netgsm API Configuration
@@ -6,17 +5,31 @@ const API_BASE = "https://api.netgsm.com.tr/sms/rest/v2";
 
 // Helper to get config from LocalStorage (set via Admin Panel)
 const getConfig = () => {
+    // Next.js can import this module on the server during build/SSR.
+    // Guard browser-only APIs.
+    if (typeof window === 'undefined') {
+        return {
+            usercode: '',
+            password: '',
+            header: ''
+        };
+    }
+
     return {
-        usercode: localStorage.getItem('netgsm_usercode') || '',
-        password: localStorage.getItem('netgsm_password') || '',
-        header: localStorage.getItem('netgsm_header') || '' 
+        usercode: window.localStorage.getItem('netgsm_usercode') || '',
+        password: window.localStorage.getItem('netgsm_password') || '',
+        header: window.localStorage.getItem('netgsm_header') || ''
     };
 };
 
 const getAuthHeader = () => {
     const { usercode, password } = getConfig();
     if (!usercode || !password) return null;
-    return 'Basic ' + btoa(`${usercode}:${password}`);
+
+    // btoa is also browser-only in many runtimes
+    if (typeof window === 'undefined' || typeof window.btoa !== 'function') return null;
+
+    return 'Basic ' + window.btoa(`${usercode}:${password}`);
 };
 
 // Check if we have valid credentials to attempt a real call

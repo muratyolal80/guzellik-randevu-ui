@@ -1,274 +1,631 @@
+/**
+ * Database Service Layer for GuzellikRandevu
+ * Connects to self-hosted Supabase instance
+ */
 
-import { supabase, supabaseUrl } from '../lib/supabase';
-import { Salon, Staff, Service, Review, SalonType, ServiceCategory, IYSLog } from '../types';
-import { MOCK_SALONS, MOCK_STAFF, MOCK_SERVICES, MOCK_REVIEWS, MOCK_SALON_TYPES, MOCK_SERVICE_CATEGORIES } from '../constants';
+import { supabase, supabaseUrl } from '@/lib/supabase';
+import type {
+  City, District, SalonType, ServiceCategory, GlobalService,
+  Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
+  WorkingHours, Appointment, Review, IYSLog
+} from '@/types';
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
-    return supabaseUrl && !supabaseUrl.includes('placeholder.supabase.co');
+  return supabaseUrl && supabaseUrl.includes('localhost:8000');
 };
 
-// --- Master Service for Global Data (Menus) ---
-export const MasterService = {
-  // Fetch "Salon Türleri" for the "Salonlar" menu
+// ==============================================
+// MASTER DATA SERVICE (Admin-Managed Global Data)
+// ==============================================
+
+export const MasterDataService = {
+  /**
+   * Get all cities (81 Turkish provinces)
+   */
+  async getCities(): Promise<City[]> {
+    const { data, error } = await supabase
+      .from('cities')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get districts for a specific city
+   */
+  async getDistrictsByCity(cityId: string): Promise<District[]> {
+    const { data, error } = await supabase
+      .from('districts')
+      .select('*')
+      .eq('city_id', cityId)
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get all salon types (Kuaför, Berber, SPA, etc.)
+   */
   async getSalonTypes(): Promise<SalonType[]> {
-    try {
-        if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-        const { data, error } = await supabase.from('salon_types').select('*');
-        if (error) throw error;
-        return data as unknown as SalonType[];
-    } catch (e) {
-        return MOCK_SALON_TYPES;
-    }
+    const { data, error } = await supabase
+      .from('salon_types')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
   },
-  
-  // Fetch "Hizmet Türleri" (Categories)
+
+  /**
+   * Get all service categories (Saç, Tırnak, Makyaj, etc.)
+   */
   async getServiceCategories(): Promise<ServiceCategory[]> {
-     try {
-         if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-         const { data, error } = await supabase.from('service_categories').select('*');
-         if (error) throw error;
-         return data as unknown as ServiceCategory[];
-     } catch (e) {
-         return MOCK_SERVICE_CATEGORIES;
-     }
+    const { data, error } = await supabase
+      .from('service_categories')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
   },
 
-  // Combined fetch for the Navigation Bar
+  /**
+   * Get global services by category
+   */
+  async getGlobalServicesByCategory(categoryId: string): Promise<GlobalService[]> {
+    const { data, error } = await supabase
+      .from('global_services')
+      .select('*')
+      .eq('category_id', categoryId)
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get all global services
+   */
+  async getAllGlobalServices(): Promise<GlobalService[]> {
+    const { data, error } = await supabase
+      .from('global_services')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get navigation menu data (for header)
+   */
   async getNavMenuData() {
-      const salonTypes = await this.getSalonTypes();
-      const categories = await this.getServiceCategories();
-      const allServices = await ServiceService.getAllServices();
+    const [salonTypes, categories] = await Promise.all([
+      this.getSalonTypes(),
+      this.getServiceCategories(),
+    ]);
 
-      // Group unique services by category_id for the dropdowns
-      // We use a Map to ensure unique service names per category
-      const servicesByCatId: Record<string, string[]> = {};
-      
-      allServices.forEach(s => {
-          if (!servicesByCatId[s.category_id]) {
-              servicesByCatId[s.category_id] = [];
-          }
-          if (!servicesByCatId[s.category_id].includes(s.name)) {
-              servicesByCatId[s.category_id].push(s.name);
-          }
-      });
-
-      return { salonTypes, categories, servicesByCatId };
+    return { salonTypes, categories };
   },
-
-  // Fetch unique service names for a specific category (Legacy support)
-  async getServicesMenuByCategory(category: string): Promise<string[]> {
-      try {
-        if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-        
-        const { data, error } = await supabase
-            .from('services')
-            .select('name')
-            .eq('category', category);
-            
-        if (error) throw error;
-        
-        const names = Array.from(new Set(data.map((item: any) => item.name)));
-        return names as string[];
-      } catch (e) {
-        const services = MOCK_SERVICES.filter(s => s.category === category);
-        return Array.from(new Set(services.map(s => s.name)));
-      }
-  }
 };
 
-// --- Helper Functions for Dynamic Calculations ---
-const calculateSalonStats = (salonId: string, reviews: Review[]) => {
-    const salonReviews = reviews.filter(r => r.salon_id === salonId);
-    const count = salonReviews.length;
-    if (count === 0) return { rating: 0, reviewCount: 0 };
-    
-    const total = salonReviews.reduce((sum, r) => sum + r.rating, 0);
-    const average = total / count;
-    
-    // Return formatted to 1 decimal place
-    return { 
-        rating: parseFloat(average.toFixed(1)), 
-        reviewCount: count 
-    };
-};
+// ==============================================
+// SALON SERVICE (Business/Tenant Data)
+// ==============================================
 
 export const SalonService = {
-  async getSalons(): Promise<Salon[]> {
-    try {
-      if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-      
-      const { data, error } = await supabase.from('salons').select('*');
-      if (error) throw error;
-      if (data && data.length > 0) return data as unknown as Salon[];
-      
-      throw new Error("Fallback needed");
-    } catch (e) {
-      // Simulate network delay
-      if (!isSupabaseConfigured()) await new Promise(r => setTimeout(r, 600)); 
-      
-      // Dynamic Calculation Logic:
-      // We map over mock salons and inject the calculated rating from reviews
-      const allReviews = await ReviewService.getAllReviews(); // In a real app, use a join or view
-      
-      return MOCK_SALONS.map(salon => {
-          const stats = calculateSalonStats(salon.id, allReviews);
-          return { ...salon, ...stats };
-      });
-    }
+  /**
+   * Get all salons with detailed information (using view)
+   */
+  async getSalons(): Promise<SalonDetail[]> {
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .order('is_sponsored', { ascending: false })
+      .order('average_rating', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   },
 
-  async getSalonById(id: string): Promise<Salon | undefined> {
-    try {
-      if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-      const { data, error } = await supabase.from('salons').select('*').eq('id', id).single();
-      if (error) throw error;
-      if (data) return data as unknown as Salon;
-      throw new Error("Fallback needed");
-    } catch (e) {
-      const salon = MOCK_SALONS.find(s => s.id === id);
-      if (!salon) return undefined;
+  /**
+   * Get salon by ID with details
+   */
+  async getSalonById(id: string): Promise<SalonDetail | null> {
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-      const allReviews = await ReviewService.getAllReviews();
-      const stats = calculateSalonStats(salon.id, allReviews);
-      return { ...salon, ...stats };
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Search salons by filters
+   */
+  async searchSalons(filters: {
+    cityId?: string;
+    districtId?: string;
+    typeId?: string;
+    query?: string;
+  }): Promise<SalonDetail[]> {
+    let query = supabase
+      .from('salon_details')
+      .select('*');
+
+    if (filters.cityId) {
+      const { data: cityData } = await supabase
+        .from('cities')
+        .select('name')
+        .eq('id', filters.cityId)
+        .single();
+
+      if (cityData) {
+        query = query.eq('city_name', cityData.name);
+      }
     }
-  }
+
+    if (filters.districtId) {
+      const { data: districtData } = await supabase
+        .from('districts')
+        .select('name')
+        .eq('id', filters.districtId)
+        .single();
+
+      if (districtData) {
+        query = query.eq('district_name', districtData.name);
+      }
+    }
+
+    if (filters.typeId) {
+      const { data: typeData } = await supabase
+        .from('salon_types')
+        .select('name')
+        .eq('id', filters.typeId)
+        .single();
+
+      if (typeData) {
+        query = query.eq('type_name', typeData.name);
+      }
+    }
+
+    if (filters.query) {
+      query = query.ilike('name', `%${filters.query}%`);
+    }
+
+    query = query
+      .order('is_sponsored', { ascending: false })
+      .order('average_rating', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get salons by location (nearby)
+   */
+  async getSalonsByLocation(lat: number, lng: number, radiusKm: number = 10): Promise<SalonDetail[]> {
+    // Simple bounding box search (for more accurate, use PostGIS)
+    const latDelta = radiusKm / 111; // ~111km per degree latitude
+    const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
+
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .gte('geo_latitude', lat - latDelta)
+      .lte('geo_latitude', lat + latDelta)
+      .gte('geo_longitude', lng - lngDelta)
+      .lte('geo_longitude', lng + lngDelta)
+      .order('is_sponsored', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Create a new salon
+   */
+  async createSalon(salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>): Promise<Salon> {
+    const { data, error } = await supabase
+      .from('salons')
+      .insert(salon)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update salon
+   */
+  async updateSalon(id: string, updates: Partial<Salon>): Promise<Salon> {
+    const { data, error } = await supabase
+      .from('salons')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
+
+// ==============================================
+// STAFF SERVICE
+// ==============================================
 
 export const StaffService = {
+  /**
+   * Get all staff for a salon
+   */
   async getStaffBySalon(salonId: string): Promise<Staff[]> {
-    try {
-        if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-        const { data, error } = await supabase.from('staff').select('*').eq('salon_id', salonId);
-        if (error) throw error;
-        if (data && data.length > 0) return data as unknown as Staff[];
-        return MOCK_STAFF;
-    } catch (e) {
-        return MOCK_STAFF;
-    }
-  }
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('salon_id', salonId)
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get staff by ID
+   */
+  async getStaffById(id: string): Promise<Staff | null> {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Create new staff member
+   */
+  async createStaff(staff: Omit<Staff, 'id' | 'created_at'>): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('staff')
+      .insert(staff)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
+
+// ==============================================
+// SERVICE SERVICE (Salon Services)
+// ==============================================
 
 export const ServiceService = {
-    async getServicesBySalon(salonId: string): Promise<Service[]> {
-        try {
-            if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-            
-            // Fetch services for the specific salon from Supabase
-            const { data, error } = await supabase
-                .from('services')
-                .select('*')
-                .eq('salon_id', salonId);
+  /**
+   * Get services offered by a salon (with details)
+   */
+  async getServicesBySalon(salonId: string): Promise<SalonServiceDetail[]> {
+    const { data, error } = await supabase
+      .from('salon_service_details')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('category_name')
+      .order('service_name');
 
-            if (error) throw error;
-            if (data && data.length > 0) return data as unknown as Service[];
-            
-            return MOCK_SERVICES;
-        } catch (e) {
-            // Fallback to updated mock data
-            return MOCK_SERVICES;
-        }
-    },
+    if (error) throw error;
+    return data || [];
+  },
 
-    async getAllServices(): Promise<Service[]> {
-        try {
-             if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-             const { data, error } = await supabase.from('services').select('*');
-             if (error) throw error;
-             return data as unknown as Service[];
-        } catch (e) {
-            return MOCK_SERVICES;
-        }
-    }
+  /**
+   * Get service by ID
+   */
+  async getServiceById(id: string): Promise<SalonServiceDetail | null> {
+    const { data, error } = await supabase
+      .from('salon_service_details')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Add service to salon
+   */
+  async addServiceToSalon(service: Omit<SalonService, 'id' | 'created_at'>): Promise<SalonService> {
+    const { data, error } = await supabase
+      .from('salon_services')
+      .insert(service)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update salon service pricing
+   */
+  async updateSalonService(id: string, updates: Partial<SalonService>): Promise<SalonService> {
+    const { data, error } = await supabase
+      .from('salon_services')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
 
-export const BookingService = {
-    async createBooking(bookingData: any) {
-        console.log("Creating booking in DB:", bookingData);
-        return { success: true, id: 'mock-booking-id' };
-    }
+// ==============================================
+// WORKING HOURS SERVICE
+// ==============================================
+
+export const WorkingHoursService = {
+  /**
+   * Get working hours for staff member
+   */
+  async getWorkingHoursByStaff(staffId: string): Promise<WorkingHours[]> {
+    const { data, error } = await supabase
+      .from('working_hours')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('day_of_week');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Set working hours for staff
+   */
+  async setWorkingHours(hours: Omit<WorkingHours, 'id' | 'created_at'>): Promise<WorkingHours> {
+    const { data, error } = await supabase
+      .from('working_hours')
+      .upsert(hours, { onConflict: 'staff_id,day_of_week' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
 
-// New Review Service
-let localReviews = [...MOCK_REVIEWS]; // In-memory store for the session
+// ==============================================
+// APPOINTMENT SERVICE
+// ==============================================
+
+export const AppointmentService = {
+  /**
+   * Get appointments for a salon
+   */
+  async getAppointmentsBySalon(salonId: string, startDate?: string, endDate?: string): Promise<Appointment[]> {
+    let query = supabase
+      .from('appointments')
+      .select('*')
+      .eq('salon_id', salonId);
+
+    if (startDate) {
+      query = query.gte('start_time', startDate);
+    }
+    if (endDate) {
+      query = query.lte('start_time', endDate);
+    }
+
+    query = query.order('start_time');
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get appointments for a staff member
+   */
+  async getAppointmentsByStaff(staffId: string, date: string): Promise<Appointment[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('staff_id', staffId)
+      .gte('start_time', startOfDay.toISOString())
+      .lte('start_time', endOfDay.toISOString())
+      .order('start_time');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get appointments by customer phone
+   */
+  async getAppointmentsByPhone(phone: string): Promise<Appointment[]> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('customer_phone', phone)
+      .order('start_time', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Create new appointment
+   */
+  async createAppointment(appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert(appointment)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update appointment status
+   */
+  async updateAppointmentStatus(id: string, status: Appointment['status']): Promise<Appointment> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Cancel appointment
+   */
+  async cancelAppointment(id: string): Promise<Appointment> {
+    return this.updateAppointmentStatus(id, 'CANCELLED');
+  },
+};
+
+// ==============================================
+// REVIEW SERVICE
+// ==============================================
 
 export const ReviewService = {
-    async getAllReviews(): Promise<Review[]> {
-        // Helper for SalonService to calculate stats
-        return localReviews;
-    },
+  /**
+   * Get reviews for a salon
+   */
+  async getReviewsBySalon(salonId: string, limit: number = 50): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    async getReviewsBySalon(salonId: string): Promise<Review[]> {
-        try {
-            if (!isSupabaseConfigured()) throw new Error("Supabase not configured");
-            const { data, error } = await supabase.from('reviews').select('*').eq('salon_id', salonId).order('date', { ascending: false });
-            if (error) throw error;
-            return data as unknown as Review[];
-        } catch (e) {
-            // Simulate API latency
-            await new Promise(r => setTimeout(r, 400));
-            return localReviews.filter(r => r.salon_id === salonId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        }
-    },
+    if (error) throw error;
+    return data || [];
+  },
 
-    async addReview(review: Omit<Review, 'id' | 'date'>): Promise<Review> {
-         try {
-            if (isSupabaseConfigured()) {
-                // Real DB Insert
-                const { data, error } = await supabase.from('reviews').insert(review).select().single();
-                if (error) throw error;
-                return data as unknown as Review;
-            }
-            throw new Error("Mock fallback");
-         } catch (e) {
-            await new Promise(r => setTimeout(r, 800));
-            const newReview: Review = {
-                ...review,
-                id: Math.random().toString(36).substr(2, 9),
-                date: new Date().toISOString().split('T')[0]
-            };
-            localReviews = [newReview, ...localReviews];
-            return newReview;
-         }
-    }
+  /**
+   * Create new review
+   */
+  async createReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .insert(review)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get salon rating summary
+   */
+  async getSalonRating(salonId: string): Promise<{ average: number; count: number }> {
+    const { data, error } = await supabase
+      .from('salon_ratings')
+      .select('*')
+      .eq('salon_id', salonId)
+      .single();
+
+    if (error) return { average: 0, count: 0 };
+
+    return {
+      average: data?.average_rating || 0,
+      count: data?.review_count || 0,
+    };
+  },
 };
 
-// IYS (SMS) Logging Service
-let localIYSLogs: IYSLog[] = []; // In-memory fallback for demo
+// ==============================================
+// IYS LOG SERVICE (SMS Compliance)
+// ==============================================
 
 export const IYSService = {
-    async addLog(log: Omit<IYSLog, 'id' | 'created_at'>): Promise<void> {
-        try {
-            if (isSupabaseConfigured()) {
-                await supabase.from('iys_logs').insert(log);
-            } else {
-                throw new Error("Mock Fallback");
-            }
-        } catch (e) {
-            console.log("Saving SMS Log Locally:", log);
-            localIYSLogs = [
-                {
-                    ...log,
-                    id: Math.random().toString(36).substr(2, 9),
-                    created_at: new Date().toISOString()
-                },
-                ...localIYSLogs
-            ];
-        }
-    },
+  /**
+   * Log SMS send
+   */
+  async logSMS(log: Omit<IYSLog, 'id' | 'created_at'>): Promise<IYSLog> {
+    const { data, error } = await supabase
+      .from('iys_logs')
+      .insert(log)
+      .select()
+      .single();
 
-    async getLogs(): Promise<IYSLog[]> {
-        try {
-            if (isSupabaseConfigured()) {
-                const { data, error } = await supabase.from('iys_logs').select('*').order('created_at', { ascending: false });
-                if (error) throw error;
-                return data as unknown as IYSLog[];
-            } else {
-                throw new Error("Mock Fallback");
-            }
-        } catch (e) {
-            return localIYSLogs;
-        }
-    }
-}
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get SMS logs by phone
+   */
+  async getLogsByPhone(phone: string, limit: number = 50): Promise<IYSLog[]> {
+    const { data, error } = await supabase
+      .from('iys_logs')
+      .select('*')
+      .eq('phone', phone)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get all IYS logs (admin)
+   */
+  async getAllLogs(limit: number = 100): Promise<IYSLog[]> {
+    const { data, error } = await supabase
+      .from('iys_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+};
+
+// ==============================================
+// LEGACY COMPATIBILITY (for existing components)
+// ==============================================
+
+// Re-export new services with old names for backward compatibility
+export const MasterService = MasterDataService;
+
+// Export all services
+export default {
+  MasterDataService,
+  MasterService,
+  SalonService,
+  StaffService,
+  ServiceService,
+  WorkingHoursService,
+  AppointmentService,
+  ReviewService,
+  IYSService,
+};
+

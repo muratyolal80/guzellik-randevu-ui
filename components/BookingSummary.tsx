@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Salon, Staff, Service } from '../types';
+import Link from 'next/link';
+import { Salon, Staff, Service } from '@/types';
 
 interface BookingSummaryProps {
   salon: Salon;
@@ -71,7 +71,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                      </button>
                   )}
                    {step === 2 && (
-                       <Link to={`/booking/${salon.id}/staff`} className="ml-auto text-primary text-[10px] font-bold hover:underline">Değiştir</Link>
+                       <Link href={`/booking/${salon.id}/staff`} className="ml-auto text-primary text-[10px] font-bold hover:underline">Değiştir</Link>
                   )}
                 </div>
               </div>
