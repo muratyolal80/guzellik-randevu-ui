@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -24,3 +24,5 @@ supabase-project
 *.njsproj
 *.sln
 *.sw?
+.next/
+/.next/

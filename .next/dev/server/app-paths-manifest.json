@@ -1,9 +1,0 @@
-{
-  "/_not-found/page": "app/_not-found/page.js",
-  "/booking/[id]/confirm/page": "app/booking/[id]/confirm/page.js",
-  "/booking/[id]/staff/page": "app/booking/[id]/staff/page.js",
-  "/booking/[id]/time/page": "app/booking/[id]/time/page.js",
-  "/login/page": "app/login/page.js",
-  "/page": "app/page.js",
-  "/salon/[id]/page": "app/salon/[id]/page.js"
-}
