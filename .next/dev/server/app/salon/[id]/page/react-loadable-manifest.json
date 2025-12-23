@@ -1,0 +1,10 @@
+{
+  "[project]/components/Map/SalonMap.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/components/Map/SalonMap.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/node_modules_11cd6a26._.js",
+      "static/chunks/components_Map_SalonMap_tsx_40fef54b._.js",
+      "static/chunks/components_Map_SalonMap_tsx_4be5cc3a._.js"
+    ]
+  }
+}

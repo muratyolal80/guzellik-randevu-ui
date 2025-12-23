@@ -1,0 +1,43 @@
+{
+  "sorted_middleware": [],
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge/chunks/node_modules_next_dist_91a24696._.js",
+        "server/edge/chunks/[root-of-the-server]__f2b15f93._.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_6f7abda9.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/admin/:path*{(\\\\.json)}?",
+          "originalSource": "/admin/:path*"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/booking/:path*{(\\\\.json)}?",
+          "originalSource": "/booking/:path*"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/profile/:path*{(\\\\.json)}?",
+          "originalSource": "/profile/:path*"
+        },
+        {
+          "regexp": "/:nextData(_next/data/[^/]{1,})?/bookings/:path*{(\\\\.json)}?",
+          "originalSource": "/bookings/:path*"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "iqKuVV6yseb+TR4CR9ez1Mpa+rihgypiVPYy2veSNTs=",
+        "__NEXT_PREVIEW_MODE_ID": "90cc79404ab33d0619750660dcddd781",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "40c8a29777ba9247390d665446cb16def9671d2f8576459ca4ffe1fedaf3b8f0",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "dc397e0256248909fc74f9b32f768adf9f85da1711b3e899af7352e48e23e157"
+      }
+    }
+  },
+  "instrumentation": null,
+  "functions": {}
+}
