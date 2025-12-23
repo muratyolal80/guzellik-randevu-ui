@@ -1,63 +1,81 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-    const res = NextResponse.next();
-    const supabase = createMiddlewareClient({ req, res });
+export async function middleware(request: NextRequest) {
+    let response = NextResponse.next({
+        request: {
+            headers: request.headers,
+        },
+    });
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return request.cookies.getAll();
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+                    response = NextResponse.next({
+                        request,
+                    });
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        response.cookies.set(name, value, options)
+                    );
+                },
+            },
+        }
+    );
 
     const {
-        data: { session },
-    } = await supabase.auth.getSession();
+        data: { user },
+    } = await supabase.auth.getUser();
 
     // 1. Protected Admin Routes
-    if (req.nextUrl.pathname.startsWith('/admin')) {
-        if (!session) {
-            return NextResponse.redirect(new URL('/login', req.url));
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+        if (!user) {
+            return NextResponse.redirect(new URL('/login', request.url));
         }
-
-        // Fetch user role from metadata (or DB if needed, but metadata is faster for middleware)
-        // Note: For critical security, we should verify against DB, but metadata is good for first line of defense
-        // In our handle_new_user trigger, we can sync role to metadata if we want, 
-        // but here we will query the profile table for maximum security.
 
         const { data: profile } = await supabase
             .from('profiles')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', user.id)
             .single();
 
         if (profile?.role !== 'admin') {
-            return NextResponse.redirect(new URL('/', req.url)); // Redirect unauthorized to home
+            return NextResponse.redirect(new URL('/', request.url));
         }
     }
 
     // 2. Protected Staff Routes
-    if (req.nextUrl.pathname.startsWith('/booking') && req.nextUrl.pathname.includes('/staff')) {
-        if (!session) {
-            return NextResponse.redirect(new URL('/login', req.url));
+    if (request.nextUrl.pathname.startsWith('/booking') && request.nextUrl.pathname.includes('/staff')) {
+        if (!user) {
+            return NextResponse.redirect(new URL('/login', request.url));
         }
 
         const { data: profile } = await supabase
             .from('profiles')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', user.id)
             .single();
 
-        // Allow 'admin' to access staff routes too, or strictly 'staff'
         if (profile?.role !== 'staff' && profile?.role !== 'admin') {
-            return NextResponse.redirect(new URL('/', req.url));
+            return NextResponse.redirect(new URL('/', request.url));
         }
     }
 
-    // 3. Protected User Routes (e.g. Profile, Bookings)
-    if (req.nextUrl.pathname.startsWith('/profile') || req.nextUrl.pathname.startsWith('/bookings')) {
-        if (!session) {
-            return NextResponse.redirect(new URL('/login', req.url));
+    // 3. Protected User Routes
+    if (request.nextUrl.pathname.startsWith('/profile') || request.nextUrl.pathname.startsWith('/bookings')) {
+        if (!user) {
+            return NextResponse.redirect(new URL('/login', request.url));
         }
     }
 
-    return res;
+    return response;
 }
 
 export const config = {
