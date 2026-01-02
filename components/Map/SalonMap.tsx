@@ -11,7 +11,15 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
     if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
     const numLat = Number(lat);
     const numLng = Number(lng);
-    return !isNaN(numLat) && !isNaN(numLng) && isFinite(numLat) && isFinite(numLng);
+    if (isNaN(numLat) || isNaN(numLng) || !isFinite(numLat) || !isFinite(numLng)) return false;
+
+    // Reject 0,0 coordinates (likely invalid data)
+    if (numLat === 0 && numLng === 0) return false;
+
+    // Basic sanity check for Turkey (latitude: 36-42, longitude: 26-45)
+    if (numLat < 35 || numLat > 43 || numLng < 25 || numLng > 46) return false;
+
+    return true;
 };
 
 // Updates map center when city changes or salon is hovered
@@ -25,9 +33,21 @@ const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonI
 
     // Fly to city center
     useEffect(() => {
-        if (center && isValidLatLng(center.lat, center.lng) && !hoveredSalonId) {
+        if (center && !hoveredSalonId) {
+            if (!isValidLatLng(center.lat, center.lng)) {
+                console.error('MapUpdater received invalid center coordinates:', center);
+                return;
+            }
+
             const lat = Number(center.lat);
             const lng = Number(center.lng);
+
+            // Double-check after conversion
+            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
+                console.error('Coordinates became NaN after Number conversion:', { original: center, converted: { lat, lng } });
+                return;
+            }
+
             map.flyTo([lat, lng], 12, { duration: 2 });
         }
     }, [center, map, hoveredSalonId]);
@@ -183,13 +203,20 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
 export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalonId, onSalonHover }) => {
     const router = useRouter();
 
+    // Validate center coordinates before initializing map
+    const validCenter = isValidLatLng(center.lat, center.lng)
+        ? { lat: Number(center.lat), lng: Number(center.lng) }
+        : { lat: 41.0082, lng: 28.9784 }; // Istanbul as fallback
+
+    console.log('SalonMap received center:', center, 'validCenter:', validCenter);
+
     return (
-        <MapContainer center={[center.lat, center.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none z-0" attributionControl={false}>
+        <MapContainer center={[validCenter.lat, validCenter.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none z-0" attributionControl={false}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
-            <MapUpdater center={center} hoveredSalonId={hoveredSalonId} salons={salons} />
+            <MapUpdater center={validCenter} hoveredSalonId={hoveredSalonId} salons={salons} />
 
             {salons.map(salon => (
                 <SalonMarker

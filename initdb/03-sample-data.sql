@@ -4,12 +4,17 @@
 -- This file adds sample business data for testing
 
 -- ==============================================
--- 1. SAMPLE SALONS
+-- 1. CREATE SAMPLE SALON OWNERS AND SALONS
 -- ==============================================
 
--- Get city and district IDs for use in inserts
+-- Single DO block to create owners and salons together (no temp table needed)
 DO $$
 DECLARE
+    owner1_id UUID := gen_random_uuid();
+    owner2_id UUID := gen_random_uuid();
+    owner3_id UUID := gen_random_uuid();
+    owner4_id UUID := gen_random_uuid();
+    owner5_id UUID := gen_random_uuid();
     istanbul_id UUID;
     ankara_id UUID;
     izmir_id UUID;
@@ -24,42 +29,73 @@ DECLARE
     spa_type_id UUID;
     makyaj_type_id UUID;
 BEGIN
-    -- Get city IDs
+    -- Step 1: Create users in auth.users (simulating Supabase Auth signup)
+    -- Password is hashed 'password123' (for testing only)
+    INSERT INTO auth.users (
+        id,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_user_meta_data,
+        created_at,
+        updated_at,
+        aud,
+        role
+    ) VALUES
+    (owner1_id, 'owner1@example.com', crypt('password123', gen_salt('bf')), NOW(), '{"full_name": "Mehmet Salon Sahibi"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (owner2_id, 'owner2@example.com', crypt('password123', gen_salt('bf')), NOW(), '{"full_name": "Ayşe İşletmeci"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (owner3_id, 'owner3@example.com', crypt('password123', gen_salt('bf')), NOW(), '{"full_name": "Ahmet Kuaför"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (owner4_id, 'owner4@example.com', crypt('password123', gen_salt('bf')), NOW(), '{"full_name": "Zeynep Güzellik"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated'),
+    (owner5_id, 'owner5@example.com', crypt('password123', gen_salt('bf')), NOW(), '{"full_name": "Can Berber"}'::jsonb, NOW(), NOW(), 'authenticated', 'authenticated');
+
+    -- Step 2: Create owner profiles
+    INSERT INTO public.profiles (id, email, full_name, phone, role) VALUES
+    (owner1_id, 'owner1@example.com', 'Mehmet Salon Sahibi', '05551111111', 'SALON_OWNER'),
+    (owner2_id, 'owner2@example.com', 'Ayşe İşletmeci', '05552222222', 'SALON_OWNER'),
+    (owner3_id, 'owner3@example.com', 'Ahmet Kuaför', '05553333333', 'SALON_OWNER'),
+    (owner4_id, 'owner4@example.com', 'Zeynep Güzellik', '05554444444', 'SALON_OWNER'),
+    (owner5_id, 'owner5@example.com', 'Can Berber', '05555555555', 'SALON_OWNER')
+    ON CONFLICT (id) DO NOTHING;
+
+    RAISE NOTICE 'Created 5 sample salon owners (Password: password123 for testing)';
+
+    -- Step 3: Get city IDs
     SELECT id INTO istanbul_id FROM cities WHERE name = 'İstanbul';
     SELECT id INTO ankara_id FROM cities WHERE name = 'Ankara';
     SELECT id INTO izmir_id FROM cities WHERE name = 'İzmir';
 
-    -- Get district IDs
+    -- Step 4: Get district IDs
     SELECT id INTO kadikoy_id FROM districts WHERE name = 'Kadıköy' AND city_id = istanbul_id;
     SELECT id INTO sisli_id FROM districts WHERE name = 'Şişli' AND city_id = istanbul_id;
     SELECT id INTO besiktas_id FROM districts WHERE name = 'Beşiktaş' AND city_id = istanbul_id;
     SELECT id INTO cankaya_id FROM districts WHERE name = 'Çankaya' AND city_id = ankara_id;
     SELECT id INTO konak_id FROM districts WHERE name = 'Konak' AND city_id = izmir_id;
 
-    -- Get salon type IDs
+    -- Step 5: Get salon type IDs
     SELECT id INTO kuafor_type_id FROM salon_types WHERE slug = 'kuafor';
     SELECT id INTO berber_type_id FROM salon_types WHERE slug = 'berber';
     SELECT id INTO guzellik_type_id FROM salon_types WHERE slug = 'guzellik';
     SELECT id INTO spa_type_id FROM salon_types WHERE slug = 'spa';
     SELECT id INTO makyaj_type_id FROM salon_types WHERE slug = 'makyaj';
 
-    -- Insert sample salons
-    INSERT INTO salons (name, city_id, district_id, type_id, address, phone, geo_latitude, geo_longitude, image, is_sponsored) VALUES
+    -- Step 6: Create salons with owner_id
+    INSERT INTO salons (owner_id, name, city_id, district_id, type_id, address, phone, geo_latitude, geo_longitude, image, is_sponsored) VALUES
     -- Istanbul Salons
-    ('Stil Kuaför', istanbul_id, kadikoy_id, kuafor_type_id, 'Bahariye Caddesi No: 45, Kadıköy', '02161234567', 40.9875, 29.0245, 'https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop', true),
-    ('Elit Berber Salonu', istanbul_id, sisli_id, berber_type_id, 'Halaskargazi Caddesi No: 123, Şişli', '02122345678', 41.0602, 28.9869, 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop', false),
-    ('Güzellik Merkezi Luna', istanbul_id, besiktas_id, guzellik_type_id, 'Barbaros Bulvarı No: 78, Beşiktaş', '02123456789', 41.0422, 29.0078, 'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?q=80&w=800&auto=format&fit=crop', true),
-    ('Zen Spa & Wellness', istanbul_id, besiktas_id, spa_type_id, 'Nişantaşı Mahallesi, Vali Konağı Caddesi No: 12', '02124567890', 41.0451, 28.9934, 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&auto=format&fit=crop', false),
-    ('Makyaj Atölyesi Derya', istanbul_id, kadikoy_id, makyaj_type_id, 'Moda Caddesi No: 89, Kadıköy', '02165678901', 40.9876, 29.0289, 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=800&auto=format&fit=crop', false),
+    (owner1_id, 'Stil Kuaför', istanbul_id, kadikoy_id, kuafor_type_id, 'Bahariye Caddesi No: 45, Kadıköy', '02161234567', 40.9875, 29.0245, 'https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop', true),
+    (owner2_id, 'Elit Berber Salonu', istanbul_id, sisli_id, berber_type_id, 'Halaskargazi Caddesi No: 123, Şişli', '02122345678', 41.0602, 28.9869, 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop', false),
+    (owner3_id, 'Güzellik Merkezi Luna', istanbul_id, besiktas_id, guzellik_type_id, 'Barbaros Bulvarı No: 78, Beşiktaş', '02123456789', 41.0422, 29.0078, 'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?q=80&w=800&auto=format&fit=crop', true),
+    (owner4_id, 'Zen Spa & Wellness', istanbul_id, besiktas_id, spa_type_id, 'Nişantaşı Mahallesi, Vali Konağı Caddesi No: 12', '02124567890', 41.0451, 28.9934, 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&auto=format&fit=crop', false),
+    (owner5_id, 'Makyaj Atölyesi Derya', istanbul_id, kadikoy_id, makyaj_type_id, 'Moda Caddesi No: 89, Kadıköy', '02165678901', 40.9876, 29.0289, 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=800&auto=format&fit=crop', false),
 
     -- Ankara Salons
-    ('Ankara Kuaför Evi', ankara_id, cankaya_id, kuafor_type_id, 'Tunalı Hilmi Caddesi No: 56, Çankaya', '03121234567', 39.9180, 32.8549, 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80&w=800&auto=format&fit=crop', false),
-    ('Başkent Berber', ankara_id, cankaya_id, berber_type_id, 'Kızılay Meydanı No: 34, Çankaya', '03122345678', 39.9192, 32.8543, 'https://images.unsplash.com/photo-1503951914875-452162b7f304?q=80&w=800&auto=format&fit=crop', true),
+    (owner1_id, 'Ankara Kuaför Evi', ankara_id, cankaya_id, kuafor_type_id, 'Tunalı Hilmi Caddesi No: 56, Çankaya', '03121234567', 39.9180, 32.8549, 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80&w=800&auto=format&fit=crop', false),
+    (owner2_id, 'Başkent Berber', ankara_id, cankaya_id, berber_type_id, 'Kızılay Meydanı No: 34, Çankaya', '03122345678', 39.9192, 32.8543, 'https://images.unsplash.com/photo-1503951914875-452162b7f304?q=80&w=800&auto=format&fit=crop', true),
 
     -- İzmir Salons
-    ('İzmir Güzellik Salonu', izmir_id, konak_id, guzellik_type_id, 'Alsancak Mahallesi, Kıbrıs Şehitleri Caddesi No: 145', '02321234567', 38.4366, 27.1461, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop', false),
-    ('Ege Spa Center', izmir_id, konak_id, spa_type_id, 'Kordon Boyu No: 234, Konak', '02322345678', 38.4192, 27.1287, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop', true);
+    (owner3_id, 'İzmir Güzellik Salonu', izmir_id, konak_id, guzellik_type_id, 'Alsancak Mahallesi, Kıbrıs Şehitleri Caddesi No: 145', '02321234567', 38.4366, 27.1461, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop', false),
+    (owner4_id, 'Ege Spa Center', izmir_id, konak_id, spa_type_id, 'Kordon Boyu No: 234, Konak', '02322345678', 38.4192, 27.1287, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop', true);
 
+    RAISE NOTICE 'Created 9 salons with owner links';
 END $$;
 
 -- ==============================================
@@ -178,8 +214,10 @@ BEGIN
 END $$;
 
 -- ==============================================
--- 5. SAMPLE APPOINTMENTS
+-- 5. SAMPLE APPOINTMENTS (Guest Bookings)
 -- ==============================================
+-- Note: These appointments use customer_name and customer_phone
+-- For logged-in users, customer_id would be used instead
 
 DO $$
 DECLARE
@@ -220,49 +258,57 @@ BEGIN
             -- Random date in next 7 days, between 10:00-16:00
             appointment_date := NOW() +
                 (floor(random() * 7)::INTEGER || ' days')::INTERVAL +
-                ((10 + floor(random() * 6))::INTEGER || ' hours')::INTERVAL;
+                ((10 + floor(random() * 6))::INTEGER || ' hours')::INTERVAL +
+                ((floor(random() * 4) * 15)::INTEGER || ' minutes')::INTERVAL; -- 15-minute intervals
 
-            INSERT INTO appointments (
-                customer_name,
-                customer_phone,
-                salon_id,
-                staff_id,
-                salon_service_id,
-                start_time,
-                end_time,
-                status,
-                notes
-            ) VALUES (
-                CASE (i % 10)
-                    WHEN 0 THEN 'Ahmet Yılmaz'
-                    WHEN 1 THEN 'Ayşe Kaya'
-                    WHEN 2 THEN 'Mehmet Demir'
-                    WHEN 3 THEN 'Zeynep Çelik'
-                    WHEN 4 THEN 'Fatma Şahin'
-                    WHEN 5 THEN 'Ali Yıldız'
-                    WHEN 6 THEN 'Elif Öztürk'
-                    WHEN 7 THEN 'Can Arslan'
-                    WHEN 8 THEN 'Selin Aydın'
-                    ELSE 'Burak Özdemir'
-                END,
-                '555' || lpad((1000000 + floor(random() * 9000000))::TEXT, 7, '0'),
-                salon_record.id,
-                staff_id_var,
-                service_id_var,
-                appointment_date,
-                appointment_date + (service_duration_var || ' minutes')::INTERVAL,
-                CASE (i % 4)
-                    WHEN 0 THEN 'PENDING'
-                    WHEN 1 THEN 'CONFIRMED'
-                    WHEN 2 THEN 'COMPLETED'
-                    ELSE 'CONFIRMED'
-                END,
-                CASE (i % 3)
-                    WHEN 0 THEN 'İlk randevum'
-                    WHEN 1 THEN NULL
-                    ELSE 'Lütfen zamanında gelebilir miyim kontrol edin'
-                END
-            );
+            -- Try to insert appointment, skip if there's a conflict
+            BEGIN
+                INSERT INTO appointments (
+                    customer_name,
+                    customer_phone,
+                    salon_id,
+                    staff_id,
+                    salon_service_id,
+                    start_time,
+                    end_time,
+                    status,
+                    notes
+                ) VALUES (
+                    CASE (i % 10)
+                        WHEN 0 THEN 'Ahmet Yılmaz'
+                        WHEN 1 THEN 'Ayşe Kaya'
+                        WHEN 2 THEN 'Mehmet Demir'
+                        WHEN 3 THEN 'Zeynep Çelik'
+                        WHEN 4 THEN 'Fatma Şahin'
+                        WHEN 5 THEN 'Ali Yıldız'
+                        WHEN 6 THEN 'Elif Öztürk'
+                        WHEN 7 THEN 'Can Arslan'
+                        WHEN 8 THEN 'Selin Aydın'
+                        ELSE 'Burak Özdemir'
+                    END,
+                    '555' || lpad((1000000 + floor(random() * 9000000))::TEXT, 7, '0'),
+                    salon_record.id,
+                    staff_id_var,
+                    service_id_var,
+                    appointment_date,
+                    appointment_date + (service_duration_var || ' minutes')::INTERVAL,
+                    (CASE (i % 4)
+                        WHEN 0 THEN 'PENDING'
+                        WHEN 1 THEN 'CONFIRMED'
+                        WHEN 2 THEN 'COMPLETED'
+                        ELSE 'CONFIRMED'
+                    END)::appt_status,
+                    CASE (i % 3)
+                        WHEN 0 THEN 'İlk randevum'
+                        WHEN 1 THEN NULL
+                        ELSE 'Lütfen zamanında gelebilir miyim kontrol edin'
+                    END
+                );
+            EXCEPTION
+                WHEN exclusion_violation THEN
+                    -- Skip this appointment if there's a conflict
+                    NULL;
+            END;
         END LOOP;
     END LOOP;
 END $$;

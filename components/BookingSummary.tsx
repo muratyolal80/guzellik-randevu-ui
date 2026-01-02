@@ -78,7 +78,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                      </button>
                   )}
                    {(step === 2 || step === 3) && (
-                       <Link href={`/booking/${salon.id}/staff`} className="ml-auto text-primary text-[10px] font-bold hover:underline">Değiştir</Link>
+                       <Link href={`/booking/${salon.id}/staff?staffId=${staff.id}`} className="ml-auto text-primary text-[10px] font-bold hover:underline">Değiştir</Link>
                   )}
                 </div>
               </div>
@@ -96,14 +96,13 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
             </div>
             
             {step === 1 && (
-                <button disabled={!staff} className={`w-full h-12 rounded-lg font-bold text-base transition-colors shadow-md flex items-center justify-center gap-2 ${staff ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-text-muted cursor-not-allowed'}`}>
+                <Link
+                  href={staff ? `/booking/${salon.id}/time` : '#'}
+                  className={`w-full h-12 rounded-lg font-bold text-base transition-colors shadow-md flex items-center justify-center gap-2 ${staff ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-text-muted cursor-not-allowed pointer-events-none'}`}
+                >
                   {staff ? 'Devam Et' : 'Personel Seçiniz'}
                   <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                </button>
-            )}
-            
-            {step < 4 && (
-                <p className="text-center text-text-muted text-[10px] mt-2">Ödeme aşamasına henüz geçilmedi.</p>
+                </Link>
             )}
           </div>
         </div>

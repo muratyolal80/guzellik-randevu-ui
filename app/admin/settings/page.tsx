@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AdminLayout } from '../../../components/AdminLayout';
+import { AdminLayout } from '@/components/AdminLayout';
 
 export default function Settings() {
     const [usercode, setUsercode] = useState('');

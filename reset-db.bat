@@ -44,7 +44,7 @@ REM timeout /t 30 /nobreak >nul
 
 echo.
 echo [*] Dropping existing tables in public schema...
-type initsql\00-drop-tables.sql | docker exec -i supabase-db psql -U postgres -d postgres
+type initdb\00-drop-tables.sql | docker exec -i supabase-db psql -U postgres -d postgres
 if %ERRORLEVEL% neq 0 (
     echo [WARNING] Failed to drop tables (might be first run)
 ) else (
@@ -55,7 +55,7 @@ echo.
 echo [*] Running database migrations...
 
 REM Run schema migration
-type initsql\01-schema.sql | docker exec -i supabase-db psql -U postgres -d postgres
+type initdb\01-schema.sql | docker exec -i supabase-db psql -U postgres -d postgres
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Schema creation failed
     pause
@@ -67,7 +67,7 @@ echo.
 echo [*] Loading seed data...
 
 REM Run seed data
-type initsql\02-seed-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
+type initdb\02-seed-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Seed data loading failed
     pause
@@ -79,7 +79,7 @@ echo.
 echo [*] Loading sample business data...
 
 REM Run sample business data
-type initsql\03-sample-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
+type initdb\03-sample-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Sample data loading failed
     pause
