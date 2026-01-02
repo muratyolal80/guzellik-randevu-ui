@@ -1,17 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
-// Supabase Configuration
-// For Next.js, use NEXT_PUBLIC_ prefix for client-side variables
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:8000';
+export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseAnonKey) {
-  console.warn('⚠️  NEXT_PUBLIC_SUPABASE_ANON_KEY is not set. Supabase client may not work properly.');
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase credentials missing in lib/supabase.ts');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+// createBrowserClient automatically detects and uses the cookies set by your API
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);

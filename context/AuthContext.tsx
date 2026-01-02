@@ -1,16 +1,27 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Profile } from '@/types';
+import { Profile, UserRole } from '@/types';
+
+// Role constants for type safety
+const ROLES = {
+    CUSTOMER: 'CUSTOMER' as UserRole,
+    STAFF: 'STAFF' as UserRole,
+    SALON_OWNER: 'SALON_OWNER' as UserRole,
+    SUPER_ADMIN: 'SUPER_ADMIN' as UserRole,
+};
 
 interface AuthContextType {
     user: Profile | null;
     loading: boolean;
-    signIn: (email?: string, password?: string) => void;
     signInWithEmail: (email: string, password: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
-    signOut: () => void;
+    signUp: (email: string, password: string, fullName?: string) => Promise<{ user: any; session: any } | undefined>;
+    signOut: () => Promise<void>;
+    refreshUser: () => Promise<void>;
     isAdmin: boolean;
     isStaff: boolean;
+    isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -18,9 +29,10 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     // Fetch profile from database
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -29,148 +41,219 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .single();
 
             if (error) {
-                console.error('Error fetching profile:', error);
+                // Handle "not found" error - profile might not be created yet by trigger
+                if (error.code === 'PGRST116' && retryCount < 3) {
+                    // Profile not found, retry
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return fetchProfile(userId, retryCount + 1);
+                }
+
+                // Only log if it's a real error (not just "not found")
+                if (error.code !== 'PGRST116') {
+                    console.warn('Profile fetch error:', error.message);
+                }
                 return null;
             }
+
             return data as Profile;
         } catch (err) {
-            console.error('Unexpected error fetching profile:', err);
+            // Only log unexpected errors
+            if (err instanceof Error) {
+                console.warn('Unexpected profile fetch error:', err.message);
+            }
             return null;
         }
     };
 
-    useEffect(() => {
-        // Check active session
-        const checkSession = async () => {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) throw error;
+    // Create profile manually if trigger failed
+    const createProfileManually = async (user: any): Promise<Profile | null> => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .insert({
+                    id: user.id,
+                    email: user.email,
+                    full_name: user.user_metadata?.full_name || null,
+                    avatar_url: user.user_metadata?.avatar_url || null,
+                    role: ROLES.CUSTOMER
+                })
+                .select()
+                .single();
 
-                if (session?.user) {
-                    const profile = await fetchProfile(session.user.id);
-                    if (profile) {
-                        setUser(profile);
-                    } else {
-                        // Fallback if profile doesn't exist yet (should be handled by trigger, but just in case)
-                        setUser({
-                            id: session.user.id,
-                            email: session.user.email!,
-                            role: 'user',
-                            full_name: session.user.user_metadata?.full_name,
-                            avatar_url: session.user.user_metadata?.avatar_url
-                        });
-                    }
+            if (error) {
+                // If duplicate key, try to fetch existing profile
+                if (error.code === '23505') {
+                    return await fetchProfile(user.id, 0);
                 }
-            } catch (error) {
-                console.log("Auth session check skipped or failed", error);
-            } finally {
-                setLoading(false);
+                console.warn('Profile creation error:', error.message);
+                return null;
             }
-        };
 
-        checkSession();
+            return data as Profile;
+        } catch (err) {
+            if (err instanceof Error) {
+                console.warn('Unexpected profile creation error:', err.message);
+            }
+            return null;
+        }
+    };
+
+    const refreshUser = useCallback(async () => {
+        try {
+            // Force refresh session from server
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error) throw error;
+
+            if (session?.user) {
+                let profile = await fetchProfile(session.user.id);
+
+                // If profile doesn't exist after retries, try to create it manually
+                if (!profile) {
+                    profile = await createProfileManually(session.user);
+                }
+
+                // Set user with profile data or fallback to session data
+                if (profile) {
+                    setUser(profile);
+                } else {
+                    // Last resort fallback
+                    setUser({
+                        id: session.user.id,
+                        email: session.user.email!,
+                        role: ROLES.CUSTOMER,
+                        full_name: session.user.user_metadata?.full_name,
+                        avatar_url: session.user.user_metadata?.avatar_url
+                    });
+                }
+            } else {
+                setUser(null); // Explicitly set to null when no session
+            }
+        } catch (error) {
+            console.error('[AuthContext] Session check error:', error);
+            setUser(null); // Also clear user on error
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refreshUser();
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user) {
-                const profile = await fetchProfile(session.user.id);
-                setUser(profile || {
-                    id: session.user.id,
-                    email: session.user.email!,
-                    role: 'user'
-                });
-                setLoading(false);
-            } else {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth State Change:', event, session?.user?.email);
+            
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (session?.user) {
+                    let profile = await fetchProfile(session.user.id);
+
+                    // If profile still doesn't exist after retries, try to create it manually
+                    if (!profile) {
+                        profile = await createProfileManually(session.user);
+                    }
+
+                    // Set user with profile data or fallback to session data
+                    const userData = profile || {
+                        id: session.user.id,
+                        email: session.user.email!,
+                        role: ROLES.CUSTOMER,
+                        full_name: session.user.user_metadata?.full_name,
+                        avatar_url: session.user.user_metadata?.avatar_url
+                    };
+
+                    setUser(userData);
+                }
+            } else if (event === 'SIGNED_OUT') {
                 setUser(null);
-                setLoading(false);
             }
+            
+            setLoading(false);
         });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
-
-    const signIn = (email?: string, password?: string) => {
-        // Admin Login Check (Mock)
-        if (email === 'info@guzellikrandevu.com.tr' && password === 'admin123') {
-            setUser({
-                id: 'admin_1',
-                email: 'info@guzellikrandevu.com.tr',
-                full_name: 'Sistem Yöneticisi',
-                role: 'admin',
-                avatar_url: 'https://ui-avatars.com/api/?name=Admin&background=C59F59&color=fff'
-            });
-        } else {
-            // Standard User Mock Login
-            setUser({
-                id: '123',
-                email: email || 'demo@salonrandevu.com',
-                full_name: 'Demo Kullanıcı',
-                role: 'user',
-                avatar_url: 'https://i.pravatar.cc/150?u=123'
-            });
-        }
-    };
+    }, [refreshUser]);
 
     const signInWithEmail = async (email: string, password: string) => {
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-            if (error) throw error;
-            // State update handled by onAuthStateChange
-        } catch (err) {
-            console.log('Auth error, using mock login:', err);
-            signIn(email, password);
+        if (error) {
+            throw new Error(error.message);
         }
+        // State update handled by onAuthStateChange
+    };
+
+    const signUp = async (email: string, password: string, fullName?: string) => {
+        const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/';
+
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                    role: 'CUSTOMER',
+                },
+                emailRedirectTo: redirectUrl,
+            },
+        });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        // User is automatically logged in after signUp (if email confirmation is disabled)
+        // Profile will be created automatically by database trigger
+        // Return data for immediate use if needed
+        return data;
     };
 
     const signInWithGoogle = async () => {
-        try {
-            const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/';
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectUrl,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    },
-                }
-            });
+        const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/';
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: redirectUrl,
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                },
+            }
+        });
 
-            if (error) throw error;
-        } catch (err) {
-            console.log('Google auth error:', err);
-            // Fallback to mock login
-            setUser({
-                id: 'google_user',
-                email: 'user@gmail.com',
-                full_name: 'Google User',
-                role: 'user',
-                avatar_url: 'https://lh3.googleusercontent.com/a/default-user'
-            });
+        if (error) {
+            throw new Error(error.message);
         }
     };
 
     const signOut = async () => {
-        await supabase.auth.signOut();
-        setUser(null);
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Error signing out:', error);
+        } else {
+            setUser(null);
+            router.push('/'); // Redirect to home page after sign out
+            router.refresh(); // Ensure server components re-render
+        }
     };
 
     return (
         <AuthContext.Provider value={{
             user,
             loading,
-            signIn,
             signInWithEmail,
             signInWithGoogle,
+signUp,
             signOut,
-            isAdmin: user?.role === 'admin',
-            isStaff: user?.role === 'staff'
+            refreshUser,
+            isAdmin: user?.role === 'SUPER_ADMIN' || user?.role === 'SALON_OWNER',
+            isStaff: user?.role === 'STAFF',
+            isAuthenticated: !!user
         }}>
             {children}
         </AuthContext.Provider>

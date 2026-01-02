@@ -127,12 +127,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 Yönetim
               </Link>
            )}
-           {!isBooking && user?.role === 'staff' && !isAdmin && (
+           {!isBooking && user?.role === 'STAFF' && !isAdmin && (
               <Link href="/booking/1/staff" className="hidden xl:flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 whitespace-nowrap">
                 İşletme Ekle
               </Link>
            )}
-            
+
             {user ? (
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-text-main hidden xl:block truncate max-w-[100px]">{user.full_name}</span>
@@ -157,7 +157,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <Link href="/login" className="text-text-secondary hover:text-primary transition-colors text-sm font-medium whitespace-nowrap hidden sm:block">
                       Giriş Yap
                   </Link>
-                  <Link href="/login" className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 hidden sm:block whitespace-nowrap">
+                  <Link href="/register" className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 hidden sm:block whitespace-nowrap">
                       Kayıt Ol
                   </Link>
                 </div>

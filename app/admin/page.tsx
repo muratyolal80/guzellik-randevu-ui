@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AdminLayout } from '../../components/AdminLayout';
+import { AdminLayout } from '@/components/AdminLayout';
 
 const StatCard = ({ title, value, icon, color }: { title: string, value: string, icon: string, color: string }) => (
     <div className={`bg-white rounded-xl border border-border p-6 shadow-sm flex items-center gap-6`}>

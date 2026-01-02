@@ -54,7 +54,15 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
     if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
     const numLat = Number(lat);
     const numLng = Number(lng);
-    return !isNaN(numLat) && !isNaN(numLng) && isFinite(numLat) && isFinite(numLng);
+    if (isNaN(numLat) || isNaN(numLng) || !isFinite(numLat) || !isFinite(numLng)) return false;
+
+    // Reject 0,0 coordinates (likely invalid data)
+    if (numLat === 0 && numLng === 0) return false;
+
+    // Basic sanity check for Turkey (latitude: 36-42, longitude: 26-45)
+    if (numLat < 35 || numLat > 43 || numLng < 25 || numLng > 46) return false;
+
+    return true;
 };
 
 
@@ -75,14 +83,27 @@ const getServiceIcon = (serviceName: string) => {
 
 function HomePageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
     const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [cities, setCities] = useState<City[]>([]);
+    const [showUnauthorizedError, setShowUnauthorizedError] = useState(false);
+
+    // Check for error parameter (unauthorized access)
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'unauthorized') {
+            setShowUnauthorizedError(true);
+            // Auto-hide after 5 seconds
+            setTimeout(() => setShowUnauthorizedError(false), 5000);
+            // Clean up URL
+            router.replace('/');
+        }
+    }, [searchParams, router]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [salonServicesMap, setSalonServicesMap] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(true);
-    const searchParams = useSearchParams();
 
     // Search Parameters from URL
     const typeParam = searchParams.get('type');
@@ -281,20 +302,33 @@ function HomePageContent() {
     const targetCityCoords = getCityCoordinates(selectedCity);
     // If we have filtered salons, try to center on the first one
     const firstSalon = filteredSalons.length > 0 ? filteredSalons[0] : null;
-    const firstSalonCoords = firstSalon && firstSalon.geo_latitude && firstSalon.geo_longitude
-        ? { lat: firstSalon.geo_latitude, lng: firstSalon.geo_longitude }
+    const firstSalonCoords = firstSalon && isValidLatLng(firstSalon.geo_latitude, firstSalon.geo_longitude)
+        ? { lat: Number(firstSalon.geo_latitude), lng: Number(firstSalon.geo_longitude) }
         : null;
 
     const mapCenterRaw = firstSalonCoords || targetCityCoords || istanbulCoords;
 
     // Robust conversion to numbers and check validity
-    const finalLat = isValidLatLng(mapCenterRaw?.lat, mapCenterRaw?.lng) ? Number(mapCenterRaw.lat) : defaultCenter.lat;
-    const finalLng = isValidLatLng(mapCenterRaw?.lat, mapCenterRaw?.lng) ? Number(mapCenterRaw.lng) : defaultCenter.lng;
+    const finalLat = mapCenterRaw && isValidLatLng(mapCenterRaw.lat, mapCenterRaw.lng) ? Number(mapCenterRaw.lat) : defaultCenter.lat;
+    const finalLng = mapCenterRaw && isValidLatLng(mapCenterRaw.lat, mapCenterRaw.lng) ? Number(mapCenterRaw.lng) : defaultCenter.lng;
+
+    // Debug: Log if we're using fallback
+    if (!mapCenterRaw || !isValidLatLng(mapCenterRaw.lat, mapCenterRaw.lng)) {
+        console.warn('Invalid map center coordinates, using fallback:', {
+            selectedCity,
+            firstSalonCoords,
+            targetCityCoords,
+            fallback: defaultCenter
+        });
+    }
 
     const safeMapCenter = {
         lat: finalLat,
         lng: finalLng
     };
+
+    // Debug: Log the final center coordinates
+    console.log('Passing to SalonMap:', safeMapCenter, 'isValid:', isValidLatLng(safeMapCenter.lat, safeMapCenter.lng));
 
     // --- Combobox / Autocomplete Logic ---
     const handleSearchChange = (val: string) => {
@@ -605,6 +639,25 @@ function HomePageContent() {
 
     return (
         <Layout>
+            {/* Unauthorized Access Error Notification */}
+            {showUnauthorizedError && (
+                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] animate-fade-in">
+                    <div className="bg-red-50 border border-red-200 rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-md">
+                        <span className="material-symbols-outlined text-red-600">block</span>
+                        <div>
+                            <p className="text-red-800 font-bold text-sm">Yetkisiz Erişim</p>
+                            <p className="text-red-600 text-xs">Bu sayfaya erişim yetkiniz bulunmamaktadır.</p>
+                        </div>
+                        <button
+                            onClick={() => setShowUnauthorizedError(false)}
+                            className="ml-auto text-red-400 hover:text-red-600"
+                        >
+                            <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Hero Section */}
             <div className="relative bg-gray-900 overflow-visible min-h-[550px] lg:min-h-[650px] flex items-center justify-center z-10">
                 {/* Background Image with Overlay */}

@@ -3,37 +3,35 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-export default function Login() {
-    const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading } = useAuth();
+export default function Register() {
+    const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
-    const searchParams = useSearchParams();
 
+    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
 
-    // Get redirect URL from query params
-    const redirectUrl = searchParams.get('redirect') || '/';
-
     // Auto-redirect if already authenticated
     useEffect(() => {
         if (!authLoading && isAuthenticated) {
-            router.push(redirectUrl);
+            router.push('/');
         }
-    }, [authLoading, isAuthenticated, router, redirectUrl]);
+    }, [authLoading, isAuthenticated, router]);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
-        // Basic validation
-        if (!email || !password) {
-            setError('Lütfen e-posta ve şifre giriniz.');
+        // Validation
+        if (!fullName || !email || !password || !confirmPassword) {
+            setError('Lütfen tüm alanları doldurunuz.');
             setLoading(false);
             return;
         }
@@ -50,36 +48,43 @@ export default function Login() {
             return;
         }
 
+        if (password !== confirmPassword) {
+            setError('Şifreler eşleşmiyor.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            await signInWithEmail(email, password);
+            await signUp(email, password, fullName);
             setSuccess(true);
-            // Wait a moment for auth state to update, then redirect
+            // User is automatically logged in after registration
+            // Redirect to home page
             setTimeout(() => {
-                router.push(redirectUrl);
-            }, 500);
+                router.push('/');
+            }, 1500);
         } catch (err) {
             const errorMessage = (err as Error).message;
             // Provide user-friendly error messages
-            if (errorMessage.includes('Invalid login credentials')) {
-                setError('E-posta veya şifre hatalı.');
-            } else if (errorMessage.includes('Email not confirmed')) {
-                setError('E-posta adresinizi doğrulamanız gerekiyor.');
+            if (errorMessage.includes('already registered')) {
+                setError('Bu e-posta adresi zaten kayıtlı.');
+            } else if (errorMessage.includes('Invalid email')) {
+                setError('Geçersiz e-posta adresi.');
             } else {
-                setError('Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
+                setError('Kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.');
             }
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogleLogin = async () => {
+    const handleGoogleSignUp = async () => {
         setError(null);
         setLoading(true);
         try {
             await signInWithGoogle();
             // OAuth will redirect automatically
         } catch (err) {
-            setError('Google ile giriş yapılırken bir hata oluştu.');
+            setError('Google ile kayıt olurken bir hata oluştu.');
             setLoading(false);
         }
     };
@@ -100,25 +105,25 @@ export default function Login() {
 
     return (
         <Layout>
-            <div className="flex-1 flex items-center justify-center p-4">
+            <div className="flex-1 flex items-center justify-center p-4 py-12">
                 <div className="w-full max-w-md">
                     <div className="bg-white rounded-2xl border border-border shadow-card p-8">
-                        <h2 className="text-2xl font-bold text-center text-text-main mb-2">Giriş Yap</h2>
-                        <p className="text-center text-text-secondary mb-8">Hesabınıza giriş yaparak randevularınızı yönetin.</p>
+                        <h2 className="text-2xl font-bold text-center text-text-main mb-2">Kayıt Ol</h2>
+                        <p className="text-center text-text-secondary mb-8">Randevu almak için hemen üye olun.</p>
 
                         {success && (
                             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p className="text-green-700 text-sm text-center">✓ Giriş başarılı! Yönlendiriliyorsunuz...</p>
+                                <p className="text-green-700 text-sm text-center">✓ Kayıt başarılı! Hoş geldiniz, ana sayfaya yönlendiriliyorsunuz...</p>
                             </div>
                         )}
 
                         <button
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
+                            onClick={handleGoogleSignUp}
+                            disabled={loading || success}
                             className="w-full h-12 flex items-center justify-center gap-3 border border-border rounded-lg hover:bg-gray-50 transition-colors font-bold text-text-main disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <img src="https://www.google.com/favicon.ico" alt="Google" className="size-5" />
-                            Google ile Giriş Yap
+                            Google ile Kayıt Ol
                         </button>
 
                         <div className="flex items-center my-6">
@@ -127,26 +132,51 @@ export default function Login() {
                             <hr className="flex-grow border-t border-border" />
                         </div>
 
-                        <form onSubmit={handleLogin} className="space-y-4">
+                        <form onSubmit={handleRegister} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-text-main mb-2">Ad Soyad</label>
+                                <input
+                                    type="text"
+                                    value={fullName}
+                                    onChange={e => setFullName(e.target.value)}
+                                    disabled={loading || success}
+                                    placeholder="Adınız Soyadınız"
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                />
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">E-posta</label>
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
-                                    disabled={loading}
+                                    disabled={loading || success}
                                     placeholder="ornek@email.com"
                                     className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
                                 />
                             </div>
+
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Şifre</label>
                                 <input
                                     type="password"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    disabled={loading}
-                                    placeholder="••••••••"
+                                    disabled={loading || success}
+                                    placeholder="En az 6 karakter"
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-text-main mb-2">Şifre Tekrar</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    disabled={loading || success}
+                                    placeholder="Şifrenizi tekrar girin"
                                     className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
                                 />
                             </div>
@@ -159,25 +189,25 @@ export default function Login() {
 
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || success}
                                 className="w-full h-12 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {loading ? (
                                     <>
                                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                        <span>Giriş yapılıyor...</span>
+                                        <span>Kayıt olunuyor...</span>
                                     </>
                                 ) : (
-                                    'Giriş Yap'
+                                    'Kayıt Ol'
                                 )}
                             </button>
                         </form>
 
-                        <div className="mt-6 text-center space-y-2">
+                        <div className="mt-6 text-center">
                             <p className="text-sm text-text-secondary">
-                                Hesabınız yok mu?{' '}
-                                <a href="/register" className="text-primary font-bold hover:underline">
-                                    Kayıt Ol
+                                Zaten hesabınız var mı?{' '}
+                                <a href="/login" className="text-primary font-bold hover:underline">
+                                    Giriş Yap
                                 </a>
                             </p>
                         </div>
@@ -187,3 +217,4 @@ export default function Login() {
         </Layout>
     );
 }
+

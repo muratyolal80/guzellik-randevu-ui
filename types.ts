@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'staff' | 'admin';
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'SALON_OWNER' | 'SUPER_ADMIN';
 
 export interface Profile {
   id: string;
@@ -213,6 +213,29 @@ export interface Booking {
   booking_date: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   total_price: number;
+}
+
+// ==============================================
+// UI/DISPLAY TYPES
+// ==============================================
+
+export interface BookingDisplay {
+  id: string;
+  start_time: string;
+  end_time: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  salon: {
+    name: string;
+    address: string;
+  };
+  service: {
+    name: string;
+    price: number;
+    duration_min: number;
+  };
+  staff: {
+    name: string;
+  };
 }
 
 export { };
