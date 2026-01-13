@@ -1,0 +1,3 @@
+docker exec -t supabase-db pg_dumpall -U postgres > supabase_yedek.sql
+
+Ne olur? Bu komut, Docker içindeki supabase-db konteynerına bağlanır ve tüm tabloları supabase_yedek.sql adıyla şu an bulunduğun klasöre kaydeder.

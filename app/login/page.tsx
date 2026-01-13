@@ -89,7 +89,7 @@ export default function Login() {
             {/* Left Side - Image Section */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900 overflow-hidden">
                 <img
-                    src="/images/salon-login-bg.png"
+                    src="/images/bg-final.png?v=3"
                     alt="Salon Interior"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -113,8 +113,8 @@ export default function Login() {
                         <button
                             onClick={() => setLoginType('customer')}
                             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'customer'
-                                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Müşteri
@@ -122,8 +122,8 @@ export default function Login() {
                         <button
                             onClick={() => setLoginType('business')}
                             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'business'
-                                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             İşletme / Uzman
