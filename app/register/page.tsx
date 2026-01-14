@@ -9,7 +9,8 @@ export default function Register() {
     const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
 
-    const [fullName, setFullName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +31,7 @@ export default function Register() {
         setLoading(true);
 
         // Validation
-        if (!fullName || !email || !password || !confirmPassword) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword) {
             setError('Lütfen tüm alanları doldurunuz.');
             setLoading(false);
             return;
@@ -55,7 +56,7 @@ export default function Register() {
         }
 
         try {
-            await signUp(email, password, fullName);
+            await signUp(email, password, firstName, lastName);
             setSuccess(true);
             // User is automatically logged in after registration
             // Redirect to home page
@@ -133,16 +134,29 @@ export default function Register() {
                         </div>
 
                         <form onSubmit={handleRegister} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-text-main mb-2">Ad Soyad</label>
-                                <input
-                                    type="text"
-                                    value={fullName}
-                                    onChange={e => setFullName(e.target.value)}
-                                    disabled={loading || success}
-                                    placeholder="Adınız Soyadınız"
-                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Ad</label>
+                                    <input
+                                        type="text"
+                                        value={firstName}
+                                        onChange={e => setFirstName(e.target.value)}
+                                        disabled={loading || success}
+                                        placeholder="Adınız"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Soyad</label>
+                                    <input
+                                        type="text"
+                                        value={lastName}
+                                        onChange={e => setLastName(e.target.value)}
+                                        disabled={loading || success}
+                                        placeholder="Soyadınız"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                    />
+                                </div>
                             </div>
 
                             <div>

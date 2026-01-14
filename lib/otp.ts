@@ -36,6 +36,24 @@ export async function saveOTP(phone: string, code: string): Promise<boolean> {
   }
 }
 
+export async function getActiveOTP(phone: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('otp_codes')
+      .select('code')
+      .eq('phone', phone)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return data?.code || null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function verifyOTP(phone: string, code: string): Promise<boolean> {
   try {
     if (process.env.OTP_DEMO_MODE === 'true' && code === DEMO_OTP_CODE) {

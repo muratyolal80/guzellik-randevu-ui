@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function Login() {
+function LoginContent() {
     const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -18,15 +18,19 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    // Get redirect URL from query params
-    const redirectUrl = searchParams.get('redirect') || '/';
+    // Get redirect URL from query params or determine based on login type
+    const getRedirectUrl = () => {
+        const paramRedirect = searchParams.get('redirect');
+        if (paramRedirect) return paramRedirect;
+        return loginType === 'business' ? '/admin' : '/dashboard';
+    };
 
     // Auto-redirect if already authenticated
     useEffect(() => {
         if (!authLoading && isAuthenticated) {
-            router.push(redirectUrl);
+            router.push(getRedirectUrl());
         }
-    }, [authLoading, isAuthenticated, router, redirectUrl]);
+    }, [authLoading, isAuthenticated, router, loginType, searchParams]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,8 +47,9 @@ export default function Login() {
         try {
             await signInWithEmail(email, password);
             // Success is handled by auth state change in context or useAuth
+            router.refresh(); // Refresh server components to update auth state
             setTimeout(() => {
-                router.push(redirectUrl);
+                router.push(getRedirectUrl());
             }, 500);
         } catch (err) {
             const errorMessage = (err as Error).message;
@@ -76,7 +81,17 @@ export default function Login() {
         setPassword('admin123');
     };
 
-    if (authLoading) {
+    // Force show content after timeout to prevent infinite loading
+    const [forceShow, setForceShow] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setForceShow(true);
+        }, 2000); // Wait 2 seconds max for auth check
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (authLoading && !forceShow) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-white">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -111,6 +126,7 @@ export default function Login() {
                     {/* Tabs */}
                     <div className="flex bg-gray-50 p-1 rounded-xl mb-8 border border-gray-100">
                         <button
+                            type="button"
                             onClick={() => setLoginType('customer')}
                             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'customer'
                                 ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
@@ -120,6 +136,7 @@ export default function Login() {
                             Müşteri
                         </button>
                         <button
+                            type="button"
                             onClick={() => setLoginType('business')}
                             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'business'
                                 ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
@@ -273,5 +290,17 @@ export default function Login() {
                 /* Add any custom inline styles or tailwind extensions if needed */
             `}</style>
         </div>
+    );
+}
+
+export default function Login() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }

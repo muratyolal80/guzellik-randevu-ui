@@ -57,7 +57,13 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    if (request.nextUrl.pathname.startsWith('/profile')) {
+    // List of protected customer routes
+    const protectedRoutes = ['/profile', '/dashboard', '/appointments', '/favorites', '/notifications', '/support', '/settings'];
+
+    // Check if the current path starts with any of the protected routes
+    const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+
+    if (isProtectedRoute) {
         if (!user) {
             const loginUrl = new URL('/login', request.url)
             loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
