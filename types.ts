@@ -3,12 +3,43 @@ export type UserRole = 'CUSTOMER' | 'STAFF' | 'SALON_OWNER' | 'SUPER_ADMIN';
 export interface Profile {
   id: string;
   email: string;
-  full_name?: string;
+  first_name?: string;
+  last_name?: string;
   avatar_url?: string;
   role: UserRole;
   phone?: string;
+  birth_date?: string; // YYYY-MM-DD
   created_at?: string;
   updated_at?: string;
+}
+
+export interface Favorite {
+  id: string;
+  user_id: string;
+  salon_id: string;
+  created_at: string;
+  salon?: SalonDetail; // Joined salon data
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
+  is_read: boolean;
+  action_url?: string;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  subject: string;
+  message: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  created_at: string;
+  updated_at: string;
 }
 
 // ==============================================
@@ -155,6 +186,7 @@ export interface WorkingHours {
 
 export interface Appointment {
   id: string;
+  customer_id: string;
   customer_name: string;
   customer_phone: string;
   salon_id: string;

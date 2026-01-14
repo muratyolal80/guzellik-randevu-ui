@@ -28,7 +28,10 @@ export default function BookingUserInfoPage() {
     setCustomerNotes,
   } = useBooking();
 
-  const { refreshUser } = useAuth();
+  const {
+    refreshUser,
+    user
+  } = useAuth();
 
   // Step 1: Phone Input
   // Step 2: OTP Input
@@ -60,6 +63,26 @@ export default function BookingUserInfoPage() {
       router.push(`/booking/${id}/time`);
     }
   }, [salon, selectedService, selectedStaff, selectedDate, selectedTime, id, router]);
+
+  // Auto-fill user data and skip OTP if logged in
+  useEffect(() => {
+    if (user) {
+      if (user.phone) {
+        setPhone(user.phone);
+        // If user has phone, skip to step 3
+        setStep(3);
+        setIsNewUser(false);
+      }
+
+      if (user.first_name || user.last_name) {
+        setFullName(`${user.first_name || ''} ${user.last_name || ''}`.trim());
+      }
+
+      if (user.email) {
+        setEmail(user.email);
+      }
+    }
+  }, [user]);
 
   const handleSendOTP = async () => {
     setError('');
@@ -122,16 +145,18 @@ export default function BookingUserInfoPage() {
       if (response.ok && data.success) {
         // Refresh auth context to pick up the new session
         await refreshUser();
-        
+
         // Check if user exists or is new
         if (data.profile) {
-            setFullName(data.profile.full_name || '');
-            setEmail(data.profile.email || '');
-            setIsNewUser(false);
+          const firstName = data.profile.first_name || '';
+          const lastName = data.profile.last_name || '';
+          setFullName(`${firstName} ${lastName}`.trim());
+          setEmail(data.profile.email || '');
+          setIsNewUser(false);
         } else {
-            setIsNewUser(true);
+          setIsNewUser(true);
         }
-        
+
         setStep(3);
       } else {
         setError(data.error || 'Doğrulama başarısız');
@@ -148,8 +173,8 @@ export default function BookingUserInfoPage() {
     setError('');
 
     if (isNewUser && !fullName.trim()) {
-        setError('Lütfen adınızı ve soyadınızı girin');
-        return;
+      setError('Lütfen adınızı ve soyadınızı girin');
+      return;
     }
 
     setLoading(true);
@@ -210,245 +235,258 @@ export default function BookingUserInfoPage() {
   const totalDuration = `${selectedService.duration_min} dakika`;
 
   return (
-      <Layout>
-        <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
-          <div className="w-full max-w-[1280px] flex flex-col gap-8">
-            {/* Breadcrumb */}
-            <div className="flex flex-wrap items-center gap-2 px-4">
-              <Link href="/" className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Salon Seçimi</Link>
-              <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
-              <Link href={`/booking/${id}/staff`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Hizmet Seçimi</Link>
-              <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
-              <Link href={`/booking/${id}/time`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Tarih/Saat</Link>
-              <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
-              <span className="text-primary text-sm font-bold border-b border-primary pb-0.5">Bilgileriniz (Adım 4)</span>
+    <Layout>
+      <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
+        <div className="w-full max-w-[1280px] flex flex-col gap-8">
+          {/* Breadcrumb */}
+          <div className="flex flex-wrap items-center gap-2 px-4">
+            <Link href="/" className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Salon Seçimi</Link>
+            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <Link href={`/booking/${id}/staff`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Hizmet Seçimi</Link>
+            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <Link href={`/booking/${id}/time`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Tarih/Saat</Link>
+            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <span className="text-primary text-sm font-bold border-b border-primary pb-0.5">Bilgileriniz (Adım 4)</span>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
+            {/* Left Sidebar - Booking Summary */}
+            <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-24 order-2 lg:order-1">
+              <BookingSummary
+                salon={salon}
+                services={[selectedService]}
+                staff={selectedStaff}
+                totalPrice={totalPrice}
+                totalDuration={totalDuration}
+                step={3}
+              />
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
-              {/* Left Sidebar - Booking Summary */}
-              <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-24 order-2 lg:order-1">
-                <BookingSummary
-                    salon={salon}
-                    services={[selectedService]}
-                    staff={selectedStaff}
-                    totalPrice={totalPrice}
-                    totalDuration={totalDuration}
-                    step={3}
-                />
-              </div>
-
-              {/* Main Content */}
-              <main className="flex-1 w-full min-w-0 order-1 lg:order-2">
-                <div className="bg-white rounded-xl border border-border p-6 lg:p-8 shadow-card">
-                  <div className="flex flex-col gap-2 mb-6">
-                    <h1 className="text-text-main text-3xl font-bold leading-tight">
-                        {step === 1 ? 'Telefon Numaranızı Girin' : 
-                         step === 2 ? 'Doğrulama Kodu' : 
-                         'Bilgilerinizi Tamamlayın'}
-                    </h1>
-                    <p className="text-text-secondary text-base">
-                        {step === 1 ? 'Randevu onayı için telefonunuza SMS göndereceğiz.' :
-                         step === 2 ? `${phone} numarasına gönderilen kodu girin.` :
-                         'Randevunuzu oluşturmak için son adım.'}
-                    </p>
-                  </div>
-
-                  {error && (
-                      <div className={`mb-6 p-4 rounded-lg border ${demoMode ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-lg">{demoMode ? 'info' : 'error'}</span>
-                          <span className="text-sm font-medium">{error}</span>
-                        </div>
-                      </div>
-                  )}
-
-                  {/* Step 1: Phone Input */}
-                  {step === 1 && (
-                      <div className="space-y-6">
-                        <div>
-                          <label className="block text-text-main text-sm font-bold mb-2">
-                            Telefon Numarası *
-                          </label>
-                          <input
-                              type="tel"
-                              value={phone}
-                              onChange={(e) => setPhone(e.target.value)}
-                              placeholder="0xxx xxx xx xx"
-                              maxLength={11}
-                              className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <button
-                            onClick={handleSendOTP}
-                            disabled={loading}
-                            className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          {loading ? (
-                              <>
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                SMS Gönderiliyor...
-                              </>
-                          ) : (
-                              <>
-                                <span className="material-symbols-outlined">sms</span>
-                                Doğrulama Kodu Gönder
-                              </>
-                          )}
-                        </button>
-                      </div>
-                  )}
-
-                  {/* Step 2: OTP Input */}
-                  {step === 2 && (
-                      <div className="space-y-6">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-green-800 mb-2">
-                            <span className="material-symbols-outlined">check_circle</span>
-                            <span className="font-bold">SMS Gönderildi!</span>
-                          </div>
-                          {countdown > 0 && (
-                              <p className="text-xs text-green-600 mt-2">
-                                Kod {formatTime(countdown)} içinde geçersiz olacak
-                              </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-text-main text-sm font-bold mb-2">
-                            Doğrulama Kodu *
-                          </label>
-                          <input
-                              type="text"
-                              value={otp}
-                              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                              placeholder="6 haneli kod"
-                              maxLength={6}
-                              className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest font-bold"
-                          />
-                        </div>
-
-                        <button
-                            onClick={handleVerifyOTP}
-                            disabled={loading || otp.length !== 6}
-                            className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          {loading ? (
-                              <>
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                Doğrulanıyor...
-                              </>
-                          ) : (
-                              <>
-                                <span className="material-symbols-outlined">check_circle</span>
-                                Doğrula ve Devam Et
-                              </>
-                          )}
-                        </button>
-
-                        <button
-                            onClick={() => {
-                              setStep(1);
-                              setOtp('');
-                              setCountdown(0);
-                              setError('');
-                            }}
-                            className="w-full py-2 text-text-secondary text-sm hover:text-primary transition-colors"
-                        >
-                          Numarayı Değiştir / Tekrar Gönder
-                        </button>
-                      </div>
-                  )}
-
-                  {/* Step 3: Details Form */}
-                  {step === 3 && (
-                      <div className="space-y-6">
-                        {!isNewUser && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                <div className="flex items-start gap-2">
-                                    <span className="material-symbols-outlined text-blue-600 mt-0.5">info</span>
-                                    <div className="text-sm text-blue-800">
-                                        <p className="font-bold">Hoşgeldiniz, {fullName}!</p>
-                                        <p>Bilgileriniz otomatik olarak dolduruldu. İsim ve e-posta değişikliğini profil sayfasından yapabilirsiniz.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div>
-                          <label className="block text-text-main text-sm font-bold mb-2">
-                            Ad Soyad {isNewUser && '*'}
-                          </label>
-                          <input
-                              type="text"
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              disabled={!isNewUser}
-                              placeholder="Örn: Ahmet Yılmaz"
-                              className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-text-main text-sm font-bold mb-2">
-                            E-posta (Opsiyonel)
-                          </label>
-                          <input
-                              type="email"
-                              value={email}
-                              onChange={(e) => setEmail(e.target.value)}
-                              disabled={!isNewUser}
-                              placeholder="ornek@email.com"
-                              className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-text-main text-sm font-bold mb-2">
-                            Notlar (Opsiyonel)
-                          </label>
-                          <textarea
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              placeholder="Özel bir isteğiniz varsa buraya yazabilirsiniz..."
-                              rows={3}
-                              className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                          />
-                        </div>
-
-                        <button
-                            onClick={handleCreateBooking}
-                            disabled={loading}
-                            className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          {loading ? (
-                              <>
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                Randevu Oluşturuluyor...
-                              </>
-                          ) : (
-                              <>
-                                <span className="material-symbols-outlined">event_available</span>
-                                Randevuyu Onayla
-                              </>
-                          )}
-                        </button>
-                      </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-6 border-t border-border mt-6">
-                    <Link
-                        href={`/booking/${id}/time`}
-                        className="flex items-center gap-2 px-6 py-3 rounded-lg text-text-secondary font-medium hover:bg-gray-100 transition-colors"
-                    >
-                      <span className="material-symbols-outlined">arrow_back</span> Geri Dön
-                    </Link>
-                  </div>
+            {/* Main Content */}
+            <main className="flex-1 w-full min-w-0 order-1 lg:order-2">
+              <div className="bg-white rounded-xl border border-border p-6 lg:p-8 shadow-card">
+                <div className="flex flex-col gap-2 mb-6">
+                  <h1 className="text-text-main text-3xl font-bold leading-tight">
+                    {step === 1 ? 'Telefon Numaranızı Girin' :
+                      step === 2 ? 'Doğrulama Kodu' :
+                        'Bilgilerinizi Tamamlayın'}
+                  </h1>
+                  <p className="text-text-secondary text-base">
+                    {step === 1 ? 'Randevu onayı için telefonunuza SMS göndereceğiz.' :
+                      step === 2 ? `${phone} numarasına gönderilen kodu girin.` :
+                        'Randevunuzu oluşturmak için son adım.'}
+                  </p>
                 </div>
-              </main>
-            </div>
+
+                {error && (
+                  <div className={`mb-6 p-4 rounded-lg border ${demoMode ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg">{demoMode ? 'info' : 'error'}</span>
+                      <span className="text-sm font-medium">{error}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 1: Phone Input */}
+                {step === 1 && (
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        Telefon Numarası *
+                      </label>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="0xxx xxx xx xx"
+                        maxLength={11}
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleSendOTP}
+                      disabled={loading}
+                      className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          SMS Gönderiliyor...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined">sms</span>
+                          Doğrulama Kodu Gönder
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 2: OTP Input */}
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-green-800 mb-2">
+                        <span className="material-symbols-outlined">check_circle</span>
+                        <span className="font-bold">SMS Gönderildi!</span>
+                      </div>
+                      {countdown > 0 && (
+                        <p className="text-xs text-green-600 mt-2">
+                          Kod {formatTime(countdown)} içinde geçersiz olacak
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        Doğrulama Kodu *
+                      </label>
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="6 haneli kod"
+                        maxLength={6}
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-center text-2xl tracking-widest font-bold"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleVerifyOTP}
+                      disabled={loading || otp.length !== 6}
+                      className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Doğrulanıyor...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined">check_circle</span>
+                          Doğrula ve Devam Et
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setStep(1);
+                        setOtp('');
+                        setCountdown(0);
+                        setError('');
+                      }}
+                      className="w-full py-2 text-text-secondary text-sm hover:text-primary transition-colors"
+                    >
+                      Numarayı Değiştir / Tekrar Gönder
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 3: Details Form */}
+                {step === 3 && (
+                  <div className="space-y-6">
+                    {!isNewUser && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-2">
+                          <span className="material-symbols-outlined text-blue-600 mt-0.5">info</span>
+                          <div className="text-sm text-blue-800">
+                            <p className="font-bold">Hoşgeldiniz, {fullName}!</p>
+                            <p>Bilgileriniz otomatik olarak dolduruldu. {user?.phone && `(${user.phone})`}</p>
+                            <p>İsim ve e-posta değişikliğini profil sayfasından yapabilirsiniz.</p>
+                          </div>
+                          {user?.phone && (
+                            <button
+                              onClick={() => {
+                                setStep(1);
+                                setOtp('');
+                                setIsNewUser(true); // Treat as new/guest for the purpose of editing phone
+                              }}
+                              className="ml-auto text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded transition-colors"
+                            >
+                              Farklı Numara?
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        Ad Soyad {isNewUser && '*'}
+                      </label>
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={!isNewUser}
+                        placeholder="Örn: Ahmet Yılmaz"
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        E-posta (Opsiyonel)
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={!isNewUser}
+                        placeholder="ornek@email.com"
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        Notlar (Opsiyonel)
+                      </label>
+                      <textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Özel bir isteğiniz varsa buraya yazabilirsiniz..."
+                        rows={3}
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleCreateBooking}
+                      disabled={loading}
+                      className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Randevu Oluşturuluyor...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined">event_available</span>
+                          Randevuyu Onayla
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-6 border-t border-border mt-6">
+                  <Link
+                    href={`/booking/${id}/time`}
+                    className="flex items-center gap-2 px-6 py-3 rounded-lg text-text-secondary font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span> Geri Dön
+                  </Link>
+                </div>
+              </div>
+            </main>
           </div>
         </div>
-      </Layout>
+      </div>
+    </Layout>
   );
 }
