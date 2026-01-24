@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { customerName, email, notes, salonId, staffId, serviceId, startTime } = body;
+    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime } = body;
 
     if (!customerName || !salonId || !staffId || !serviceId || !startTime) {
       return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
@@ -71,29 +71,110 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Geçmiş bir zamana randevu alınamaz.' }, { status: 400 });
     }
 
-    // 4. Create Appointment
-    const { data: appointment, error: appointmentError } = await supabaseAdmin
-      .from('appointments')
-      .insert({
-        customer_id: user.id,
-        customer_name: customerName,
-        customer_phone: user.phone?.replace('+90', '') || '', // Clean phone for display
-        salon_id: salonId,
-        staff_id: staffId,
-        salon_service_id: serviceId,
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        status: 'PENDING',
-        notes: notes || '',
-      })
-      .select()
-      .single();
+    // 4. Create or Update Appointment
+    let appointment;
+    let appointmentError;
+
+    if (appointmentId) {
+      // UPDATE EXISTING logic
+      // First verify ownership and get existing details
+      const { data: existingAppt } = await supabaseAdmin
+        .from('appointments')
+        .select('customer_id, staff_id')
+        .eq('id', appointmentId)
+        .single();
+
+      if (!existingAppt || existingAppt.customer_id !== user.id) {
+        return NextResponse.json({ error: 'Bu randevuyu düzenleme yetkiniz yok.' }, { status: 403 });
+      }
+
+      // CHECK: Is Staff Changing?
+      if (existingAppt.staff_id !== staffId) {
+        // CASE: Staff Changed -> CANCEL old, CREATE new
+        console.log(`Staff changed from ${existingAppt.staff_id} to ${staffId}. Cancelling old appointment ${appointmentId}.`);
+
+        // 1. Cancel old appointment
+        const { error: cancelError } = await supabaseAdmin
+          .from('appointments')
+          .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+          .eq('id', appointmentId);
+
+        if (cancelError) {
+          console.error('Failed to cancel old appointment during reschedule:', cancelError);
+          return NextResponse.json({ error: 'Eski randevu iptal edilirken hata oluştu.' }, { status: 500 });
+        }
+
+        // 2. Proceed to create NEW (drop to else block or explicitly create here)
+        // Explicitly create new here to avoid confusion
+        const { data: newData, error: createError } = await supabaseAdmin
+          .from('appointments')
+          .insert({
+            customer_id: user.id,
+            customer_name: customerName,
+            customer_phone: user.phone?.replace('+90', '') || '',
+            salon_id: salonId,
+            staff_id: staffId,
+            salon_service_id: serviceId,
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            status: 'PENDING',
+            notes: notes || '',
+          })
+          .select()
+          .single();
+
+        appointment = newData;
+        appointmentError = createError;
+
+      } else {
+        // CASE: Same Staff -> UPDATE existing
+        const { data: updatedData, error: updateError } = await supabaseAdmin
+          .from('appointments')
+          .update({
+            // staff_id: staffId, // Same staff, no need to change (or can update safely)
+            salon_service_id: serviceId,
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            status: 'PENDING', // Reset status to pending approval
+            notes: notes || '',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', appointmentId)
+          .select()
+          .single();
+
+        appointment = updatedData;
+        appointmentError = updateError;
+      }
+
+    } else {
+      // CREATE NEW
+      const { data: newData, error: createError } = await supabaseAdmin
+        .from('appointments')
+        .insert({
+          customer_id: user.id,
+          customer_name: customerName,
+          customer_phone: user.phone?.replace('+90', '') || '', // Clean phone for display
+          salon_id: salonId,
+          staff_id: staffId,
+          salon_service_id: serviceId,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          status: 'PENDING',
+          notes: notes || '',
+        })
+        .select()
+        .single();
+
+      appointment = newData;
+      appointmentError = createError;
+    }
 
     if (appointmentError) {
       if (appointmentError.code === '23P01') {
         return NextResponse.json({ error: 'Bu saat dilimi dolu.' }, { status: 409 });
       }
-      return NextResponse.json({ error: 'Randevu oluşturulamadı' }, { status: 500 });
+      return NextResponse.json({ error: 'Randevu işleminiz gerçekleştirilemedi.' }, { status: 500 });
     }
 
     // 5. Send SMS

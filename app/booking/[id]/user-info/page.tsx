@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { useBooking } from '@/context/BookingContext';
@@ -11,8 +11,10 @@ import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
 
 export default function BookingUserInfoPage() {
   const params = useParams();
+  const searchParams = useSearchParams(); // Add useSearchParams
   const router = useRouter();
   const id = params.id as string;
+  const qAppointmentId = searchParams.get('appointmentId'); // Get from URL
 
   const {
     salon,
@@ -26,7 +28,16 @@ export default function BookingUserInfoPage() {
     setCustomerPhone,
     customerNotes,
     setCustomerNotes,
+    appointmentId,
+    setAppointmentId
   } = useBooking();
+
+  // If appointmentId is in URL but not context, set it (recover state on refresh)
+  useEffect(() => {
+    if (qAppointmentId && !appointmentId) {
+      setAppointmentId(qAppointmentId);
+    }
+  }, [qAppointmentId, appointmentId, setAppointmentId]);
 
   const {
     refreshUser,
@@ -48,6 +59,7 @@ export default function BookingUserInfoPage() {
   const [demoMode, setDemoMode] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(true);
 
   // Countdown timer for OTP expiry
   useEffect(() => {
@@ -137,6 +149,7 @@ export default function BookingUserInfoPage() {
         body: JSON.stringify({
           phone: phone.replace(/\D/g, ''),
           otp,
+          consent: consentGiven
         }),
       });
 
@@ -185,6 +198,7 @@ export default function BookingUserInfoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          appointmentId: appointmentId || undefined, // Send appointmentId if updating
           customerName: fullName,
           email: email.trim() || undefined,
           notes,
@@ -353,9 +367,24 @@ export default function BookingUserInfoPage() {
                       />
                     </div>
 
+                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="consent"
+                          type="checkbox"
+                          checked={consentGiven}
+                          onChange={(e) => setConsentGiven(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </div>
+                      <label htmlFor="consent" className="text-sm text-text-secondary select-none">
+                        <span className="font-semibold text-text-main">Aydınlatma Metni</span> ve <span className="font-semibold text-text-main">Ticari Elektronik İleti</span> iznini okudum, onaylıyorum.
+                      </label>
+                    </div>
+
                     <button
                       onClick={handleVerifyOTP}
-                      disabled={loading || otp.length !== 6}
+                      disabled={loading || otp.length !== 6 || !consentGiven}
                       className="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loading ? (
@@ -462,12 +491,12 @@ export default function BookingUserInfoPage() {
                       {loading ? (
                         <>
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Randevu Oluşturuluyor...
+                          {appointmentId ? 'Randevu Güncelleniyor...' : 'Randevu Oluşturuluyor...'}
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined">event_available</span>
-                          Randevuyu Onayla
+                          <span className="material-symbols-outlined">{appointmentId ? 'edit_calendar' : 'event_available'}</span>
+                          {appointmentId ? 'Randevuyu Güncelle' : 'Randevuyu Onayla'}
                         </>
                       )}
                     </button>

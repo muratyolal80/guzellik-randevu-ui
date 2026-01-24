@@ -529,6 +529,21 @@ export const AppointmentService = {
   async cancelAppointment(id: string): Promise<Appointment> {
     return this.updateAppointmentStatus(id, 'CANCELLED');
   },
+
+  /**
+   * Update full appointment details
+   */
+  async updateAppointment(id: string, updates: Partial<Appointment>): Promise<Appointment> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
 
 // ==============================================
