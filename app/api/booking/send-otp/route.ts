@@ -80,13 +80,8 @@ export async function POST(request: NextRequest) {
 
     const code = generateOTP();
 
-    const saved = await saveOTP(cleanedPhone, code);
-    if (!saved) {
-      return NextResponse.json(
-        { error: 'OTP kaydedilemedi' },
-        { status: 500 }
-      );
-    }
+    // saveOTP now throws error if it fails
+    await saveOTP(cleanedPhone, code);
 
     const smsSent = await sendOTPSMS(cleanedPhone, code);
 
@@ -107,7 +102,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Unexpected error in send-otp:', err);
     return NextResponse.json(
-      { error: 'Sunucu hatasi' },
+      { error: `Hata: ${(err as Error).message}` },
       { status: 500 }
     );
   }

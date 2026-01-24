@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   );
 
   try {
-    const { phone, otp } = await request.json();
+    const { phone, otp, consent } = await request.json();
 
     if (!phone || !otp) {
       return NextResponse.json({ error: 'Telefon ve kod gerekli.' }, { status: 400 });
@@ -53,14 +53,14 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       userId = existingUser.id;
-      
+
       // Fetch Profile
       const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
-        
+
       profile = existingProfile;
     } else {
       isNewUser = true;
@@ -70,17 +70,17 @@ export async function POST(request: NextRequest) {
       // we need a temporary email to satisfy Supabase Auth if email is required, 
       // OR we rely on Phone Auth only. 
       // Assuming Phone Auth is enabled in Supabase.
-      
+
       // However, the prompt said "Fallback temp mail is no longer needed".
       // This implies we should use the REAL email provided in the next step.
       // BUT we need to log them in NOW.
       // So we must create the user account now to establish the session.
-      
+
       // Strategy: Create user with phone only (if supported) or a placeholder that we update later.
       // Let's use a placeholder that clearly indicates it needs update: `pending_${phone}@guzellik.app`
-      
+
       const tempEmail = `${cleanedPhone}@pending.user`;
-      
+
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         phone: e164Phone,
         email: tempEmail,
@@ -100,21 +100,30 @@ export async function POST(request: NextRequest) {
     // This is robust and works without user interaction
     const tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
     await supabaseAdmin.auth.admin.updateUserById(userId, { password: tempPassword });
-    
+
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       phone: e164Phone,
       password: tempPassword
     });
 
     if (signInError) {
-        // Fallback: Try email login if phone login fails (though phone should work if enabled)
-        // Or maybe phone login isn't enabled in project settings?
-        // Let's try email as backup if we have one
-        const userEmail = existingUser?.email || `${cleanedPhone}@pending.user`;
-        await supabase.auth.signInWithPassword({
-            email: userEmail,
-            password: tempPassword
-        });
+      // Fallback: Try email login if phone login fails (though phone should work if enabled)
+      // Or maybe phone login isn't enabled in project settings?
+      // Let's try email as backup if we have one
+      const userEmail = existingUser?.email || `${cleanedPhone}@pending.user`;
+      await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: tempPassword
+      });
+    }
+
+    // 3.5. Log IYS Consent (If consent given)
+    if (consent) {
+      // Here we would insert into IYSLog or update user preferences
+      console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
+
+      // TODO: Insert into iys_logs table if exists 
+      // await supabaseAdmin.from('iys_logs').insert({...})
     }
 
     // 4. Return Response

@@ -23,6 +23,7 @@ export default function TimeSelection() {
     selectedStaff: bookingStaff,
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
+    appointmentId
   } = useBooking();
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
@@ -238,15 +239,17 @@ export default function TimeSelection() {
     });
 
     // Check for past time
-    // If selectedDate is today, disable slots earlier than current time
+    // If selectedDate is today, disable slots earlier than current time + buffer
     const now = new Date();
-    const isToday = selectedDate.getDate() === now.getDate() &&
-      selectedDate.getMonth() === now.getMonth() &&
-      selectedDate.getFullYear() === now.getFullYear();
+    const isToday = selectedDate.toDateString() === now.toDateString();
 
     if (isToday) {
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      // Add 30 minutes buffer
+      const bufferMinutes = 30;
+      const bufferedNow = new Date(now.getTime() + bufferMinutes * 60000);
+
+      const currentHour = bufferedNow.getHours();
+      const currentMinute = bufferedNow.getMinutes();
       const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
 
       if (slotTime < currentTimeStr) {
@@ -255,6 +258,30 @@ export default function TimeSelection() {
     }
 
     return isBusy;
+  };
+
+  // Safe navigation function
+  const handleContinue = () => {
+    if (!selectedSlot) return;
+
+    // 1. Update Context
+    const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    setBookingDate(dateStr);
+    setBookingTime(selectedSlot);
+
+    // 2. Navigate immediately (Context update will be picked up by next page)
+    // We pass params in URL for redundancy and safety if context is slow
+    const params = new URLSearchParams();
+    if (staff?.id) params.set('staffId', staff.id);
+    params.set('date', dateStr);
+    params.set('time', selectedSlot);
+
+    // Pass appointmentId if it exists in context
+    if (appointmentId) {
+      params.set('appointmentId', appointmentId);
+    }
+
+    router.push(`/booking/${id}/user-info?${params.toString()}`);
   };
 
   const allSlots = generateTimeSlots();
@@ -381,9 +408,9 @@ export default function TimeSelection() {
                         {morningSlots.map((time) => {
                           const disabled = isSlotBusy(time);
                           return (
-                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-text-muted cursor-not-allowed' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
+                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-gray-400 cursor-not-allowed opacity-60' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
                               {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
-                              <span className={`text-sm font-bold ${disabled ? 'line-through decoration-gray-400 font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
+                              <span className={`text-sm font-bold ${disabled ? 'font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
                             </button>
                           )
                         })}
@@ -405,9 +432,9 @@ export default function TimeSelection() {
                         {afternoonSlots.map((time) => {
                           const disabled = isSlotBusy(time);
                           return (
-                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-text-muted cursor-not-allowed' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
+                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-gray-400 cursor-not-allowed opacity-60' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
                               {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
-                              <span className={`text-sm font-bold ${disabled ? 'line-through decoration-gray-400 font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
+                              <span className={`text-sm font-bold ${disabled ? 'font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
                             </button>
                           )
                         })}

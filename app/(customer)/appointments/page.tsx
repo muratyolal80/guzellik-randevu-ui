@@ -22,9 +22,9 @@ export default function AppointmentsPage() {
                     .from('appointments')
                     .select(`
                         *,
-                        salon:salons(name, address, id, image),
-                        service:salon_services(price, duration_min, global_service:global_services(name)),
-                        staff:staff(name)
+                        salon:salons(id, name, address, image),
+                        service:salon_services(id, price, duration_min, global_service:global_services(name)),
+                        staff:staff(id, name)
                     `)
                     .eq('customer_id', user.id) // Filter by logged-in user ID
                     .order('start_time', { ascending: activeTab === 'upcoming' });
@@ -52,6 +52,34 @@ export default function AppointmentsPage() {
 
         fetchAppointments();
     }, [user, activeTab]);
+
+    const handleCancelAppointment = async (appointmentId: string) => {
+        if (!confirm('Randevuyu iptal etmek istediğinize emin misiniz?')) return;
+
+        try {
+            const response = await fetch('/api/booking/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointmentId })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'İptal işlemi başarısız');
+            }
+
+            // Remove from list locally for immediate feedback
+            setAppointments(prev => prev.filter(a => a.id !== appointmentId));
+
+            // Optional: Show success message via toast if available
+            // alert('Randevunuz iptal edildi.'); 
+
+        } catch (error: any) {
+            console.error('Error cancelling appointment:', error);
+            alert(error.message || 'Randevu iptal edilirken bir hata oluştu.');
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -91,14 +119,18 @@ export default function AppointmentsPage() {
                     appointments.map((apt) => (
                         <AppointmentCard
                             key={apt.id}
+                            salonId={apt.salon?.id}
                             salonName={apt.salon?.name || 'Salon'}
                             salonAddress={apt.salon?.address || ''}
                             date={new Date(apt.start_time).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                             time={new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                            serviceId={apt.service?.id}
                             serviceName={apt.service?.global_service?.name || 'Hizmet'}
+                            staffId={apt.staff?.id}
                             staffName={apt.staff?.name || 'Personel'}
                             price={apt.service?.price || 0}
                             status={apt.status}
+                            onCancel={() => handleCancelAppointment(apt.id)}
                         />
                     ))
                 ) : (

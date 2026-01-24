@@ -38,6 +38,11 @@ export default function DashboardPage() {
                     return;
                 }
 
+                // Calculate start and end of current month
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
                 // Fetch Stats & Next Appointment in Parallel
 
                 const upcomingQuery = supabase
@@ -51,6 +56,19 @@ export default function DashboardPage() {
                     .from('reviews')
                     .select('*', { count: 'exact', head: true })
                     .eq('user_id', user.id);
+
+                // Spending Query: Appointments in this month that are CONFIRMED or COMPLETED
+                const spendingQuery = supabase
+                    .from('appointments')
+                    .select(`
+                        salon_service:salon_services (
+                            price
+                        )
+                    `)
+                    .in('status', ['CONFIRMED', 'COMPLETED'])
+                    .gte('start_time', startOfMonth)
+                    .lte('start_time', endOfMonth)
+                    .eq('customer_id', user.id);
 
                 const nextAppointmentQuery = supabase
                     .from('appointments')
@@ -78,18 +96,25 @@ export default function DashboardPage() {
                 const [
                     { count: upcomingCount },
                     { count: reviewCount },
+                    { data: spendingData },
                     { data: appointments }
                 ] = await Promise.all([
                     upcomingQuery,
                     reviewQuery,
+                    spendingQuery,
                     nextAppointmentQuery
                 ]);
 
                 console.timeEnd('Dashboard Data Fetch');
 
+                // Calculate total spent
+                const totalSpent = spendingData?.reduce((sum, item: any) => {
+                    return sum + (item.salon_service?.price || 0);
+                }, 0) || 0;
+
                 setStats({
                     upcomingCount: upcomingCount || 0,
-                    totalSpent: 450, // Placeholder
+                    totalSpent: totalSpent,
                     reviewCount: reviewCount || 0
                 });
 

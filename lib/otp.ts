@@ -15,6 +15,14 @@ export async function saveOTP(phone: string, code: string): Promise<boolean> {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRY_MINUTES);
 
+    // Invalidate any existing unused OTPs for this phone
+    // This prevents "unique_active_otp" constraint violation if there's an expired but unused code
+    await supabaseAdmin
+      .from('otp_codes')
+      .update({ used: true })
+      .eq('phone', phone)
+      .eq('used', false);
+
     const { error } = await supabaseAdmin
       .from('otp_codes')
       .insert({
@@ -26,13 +34,13 @@ export async function saveOTP(phone: string, code: string): Promise<boolean> {
 
     if (error) {
       console.error('Error saving OTP:', error);
-      return false;
+      throw new Error(`DB Error: ${error.message}`);
     }
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Exception saving OTP:', err);
-    return false;
+    throw new Error(`Exception: ${err.message}`);
   }
 }
 

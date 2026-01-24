@@ -3,29 +3,39 @@ import { Calendar, Clock, MapPin, Navigation, Info, XCircle, RotateCw } from 'lu
 import { Appointment, SalonDetail } from '@/types';
 
 // Using a simplified props interface for UI mock, but compatible with core types
+// Using a simplified props interface for UI mock, but compatible with core types
 interface AppointmentCardProps {
     id?: string;
+    salonId?: string;
     salonName: string;
     salonImage?: string;
     salonAddress?: string;
     date: string;
     time: string;
+    serviceId?: string;
     serviceName: string;
+    staffId?: string;
     staffName?: string;
     price?: number;
     status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+    onCancel?: () => void;
 }
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
+    id,
+    salonId,
     salonName,
     salonImage,
     salonAddress,
     date,
     time,
+    serviceId,
     serviceName,
+    staffId,
     staffName,
     price,
-    status
+    status,
+    onCancel
 }) => {
 
     const statusConfig = {
@@ -36,6 +46,11 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
     };
 
     const currentStatus = statusConfig[status];
+
+    // Determine reschedule URL
+    const rescheduleUrl = salonId && serviceId
+        ? `/booking/${salonId}/staff?serviceId=${serviceId}${staffId ? `&staffId=${staffId}` : ''}${id ? `&appointmentId=${id}` : ''}`
+        : null;
 
     return (
         <div className={`bg-white rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md ${status === 'CANCELLED' ? 'opacity-75' : ''}`}>
@@ -97,15 +112,26 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
             <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 {status !== 'CANCELLED' && status !== 'COMPLETED' && (
                     <>
-                        <button className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center">
+                        <button
+                            onClick={onCancel}
+                            className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center"
+                        >
                             <XCircle className="w-4 h-4 mr-1.5" /> İptal Et
                         </button>
-                        <button className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-colors flex items-center shadow-amber-200">
-                            <RotateCw className="w-4 h-4 mr-1.5" /> Yeniden Planla
-                        </button>
+                        {rescheduleUrl && (
+                            <a href={rescheduleUrl} className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-colors flex items-center shadow-amber-200">
+                                <RotateCw className="w-4 h-4 mr-1.5" /> Yeniden Planla
+                            </a>
+                        )}
                     </>
                 )}
-                {(status === 'CANCELLED' || status === 'COMPLETED') && (
+                {(status === 'CANCELLED' || status === 'COMPLETED') && rescheduleUrl && (
+                    <a href={rescheduleUrl} className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center">
+                        <RotateCw className="w-4 h-4 mr-1.5" /> Tekrar Randevu Al
+                    </a>
+                )}
+                {/* Fallback for when no URL is available (legacy check) */}
+                {(!rescheduleUrl && (status === 'CANCELLED' || status === 'COMPLETED')) && (
                     <button className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
                         Tekrar Randevu Al
                     </button>

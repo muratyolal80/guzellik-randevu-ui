@@ -30,6 +30,10 @@ interface BookingContextType {
   customerNotes: string;
   setCustomerNotes: (notes: string) => void;
 
+  // Rescheduling info
+  appointmentId: string | null;
+  setAppointmentId: (id: string | null) => void;
+
   // Reset booking
   resetBooking: () => void;
 }
@@ -45,6 +49,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
+  const [appointmentId, setAppointmentId] = useState<string | null>(null);
 
   const resetBooking = () => {
     setSalon(null);
@@ -55,6 +60,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerNotes('');
+    setAppointmentId(null);
   };
 
   return (
@@ -76,6 +82,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         setCustomerPhone,
         customerNotes,
         setCustomerNotes,
+        appointmentId,
+        setAppointmentId,
         resetBooking,
       }}
     >
