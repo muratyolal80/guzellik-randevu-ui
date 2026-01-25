@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Camera, Save, Lock, Mail, Phone, Calendar, User as UserIcon, Loader2 } from 'lucide-react';
+import { Save, Lock, Mail, Phone, Calendar, User as UserIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import ImageUpload from '@/components/ImageUpload';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -95,6 +96,7 @@ export default function ProfilePage() {
                 last_name: formData.last_name,
                 phone: formData.phone,
                 birth_date: formData.birth_date || null,
+                avatar_url: avatarUrl, // Include avatar in updates
                 updated_at: new Date().toISOString(),
             };
 
@@ -128,19 +130,14 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Profile Card */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center">
-                    <div className="relative mb-4">
-                        <div className="w-24 h-24 rounded-full bg-gray-100 overflow-hidden ring-4 ring-white shadow-lg">
-                            {avatarUrl ? (
-                                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                    <UserIcon className="w-10 h-10" />
-                                </div>
-                            )}
-                        </div>
-                        <button className="absolute bottom-0 right-0 p-2 bg-amber-500 text-white rounded-full shadow-md hover:bg-amber-600 transition-colors">
-                            <Camera className="w-4 h-4" />
-                        </button>
+                    <div className="w-32 h-32 mb-4">
+                        <ImageUpload
+                            bucket="avatars"
+                            currentImage={avatarUrl}
+                            onUpload={(url) => setAvatarUrl(url)}
+                            label="Profil Fotoğrafı"
+                            className="bg-gray-100"
+                        />
                     </div>
                     <h2 className="font-bold text-lg text-gray-900">{formData.first_name} {formData.last_name}</h2>
                     <p className="text-gray-500 text-sm mb-4">{formData.email}</p>
@@ -238,5 +235,71 @@ export default function ProfilePage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+function PasswordChangeForm() {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+
+    const handlePasswordUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (formData.newPassword !== formData.confirmPassword) {
+            alert('Şifreler eşleşmiyor!');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: formData.newPassword
+            });
+
+            if (error) throw error;
+            alert('Şifreniz başarıyla güncellendi.');
+            setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error: any) {
+            alert(`Hata: ${error.message || error}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handlePasswordUpdate} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre</label>
+                <input
+                    type="password"
+                    required
+                    value={formData.newPassword}
+                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre (Tekrar)</label>
+                <input
+                    type="password"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                />
+            </div>
+            <div className="flex justify-end">
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-black disabled:opacity-70 transition-all"
+                >
+                    {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                </button>
+            </div>
+        </form>
     );
 }

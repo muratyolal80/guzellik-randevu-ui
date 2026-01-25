@@ -74,26 +74,31 @@ function LoginContent() {
         }
 
         try {
+            console.log('[Login] Attempting sign in with:', email);
             // Get profile directly from sign in action to avoid race conditions
             const profile = await signInWithEmail(email, password);
+            console.log('[Login] Sign in result profile:', profile);
 
             // Success is handled by auth state change in context or useAuth
             router.refresh(); // Refresh server components to update auth state
 
             if (profile && profile.role) {
                 const dest = getRoleBasedRedirect(profile.role);
-                console.log('Login success. Redirecting to:', dest, 'Role:', profile.role);
+                console.log('[Login] Login success. Role found:', profile.role);
+                console.log('[Login] Redirecting to:', dest);
                 router.replace(dest); // Use replace to prevent back navigation loop
             } else {
+                console.warn('[Login] Profile or role missing after login. Profile:', profile);
                 // Fallback if no profile returned (shouldn't happen on success)
                 setTimeout(() => {
                     const dest = getRedirectUrl();
-                    console.log('Login success (fallback). Redirecting to:', dest);
+                    console.log('[Login] Fallback redirecting to:', dest);
                     router.push(dest);
                 }, 500);
             }
 
         } catch (err) {
+            console.error('[Login] Error during login:', err);
             const errorMessage = (err as Error).message;
             if (errorMessage.includes('Invalid login credentials')) {
                 setError('E-posta veya şifre hatalı.');

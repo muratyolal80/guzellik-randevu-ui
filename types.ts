@@ -133,6 +133,9 @@ export interface Salon {
   features?: string[]; // Stored as JSONB in DB
   created_at?: string;
   updated_at?: string;
+  owner_id?: string;
+  status?: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  rejected_reason?: string;
 
   // UI/card fields used by MOCK_SALONS and components
   location?: string;
@@ -313,6 +316,22 @@ export interface SalonWorkingHours {
   end_time: string;
   is_closed: boolean;
   created_at: string;
+}
+
+export type InviteStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
+
+export interface Invite {
+  id: string;
+  salon_id: string;
+  email: string;
+  role: UserRole;
+  token: string;
+  status: InviteStatus;
+  inviter_id: string;
+  expires_at: string;
+  created_at: string;
+  accepted_at?: string;
+  salon?: { name: string }; // Optional joined data
 }
 
 export { };

@@ -12,14 +12,7 @@ import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
 
 // Fallback Cache for Coordinates (Populated from DB)
 const CITY_COORDINATES_CACHE: Record<string, { lat: number; lng: number }> = {
-    "İstanbul": { lat: 41.0082, lng: 28.9784 },
-    "Ankara": { lat: 39.9208, lng: 32.8541 },
-    "İzmir": { lat: 38.4237, lng: 27.1428 },
-    "Antalya": { lat: 36.8969, lng: 30.7133 },
-    "Bursa": { lat: 40.1885, lng: 29.0610 },
-    "Adana": { lat: 37.0000, lng: 35.3213 },
-    "Gaziantep": { lat: 37.0662, lng: 37.3833 },
-    "Konya": { lat: 37.8667, lng: 32.4833 }
+    // Coords now loaded dynamically from DB
 };
 
 // Helper: Get coordinates with DB priority

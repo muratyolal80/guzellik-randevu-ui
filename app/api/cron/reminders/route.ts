@@ -65,9 +65,14 @@ export async function GET(request: NextRequest) {
 
                 // Format content
                 const timeStr = new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+                // Supabase join can return array or object depending on relationship type
+                const salondata: any = apt.salon;
+                const salonName = Array.isArray(salondata) ? salondata[0]?.name : salondata?.name;
+
                 const msg = templateText
                     .replace('{{customer_name}}', apt.customer_name || 'Sayın Müşteri')
-                    .replace('{{salon_name}}', apt.salon?.name || 'Güzellik Merkezi')
+                    .replace('{{salon_name}}', salonName || 'Güzellik Merkezi')
                     .replace('{{time}}', timeStr);
 
                 // Queue it

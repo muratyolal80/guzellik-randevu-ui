@@ -16,7 +16,7 @@ interface AuthContextType {
     loading: boolean;
     signInWithEmail: (email: string, password: string) => Promise<Profile | null>;
     signInWithGoogle: () => Promise<void>;
-    signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ user: any; session: any } | undefined>;
+    signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ user: any; session: any } | undefined>;
     signOut: () => Promise<void>;
     refreshUser: () => Promise<void>;
     isAdmin: boolean;
@@ -137,9 +137,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUser({
                         id: session.user.id,
                         email: session.user.email!,
-                        role: ROLES.CUSTOMER,
-                        first_name: session.user.user_metadata?.full_name?.split(' ')[0],
-                        last_name: session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                        role: (session.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                        first_name: session.user.user_metadata?.first_name || session.user.user_metadata?.full_name?.split(' ')[0],
+                        last_name: session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
                         avatar_url: session.user.user_metadata?.avatar_url,
                         phone: session.user.phone
                     });
@@ -188,9 +188,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     } : {
                         id: session.user.id,
                         email: session.user.email!,
-                        role: ROLES.CUSTOMER,
-                        first_name: session.user.user_metadata?.full_name?.split(' ')[0],
-                        last_name: session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                        role: (session.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                        first_name: session.user.user_metadata?.first_name || session.user.user_metadata?.full_name?.split(' ')[0],
+                        last_name: session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
                         avatar_url: session.user.user_metadata?.avatar_url,
                         phone: session.user.phone
                     };
@@ -229,9 +229,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return {
                     id: data.user.id,
                     email: data.user.email!,
-                    role: ROLES.CUSTOMER,
-                    first_name: data.user.user_metadata?.full_name?.split(' ')[0],
-                    last_name: data.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                    role: (data.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                    first_name: data.user.user_metadata?.first_name || data.user.user_metadata?.full_name?.split(' ')[0],
+                    last_name: data.user.user_metadata?.last_name || data.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
                     avatar_url: data.user.user_metadata?.avatar_url,
                     phone: data.user.phone
                 } as Profile;
@@ -243,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
     };
 
-    const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+    const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'CUSTOMER') => {
         const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/';
 
         const { data, error } = await supabase.auth.signUp({
@@ -254,7 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     first_name: firstName,
                     last_name: lastName,
                     full_name: `${firstName} ${lastName}`, // Keep for backward compatibility if needed by generic providers
-                    role: 'CUSTOMER',
+                    role: role,
                 },
                 emailRedirectTo: redirectUrl,
             },
