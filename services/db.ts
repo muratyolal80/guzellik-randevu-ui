@@ -364,32 +364,79 @@ export const SalonDataService = {
   },
 
   /**
-   * Create a new salon
+   * Create a new salon (Intercepted for Approval)
    */
-  async createSalon(salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>): Promise<Salon> {
-    const { data, error } = await supabase
-      .from('salons')
-      .insert(salon)
-      .select()
-      .single();
+  async createSalon(salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>): Promise<any> {
+    console.log('[DEBUG] createSalon started', salon);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] createSalon user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
-    return data;
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] createSalon profile:', profile, 'error:', profileError);
+
+      if (profile?.role === 'SALON_OWNER') {
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          type: 'SALON_CREATE',
+          data: salon
+        }, user.id);
+      }
+
+      const { data, error } = await supabase
+        .from('salons')
+        .insert(salon)
+        .select()
+        .single();
+
+      console.log('[DEBUG] Direct createSalon result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] createSalon ERROR:', err);
+      throw err;
+    }
   },
 
   /**
-   * Update salon
+   * Update salon (Intercepted for Approval)
    */
-  async updateSalon(id: string, updates: Partial<Salon>): Promise<Salon> {
-    const { data, error } = await supabase
-      .from('salons')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+  async updateSalon(id: string, updates: Partial<Salon>): Promise<any> {
+    console.log('[DEBUG] updateSalon started', { id, updates });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] updateSalon user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
-    return data;
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] updateSalon profile:', profile, 'error:', profileError);
+
+      if (profile?.role === 'SALON_OWNER') {
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          salon_id: id,
+          type: 'SALON_UPDATE',
+          data: updates
+        }, user.id);
+      }
+
+      const { data, error } = await supabase
+        .from('salons')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      console.log('[DEBUG] Direct updateSalon result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] updateSalon ERROR:', err);
+      throw err;
+    }
   },
 
   /**
@@ -481,54 +528,83 @@ export const StaffService = {
   },
 
   /**
-   * Create a new staff member with default working hours
+   * Create a new staff member (Intercepted for Approval)
    */
-  async createStaff(staffData: Partial<Staff>): Promise<Staff> {
-    const { data, error } = await supabase
-      .from('staff')
-      .insert({
-        ...staffData,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+  async createStaff(staffData: Partial<Staff>): Promise<any> {
+    console.log('[DEBUG] createStaff started', staffData);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] createStaff user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] createStaff profile:', profile?.role);
 
-    // Create default working hours (Mon-Sat 09-19, Sun Closed)
-    const defaultHours = [1, 2, 3, 4, 5, 6].map(day => ({
-      staff_id: data.id,
-      day_of_week: day,
-      start_time: '09:00:00',
-      end_time: '19:00:00',
-      is_day_off: false
-    }));
+      if (profile?.role === 'SALON_OWNER') {
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          salon_id: staffData.salon_id,
+          type: 'STAFF_ADD',
+          data: staffData
+        }, user.id);
+      }
 
-    defaultHours.push({
-      staff_id: data.id,
-      day_of_week: 0,
-      start_time: '09:00:00',
-      end_time: '19:00:00',
-      is_day_off: true
-    });
+      const { data, error } = await supabase
+        .from('staff')
+        .insert({
+          ...staffData,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    await supabase.from('working_hours').insert(defaultHours);
-    return data;
+      console.log('[DEBUG] Direct createStaff result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] createStaff ERROR:', err);
+      throw err;
+    }
   },
 
   /**
-   * Update existing staff
+   * Update existing staff (Intercepted for Approval)
    */
-  async updateStaff(id: string, updates: Partial<Staff>): Promise<Staff> {
-    const { data, error } = await supabase
-      .from('staff')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
+  async updateStaff(id: string, updates: Partial<Staff>): Promise<any> {
+    console.log('[DEBUG] updateStaff started', { id, updates });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] updateStaff user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
-    return data;
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] updateStaff profile:', profile?.role);
+
+      if (profile?.role === 'SALON_OWNER') {
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          salon_id: updates.salon_id,
+          type: 'STAFF_UPDATE',
+          data: { ...updates, id }
+        }, user.id);
+      }
+
+      const { data, error } = await supabase
+        .from('staff')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+
+      console.log('[DEBUG] Direct updateStaff result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] updateStaff ERROR:', err);
+      throw err;
+    }
   },
 
   /**
@@ -546,9 +622,23 @@ export const StaffService = {
   },
 
   /**
-   * Delete staff member
+   * Delete staff member (Intercepted for Approval)
    */
-  async deleteStaff(id: string): Promise<void> {
+  async deleteStaff(id: string): Promise<any> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+    if (profile?.role === 'SALON_OWNER') {
+      const { data: existing } = await supabase.from('staff').select('salon_id').eq('id', id).single();
+      return ApprovalService.createRequest({
+        salon_id: existing?.salon_id,
+        type: 'STAFF_DELETE',
+        data: { id }
+      });
+    }
+
     const { error } = await supabase
       .from('staff')
       .delete()
@@ -618,39 +708,102 @@ export const ServiceService = {
   },
 
   /**
-   * Add a new service to a salon
+   * Add a new service to a salon (Intercepted for Approval)
    */
   async createService(serviceData: { salon_id: string, global_service_id: string, price: number, duration_min: number }): Promise<any> {
-    const { data, error } = await supabase
-      .from('salon_services')
-      .insert(serviceData)
-      .select()
-      .single();
+    console.log('[DEBUG] createService started', serviceData);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] createService user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
-    return data;
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] createService profile:', profile?.role);
+
+      if (profile?.role === 'SALON_OWNER') {
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          salon_id: serviceData.salon_id,
+          type: 'SERVICE_ADD',
+          data: serviceData
+        }, user.id);
+      }
+
+      const { data, error } = await supabase
+        .from('salon_services')
+        .insert(serviceData)
+        .select()
+        .single();
+
+      console.log('[DEBUG] Direct createService result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] createService ERROR:', err);
+      throw err;
+    }
   },
 
   /**
-   * Update an existing service
+   * Update an existing service (Intercepted for Approval)
    */
   async updateService(id: string, updates: { price?: number, duration_min?: number, is_active?: boolean }): Promise<any> {
-    const { data, error } = await supabase
-      .from('salon_services')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    console.log('[DEBUG] updateService started', { id, updates });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      console.log('[DEBUG] updateService user:', user?.id);
+      if (!user) throw new Error('Not authenticated');
 
-    if (error) throw error;
-    return data;
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      console.log('[DEBUG] updateService profile:', profile?.role);
+
+      if (profile?.role === 'SALON_OWNER') {
+        const { data: existing } = await supabase.from('salon_services').select('salon_id').eq('id', id).single();
+        console.log('[DEBUG] Redirecting to ApprovalService');
+        return ApprovalService.createRequest({
+          salon_id: existing?.salon_id,
+          type: 'SERVICE_UPDATE',
+          data: { ...updates, id }
+        }, user.id);
+      }
+
+      const { data, error } = await supabase
+        .from('salon_services')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      console.log('[DEBUG] Direct updateService result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] updateService ERROR:', err);
+      throw err;
+    }
   },
 
   /**
-   * Delete (or soft delete) a service
+   * Delete a service (Intercepted for Approval)
    */
-  async deleteService(id: string): Promise<void> {
-    // Hard delete for now, or use is_active=false
+  async deleteService(id: string): Promise<any> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+    if (profile?.role === 'SALON_OWNER') {
+      const { data: existing } = await supabase.from('salon_services').select('salon_id').eq('id', id).single();
+
+      return ApprovalService.createRequest({
+        salon_id: existing?.salon_id,
+        type: 'SERVICE_DELETE',
+        data: { id }
+      });
+    }
+
     const { error } = await supabase
       .from('salon_services')
       .delete()
@@ -767,6 +920,108 @@ export const WorkingHoursService = {
       .from('staff')
       .delete()
       .eq('id', id);
+
+    if (error) throw error;
+  }
+};
+
+// ==============================================
+// APPROVAL SERVICE
+// ==============================================
+
+export const ApprovalService = {
+  /**
+   * Get pending change requests for admin
+   */
+  async getPendingRequests(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('change_requests')
+      .select(`
+        *,
+        requester:profiles(full_name, email),
+        salon:salons(name)
+      `)
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get user's own change requests
+   */
+  async getMyRequests(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('change_requests')
+      .select('*')
+      .eq('requester_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Create a new change request
+   */
+  async createRequest(request: {
+    salon_id?: string;
+    type: string;
+    data: any;
+  }, userId?: string): Promise<any> {
+    console.log('[DEBUG] ApprovalService.createRequest started', request);
+    try {
+      let finalUserId = userId;
+
+      if (!finalUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        finalUserId = session?.user?.id;
+      }
+
+      console.log('[DEBUG] ApprovalService userId:', finalUserId);
+      if (!finalUserId) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('change_requests')
+        .insert({
+          requester_id: finalUserId,
+          salon_id: request.salon_id,
+          type: request.type,
+          data: request.data,
+          status: 'PENDING'
+        })
+        .select()
+        .single();
+
+      console.log('[DEBUG] ApprovalService result:', { data, error });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('[DEBUG] ApprovalService ERROR:', err);
+      throw err;
+    }
+  },
+
+  /**
+   * Approve a request (calls DB function)
+   */
+  async approveRequest(requestId: string): Promise<any> {
+    const { data, error } = await supabase
+      .rpc('approve_change_request', { request_id: requestId });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Reject a request
+   */
+  async rejectRequest(requestId: string, note?: string): Promise<void> {
+    const { error } = await supabase
+      .from('change_requests')
+      .update({ status: 'REJECTED', admin_note: note, updated_at: new Date().toISOString() })
+      .eq('id', requestId);
 
     if (error) throw error;
   }

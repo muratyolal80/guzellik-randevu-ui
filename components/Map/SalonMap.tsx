@@ -34,21 +34,20 @@ const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonI
     // Fly to city center
     useEffect(() => {
         if (center && !hoveredSalonId) {
-            if (!isValidLatLng(center.lat, center.lng)) {
-                console.error('MapUpdater received invalid center coordinates:', center);
-                return;
+            // Extra safe parsing
+            const lat = typeof center.lat === 'number' ? center.lat : Number(center.lat);
+            const lng = typeof center.lng === 'number' ? center.lng : Number(center.lng);
+
+            // Double check everything before flyTo
+            if (!isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng) && (lat !== 0 || lng !== 0)) {
+                try {
+                    map.flyTo([lat, lng], 12, { duration: 2 });
+                } catch (err) {
+                    console.error('Leaflet flyTo failed:', err);
+                }
+            } else {
+                console.warn('MapUpdater: Blocked flyTo with invalid coordinates:', { lat, lng });
             }
-
-            const lat = Number(center.lat);
-            const lng = Number(center.lng);
-
-            // Double-check after conversion
-            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
-                console.error('Coordinates became NaN after Number conversion:', { original: center, converted: { lat, lng } });
-                return;
-            }
-
-            map.flyTo([lat, lng], 12, { duration: 2 });
         }
     }, [center, map, hoveredSalonId]);
 
@@ -56,8 +55,11 @@ const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonI
     useEffect(() => {
         if (hoveredSalonId) {
             const salon = salons.find(s => s.id === hoveredSalonId);
-            if (salon && isValidLatLng(salon.coordinates?.lat, salon.coordinates?.lng)) {
-                map.flyTo([Number(salon.coordinates.lat), Number(salon.coordinates.lng)], 14, {
+            const lat = Number(salon?.coordinates?.lat);
+            const lng = Number(salon?.coordinates?.lng);
+
+            if (salon && isValidLatLng(lat, lng)) {
+                map.flyTo([lat, lng], 14, {
                     duration: 1.5,
                     easeLinearity: 0.25
                 });
@@ -204,19 +206,26 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
     const router = useRouter();
 
     // Validate center coordinates before initializing map
-    const validCenter = isValidLatLng(center.lat, center.lng)
-        ? { lat: Number(center.lat), lng: Number(center.lng) }
-        : { lat: 41.0082, lng: 28.9784 }; // Istanbul as fallback
+    const getValidLatLng = (lat: any, lng: any) => {
+        const nLat = Number(lat);
+        const nLng = Number(lng);
+        if (isValidLatLng(nLat, nLng)) {
+            return [nLat, nLng] as [number, number];
+        }
+        return [41.0082, 28.9784] as [number, number]; // Istanbul as fallback
+    };
 
-    console.log('SalonMap received center:', center, 'validCenter:', validCenter);
+    const initialCenter = getValidLatLng(center.lat, center.lng);
+
+    console.log('SalonMap received center:', center, 'initialCenter:', initialCenter);
 
     return (
-        <MapContainer center={[validCenter.lat, validCenter.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none z-0" attributionControl={false}>
+        <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none z-0" attributionControl={false}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
-            <MapUpdater center={validCenter} hoveredSalonId={hoveredSalonId} salons={salons} />
+            <MapUpdater center={{ lat: initialCenter[0], lng: initialCenter[1] }} hoveredSalonId={hoveredSalonId} salons={salons} />
 
             {salons.map(salon => (
                 <SalonMarker

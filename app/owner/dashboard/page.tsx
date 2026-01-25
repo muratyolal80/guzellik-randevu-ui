@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { SalonDataService } from '@/services/db';
+import { SalonDataService, ApprovalService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
 import {
     Users,
@@ -16,7 +16,8 @@ import {
     Activity,
     ChevronRight,
     Search,
-    Store
+    Store,
+    Info
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,6 +32,7 @@ export default function OwnerDashboard() {
         activeStaff: 0
     });
     const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
+    const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
     useEffect(() => {
         if (user) {
@@ -80,6 +82,18 @@ export default function OwnerDashboard() {
 
                     setRecentAppointments(apptsResponse.data.slice(0, 5));
                 }
+
+                // Fetch pending requests
+                if (user) {
+                    const requests = await ApprovalService.getMyRequests(user.id);
+                    setPendingRequests(requests.filter((r: any) => r.status === 'PENDING'));
+                }
+            } else {
+                // Fetch pending requests even if no salon exists (for new salon requests)
+                if (user) {
+                    const requests = await ApprovalService.getMyRequests(user.id);
+                    setPendingRequests(requests.filter((r: any) => r.status === 'PENDING'));
+                }
             }
         } catch (err) {
             console.error('Dashboard verisi çekilirken hata:', err);
@@ -98,21 +112,44 @@ export default function OwnerDashboard() {
 
     if (!salon) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-6">
                     <Store className="w-10 h-10" />
                 </div>
                 <h1 className="text-2xl font-black text-text-main mb-2">Salon Bulunamadı</h1>
-                <p className="text-text-secondary mb-8">Henüz yöneticisi olduğunuz bir salon kaydı bulunmuyor.</p>
-                <Link href="/admin/salons" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg">
-                    Yeni Salon Oluştur
-                </Link>
+                <p className="text-text-secondary mb-8">Henüz yöneticisi olduğunuz aktif bir salon kaydı bulunmuyor.</p>
+
+                {pendingRequests.length > 0 ? (
+                    <div className="bg-orange-50 border border-orange-200 p-6 rounded-3xl max-w-md animate-pulse">
+                        <div className="flex items-center gap-3 text-orange-700 mb-2 justify-center">
+                            <Clock className="w-5 h-5" />
+                            <span className="font-bold">Onay Bekliyor</span>
+                        </div>
+                        <p className="text-sm text-orange-600">Salon oluşturma talebiniz admin onayına gönderildi. Lütfen onaylanmasını bekleyiniz.</p>
+                    </div>
+                ) : (
+                    <Link href="/owner/salons/new" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg hover:bg-primary-hover transition-all">
+                        Yeni Salon Oluşturma Talebi Gönder
+                    </Link>
+                )}
             </div>
         );
     }
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">
+            {pendingRequests.length > 0 && (
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-center gap-4 text-blue-800">
+                    <div className="bg-blue-100 p-2 rounded-xl">
+                        <Info className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-bold">Bekleyen {pendingRequests.length} Değişiklik Talebiniz Var</p>
+                        <p className="text-xs opacity-80">Yaptığınız güncellemeler admin tarafından inceleniyor.</p>
+                    </div>
+                    <Link href="/owner/approvals" className="text-xs font-black bg-blue-600 text-white px-4 py-2 rounded-lg">Detaylar</Link>
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-1">
