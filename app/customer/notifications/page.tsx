@@ -106,7 +106,15 @@ export default function NotificationsPage() {
                                     <Check className="w-4 h-4" />
                                 </button>
                             )}
-                            <button className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500" title="Sil">
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!confirm('Bildirimi silmek istediğinize emin misiniz?')) return;
+                                    const { error } = await supabase.from('notifications').delete().eq('id', notif.id);
+                                    if (!error) setNotifications(prev => prev.filter(n => n.id !== notif.id));
+                                }}
+                                className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Sil"
+                            >
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </div>

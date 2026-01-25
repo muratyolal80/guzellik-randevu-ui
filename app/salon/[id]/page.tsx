@@ -6,8 +6,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonDataService, ReviewService, ServiceService } from '@/services/db';
-import { SalonDetail, Review, SalonServiceDetail } from '@/types';
+import { SalonDataService, ReviewService, ServiceService, FavoriteService } from '@/services/db';
+import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
 
@@ -37,7 +37,10 @@ export default function SalonDetailPage() {
     const [salon, setSalon] = useState<SalonDetail | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [services, setServices] = useState<SalonServiceDetail[]>([]);
+    const [workingHours, setWorkingHours] = useState<SalonWorkingHours[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [togglingFavorite, setTogglingFavorite] = useState(false);
 
     // Review Form States
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -64,23 +67,48 @@ export default function SalonDetailPage() {
         const fetchData = async () => {
             if (!id) return;
             setLoading(true);
-            // Fetch salon, reviews, and services in parallel
-            const [salonData, reviewsData, servicesData] = await Promise.all([
+            // Fetch salon, reviews, services, and working hours in parallel
+            const [salonData, reviewsData, servicesData, hoursData] = await Promise.all([
                 SalonDataService.getSalonById(id),
                 ReviewService.getReviewsBySalon(id),
-                ServiceService.getServicesBySalon(id)
+                ServiceService.getServicesBySalon(id),
+                SalonDataService.getSalonWorkingHours(id)
             ]);
 
             if (salonData) {
                 setSalon(salonData);
                 setBookingSalon(salonData); // Store in booking context
+
+                // Fetch favorite status if user logged in
+                if (user) {
+                    const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
+                    setIsFavorite(favStatus);
+                }
             }
             setReviews(reviewsData);
             setServices(servicesData);
+            setWorkingHours(hoursData);
             setLoading(false);
         };
         fetchData();
-    }, [id, setBookingSalon]);
+    }, [id, setBookingSalon, user]);
+
+    const handleToggleFavorite = async () => {
+        if (!user || !salon) {
+            alert("Favorilere eklemek için giriş yapmalısınız.");
+            return;
+        }
+
+        try {
+            setTogglingFavorite(true);
+            const newState = await FavoriteService.toggleFavorite(user.id, salon.id);
+            setIsFavorite(newState);
+        } catch (error) {
+            console.error("Favori işlemi sırasında hata:", error);
+        } finally {
+            setTogglingFavorite(false);
+        }
+    };
 
     const toggleCategory = (category: string) => {
         setOpenCategories(prev => ({ ...prev, [category]: !prev[category] }));
@@ -141,6 +169,12 @@ export default function SalonDetailPage() {
         return { star, count, percentage };
     });
 
+    // Helper to format day name
+    const getDayName = (dayIdx: number) => {
+        const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+        return days[dayIdx];
+    };
+
     return (
         <Layout>
             {/* Professional Hero Section */}
@@ -180,8 +214,13 @@ export default function SalonDetailPage() {
                             <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30 border border-white/20 backdrop-blur-md transition-all text-white font-bold group/btn shadow-lg">
                                 <span className="material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform">share</span> <span className="hidden sm:inline">Paylaş</span>
                             </button>
-                            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30 border border-white/20 backdrop-blur-md transition-all text-white font-bold group/btn shadow-lg">
-                                <span className="material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform">favorite</span> <span className="hidden sm:inline">Kaydet</span>
+                            <button
+                                onClick={handleToggleFavorite}
+                                disabled={togglingFavorite}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl border backdrop-blur-md transition-all font-bold group/btn shadow-lg ${isFavorite ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white/20 hover:bg-white/30 border-white/20 text-white'}`}
+                            >
+                                <span className={`material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform ${isFavorite ? 'filled' : ''}`}>favorite</span>
+                                <span className="hidden sm:inline">{isFavorite ? 'Kaydedildi' : 'Kaydet'}</span>
                             </button>
                         </div>
                     </div>
@@ -202,23 +241,18 @@ export default function SalonDetailPage() {
                                 Hakkında
                             </h3>
                             <p className="text-text-secondary leading-relaxed text-base relative z-10">
-                                {salon.name}, İstanbul'un en prestijli lokasyonunda, uzman kadrosu ve modern ekipmanlarıyla hizmetinizde.
-                                Kişisel bakımınıza değer veriyor, hijyen ve konforu ön planda tutuyoruz.
-                                Siz kahvenizi yudumlarken biz de güzelliğinize güzellik katalım.
+                                {salon.description || `${salon.name}, İstanbul'un en prestijli lokasyonunda, uzman kadrosu ve modern ekipmanlarıyla hizmetinizde.`}
                             </p>
 
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-100">
-                                {[
-                                    { icon: 'wifi', label: 'Ücretsiz Wi-Fi' },
-                                    { icon: 'local_cafe', label: 'İkramlar' },
-                                    { icon: 'local_parking', label: 'Vale & Otopark' },
-                                    { icon: 'credit_card', label: 'Kredi Kartı' }
-                                ].map((feature, idx) => (
+                                {(salon.features && salon.features.length > 0 ? salon.features : ['Wi-Fi', 'İkramlar', 'Otopark', 'Kredi Kartı']).map((feature, idx) => (
                                     <div key={idx} className="flex flex-col items-center gap-3 group">
                                         <div className="size-12 rounded-2xl bg-surface-alt border border-border flex items-center justify-center text-text-muted group-hover:text-primary group-hover:border-primary/30 group-hover:bg-primary/5 transition-all duration-300">
-                                            <span className="material-symbols-outlined text-2xl">{feature.icon}</span>
+                                            <span className="material-symbols-outlined text-2xl">
+                                                {feature.includes('Wi-Fi') ? 'wifi' : feature.includes('İkram') ? 'local_cafe' : feature.includes('Otopark') ? 'local_parking' : feature.includes('Kart') ? 'credit_card' : feature.includes('Klima') ? 'ac_unit' : 'star'}
+                                            </span>
                                         </div>
-                                        <span className="text-xs font-bold text-text-secondary group-hover:text-text-main transition-colors">{feature.label}</span>
+                                        <span className="text-xs font-bold text-text-secondary group-hover:text-text-main transition-colors">{feature}</span>
                                     </div>
                                 ))}
                             </div>
@@ -256,7 +290,7 @@ export default function SalonDetailPage() {
                                                     <div className="flex items-start gap-4 w-full sm:w-auto">
                                                         <div className="hidden sm:flex size-14 rounded-2xl bg-surface-alt border border-border items-center justify-center text-text-muted group-hover:text-primary group-hover:border-primary/30 transition-all shrink-0">
                                                             <span className="material-symbols-outlined text-2xl">
-                                                                {category === 'Saç' ? 'content_cut' : category === 'Bakım' ? 'face' : category === 'Tırnak' ? 'brush' : 'spa'}
+                                                                {service.category_icon || (category === 'Saç' ? 'content_cut' : category === 'Bakım' ? 'face' : category === 'Tırnak' ? 'brush' : 'spa')}
                                                             </span>
                                                         </div>
                                                         <div>
@@ -481,7 +515,7 @@ export default function SalonDetailPage() {
                                         href={`https://www.google.com/maps/search/?api=1&query=${salon.geo_latitude},${salon.geo_longitude}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="w-full bg-white/95 hover:bg-white text-text-main py-3 rounded-xl font-bold text-sm shadow-md transition-transform hover:-translate-y-1 flex items-center justify-center gap-2 backdrop-blur-md border border-gray-100"
+                                        className="w-full bg-white/95 hover:bg-white text-text-main py-3 rounded-xl font-bold text-sm shadow-md transition-transform hover:-translate-y-1 flex items-center justify-center gap-2 backdrop-blur-md border border-100"
                                     >
                                         <span className="material-symbols-outlined text-lg">directions</span> Yol Tarifi Al
                                     </a>
@@ -502,19 +536,27 @@ export default function SalonDetailPage() {
                             </h4>
                             <div className="space-y-4 relative">
                                 <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-gray-200"></div>
-                                {[
-                                    { day: 'Pazartesi - Cuma', hours: '09:00 - 21:00', active: true },
-                                    { day: 'Cumartesi', hours: '10:00 - 20:00', active: true },
-                                    { day: 'Pazar', hours: 'Kapalı', active: false }
-                                ].map((schedule, idx) => (
-                                    <div key={idx} className="flex items-center gap-4 relative z-10">
-                                        <div className={`size-4 rounded-full border-2 ${schedule.active ? 'bg-green-500 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-gray-200 border-gray-300'}`}></div>
-                                        <div className="flex-1 flex justify-between items-center text-sm p-3 rounded-xl bg-gray-50 border border-gray-100">
-                                            <span className="text-text-secondary">{schedule.day}</span>
-                                            <span className={`font-bold ${schedule.active ? 'text-text-main' : 'text-red-500'}`}>{schedule.hours}</span>
-                                        </div>
+                                {workingHours.length > 0 ? (
+                                    // Map over sorted working hours (Mon-Sun or as fetched)
+                                    workingHours
+                                        .sort((a, b) => (a.day_of_week === 0 ? 7 : a.day_of_week) - (b.day_of_week === 0 ? 7 : b.day_of_week))
+                                        .map((hour, idx) => (
+                                            <div key={idx} className="flex items-center gap-4 relative z-10">
+                                                <div className={`size-4 rounded-full border-2 ${!hour.is_closed ? 'bg-green-500 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-gray-200 border-gray-300'}`}></div>
+                                                <div className="flex-1 flex justify-between items-center text-sm p-3 rounded-xl bg-gray-50 border border-gray-100">
+                                                    <span className="text-text-secondary">{getDayName(hour.day_of_week)}</span>
+                                                    <span className={`font-bold ${!hour.is_closed ? 'text-text-main' : 'text-red-500'}`}>
+                                                        {hour.is_closed ? 'Kapalı' : `${hour.start_time.substring(0, 5)} - ${hour.end_time.substring(0, 5)}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                ) : (
+                                    // Fallback if no working hours recorded
+                                    <div className="text-center py-4 text-text-muted text-sm italic">
+                                        Çalışma saatleri belirtilmemiş.
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                     </div>

@@ -59,9 +59,9 @@ export default function Register() {
             await signUp(email, password, firstName, lastName);
             setSuccess(true);
             // User is automatically logged in after registration
-            // Redirect to home page
+            // Redirect to dashboard page
             setTimeout(() => {
-                router.push('/');
+                router.push('/customer/dashboard');
             }, 1500);
         } catch (err) {
             const errorMessage = (err as Error).message;

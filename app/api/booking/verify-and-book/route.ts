@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { phone, otp, customerName, email, salonId, staffId, serviceId, startTime, notes = '' } = body;
+    const { phone, otp, customerName, email, salonId, staffId, serviceId, startTime, notes = '', rescheduleId } = body;
 
     // --- Validation ---
     if (!phone || !otp || !customerName || !salonId || !staffId || !serviceId || !startTime) {
@@ -109,6 +109,20 @@ export async function POST(request: NextRequest) {
         phone: cleanedPhone,
         role: 'CUSTOMER',
       });
+    }
+
+    // --- 3.5 Handle Rescheduling (Cancel Old) ---
+    if (rescheduleId) {
+      console.log('🔄 Atomic Reschedule: Cancelling old appointment:', rescheduleId);
+      await supabaseAdmin
+        .from('appointments')
+        .update({
+          status: 'CANCELLED',
+          notes: '[Yeni randevu alındığı için sistem tarafından iptal edildi]',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', rescheduleId)
+        .eq('customer_id', userId); // Security check
     }
 
     // --- 4. Create Appointment ---

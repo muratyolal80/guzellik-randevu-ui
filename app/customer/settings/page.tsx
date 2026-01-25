@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 import { Bell, Shield, User, Trash2, Mail, MessageSquare } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -106,13 +107,17 @@ export default function SettingsPage() {
                 </div>
                 <div className="p-6">
                     <div className="flex items-center justify-between">
+                        import Link from 'next/link';
+
+                        // ... (inside component)
+
                         <div>
                             <h3 className="font-medium text-gray-900">Şifre Değiştir</h3>
-                            <p className="text-sm text-gray-500">En son 3 ay önce değiştirildi.</p>
+                            <p className="text-sm text-gray-500">Güvenliğiniz için belirli aralıklarla şifrenizi değiştirin.</p>
                         </div>
-                        <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <Link href="/customer/profile#password-section" className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                             Şifre Yenile
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>

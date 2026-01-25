@@ -28,25 +28,40 @@ export default function ProfilePage() {
                     return;
                 }
 
+                // Initial data from auth user
+                let initialData = {
+                    first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '',
+                    last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+                    email: user.email || '',
+                    phone: user.phone || '',
+                    birth_date: ''
+                };
+
                 // Get extended profile data
-                const { data: profile } = await supabase
+                const { data: profile, error } = await supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', user.id)
                     .single();
 
-                setFormData({
-                    first_name: profile?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '',
-                    last_name: profile?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-                    phone: profile?.phone || '',
-                    email: user.email || '',
-                    birth_date: profile?.birth_date || ''
-                });
+                if (profile) {
+                    initialData = {
+                        ...initialData,
+                        first_name: profile.first_name || initialData.first_name,
+                        last_name: profile.last_name || initialData.last_name,
+                        phone: profile.phone || initialData.phone,
+                        email: user.email || '', // Always trust auth email first
+                        birth_date: profile.birth_date || ''
+                    };
+                    setAvatarUrl(profile.avatar_url || user.user_metadata?.avatar_url || null);
+                }
 
-                setAvatarUrl(profile?.avatar_url || user.user_metadata?.avatar_url || null);
+                setFormData(initialData);
 
             } catch (error) {
                 console.error('Error fetching profile:', error);
+                // Even on error, we might have set some data if we refactored differently, 
+                // but here user flow starts from auth.getUser.
             } finally {
                 setLoading(false);
             }
@@ -139,6 +154,7 @@ export default function ProfilePage() {
                         </h3>
 
                         <form onSubmit={handleUpdateProfile} className="space-y-4">
+                            {/* ... existing profile inputs ... */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ad</label>
@@ -213,15 +229,11 @@ export default function ProfilePage() {
                         </form>
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-60 hover:opacity-100 transition-opacity">
+                    <div id="password-section" className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                         <h3 className="font-bold text-lg text-gray-900 mb-5 flex items-center gap-2">
                             <Lock className="w-5 h-5 text-gray-400" /> Şifre Değiştir
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <button className="border border-gray-200 hover:bg-gray-50 text-gray-600 font-medium px-4 py-2 rounded-lg text-sm">
-                                Şifre Sıfırlama E-postası Gönder
-                            </button>
-                        </div>
+                        <PasswordChangeForm />
                     </div>
                 </div>
             </div>

@@ -11,7 +11,8 @@ import {
     MessageSquare,
     User,
     LogOut,
-    ChevronRight
+    ChevronRight,
+    Star
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -20,32 +21,37 @@ const Sidebar = () => {
     const menuItems = [
         {
             title: 'Genel Bakış',
-            href: '/dashboard',
+            href: '/customer/dashboard',
             icon: LayoutDashboard // 1. Genel Bakış
         },
         {
             title: 'Randevularım',
-            href: '/appointments',
+            href: '/customer/appointments',
             icon: Calendar // 2. Randevularım
         },
         {
             title: 'Favorilerim',
-            href: '/favorites',
+            href: '/customer/favorites',
             icon: Heart // 3. Favorilerim
         },
         {
             title: 'Bildirimler',
-            href: '/notifications',
+            href: '/customer/notifications',
             icon: Bell // 4. Bildirimler
         },
         {
+            title: 'Değerlendirmelerim',
+            href: '/customer/reviews',
+            icon: Star
+        },
+        {
             title: 'Destek Taleplerim',
-            href: '/support',
+            href: '/customer/support',
             icon: MessageSquare // 5. Destek Taleplerim
         },
         {
             title: 'Profil & Ayarlar',
-            href: '/profile',
+            href: '/customer/profile',
             icon: User // 6. Profil ve Ayarlar
         }
     ];
@@ -70,8 +76,8 @@ const Sidebar = () => {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                    ? 'bg-amber-50 text-amber-600 font-medium shadow-sm'
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-amber-50 text-amber-600 font-medium shadow-sm'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                         >
                             <div className="flex items-center gap-3">

@@ -43,18 +43,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kod.' }, { status: 401 });
     }
 
-    // 2. Find or Create User
+    // 2. Check if user is already logged in
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
     let userId: string;
     let isNewUser = false;
     let profile = null;
 
-    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = users.find(u => u.phone === e164Phone);
+    if (currentUser) {
+      // User is already logged in - just update their phone
+      userId = currentUser.id;
+      isNewUser = false;
 
-    if (existingUser) {
-      userId = existingUser.id;
+      // Update phone in auth.users
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        phone: e164Phone
+      });
 
-      // Fetch Profile
+      // Fetch existing profile
       const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
         .select('*')
@@ -62,37 +68,42 @@ export async function POST(request: NextRequest) {
         .single();
 
       profile = existingProfile;
+
+      console.log(`[verify-phone] Updated phone for logged-in user ${userId}`);
     } else {
-      isNewUser = true;
-      // We don't create the user here yet if we want to capture email/name first?
-      // Actually, to log them in, we MUST create the user now.
-      // We will create a placeholder user. Since we removed temp email fallback requirement,
-      // we need a temporary email to satisfy Supabase Auth if email is required, 
-      // OR we rely on Phone Auth only. 
-      // Assuming Phone Auth is enabled in Supabase.
+      // User is NOT logged in - find or create account
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = users.find(u => u.phone === e164Phone);
 
-      // However, the prompt said "Fallback temp mail is no longer needed".
-      // This implies we should use the REAL email provided in the next step.
-      // BUT we need to log them in NOW.
-      // So we must create the user account now to establish the session.
+      if (existingUser) {
+        userId = existingUser.id;
 
-      // Strategy: Create user with phone only (if supported) or a placeholder that we update later.
-      // Let's use a placeholder that clearly indicates it needs update: `pending_${phone}@guzellik.app`
+        // Fetch Profile
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      const tempEmail = `${cleanedPhone}@pending.user`;
+        profile = existingProfile;
+      } else {
+        isNewUser = true;
+        // Create new user with phone
+        const tempEmail = `${cleanedPhone}@pending.user`;
 
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        phone: e164Phone,
-        email: tempEmail,
-        email_confirm: true,
-        phone_confirm: true,
-      });
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          phone: e164Phone,
+          email: tempEmail,
+          email_confirm: true,
+          phone_confirm: true,
+        });
 
-      if (createError || !newUser.user) {
-        console.error("User creation failed:", createError);
-        return NextResponse.json({ error: 'Kullanıcı oluşturulamadı.' }, { status: 500 });
+        if (createError || !newUser.user) {
+          console.error("User creation failed:", createError);
+          return NextResponse.json({ error: 'Kullanıcı oluşturulamadı.' }, { status: 500 });
+        }
+        userId = newUser.user.id;
       }
-      userId = newUser.user.id;
     }
 
     // 3. Login (Set Session)
@@ -107,23 +118,61 @@ export async function POST(request: NextRequest) {
     });
 
     if (signInError) {
-      // Fallback: Try email login if phone login fails (though phone should work if enabled)
-      // Or maybe phone login isn't enabled in project settings?
-      // Let's try email as backup if we have one
-      const userEmail = existingUser?.email || `${cleanedPhone}@pending.user`;
+      // Fallback: Try email login if phone login fails
+      // Use profile email if available, otherwise use pending.user email
+      const userEmail = profile?.email || `${cleanedPhone}@pending.user`;
       await supabase.auth.signInWithPassword({
         email: userEmail,
         password: tempPassword
       });
     }
 
-    // 3.5. Log IYS Consent (If consent given)
-    if (consent) {
-      // Here we would insert into IYSLog or update user preferences
-      console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
+    // 3.5. Log IYS Consent & SMS Verification (IYS COMPLIANCE)
+    if (consent && isNewUser) {
+      // For new users, record SMS verification for IYS compliance
+      const { error: iysError } = await supabaseAdmin
+        .from('sms_verifications')
+        .insert({
+          user_id: userId,
+          phone: e164Phone,
+          verified_at: new Date().toISOString(),
+          iys_registered: false, // Will be set to true after actual IYS API call
+          consent_given: true
+        });
 
-      // TODO: Insert into iys_logs table if exists 
-      // await supabaseAdmin.from('iys_logs').insert({...})
+      if (iysError) {
+        console.error('[IYS] Failed to log SMS verification:', iysError.message);
+      } else {
+        console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
+
+        // TODO: Call actual IYS API to register consent
+        // await registerToIYS(userId, e164Phone);
+        // After success, update iys_registered = true, iys_registered_at = now()
+      }
+    } else if (consent && !isNewUser) {
+      // Existing user verified phone again (maybe changed phone)
+      // Check if we have a verification record
+      const { data: existingVerification } = await supabaseAdmin
+        .from('sms_verifications')
+        .select('id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingVerification) {
+        // No previous verification, add it now
+        await supabaseAdmin
+          .from('sms_verifications')
+          .insert({
+            user_id: userId,
+            phone: e164Phone,
+            verified_at: new Date().toISOString(),
+            iys_registered: false,
+            consent_given: true
+          });
+
+        console.log(`[IYS LOG] Existing user ${userId} verified phone. Phone: ${e164Phone}`);
+      }
     }
 
     // 4. Return Response

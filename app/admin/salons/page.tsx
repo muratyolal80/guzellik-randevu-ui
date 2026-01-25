@@ -123,31 +123,60 @@ export default function SalonManager() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Bu salonu silmek istediğinize emin misiniz?')) {
-            setSalons(prev => prev.filter(s => s.id !== id));
+            try {
+                await SalonDataService.deleteSalon(id);
+                setSalons(prev => prev.filter(s => s.id !== id));
+            } catch (error) {
+                console.error('Error deleting salon:', error);
+                alert('Salon silinirken bir hata oluştu.');
+            }
         }
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!editingSalon) return;
 
-        // TODO: Convert SalonFormData to database format and save via SalonDataService
-        // For now, just refresh the data
-        if (editingSalon?.id) {
-            // Update existing salon
-            alert('Salon güncelleme özelliği yakında eklenecek');
-        } else {
-            // Create new salon
-            alert('Yeni salon ekleme özelliği yakında eklenecek');
+        try {
+            // Find IDs for relations
+            const cityData = cities.find(c => c.name === editingSalon.city);
+            const districtData = districts.find(d => d.name === editingSalon.district);
+            const typeData = salonTypes.find(t => editingSalon.typeIds?.includes(t.slug));
+
+            const salonPayload = {
+                name: editingSalon.name || '',
+                address: editingSalon.location || '',
+                city_id: cityData?.id,
+                district_id: districtData?.id,
+                type_id: typeData?.id,
+                phone: editingSalon.phone || '',
+                image: editingSalon.image || '',
+                geo_latitude: editingSalon.coordinates?.lat,
+                geo_longitude: editingSalon.coordinates?.lng,
+                is_sponsored: editingSalon.isSponsored || false,
+                updated_at: new Date().toISOString()
+            };
+
+            if (editingSalon.id) {
+                // Update existing salon
+                await SalonDataService.updateSalon(editingSalon.id, salonPayload);
+            } else {
+                // Create new salon
+                await SalonDataService.createSalon(salonPayload as any);
+            }
+
+            setIsModalOpen(false);
+            setEditingSalon(null);
+
+            // Refresh data
+            const salonsData = await SalonDataService.getSalons();
+            setSalons(salonsData);
+        } catch (error) {
+            console.error('Error saving salon:', error);
+            alert('Salon kaydedilirken bir hata oluştu.');
         }
-
-        setIsModalOpen(false);
-        setEditingSalon(null);
-
-        // Refresh data
-        const salonsData = await SalonDataService.getSalons();
-        setSalons(salonsData);
     };
 
     // --- Geocoding & Map Logic ---
@@ -270,38 +299,38 @@ export default function SalonManager() {
                             </tr>
                         ) : (
                             salons.map(salon => (
-                            <tr key={salon.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="size-10 rounded-lg bg-cover bg-center border border-border" style={{backgroundImage: `url('${salon.image}')`}}></div>
-                                        <div>
-                                            <p className="font-bold text-text-main">{salon.name}</p>
-                                            {salon.is_sponsored && <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">ÖNERİLEN</span>}
+                                <tr key={salon.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-10 rounded-lg bg-cover bg-center border border-border" style={{ backgroundImage: `url('${salon.image}')` }}></div>
+                                            <div>
+                                                <p className="font-bold text-text-main">{salon.name}</p>
+                                                {salon.is_sponsored && <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">ÖNERİLEN</span>}
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td className="p-4 text-sm text-text-secondary">
-                                    <div className="flex flex-col">
-                                        <span>{salon.district_name}, {salon.city_name}</span>
-                                        <span className="text-xs text-text-muted truncate max-w-[150px]">{salon.address}</span>
-                                    </div>
-                                </td>
-                                <td className="p-4">
-                                    <div className="flex flex-wrap gap-1">
-                                        {salon.type_name && (
-                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full border border-blue-100">{salon.type_name}</span>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="p-4 text-sm font-bold text-text-main">N/A ₺</td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(salon)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(salon.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )))}
+                                    </td>
+                                    <td className="p-4 text-sm text-text-secondary">
+                                        <div className="flex flex-col">
+                                            <span>{salon.district_name}, {salon.city_name}</span>
+                                            <span className="text-xs text-text-muted truncate max-w-[150px]">{salon.address}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex flex-wrap gap-1">
+                                            {salon.type_name && (
+                                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full border border-blue-100">{salon.type_name}</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-sm font-bold text-text-main">N/A ₺</td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => handleEdit(salon)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
+                                            <button onClick={() => handleDelete(salon.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )))}
                     </tbody>
                 </table>
             </div>
@@ -322,7 +351,7 @@ export default function SalonManager() {
                                     <div className="space-y-6">
                                         <div>
                                             <label className="block text-sm font-bold text-text-main mb-2">Salon Adı</label>
-                                            <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.name} onChange={e => setEditingSalon({...editingSalon, name: (e.target as HTMLInputElement).value})} />
+                                            <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.name} onChange={e => setEditingSalon({ ...editingSalon, name: (e.target as HTMLInputElement).value })} />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -332,7 +361,7 @@ export default function SalonManager() {
                                                     value={editingSalon.city}
                                                     onChange={e => {
                                                         const city = (e.target as HTMLSelectElement).value;
-                                                        setEditingSalon({...editingSalon, city: city, district: ''});
+                                                        setEditingSalon({ ...editingSalon, city: city, district: '' });
                                                     }}
                                                 >
                                                     <option value="">Seçiniz</option>
@@ -345,7 +374,7 @@ export default function SalonManager() {
                                                     disabled={!editingSalon.city}
                                                     className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-50"
                                                     value={editingSalon.district}
-                                                    onChange={e => setEditingSalon({...editingSalon, district: (e.target as HTMLSelectElement).value})}
+                                                    onChange={e => setEditingSalon({ ...editingSalon, district: (e.target as HTMLSelectElement).value })}
                                                 >
                                                     <option value="">Seçiniz</option>
                                                     {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
@@ -355,7 +384,7 @@ export default function SalonManager() {
                                         <div>
                                             <label className="block text-sm font-bold text-text-main mb-2">Açık Adres</label>
                                             <div className="flex gap-2">
-                                                <textarea required rows={3} className="flex-1 p-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.location} onChange={e => setEditingSalon({...editingSalon, location: (e.target as HTMLTextAreaElement).value})}></textarea>
+                                                <textarea required rows={3} className="flex-1 p-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.location} onChange={e => setEditingSalon({ ...editingSalon, location: (e.target as HTMLTextAreaElement).value })}></textarea>
                                             </div>
                                             <button
                                                 type="button"
@@ -368,11 +397,11 @@ export default function SalonManager() {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-text-main mb-2">Başlangıç Fiyatı (₺)</label>
-                                            <input type="number" required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.startPrice} onChange={e => setEditingSalon({...editingSalon, startPrice: Number((e.target as HTMLInputElement).value)})} />
+                                            <input type="number" required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.startPrice} onChange={e => setEditingSalon({ ...editingSalon, startPrice: Number((e.target as HTMLInputElement).value) })} />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-text-main mb-2">Görsel URL</label>
-                                            <input className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.image} onChange={e => setEditingSalon({...editingSalon, image: (e.target as HTMLInputElement).value})} />
+                                            <input className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" value={editingSalon.image} onChange={e => setEditingSalon({ ...editingSalon, image: (e.target as HTMLInputElement).value })} />
                                         </div>
                                     </div>
 
@@ -456,7 +485,7 @@ export default function SalonManager() {
                                                     id="isSponsored"
                                                     className="size-4 rounded text-primary focus:ring-primary border-gray-300"
                                                     checked={editingSalon.isSponsored}
-                                                    onChange={e => setEditingSalon({...editingSalon, isSponsored: (e.target as HTMLInputElement).checked})}
+                                                    onChange={e => setEditingSalon({ ...editingSalon, isSponsored: (e.target as HTMLInputElement).checked })}
                                                 />
                                                 <label htmlFor="isSponsored" className="text-xs font-bold text-text-main">Sponsorlu (Öne Çıkar)</label>
                                             </div>

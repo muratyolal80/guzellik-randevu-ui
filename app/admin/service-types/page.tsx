@@ -32,22 +32,45 @@ export default function ServiceCategoryManager() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Bu hizmet tipini silmek istediğinize emin misiniz?')) {
-            setCategories(prev => prev.filter(c => c.id !== id));
+            try {
+                await MasterDataService.deleteServiceCategory(id);
+                setCategories(prev => prev.filter(c => c.id !== id));
+            } catch (error) {
+                console.error('Error deleting service category:', error);
+                alert('Hizmet tipi silinirken bir hata oluştu.');
+            }
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingCategory?.id) {
-            setCategories(prev => prev.map(c => c.id === editingCategory.id ? editingCategory as ServiceCategory : c));
-        } else {
-            const newCat = { ...editingCategory, id: Math.random().toString(36).substr(2, 9) } as ServiceCategory;
-            setCategories(prev => [...prev, newCat]);
+        if (!editingCategory?.name || !editingCategory?.slug) return;
+
+        try {
+            const payload = {
+                name: editingCategory.name,
+                slug: editingCategory.slug,
+                icon: editingCategory.icon || 'spa'
+            };
+
+            if (editingCategory.id) {
+                await MasterDataService.updateServiceCategory(editingCategory.id, payload);
+            } else {
+                await MasterDataService.createServiceCategory(payload);
+            }
+
+            setIsModalOpen(false);
+            setEditingCategory(null);
+
+            // Refresh data
+            const data = await MasterDataService.getServiceCategories();
+            setCategories(data);
+        } catch (error) {
+            console.error('Error saving service category:', error);
+            alert('Hizmet tipi kaydedilirken bir hata oluştu.');
         }
-        setIsModalOpen(false);
-        setEditingCategory(null);
     };
 
     return (
@@ -75,8 +98,8 @@ export default function ServiceCategoryManager() {
                             </div>
                         </div>
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button onClick={() => handleEdit(cat)} className="p-2 text-text-secondary hover:text-primary bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">edit</span></button>
-                             <button onClick={() => handleDelete(cat.id)} className="p-2 text-text-secondary hover:text-red-500 bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">delete</span></button>
+                            <button onClick={() => handleEdit(cat)} className="p-2 text-text-secondary hover:text-primary bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">edit</span></button>
+                            <button onClick={() => handleDelete(cat.id)} className="p-2 text-text-secondary hover:text-red-500 bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">delete</span></button>
                         </div>
                     </div>
                 ))}
@@ -92,15 +115,15 @@ export default function ServiceCategoryManager() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Kategori Adı</label>
-                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({...editingCategory, name: e.target.value})} />
+                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({ ...editingCategory, name: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Slug</label>
-                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.slug} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({...editingCategory, slug: e.target.value})} />
+                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.slug} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({ ...editingCategory, slug: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">İkon (Material Symbol)</label>
-                                <input className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.icon} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({...editingCategory, icon: e.target.value})} />
+                                <input className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.icon} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({ ...editingCategory, icon: e.target.value })} />
                                 <a href="https://fonts.google.com/icons" target="_blank" className="text-xs text-primary mt-1 inline-block hover:underline">İkonları buradan bulabilirsiniz</a>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">

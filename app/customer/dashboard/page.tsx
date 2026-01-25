@@ -7,6 +7,8 @@ import { Calendar, CreditCard, Star, MapPin, ChevronRight, Loader2 } from 'lucid
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { DashboardService } from '@/services/db';
+import type { SalonDetail } from '@/types';
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth(); // Retrieve user from context
@@ -17,110 +19,33 @@ export default function DashboardPage() {
         reviewCount: 0
     });
     const [nextAppointment, setNextAppointment] = useState<any>(null);
+    const [recommendations, setRecommendations] = useState<SalonDetail[]>([]);
     const router = useRouter();
 
     useEffect(() => {
         // If auth is still loading, wait
         if (authLoading) return;
 
-        // If no user after auth load, redirect (though middleware handles this, nice to have safeguard)
+        // If no user after auth load, redirect
         if (!user) {
             router.push('/login');
             return;
         }
 
         async function fetchData() {
-            console.time('Dashboard Data Fetch');
+            setLoading(true);
             try {
-                if (!user?.id) {
-                    console.warn('Dashboard: User ID missing, skipping fetch');
-                    setLoading(false);
-                    return;
-                }
+                if (!user?.id) return;
 
-                // Calculate start and end of current month
-                const now = new Date();
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-
-                // Fetch Stats & Next Appointment in Parallel
-
-                const upcomingQuery = supabase
-                    .from('appointments')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('status', 'CONFIRMED')
-                    .gt('start_time', new Date().toISOString())
-                    .eq('customer_id', user.id);
-
-                const reviewQuery = supabase
-                    .from('reviews')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id);
-
-                // Spending Query: Appointments in this month that are CONFIRMED or COMPLETED
-                const spendingQuery = supabase
-                    .from('appointments')
-                    .select(`
-                        salon_service:salon_services (
-                            price
-                        )
-                    `)
-                    .in('status', ['CONFIRMED', 'COMPLETED'])
-                    .gte('start_time', startOfMonth)
-                    .lte('start_time', endOfMonth)
-                    .eq('customer_id', user.id);
-
-                const nextAppointmentQuery = supabase
-                    .from('appointments')
-                    .select(`
-                        *,
-                        salon:salons (
-                            name,
-                            address,
-                            image,
-                            city:cities(name),
-                            district:districts(name)
-                        ),
-                        service:salon_services (
-                            price,
-                            global_service:global_services(name)
-                        )
-                    `)
-                    .gt('start_time', new Date().toISOString())
-                    .eq('status', 'CONFIRMED')
-                    .eq('customer_id', user.id)
-                    .order('start_time', { ascending: true })
-                    .limit(1);
-
-                // Run all queries together
-                const [
-                    { count: upcomingCount },
-                    { count: reviewCount },
-                    { data: spendingData },
-                    { data: appointments }
-                ] = await Promise.all([
-                    upcomingQuery,
-                    reviewQuery,
-                    spendingQuery,
-                    nextAppointmentQuery
+                // Fetch data using centralized service
+                const [dashData, recommendedData] = await Promise.all([
+                    DashboardService.getDashboardData(user.id),
+                    DashboardService.getRecommendedSalons(3)
                 ]);
 
-                console.timeEnd('Dashboard Data Fetch');
-
-                // Calculate total spent
-                const totalSpent = spendingData?.reduce((sum, item: any) => {
-                    return sum + (item.salon_service?.price || 0);
-                }, 0) || 0;
-
-                setStats({
-                    upcomingCount: upcomingCount || 0,
-                    totalSpent: totalSpent,
-                    reviewCount: reviewCount || 0
-                });
-
-                if (appointments && appointments.length > 0) {
-                    setNextAppointment(appointments[0]);
-                }
+                setStats(dashData.stats);
+                setNextAppointment(dashData.nextAppointment);
+                setRecommendations(recommendedData);
 
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
@@ -179,7 +104,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-bold text-gray-900">Sıradaki Randevun</h2>
-                    <Link href="/appointments" className="text-sm font-medium text-amber-600 hover:text-amber-700 flex items-center">
+                    <Link href="/customer/appointments" className="text-sm font-medium text-amber-600 hover:text-amber-700 flex items-center">
                         Tümünü Gör <ChevronRight className="w-4 h-4 ml-1" />
                     </Link>
                 </div>
@@ -220,8 +145,20 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                        Yaklaşan randevunuz bulunmamaktadır.
+                    <div className="flex flex-col items-center justify-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center gap-4">
+                        <div className="bg-white p-3 rounded-full shadow-sm">
+                            <Calendar className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <div>
+                            <p className="text-gray-500 font-medium">Yaklaşan randevunuz bulunmamaktadır.</p>
+                            <p className="text-gray-400 text-sm mt-1">Kendinize bir iyilik yapın ve hemen randevu alın.</p>
+                        </div>
+                        <Link
+                            href="/"
+                            className="px-6 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium shadow-sm shadow-amber-200 transition-all flex items-center gap-2"
+                        >
+                            Hemen Randevu Al
+                        </Link>
                     </div>
                 )}
             </div>
@@ -230,21 +167,24 @@ export default function DashboardPage() {
             <div>
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Sana Özel Öneriler</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Mock Recommendations for now as we don't have a sophisticated recommendation engine yet */}
-                    {[1, 2, 3].map((item) => (
-                        <div key={item} className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
+                    {recommendations.length > 0 ? recommendations.map((salon) => (
+                        <Link href={`/salon/${salon.id}`} key={salon.id} className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
                             <div className="h-40 bg-gray-100 relative">
-                                <img src={`https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&q=80&w=400&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                <img src={salon.image || "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&q=80&w=400"} alt={salon.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 <span className="absolute top-2 right-2 bg-white px-2 py-0.5 rounded-md text-xs font-bold shadow-sm flex items-center">
-                                    <Star className="w-3 h-3 text-amber-500 mr-1" fill="currentColor" /> 4.9
+                                    <Star className="w-3 h-3 text-amber-500 mr-1" fill="currentColor" /> {salon.average_rating || salon.rating || 0}
                                 </span>
                             </div>
                             <div className="p-4">
-                                <h4 className="font-bold text-gray-900">Elite Hair Studio</h4>
-                                <p className="text-xs text-gray-500 mt-1">Şişli, İstanbul</p>
+                                <h4 className="font-bold text-gray-900">{salon.name}</h4>
+                                <p className="text-xs text-gray-500 mt-1">{salon.district_name}, {salon.city_name}</p>
                             </div>
-                        </div>
-                    ))}
+                        </Link>
+                    )) : (
+                        [1, 2, 3].map((i) => (
+                            <div key={i} className="h-56 bg-gray-50 animate-pulse rounded-xl border border-gray-100"></div>
+                        ))
+                    )}
                 </div>
             </div>
 

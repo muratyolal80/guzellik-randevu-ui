@@ -33,51 +33,44 @@ export default function TimeSelection() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateOffset, setDateOffset] = useState(0);
-  const [busySlots, setBusySlots] = useState<{ start: string; end: string }[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // Fetch busy slots when date or staff changes
+  // Fetch available slots when date or staff changes
   useEffect(() => {
-    const fetchBusySlots = async () => {
-      if (!staff?.id || staff.id === 'any') {
-        console.log('⚠️ Staff ID yok veya "any" - busy slots atlanıyor');
-        return;
-      }
+    const fetchAvailableSlots = async () => {
+      if (!id || !selectedService?.id) return;
 
       setLoadingSlots(true);
       try {
-        const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        console.log('📞 API Çağrısı yapılıyor...');
-        console.log('   Staff ID:', staff.id);
-        console.log('   Staff Adı:', staff.name);
-        console.log('   Tarih:', dateStr);
+        const dateStr = selectedDate.toISOString().split('T')[0];
 
-        const apiUrl = `/api/booking/get-busy-slots?staff_id=${staff.id}&date=${dateStr}`;
-        console.log('   URL:', apiUrl);
+        let url = `/api/booking/available-slots?salon_id=${id}&service_id=${selectedService.id}&date=${dateStr}`;
+        if (staff?.id && staff.id !== 'any') {
+          url += `&staff_id=${staff.id}`;
+        }
 
-        const response = await fetch(apiUrl);
+        const response = await fetch(url);
         const data = await response.json();
 
-        console.log('📥 API Response:', data);
-
         if (data.success) {
-          console.log('🔴 Dolu Saatler (busySlots):', data.busySlots);
-          console.log('📅 Seçilen Tarih:', dateStr);
-          console.log('   Dolu Slot Sayısı:', data.busySlots?.length || 0);
-          setBusySlots(data.busySlots || []);
+          // Map available slots for the UI
+          // We'll trust the API to only return valid strings
+          setAvailableTimeSlots(data.slots || []);
         } else {
           console.error('❌ API Error:', data.error);
+          setAvailableTimeSlots([]);
         }
       } catch (error) {
         console.error('❌ Fetch Error:', error);
-        setBusySlots([]);
+        setAvailableTimeSlots([]);
       } finally {
         setLoadingSlots(false);
       }
     };
 
-    fetchBusySlots();
-  }, [selectedDate, staff?.id]);
+    fetchAvailableSlots();
+  }, [selectedDate, staff?.id, id, selectedService?.id]);
 
   // Fetch data
   useEffect(() => {
@@ -189,76 +182,14 @@ export default function TimeSelection() {
     setDateOffset(dateOffset + 1);
   };
 
-  // Generate dynamic time slots (15-minute intervals)
-  const generateTimeSlots = () => {
-    const slots: string[] = [];
-    const startHour = 9; // 09:00
-    const endHour = 19; // 19:00
-    const intervalMinutes = 15;
+  // Slots are now fetched directly from the API (they are already filtered as FREE)
+  const morningSlots = availableTimeSlots.filter(slot => slot < '12:00');
+  const afternoonSlots = availableTimeSlots.filter(slot => slot >= '12:00');
 
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += intervalMinutes) {
-        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        slots.push(timeStr);
-      }
-    }
-
-    return slots;
-  };
-
-  // Check if a slot is busy (considering service duration)
-  const isSlotBusy = (slotTime: string): boolean => {
-    if (busySlots.length === 0) return false;
-
-    // Hizmet süresi (dakika)
-    const serviceDuration = totalDuration || 60; // Default 60 dakika
-
-    // Seçilen slotun bitiş saatini hesapla
-    const [slotHour, slotMinute] = slotTime.split(':').map(Number);
-    const slotStartMinutes = slotHour * 60 + slotMinute;
-    const slotEndMinutes = slotStartMinutes + serviceDuration;
-
-    // Slot end time'ı HH:MM formatına çevir
-    const slotEndHour = Math.floor(slotEndMinutes / 60);
-    const slotEndMin = slotEndMinutes % 60;
-    const slotEndTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMin.toString().padStart(2, '0')}`;
-
-    // Dolu slotlarla çakışma kontrolü
-    const isBusy = busySlots.some(busy => {
-      const conflict = (
-        (slotTime >= busy.start && slotTime < busy.end) ||
-        (slotEndTime > busy.start && slotEndTime <= busy.end) ||
-        (slotTime <= busy.start && slotEndTime >= busy.end)
-      );
-
-      if (conflict) {
-        console.log(`⛔ ${slotTime} DOLU! Çakışma: ${busy.start}-${busy.end}`);
-      }
-
-      return conflict;
-    });
-
-    // Check for past time
-    // If selectedDate is today, disable slots earlier than current time + buffer
-    const now = new Date();
-    const isToday = selectedDate.toDateString() === now.toDateString();
-
-    if (isToday) {
-      // Add 30 minutes buffer
-      const bufferMinutes = 30;
-      const bufferedNow = new Date(now.getTime() + bufferMinutes * 60000);
-
-      const currentHour = bufferedNow.getHours();
-      const currentMinute = bufferedNow.getMinutes();
-      const currentTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-
-      if (slotTime < currentTimeStr) {
-        return true; // Treat as busy/disabled
-      }
-    }
-
-    return isBusy;
-  };
+  // Calculate totals from services
+  const totalPrice = services.reduce((sum, s) => sum + Number(s.price || 0), 0);
+  const totalDuration = services.reduce((sum, s) => sum + (s.duration_min || 0), 0);
+  const totalDurationStr = `${Math.floor(totalDuration / 60)} sa ${totalDuration % 60} dk`;
 
   // Safe navigation function
   const handleContinue = () => {
@@ -270,28 +201,14 @@ export default function TimeSelection() {
     setBookingTime(selectedSlot);
 
     // 2. Navigate immediately (Context update will be picked up by next page)
-    // We pass params in URL for redundancy and safety if context is slow
     const params = new URLSearchParams();
     if (staff?.id) params.set('staffId', staff.id);
     params.set('date', dateStr);
     params.set('time', selectedSlot);
-
-    // Pass appointmentId if it exists in context
-    if (appointmentId) {
-      params.set('appointmentId', appointmentId);
-    }
+    if (appointmentId) params.set('appointmentId', appointmentId);
 
     router.push(`/booking/${id}/user-info?${params.toString()}`);
   };
-
-  const allSlots = generateTimeSlots();
-  const morningSlots = allSlots.filter(slot => slot < '12:00');
-  const afternoonSlots = allSlots.filter(slot => slot >= '12:00');
-
-  // Calculate totals from services
-  const totalPrice = services.reduce((sum, s) => sum + Number(s.price || 0), 0);
-  const totalDuration = services.reduce((sum, s) => sum + (s.duration_min || 0), 0);
-  const totalDurationStr = `${Math.floor(totalDuration / 60)} sa ${totalDuration % 60} dk`;
 
   if (loading) {
     return (
@@ -405,15 +322,16 @@ export default function TimeSelection() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {morningSlots.map((time) => {
-                          const disabled = isSlotBusy(time);
-                          return (
-                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-gray-400 cursor-not-allowed opacity-60' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
-                              {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
-                              <span className={`text-sm font-bold ${disabled ? 'font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
-                            </button>
-                          )
-                        })}
+                        {morningSlots.map((time) => (
+                          <button
+                            key={time}
+                            onClick={() => setSelectedSlot(time)}
+                            className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+                          >
+                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
+                            <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -429,15 +347,16 @@ export default function TimeSelection() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {afternoonSlots.map((time) => {
-                          const disabled = isSlotBusy(time);
-                          return (
-                            <button key={time} disabled={disabled} onClick={() => !disabled && setSelectedSlot(time)} className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${disabled ? 'border-transparent bg-gray-100 text-gray-400 cursor-not-allowed opacity-60' : selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}>
-                              {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
-                              <span className={`text-sm font-bold ${disabled ? 'font-medium' : selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
-                            </button>
-                          )
-                        })}
+                        {afternoonSlots.map((time) => (
+                          <button
+                            key={time}
+                            onClick={() => setSelectedSlot(time)}
+                            className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+                          >
+                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
+                            <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -448,13 +367,7 @@ export default function TimeSelection() {
                     <span className="material-symbols-outlined">arrow_back</span> Geri Dön
                   </Link>
                   <button
-                    onClick={() => {
-                      if (selectedSlot) {
-                        setBookingDate(selectedDate.toISOString().split('T')[0]); // YYYY-MM-DD
-                        setBookingTime(selectedSlot);
-                        router.push(`/booking/${id}/user-info`);
-                      }
-                    }}
+                    onClick={handleContinue}
                     className={`flex items-center gap-2 px-8 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary-hover hover:shadow-primary/40 hover:-translate-y-0.5 transition-all ${!selectedSlot ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     Devam Et

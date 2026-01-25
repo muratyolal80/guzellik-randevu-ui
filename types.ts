@@ -1,16 +1,28 @@
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'SALON_OWNER' | 'SUPER_ADMIN';
 
+export type Permission =
+  | 'CAN_MANAGE_SALON'
+  | 'CAN_MANAGE_STAFF'
+  | 'CAN_EDIT_SERVICES'
+  | 'CAN_VIEW_REPORTS'
+  | 'CAN_MANAGE_BOOKINGS'
+  | 'CAN_MODERATE_CONTENT'
+  | 'CAN_MANAGE_SYSTEM';
+
 export interface Profile {
   id: string;
   email: string;
   first_name?: string;
   last_name?: string;
+  full_name?: string; // Sync with DB column name
   avatar_url?: string;
   role: UserRole;
+  permissions?: Permission[]; // For future-proof RBAC
   phone?: string;
   birth_date?: string; // YYYY-MM-DD
   created_at?: string;
   updated_at?: string;
+  bio?: string;
 }
 
 export interface Favorite {
@@ -36,10 +48,25 @@ export interface SupportTicket {
   id: string;
   user_id: string;
   subject: string;
-  message: string;
+  message: string; // The initial message
+  category?: string; // e.g., 'PAYMENT', 'BOOKING', 'ACCOUNT', 'OTHER'
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   created_at: string;
   updated_at: string;
+  messages?: TicketMessage[]; // Optional thread
+  user?: {
+    full_name: string;
+    email: string;
+  };
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_role: UserRole;
+  content: string;
+  created_at: string;
 }
 
 // ==============================================
@@ -50,6 +77,8 @@ export interface City {
   id: string;
   name: string;
   plate_code: number;
+  latitude?: number;
+  longitude?: number;
   created_at?: string;
 }
 
@@ -65,7 +94,7 @@ export interface SalonType {
   name: string;
   slug: string;
   icon?: string;
-  image?: string;  // For display/marketing purposes
+  image?: string; // For display/marketing purposes (Now in DB)
   created_at?: string;
 }
 
@@ -100,6 +129,8 @@ export interface Salon {
   geo_longitude?: number;
   image?: string;
   is_sponsored?: boolean;
+  description?: string;
+  features?: string[]; // Stored as JSONB in DB
   created_at?: string;
   updated_at?: string;
 
@@ -135,6 +166,8 @@ export interface SalonDetail extends Salon {
   typeIds?: string[];   // Array of type IDs
   rating?: number;      // Alias for average_rating
   startPrice?: number;  // Minimum service price
+  description?: string;
+  features?: string[];
 }
 
 export interface Staff {
@@ -144,6 +177,7 @@ export interface Staff {
   photo?: string;
   specialty?: string;
   is_active?: boolean;
+  bio?: string;
   created_at?: string;
 
   // Display/compatibility properties
@@ -166,6 +200,7 @@ export interface SalonService {
 export interface SalonServiceDetail extends SalonService {
   service_name: string;
   category_name: string;
+  category_icon: string;
   category_slug: string;
   salon_name: string;
 }
@@ -268,6 +303,16 @@ export interface BookingDisplay {
   staff: {
     name: string;
   };
+}
+
+export interface SalonWorkingHours {
+  id: string;
+  salon_id: string;
+  day_of_week: number; // 0=Sunday, 6=Saturday
+  start_time: string;
+  end_time: string;
+  is_closed: boolean;
+  created_at: string;
 }
 
 export { };

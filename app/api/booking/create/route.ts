@@ -31,15 +31,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Update User Profile & Email
-    // If email is provided and different, update it
-    if (email && email !== user.email && !user.email?.endsWith('@pending.user')) {
-      // Optional: Check if email is already taken? Supabase will throw error if so.
+    // If email is provided and user has a pending.user placeholder, update it
+    if (email && user.email?.includes('@pending.user')) {
+      const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        email,
+        email_confirm: true // Auto-confirm since they're already authenticated
+      });
+      if (updateEmailError) console.warn('Placeholder email update failed:', updateEmailError.message);
+    } else if (email && email !== user.email && !user.email?.includes('@pending.user')) {
+      // Update if email is different and not a placeholder
       const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { email });
       if (updateEmailError) console.warn('Email update failed:', updateEmailError.message);
-    } else if (email && user.email?.endsWith('@pending.user')) {
-      // This is a new user replacing the placeholder email
-      const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { email });
-      if (updateEmailError) console.warn('Placeholder email update failed:', updateEmailError.message);
     }
 
     // Update Profile Data
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       // First verify ownership and get existing details
       const { data: existingAppt } = await supabaseAdmin
         .from('appointments')
-        .select('customer_id, staff_id')
+        .select('customer_id, staff_id, notes')
         .eq('id', appointmentId)
         .single();
 
@@ -88,24 +90,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Bu randevuyu düzenleme yetkiniz yok.' }, { status: 403 });
       }
 
-      // CHECK: Is Staff Changing?
+      // CASE: Staff Changed or explicit reschedule -> CANCEL old, CREATE new
       if (existingAppt.staff_id !== staffId) {
-        // CASE: Staff Changed -> CANCEL old, CREATE new
-        console.log(`Staff changed from ${existingAppt.staff_id} to ${staffId}. Cancelling old appointment ${appointmentId}.`);
+        console.log(`Rescheduling: Staff changed. Cancelling old appointment ${appointmentId}.`);
 
-        // 1. Cancel old appointment
-        const { error: cancelError } = await supabaseAdmin
+        // 1. Cancel old appointment with a note
+        await supabaseAdmin
           .from('appointments')
-          .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+          .update({
+            status: 'CANCELLED',
+            notes: (existingAppt.notes ? existingAppt.notes + ' ' : '') + '[Yeniden planlama nedeniyle iptal edildi]',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', appointmentId);
 
-        if (cancelError) {
-          console.error('Failed to cancel old appointment during reschedule:', cancelError);
-          return NextResponse.json({ error: 'Eski randevu iptal edilirken hata oluştu.' }, { status: 500 });
-        }
-
-        // 2. Proceed to create NEW (drop to else block or explicitly create here)
-        // Explicitly create new here to avoid confusion
+        // 2. Proceed to create NEW
         const { data: newData, error: createError } = await supabaseAdmin
           .from('appointments')
           .insert({
@@ -118,7 +117,7 @@ export async function POST(request: NextRequest) {
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
             status: 'PENDING',
-            notes: notes || '',
+            notes: (notes || '') + ` [${appointmentId} nolu randevudan planlandı]`,
           })
           .select()
           .single();
