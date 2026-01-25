@@ -19,16 +19,22 @@ function LoginContent() {
 
     // Helper to determine redirect URL based on role
     const getRoleBasedRedirect = (role?: string) => {
-        switch (role) {
+        if (!role) return '/customer/dashboard';
+
+        const normalizedRole = role.toUpperCase();
+
+        switch (normalizedRole) {
             case 'SUPER_ADMIN':
+            case 'ADMIN': // Handle legacy or generic admin role
                 return '/admin';
             case 'SALON_OWNER':
+            case 'OWNER':
                 return '/owner/dashboard';
             case 'STAFF':
                 return '/staff/dashboard';
             case 'CUSTOMER':
             default:
-                return '/customer/dashboard'; // Customer dashboard fallback
+                return '/customer/dashboard';
         }
     };
 

@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useTenant } from '@/context/TenantContext';
 import { ServiceService, SalonDataService } from '@/services/db';
 import { Plus, Search, Edit2, Trash2, Tag, Clock, Check, X, Scissors, Loader2 } from 'lucide-react';
 
 export default function ServicesPage() {
     const { user } = useAuth();
+    const { salonId: tenantSalonId } = useTenant();
     const [services, setServices] = useState<any[]>([]);
     const [globalServices, setGlobalServices] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -103,7 +105,13 @@ export default function ServicesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Bu hizmeti silmek istediğinize emin misiniz?')) return;
         try {
-            await ServiceService.deleteService(id);
+            // Use tenant validation
+            const validateSalonId = tenantSalonId || salonId;
+            if (validateSalonId) {
+                await ServiceService.deleteService(id, validateSalonId);
+            } else {
+                await ServiceService.deleteService(id);
+            }
             setServices(prev => prev.filter(s => s.id !== id));
         } catch (error) {
             console.error('Delete error', error);

@@ -259,6 +259,7 @@ export const SalonDataService = {
     const { data, error } = await supabase
       .from('salon_details')
       .select('*')
+      .eq('status', 'APPROVED') // Only show approved salons
       .order('is_sponsored', { ascending: false })
       .order('average_rating', { ascending: false });
 
@@ -304,6 +305,9 @@ export const SalonDataService = {
         query = query.eq('city_name', cityData.name);
       }
     }
+
+    // Always filter by approved status
+    query = query.eq('status', 'APPROVED');
 
     if (filters.districtId) {
       const { data: districtData } = await supabase
@@ -357,6 +361,7 @@ export const SalonDataService = {
       .lte('geo_latitude', lat + latDelta)
       .gte('geo_longitude', lng - lngDelta)
       .lte('geo_longitude', lng + lngDelta)
+      .eq('status', 'APPROVED')
       .order('is_sponsored', { ascending: false });
 
     if (error) throw error;
@@ -452,7 +457,7 @@ export const SalonDataService = {
 
 export const StaffService = {
   /**
-   * Get all staff for a salon
+   * Get all staff for a salon (with tenant check)
    */
   async getStaffBySalon(salonId: string): Promise<Staff[]> {
     const { data, error } = await supabase
@@ -467,7 +472,7 @@ export const StaffService = {
   },
 
   /**
-   * Get staff by ID
+   * Get staff by ID (with tenant check)
    */
   async getStaffById(id: string): Promise<Staff | null> {
     const { data, error } = await supabase
@@ -591,14 +596,19 @@ export const ServiceService = {
   },
 
   /**
-   * Get service by ID
+   * Get service by ID (with tenant check)
    */
-  async getServiceById(id: string): Promise<SalonServiceDetail | null> {
-    const { data, error } = await supabase
+  async getServiceById(id: string, salonId?: string): Promise<SalonServiceDetail | null> {
+    let query = supabase
       .from('salon_service_details')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return data;
@@ -632,29 +642,38 @@ export const ServiceService = {
   },
 
   /**
-   * Update an existing service
+   * Update an existing service (with tenant check)
    */
-  async updateService(id: string, updates: { price?: number, duration_min?: number, is_active?: boolean }): Promise<any> {
-    const { data, error } = await supabase
+  async updateService(id: string, updates: { price?: number, duration_min?: number, is_active?: boolean }, salonId?: string): Promise<any> {
+    let query = supabase
       .from('salon_services')
       .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw error;
     return data;
   },
 
   /**
-   * Delete (or soft delete) a service
+   * Delete (or soft delete) a service (with tenant check)
    */
-  async deleteService(id: string): Promise<void> {
-    // Hard delete for now, or use is_active=false
-    const { error } = await supabase
+  async deleteService(id: string, salonId?: string): Promise<void> {
+    let query = supabase
       .from('salon_services')
       .delete()
       .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { error } = await query;
 
     if (error) throw error;
   }
@@ -778,14 +797,19 @@ export const WorkingHoursService = {
 
 export const AppointmentService = {
   /**
-   * Get appointment by ID
+   * Get appointment by ID (with tenant check)
    */
-  async getAppointmentById(id: string): Promise<Appointment | null> {
-    const { data, error } = await supabase
+  async getAppointmentById(id: string, salonId?: string): Promise<Appointment | null> {
+    let query = supabase
       .from('appointments')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return data;
@@ -865,15 +889,19 @@ export const AppointmentService = {
   },
 
   /**
-   * Update appointment status
+   * Update appointment status (with tenant check)
    */
-  async updateAppointmentStatus(id: string, status: Appointment['status']): Promise<Appointment> {
-    const { data, error } = await supabase
+  async updateAppointmentStatus(id: string, status: Appointment['status'], salonId?: string): Promise<Appointment> {
+    let query = supabase
       .from('appointments')
       .update({ status })
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw error;
     return data;
@@ -887,15 +915,19 @@ export const AppointmentService = {
   },
 
   /**
-   * Update full appointment details
+   * Update full appointment details (with tenant check)
    */
-  async updateAppointment(id: string, updates: Partial<Appointment>): Promise<Appointment> {
-    const { data, error } = await supabase
+  async updateAppointment(id: string, updates: Partial<Appointment>, salonId?: string): Promise<Appointment> {
+    let query = supabase
       .from('appointments')
       .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) throw error;
     return data;

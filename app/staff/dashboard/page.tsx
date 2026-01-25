@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useTenant } from '@/context/TenantContext';
 import { supabase } from '@/lib/supabase';
+import { AppointmentService } from '@/services/db';
 import {
     Clock,
     User,
@@ -17,6 +19,7 @@ import {
 
 export default function StaffDashboard() {
     const { user } = useAuth();
+    const { salonId } = useTenant();
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ today: 0, pending: 0, completed: 0 });
@@ -78,12 +81,18 @@ export default function StaffDashboard() {
 
     const handleUpdateStatus = async (appointmentId: string, newStatus: string) => {
         try {
-            const { error } = await supabase
-                .from('appointments')
-                .update({ status: newStatus, updated_at: new Date().toISOString() })
-                .eq('id', appointmentId);
+            // Use DB service with tenant validation
+            if (salonId) {
+                await AppointmentService.updateAppointmentStatus(appointmentId, newStatus as any, salonId);
+            } else {
+                // Fallback to direct update if no salonId (for safety)
+                const { error } = await supabase
+                    .from('appointments')
+                    .update({ status: newStatus, updated_at: new Date().toISOString() })
+                    .eq('id', appointmentId);
 
-            if (error) throw error;
+                if (error) throw error;
+            }
 
             // Refresh local state
             setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: newStatus } : a));
