@@ -240,3 +240,90 @@ export default function ProfilePage() {
         </div>
     );
 }
+
+function PasswordChangeForm() {
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [formData, setFormData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (formData.newPassword !== formData.confirmPassword) {
+            setMessage({ type: 'error', text: 'Yeni şifreler eşleşmiyor.' });
+            return;
+        }
+
+        setLoading(true);
+        setMessage(null);
+
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: formData.newPassword
+            });
+
+            if (error) throw error;
+
+            setMessage({ type: 'success', text: 'Şifreniz başarıyla güncellendi.' });
+            setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Şifre güncellenirken bir hata oluştu.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handlePasswordChange} className="space-y-4">
+            {message && (
+                <div className={`p-3 rounded-lg text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {message.text}
+                </div>
+            )}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mevcut Şifre</label>
+                <input
+                    type="password"
+                    required
+                    value={formData.currentPassword}
+                    onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre</label>
+                    <input
+                        type="password"
+                        required
+                        value={formData.newPassword}
+                        onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre (Tekrar)</label>
+                    <input
+                        type="password"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                    />
+                </div>
+            </div>
+            <div className="pt-2">
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full md:w-auto px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-70"
+                >
+                    {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                </button>
+            </div>
+        </form>
+    );
+}
