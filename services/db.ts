@@ -8,7 +8,8 @@ import type {
   City, District, SalonType, ServiceCategory, GlobalService,
   Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
   WorkingHours, SalonWorkingHours, Appointment, Review, IYSLog,
-  SupportTicket, TicketMessage, Favorite
+  SupportTicket, TicketMessage, Favorite, Notification,
+  Invite
 } from '@/types';
 
 // Helper to check if we have a real connection
@@ -268,6 +269,42 @@ export const SalonDataService = {
   },
 
   /**
+   * Get salons by user membership (Owner/Staff branches)
+   */
+  async getSalonsByMembership(userId: string): Promise<SalonDetail[]> {
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .in('id', (
+        supabase
+          .from('salon_memberships')
+          .select('salon_id')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+      ) as any);
+
+    // Note: The subquery above might need adjustment depending on Supabase version.
+    // Let's use a join or two-step fetch for better compatibility.
+    const { data: memberships, error: memError } = await supabase
+      .from('salon_memberships')
+      .select('salon_id')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+
+    if (memError) throw memError;
+    if (!memberships || memberships.length === 0) return [];
+
+    const salonIds = memberships.map(m => m.salon_id);
+    const { data: salons, error: salonError } = await supabase
+      .from('salon_details')
+      .select('*')
+      .in('id', salonIds);
+
+    if (salonError) throw salonError;
+    return salons || [];
+  },
+
+  /**
    * Get salon by ID with details
    */
   async getSalonById(id: string): Promise<SalonDetail | null> {
@@ -390,11 +427,14 @@ export const SalonDataService = {
       .from('salons')
       .update(updates)
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) {
+      // This usually happens when RLS doesn't allow reading the row back even if update worked
+      throw new Error('Update successful but RLS policy prevented retrieving the updated data. Please refresh.');
+    }
+    return data[0];
   },
 
   /**
@@ -410,18 +450,91 @@ export const SalonDataService = {
   },
 
   /**
-   * Get salon details by owner user ID
+   * Get salon details by owner user ID (Returns list of all salons owned)
    */
-  async getSalonByOwner(ownerId: string): Promise<SalonDetail | null> {
-    const { data: salon, error: salonError } = await supabase
+  async getSalonsByOwner(ownerId: string): Promise<SalonDetail[]> {
+    const { data: salonIds, error: salonError } = await supabase
       .from('salons')
       .select('id')
-      .eq('owner_id', ownerId)
-      .single();
+      .eq('owner_id', ownerId);
 
-    if (salonError || !salon) return null;
+    if (salonError || !salonIds || salonIds.length === 0) return [];
 
-    return this.getSalonById(salon.id);
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .in('id', salonIds.map(s => s.id));
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get single salon for owner (backward compatibility & dashboard)
+   */
+  async getSalonByOwner(ownerId: string): Promise<SalonDetail | null> {
+    const salons = await this.getSalonsByOwner(ownerId);
+    return salons.length > 0 ? salons[0] : null;
+  },
+
+  /**
+   * Get all salons for Admin (regardless of status)
+   */
+  async getAllSalonsForAdmin(): Promise<SalonDetail[]> {
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Admin/System: Update salon status with optional reason
+   */
+  async updateSalonStatus(id: string, status: Salon['status'], reason?: string): Promise<void> {
+    const { error } = await supabase
+      .from('salons')
+      .update({
+        status,
+        rejected_reason: reason || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  /**
+   * Admin: Approve a salon
+   */
+  async approveSalon(id: string): Promise<void> {
+    await this.updateSalonStatus(id, 'APPROVED');
+  },
+
+  /**
+   * Admin: Reject a salon
+   */
+  async rejectSalon(id: string, reason: string): Promise<void> {
+    await this.updateSalonStatus(id, 'REJECTED', reason);
+  },
+
+  /**
+   * Admin: Suspend a salon
+   */
+  async suspendSalon(id: string, reason: string): Promise<void> {
+    await this.updateSalonStatus(id, 'SUSPENDED', reason);
+  },
+
+  /**
+   * Owner: Submit salon for approval
+   */
+  async submitForApproval(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('salons')
+      .update({ status: 'SUBMITTED', updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
   },
 
   /**
@@ -1352,6 +1465,133 @@ export const IYSService = {
   },
 };
 
+
+// ==============================================
+// NOTIFICATION SERVICE
+// ==============================================
+
+export const NotificationService = {
+  /**
+   * Get notifications for a user
+   */
+  async getNotifications(userId: string): Promise<Notification[]> {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Mark notification as read
+   */
+  async markAsRead(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Send notification to user
+   */
+  async sendNotification(notification: Omit<Notification, 'id' | 'created_at' | 'is_read'>): Promise<Notification> {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        ...notification,
+        is_read: false,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+
+// ==============================================
+// INVITE SERVICE (Staff Recruitment)
+// ==============================================
+
+export const InviteService = {
+  /**
+   * Create a new invite (Owner/Manager action)
+   */
+  async createInvite(invite: Omit<Invite, 'id' | 'status' | 'created_at' | 'expires_at' | 'accepted_at'>): Promise<Invite> {
+    const { data, error } = await supabase
+      .from('invites')
+      .insert({
+        ...invite,
+        token: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        status: 'PENDING'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get invite details by token (Public check)
+   */
+  async getInviteByToken(token: string): Promise<Invite | null> {
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*, salon:salons(name)')
+      .eq('token', token)
+      .eq('status', 'PENDING')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  },
+
+  /**
+   * Accept invite and link to membership
+   */
+  async acceptInvite(inviteId: string, userId: string): Promise<void> {
+    const { data: invite, error: fetchErr } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('id', inviteId)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    // 1. Create membership
+    const { error: memErr } = await supabase
+      .from('salon_memberships')
+      .insert({
+        user_id: userId,
+        salon_id: invite.salon_id,
+        role: invite.role,
+        is_active: true
+      });
+
+    if (memErr) throw memErr;
+
+    // 2. Mark invite as accepted
+    const { error: updErr } = await supabase
+      .from('invites')
+      .update({
+        status: 'ACCEPTED',
+        accepted_at: new Date().toISOString()
+      })
+      .eq('id', inviteId);
+
+    if (updErr) throw updErr;
+  }
+};
+
 // ==============================================
 // LEGACY COMPATIBILITY (for existing components)
 // ==============================================
@@ -1371,5 +1611,7 @@ export default {
   DashboardService,
   SupportService,
   IYSService,
+  NotificationService,
+  InviteService,
 };
 

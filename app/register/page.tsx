@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { Store } from 'lucide-react';
 
 export default function Register() {
     const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
@@ -217,13 +218,26 @@ export default function Register() {
                             </button>
                         </form>
 
-                        <div className="mt-6 text-center">
-                            <p className="text-sm text-text-secondary">
+                        <div className="mt-8 pt-6 border-t border-gray-100 space-y-4">
+                            <p className="text-sm text-center text-text-secondary">
                                 Zaten hesabınız var mı?{' '}
                                 <a href="/login" className="text-primary font-bold hover:underline">
                                     Giriş Yap
                                 </a>
                             </p>
+                            <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-5 rounded-2xl border border-primary/20 shadow-sm group hover:border-primary/40 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+                                        <Store className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-text-main font-black uppercase tracking-wider">İşletme Sahibi misiniz?</p>
+                                        <a href="/register/business" className="block text-[11px] font-bold text-primary mt-0.5 group-hover:underline">
+                                            Hemen Şubenizi Kaydedin →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

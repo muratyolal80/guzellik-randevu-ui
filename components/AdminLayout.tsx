@@ -9,6 +9,7 @@ const AdminSidebar: React.FC = () => {
     const pathname = usePathname();
     const menuItems = [
         { name: 'Dashboard', path: '/admin', icon: 'dashboard' },
+        { name: 'Salon Onayları', path: '/admin/salons/approvals', icon: 'verified_user' },
         { name: 'Salonlar', path: '/admin/salons', icon: 'store' },
         { name: 'Salon Tipleri', path: '/admin/types', icon: 'category' },
         { name: 'Hizmetler', path: '/admin/services', icon: 'cut' },
@@ -24,11 +25,10 @@ const AdminSidebar: React.FC = () => {
                     <Link
                         key={item.path}
                         href={item.path}
-                        className={`flex items-center gap-3 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-                            pathname === item.path
+                        className={`flex items-center gap-3 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${pathname === item.path
                                 ? 'bg-primary text-white'
                                 : 'text-text-secondary hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         <span className="material-symbols-outlined">{item.icon}</span>
                         {item.name}

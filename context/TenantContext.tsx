@@ -43,7 +43,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     .single();
 
                 if (error) {
-                    console.error('[TenantContext] Error fetching owner salon:', error);
+                    // PGRST116 = JSON object requested, multiple (or no) rows returned
+                    // This is expected if the admin/owner hasn't created a salon yet.
+                    if (error.code !== 'PGRST116') {
+                        console.error('[TenantContext] Error fetching owner salon details:', {
+                            code: error.code,
+                            message: error.message,
+                            details: error.details,
+                            hint: error.hint
+                        });
+                    }
                     setSalonId(null);
                 } else {
                     setSalonId(data?.id || null);
@@ -57,7 +66,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     .single();
 
                 if (error) {
-                    console.error('[TenantContext] Error fetching staff salon:', error);
+                    if (error.code !== 'PGRST116') {
+                        console.error('[TenantContext] Error fetching staff salon details:', {
+                            code: error.code,
+                            message: error.message,
+                            details: error.details,
+                            hint: error.hint
+                        });
+                    }
                     setSalonId(null);
                 } else {
                     setSalonId(data?.salon_id || null);

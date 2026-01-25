@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { StaffService, SalonDataService } from '@/services/db';
+import ImageUpload from '@/components/ImageUpload';
 import {
     Users,
     UserPlus,
@@ -31,6 +32,7 @@ export default function OwnerStaffManagement() {
     // Form States
     const [newStaffName, setNewStaffName] = useState('');
     const [newStaffSpecialty, setNewStaffSpecialty] = useState('');
+    const [newStaffPhoto, setNewStaffPhoto] = useState<string>('');
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -64,11 +66,13 @@ export default function OwnerStaffManagement() {
                 salon_id: salon.id,
                 name: newStaffName,
                 specialty: newStaffSpecialty,
+                photo: newStaffPhoto,
                 is_active: true
             });
             setShowAddModal(false);
             setNewStaffName('');
             setNewStaffSpecialty('');
+            setNewStaffPhoto('');
             // Refresh list
             const staffList = await StaffService.getStaffBySalon(salon.id);
             setStaff(staffList);
@@ -195,6 +199,17 @@ export default function OwnerStaffManagement() {
                             <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors"><XCircle className="w-5 h-5 text-text-secondary" /></button>
                         </div>
                         <form onSubmit={handleAddStaff} className="p-10 space-y-6">
+                            <div className="flex justify-center mb-6">
+                                <div className="w-32 h-32">
+                                    <ImageUpload
+                                        bucket="staff-photos"
+                                        currentImage={newStaffPhoto}
+                                        onUpload={setNewStaffPhoto}
+                                        label="Personel Fotoğrafı"
+                                    />
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-text-muted uppercase tracking-widest ml-1">Tam İsim</label>
                                 <input

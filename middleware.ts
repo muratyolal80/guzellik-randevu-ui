@@ -63,19 +63,30 @@ export async function middleware(request: NextRequest) {
     // A. Admin Routes
     if (request.nextUrl.pathname.startsWith('/admin')) {
         if (!user) {
+            console.log('[Middleware] Admin access denied: No user');
             const loginUrl = new URL('/login', request.url)
             loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
             return NextResponse.redirect(loginUrl)
         }
 
         try {
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+            console.log('[Middleware] Checking Admin Access for:', user.email);
+            const { data: profile, error } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+
+            if (error) {
+                console.error('[Middleware] Profile fetch error:', error);
+            }
+
             const role = profile?.role ? profile.role.toUpperCase() : '';
+            console.log('[Middleware] User Role:', role);
 
             if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+                console.warn('[Middleware] Admin access denied: Role mismatch. Found:', role);
                 return NextResponse.redirect(new URL('/?error=unauthorized_admin', request.url))
             }
+            console.log('[Middleware] Admin access granted.');
         } catch (e) {
+            console.error('[Middleware] Unexpected error:', e);
             return NextResponse.redirect(new URL('/', request.url))
         }
     }

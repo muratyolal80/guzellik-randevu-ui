@@ -68,9 +68,9 @@ export default function StaffSelection() {
         // Map staff data
         const mappedStaff = staffData.map((s: Staff) => ({
           ...s,
-          image: s.photo || `https://i.pravatar.cc/150?u=${s.id}`,
+          image: s.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`,
           role: s.specialty || 'Uzman',
-          rating: 4.5,
+          rating: 0, // Ratings should come from DB/Reviews, reset mock
           isOnline: s.is_active
         }));
 
