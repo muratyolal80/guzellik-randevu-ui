@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Navigation, Info, XCircle, RotateCw } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, Info, XCircle, RotateCw, Star } from 'lucide-react';
 import { Appointment, SalonDetail } from '@/types';
 
 // Using a simplified props interface for UI mock, but compatible with core types
@@ -19,6 +19,7 @@ interface AppointmentCardProps {
     price?: number;
     status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
     onCancel?: () => void;
+    onRate?: () => void;
 }
 
 const AppointmentCard: React.FC<AppointmentCardProps> = ({
@@ -35,7 +36,8 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
     staffName,
     price,
     status,
-    onCancel
+    onCancel,
+    onRate
 }) => {
 
     const statusConfig = {
@@ -119,22 +121,24 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                             <XCircle className="w-4 h-4 mr-1.5" /> İptal Et
                         </button>
                         {rescheduleUrl && (
-                            <a href={rescheduleUrl} className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-colors flex items-center shadow-amber-200">
+                            <a href={rescheduleUrl} className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm transition-all flex items-center shadow-amber-200">
                                 <RotateCw className="w-4 h-4 mr-1.5" /> Yeniden Planla
                             </a>
                         )}
                     </>
                 )}
+                {status === 'COMPLETED' && (
+                    <button
+                        onClick={onRate}
+                        className="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-lg shadow-green-100 transition-all flex items-center"
+                    >
+                        <Star className="w-4 h-4 mr-1.5 fill-current" /> Puanla & Yorum Yap
+                    </button>
+                )}
                 {(status === 'CANCELLED' || status === 'COMPLETED') && rescheduleUrl && (
                     <a href={rescheduleUrl} className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center">
                         <RotateCw className="w-4 h-4 mr-1.5" /> Tekrar Randevu Al
                     </a>
-                )}
-                {/* Fallback for when no URL is available (legacy check) */}
-                {(!rescheduleUrl && (status === 'CANCELLED' || status === 'COMPLETED')) && (
-                    <button className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
-                        Tekrar Randevu Al
-                    </button>
                 )}
             </div>
         </div>

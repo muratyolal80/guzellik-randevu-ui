@@ -10,19 +10,21 @@ import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, MasterDataService, ServiceService } from '@/services/db';
 import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
 
-// Helper: Default coordinates for major cities
+// Fallback Cache for Coordinates (Populated from DB)
+const CITY_COORDINATES_CACHE: Record<string, { lat: number; lng: number }> = {
+    "İstanbul": { lat: 41.0082, lng: 28.9784 },
+    "Ankara": { lat: 39.9208, lng: 32.8541 },
+    "İzmir": { lat: 38.4237, lng: 27.1428 },
+    "Antalya": { lat: 36.8969, lng: 30.7133 },
+    "Bursa": { lat: 40.1885, lng: 29.0610 },
+    "Adana": { lat: 37.0000, lng: 35.3213 },
+    "Gaziantep": { lat: 37.0662, lng: 37.3833 },
+    "Konya": { lat: 37.8667, lng: 32.4833 }
+};
+
+// Helper: Get coordinates with DB priority
 const getCityCoordinates = (cityName: string): { lat: number; lng: number } | null => {
-    const cityCoords: Record<string, { lat: number; lng: number }> = {
-        "İstanbul": { lat: 41.0082, lng: 28.9784 },
-        "Ankara": { lat: 39.9208, lng: 32.8541 },
-        "İzmir": { lat: 38.4237, lng: 27.1428 },
-        "Antalya": { lat: 36.8969, lng: 30.7133 },
-        "Bursa": { lat: 40.1885, lng: 29.0610 },
-        "Adana": { lat: 37.0000, lng: 35.3213 },
-        "Gaziantep": { lat: 37.0662, lng: 37.3833 },
-        "Konya": { lat: 37.8667, lng: 32.4833 }
-    };
-    return cityCoords[cityName] || null;
+    return CITY_COORDINATES_CACHE[cityName] || null;
 };
 
 // Dynamically import Map component with no SSR
@@ -160,6 +162,14 @@ function HomePageContent() {
             setSalonTypes(typesData);
             setGlobalServices(servicesData);
             setCities(citiesData);
+
+            // Populate CITY_COORDINATES based on DB data if available
+            // This allows us to remove the hardcoded list eventually
+            citiesData.forEach(city => {
+                if (city.latitude && city.longitude) {
+                    CITY_COORDINATES_CACHE[city.name] = { lat: city.latitude, lng: city.longitude };
+                }
+            });
 
             // Load services for all salons to enable service-based search
             const servicesMap: Record<string, string[]> = {};

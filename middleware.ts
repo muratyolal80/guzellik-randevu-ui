@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // 3. Protected Routes
+    // Admin Routes - Strictly for SUPER_ADMIN
     if (request.nextUrl.pathname.startsWith('/admin')) {
         if (!user) {
             const loginUrl = new URL('/login', request.url)
@@ -49,8 +50,31 @@ export async function middleware(request: NextRequest) {
                 .eq('id', user.id)
                 .single()
 
-            if (profile?.role !== 'SUPER_ADMIN' && profile?.role !== 'SALON_OWNER') {
-                return NextResponse.redirect(new URL('/', request.url))
+            if (profile?.role !== 'SUPER_ADMIN') {
+                return NextResponse.redirect(new URL('/?error=unauthorized_admin', request.url))
+            }
+        } catch (e) {
+            return NextResponse.redirect(new URL('/', request.url))
+        }
+    }
+
+    // Owner Routes - For SALON_OWNER or SUPER_ADMIN
+    if (request.nextUrl.pathname.startsWith('/owner')) {
+        if (!user) {
+            const loginUrl = new URL('/login', request.url)
+            loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+            return NextResponse.redirect(loginUrl)
+        }
+
+        try {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'SALON_OWNER' && profile?.role !== 'SUPER_ADMIN') {
+                return NextResponse.redirect(new URL('/?error=unauthorized_owner', request.url))
             }
         } catch (e) {
             return NextResponse.redirect(new URL('/', request.url))

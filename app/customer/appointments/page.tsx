@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import AppointmentCard from '@/components/dashboard/AppointmentCard';
+import { useRouter } from 'next/navigation';
 
 export default function AppointmentsPage() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -119,6 +121,7 @@ export default function AppointmentsPage() {
                     appointments.map((apt) => (
                         <AppointmentCard
                             key={apt.id}
+                            id={apt.id} // Added missing id prop
                             salonId={apt.salon?.id}
                             salonName={apt.salon?.name || 'Salon'}
                             salonAddress={apt.salon?.address || ''}
@@ -131,6 +134,7 @@ export default function AppointmentsPage() {
                             price={apt.service?.price || 0}
                             status={apt.status}
                             onCancel={() => handleCancelAppointment(apt.id)}
+                            onRate={() => router.push(`/salon/${apt.salon?.id}#reviews`)}
                         />
                     ))
                 ) : (

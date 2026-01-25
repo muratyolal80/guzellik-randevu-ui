@@ -7,7 +7,8 @@ import { supabase, supabaseUrl } from '@/lib/supabase';
 import type {
   City, District, SalonType, ServiceCategory, GlobalService,
   Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
-  WorkingHours, Appointment, Review, IYSLog
+  WorkingHours, SalonWorkingHours, Appointment, Review, IYSLog,
+  SupportTicket, TicketMessage, Favorite
 } from '@/types';
 
 // Helper to check if we have a real connection
@@ -61,6 +62,47 @@ export const MasterDataService = {
   },
 
   /**
+   * Create new salon type
+   */
+  async createSalonType(type: Omit<SalonType, 'id' | 'created_at'>): Promise<SalonType> {
+    const { data, error } = await supabase
+      .from('salon_types')
+      .insert(type)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update salon type
+   */
+  async updateSalonType(id: string, updates: Partial<SalonType>): Promise<SalonType> {
+    const { data, error } = await supabase
+      .from('salon_types')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete salon type
+   */
+  async deleteSalonType(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('salon_types')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
    * Get all service categories (Saç, Tırnak, Makyaj, etc.)
    */
   async getServiceCategories(): Promise<ServiceCategory[]> {
@@ -71,6 +113,47 @@ export const MasterDataService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Create new service category
+   */
+  async createServiceCategory(category: Omit<ServiceCategory, 'id' | 'created_at'>): Promise<ServiceCategory> {
+    const { data, error } = await supabase
+      .from('service_categories')
+      .insert(category)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update service category
+   */
+  async updateServiceCategory(id: string, updates: Partial<ServiceCategory>): Promise<ServiceCategory> {
+    const { data, error } = await supabase
+      .from('service_categories')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete service category
+   */
+  async deleteServiceCategory(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('service_categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 
   /**
@@ -98,6 +181,47 @@ export const MasterDataService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Create new global service
+   */
+  async createGlobalService(service: Omit<GlobalService, 'id' | 'created_at'>): Promise<GlobalService> {
+    const { data, error } = await supabase
+      .from('global_services')
+      .insert(service)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update global service
+   */
+  async updateGlobalService(id: string, updates: Partial<GlobalService>): Promise<GlobalService> {
+    const { data, error } = await supabase
+      .from('global_services')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete global service
+   */
+  async deleteGlobalService(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('global_services')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   },
 
   /**
@@ -267,6 +391,59 @@ export const SalonDataService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * Delete salon
+   */
+  async deleteSalon(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('salons')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Get salon details by owner user ID
+   */
+  async getSalonByOwner(ownerId: string): Promise<SalonDetail | null> {
+    const { data: salon, error: salonError } = await supabase
+      .from('salons')
+      .select('id')
+      .eq('owner_id', ownerId)
+      .single();
+
+    if (salonError || !salon) return null;
+
+    return this.getSalonById(salon.id);
+  },
+
+  /**
+   * Get working hours for a salon
+   */
+  async getSalonWorkingHours(salonId: string): Promise<SalonWorkingHours[]> {
+    const { data, error } = await supabase
+      .from('salon_working_hours')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('day_of_week');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Update salon working hours
+   */
+  async updateSalonWorkingHours(id: string, updates: Partial<SalonWorkingHours>): Promise<void> {
+    const { error } = await supabase
+      .from('salon_working_hours')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) throw error;
+  },
 };
 
 // ==============================================
@@ -304,18 +481,93 @@ export const StaffService = {
   },
 
   /**
-   * Create new staff member
+   * Create a new staff member with default working hours
    */
-  async createStaff(staff: Omit<Staff, 'id' | 'created_at'>): Promise<Staff> {
+  async createStaff(staffData: Partial<Staff>): Promise<Staff> {
     const { data, error } = await supabase
       .from('staff')
-      .insert(staff)
+      .insert({
+        ...staffData,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Create default working hours (Mon-Sat 09-19, Sun Closed)
+    const defaultHours = [1, 2, 3, 4, 5, 6].map(day => ({
+      staff_id: data.id,
+      day_of_week: day,
+      start_time: '09:00:00',
+      end_time: '19:00:00',
+      is_day_off: false
+    }));
+
+    defaultHours.push({
+      staff_id: data.id,
+      day_of_week: 0,
+      start_time: '09:00:00',
+      end_time: '19:00:00',
+      is_day_off: true
+    });
+
+    await supabase.from('working_hours').insert(defaultHours);
+    return data;
+  },
+
+  /**
+   * Update existing staff
+   */
+  async updateStaff(id: string, updates: Partial<Staff>): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('staff')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
     return data;
   },
+
+  /**
+   * Get working hours for a specific staff member
+   */
+  async getStaffWorkingHours(staffId: string): Promise<WorkingHours[]> {
+    const { data, error } = await supabase
+      .from('working_hours')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('day_of_week', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Delete staff member
+   */
+  async deleteStaff(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('staff')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Update staff working hours record
+   */
+  async updateWorkingHours(id: string, updates: Partial<WorkingHours>): Promise<void> {
+    const { error } = await supabase
+      .from('working_hours')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) throw error;
+  }
 };
 
 // ==============================================
@@ -353,12 +605,25 @@ export const ServiceService = {
   },
 
   /**
-   * Add service to salon
+   * Get all global services (for selection)
    */
-  async addServiceToSalon(service: Omit<SalonService, 'id' | 'created_at'>): Promise<SalonService> {
+  async getGlobalServices(): Promise<{ id: string; name: string; category_id: string }[]> {
+    const { data, error } = await supabase
+      .from('global_services')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Add a new service to a salon
+   */
+  async createService(serviceData: { salon_id: string, global_service_id: string, price: number, duration_min: number }): Promise<any> {
     const { data, error } = await supabase
       .from('salon_services')
-      .insert(service)
+      .insert(serviceData)
       .select()
       .single();
 
@@ -367,9 +632,9 @@ export const ServiceService = {
   },
 
   /**
-   * Update salon service pricing
+   * Update an existing service
    */
-  async updateSalonService(id: string, updates: Partial<SalonService>): Promise<SalonService> {
+  async updateService(id: string, updates: { price?: number, duration_min?: number, is_active?: boolean }): Promise<any> {
     const { data, error } = await supabase
       .from('salon_services')
       .update(updates)
@@ -380,7 +645,21 @@ export const ServiceService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * Delete (or soft delete) a service
+   */
+  async deleteService(id: string): Promise<void> {
+    // Hard delete for now, or use is_active=false
+    const { error } = await supabase
+      .from('salon_services')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }
 };
+
 
 // ==============================================
 // WORKING HOURS SERVICE
@@ -414,6 +693,83 @@ export const WorkingHoursService = {
     if (error) throw error;
     return data;
   },
+
+  /**
+   * Create a new staff member with default working hours
+   */
+  async createStaff(staffData: Partial<Staff>): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('staff')
+      .insert({
+        ...staffData,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Create default working hours (Mon-Sat 09-19, Sun Closed)
+    const defaultHours = [1, 2, 3, 4, 5, 6].map(day => ({
+      staff_id: data.id,
+      day_of_week: day,
+      start_time: '09:00:00',
+      end_time: '19:00:00',
+      is_day_off: false
+    }));
+
+    defaultHours.push({
+      staff_id: data.id,
+      day_of_week: 0,
+      start_time: '09:00:00',
+      end_time: '19:00:00',
+      is_day_off: true
+    });
+
+    await supabase.from('working_hours').insert(defaultHours);
+    return data;
+  },
+
+  /**
+   * Update existing staff
+   */
+  async updateStaff(id: string, updates: Partial<Staff>): Promise<Staff> {
+    const { data, error } = await supabase
+      .from('staff')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get working hours for a specific staff member
+   */
+  async getStaffWorkingHours(staffId: string): Promise<WorkingHours[]> {
+    const { data, error } = await supabase
+      .from('working_hours')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('day_of_week', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Delete staff member
+   */
+  async deleteStaff(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('staff')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }
 };
 
 // ==============================================
@@ -600,6 +956,322 @@ export const ReviewService = {
 };
 
 // ==============================================
+// SUPPORT SERVICE (Tickets & Messages)
+// ==============================================
+
+export const SupportService = {
+  /**
+   * Get all tickets for a user
+   */
+  async getTickets(userId: string): Promise<SupportTicket[]> {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Create a new ticket with initial message
+   */
+  async createTicket(userId: string, subject: string, category: string, message: string): Promise<SupportTicket> {
+    const { data: ticket, error: ticketError } = await supabase
+      .from('support_tickets')
+      .insert({
+        user_id: userId,
+        subject,
+        category,
+        message,
+        status: 'OPEN'
+      })
+      .select()
+      .single();
+
+    if (ticketError) throw ticketError;
+
+    // Add initial message to thread
+    const { error: msgError } = await supabase
+      .from('ticket_messages')
+      .insert({
+        ticket_id: ticket.id,
+        sender_id: userId,
+        sender_role: 'CUSTOMER',
+        content: message
+      });
+
+    if (msgError) console.warn('Initial message creation failed:', msgError.message);
+
+    return ticket;
+  },
+
+  /**
+   * Get ticket by ID
+   */
+  async getTicketById(ticketId: string): Promise<SupportTicket | null> {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .eq('id', ticketId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get messages for a specific ticket
+   */
+  async getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
+    const { data, error } = await supabase
+      .from('ticket_messages')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get all tickets in the system (Admin only)
+   */
+  async getAllTickets(): Promise<SupportTicket[]> {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .select(`
+        *,
+        user:profiles(full_name, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Add message to ticket (Reply)
+   */
+  async addMessage(ticketId: string, senderId: string, senderRole: string, message: string): Promise<void> {
+    const { error: msgError } = await supabase
+      .from('ticket_messages')
+      .insert({
+        ticket_id: ticketId,
+        sender_id: senderId,
+        sender_role: senderRole,
+        content: message
+      });
+
+    if (msgError) throw msgError;
+
+    // Update ticket status mainly if Admin replies or User re-opens
+    const newStatus = senderRole.includes('ADMIN') ? 'IN_PROGRESS' : 'OPEN';
+
+    // Only update updated_at always, status conditionally
+    // For simplicity, let's bump updated_at
+    await supabase
+      .from('support_tickets')
+      .update({
+        updated_at: new Date().toISOString(),
+        // Optional: update status logic based on business rules
+        // status: newStatus 
+      })
+      .eq('id', ticketId);
+  },
+
+  /**
+   * Reply to a ticket as an Admin (Legacy support)
+   */
+  async replyToTicket(ticketId: string, adminId: string, message: string): Promise<void> {
+    return this.addMessage(ticketId, adminId, 'SUPER_ADMIN', message);
+  },
+
+  /**
+   * Resolve/Close a ticket
+   */
+  async resolveTicket(ticketId: string): Promise<void> {
+    // Try to resolve using safe RPC (for customers)
+    const { error: rpcError } = await supabase.rpc('resolve_own_ticket', { p_ticket_id: ticketId });
+
+    if (rpcError) {
+      console.warn('RPC resolution failed, falling back to direct update:', rpcError);
+      // Fallback for Admin or if logic changes
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ status: 'RESOLVED', updated_at: new Date().toISOString() })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+    }
+  }
+};
+
+// ==============================================
+// DASHBOARD SERVICE (Customer Insights)
+// ==============================================
+
+export const DashboardService = {
+  /**
+   * Get main dashboard metrics for a user
+   */
+  async getDashboardData(userId: string) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+    const upcomingQuery = supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'CONFIRMED')
+      .gt('start_time', new Date().toISOString())
+      .eq('customer_id', userId);
+
+    const reviewQuery = supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    const spendingQuery = supabase
+      .from('appointments')
+      .select(`
+        salon_service:salon_services (
+          price
+        )
+      `)
+      .in('status', ['CONFIRMED', 'COMPLETED'])
+      .gte('start_time', startOfMonth)
+      .lte('start_time', endOfMonth)
+      .eq('customer_id', userId);
+
+    const nextAppointmentQuery = supabase
+      .from('appointments')
+      .select(`
+        *,
+        salon:salons (
+          name,
+          address,
+          image,
+          city:cities(name),
+          district:districts(name)
+        ),
+        service:salon_services (
+          price,
+          global_service:global_services(name)
+        )
+      `)
+      .gt('start_time', new Date().toISOString())
+      .eq('status', 'CONFIRMED')
+      .eq('customer_id', userId)
+      .order('start_time', { ascending: true })
+      .limit(1);
+
+    const [
+      { count: upcomingCount },
+      { count: reviewCount },
+      { data: spendingData },
+      { data: appointments }
+    ] = await Promise.all([
+      upcomingQuery,
+      reviewQuery,
+      spendingQuery,
+      nextAppointmentQuery
+    ]);
+
+    const totalSpent = spendingData?.reduce((sum, item: any) => {
+      return sum + (item.salon_service?.price || 0);
+    }, 0) || 0;
+
+    return {
+      stats: {
+        upcomingCount: upcomingCount || 0,
+        totalSpent,
+        reviewCount: reviewCount || 0
+      },
+      nextAppointment: appointments && appointments.length > 0 ? appointments[0] : null
+    };
+  },
+
+  /**
+   * Get dynamic recommendations for the user
+   */
+  async getRecommendedSalons(limit: number = 3): Promise<SalonDetail[]> {
+    // Basic logic: high rating + sponsored
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .order('is_sponsored', { ascending: false })
+      .order('average_rating', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  }
+};
+
+// ==============================================
+// FAVORITE SERVICE
+// ==============================================
+
+export const FavoriteService = {
+  /**
+   * Get all favorites for a user
+   */
+  async getFavorites(userId: string): Promise<Favorite[]> {
+    const { data, error } = await supabase
+      .from('favorites')
+      .select(`
+        *,
+        salon:salon_details(*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Check if a salon is in user's favorites
+   */
+  async isFavorite(userId: string, salonId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('salon_id', salonId)
+      .maybeSingle();
+
+    if (error) return false;
+    return !!data;
+  },
+
+  /**
+   * Toggle favorite status
+   */
+  async toggleFavorite(userId: string, salonId: string): Promise<boolean> {
+    const isFav = await this.isFavorite(userId, salonId);
+
+    if (isFav) {
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', userId)
+        .eq('salon_id', salonId);
+      if (error) throw error;
+      return false;
+    } else {
+      const { error } = await supabase
+        .from('favorites')
+        .insert({ user_id: userId, salon_id: salonId });
+      if (error) throw error;
+      return true;
+    }
+  }
+};
+
+// ==============================================
 // IYS LOG SERVICE (SMS Compliance)
 // ==============================================
 
@@ -662,9 +1334,10 @@ export default {
   SalonDataService,
   StaffService,
   ServiceService,
-  WorkingHoursService,
   AppointmentService,
   ReviewService,
+  DashboardService,
+  SupportService,
   IYSService,
 };
 

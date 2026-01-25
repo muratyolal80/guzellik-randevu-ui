@@ -14,12 +14,13 @@ const ROLES = {
 interface AuthContextType {
     user: Profile | null;
     loading: boolean;
-    signInWithEmail: (email: string, password: string) => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<Profile | null>;
     signInWithGoogle: () => Promise<void>;
     signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ user: any; session: any } | undefined>;
     signOut: () => Promise<void>;
     refreshUser: () => Promise<void>;
     isAdmin: boolean;
+    isOwner: boolean;
     isStaff: boolean;
     isAuthenticated: boolean;
 }
@@ -76,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     first_name: user.user_metadata?.first_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : null),
                     last_name: user.user_metadata?.last_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ').slice(1).join(' ') : null),
                     avatar_url: user.user_metadata?.avatar_url || null,
-                    role: ROLES.CUSTOMER
+                    role: user.user_metadata?.role || ROLES.CUSTOMER
                 })
                 .select()
                 .single();
@@ -208,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [refreshUser]);
 
-    const signInWithEmail = async (email: string, password: string) => {
+    const signInWithEmail = async (email: string, password: string): Promise<Profile | null> => {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -217,7 +218,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
             throw new Error(error.message);
         }
-        // State update handled by onAuthStateChange
+
+        if (data.user) {
+            // Fetch profile immediately to return it for redirection logic
+            // This avoids race conditions where state hasn't updated yet
+            const profile = await fetchProfile(data.user.id);
+
+            // If profile is missing, fallback to basic user data structure like in refreshUser
+            if (!profile) {
+                return {
+                    id: data.user.id,
+                    email: data.user.email!,
+                    role: ROLES.CUSTOMER,
+                    first_name: data.user.user_metadata?.full_name?.split(' ')[0],
+                    last_name: data.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                    avatar_url: data.user.user_metadata?.avatar_url,
+                    phone: data.user.phone
+                } as Profile;
+            }
+
+            return profile;
+        }
+
+        return null;
     };
 
     const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
@@ -285,7 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signUp,
             signOut,
             refreshUser,
-            isAdmin: user?.role === 'SUPER_ADMIN' || user?.role === 'SALON_OWNER',
+            isAdmin: user?.role === 'SUPER_ADMIN',
+            isOwner: user?.role === 'SALON_OWNER' || user?.role === 'SUPER_ADMIN',
             isStaff: user?.role === 'STAFF',
             isAuthenticated: !!user
         }}>

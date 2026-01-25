@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Heart, MapPin, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { FavoriteService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
 
 export default function FavoritesPage() {
@@ -15,25 +16,34 @@ export default function FavoritesPage() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                const { data, error } = await supabase
+                // Use the service which joins with salon_details view for rich data (ratings etc.)
+                // Note: Ensure foreign key exists between favorites.salon_id and salon_details.id (view) 
+                // typically views don't have FKs, so we might need a two-step fetch if join fails.
+                // Let's rely on standard logic: fetch favs -> get IDs -> fetch salon details
+
+                // Fetch basic favs
+                const { data: favs } = await supabase
                     .from('favorites')
-                    .select(`
-                        id,
-                        salon:salons (
-                            id,
-                            name,
-                            address,
-                            image,
-                            city:cities(name),
-                            district:districts(name)
-                        )
-                    `)
+                    .select('id, salon_id')
                     .eq('user_id', user.id);
 
-                if (error) throw error;
+                if (favs && favs.length > 0) {
+                    const salonIds = favs.map((f: any) => f.salon_id);
+                    // Fetch details from view
+                    const { data: details } = await supabase
+                        .from('salon_details')
+                        .select('*')
+                        .in('id', salonIds);
 
-                // Transform data to match UI needs if necessary, though Supabase join returns nested objects
-                setFavorites(data || []);
+                    // Merge
+                    const fullData = details?.map((d: any) => ({
+                        id: favs.find((f: any) => f.salon_id === d.id)?.id || 'temp', // we don't need fav id much
+                        salon: d
+                    }));
+                    setFavorites(fullData || []);
+                } else {
+                    setFavorites([]);
+                }
 
             } catch (error) {
                 console.error('Error fetching favorites:', error);
@@ -45,10 +55,27 @@ export default function FavoritesPage() {
     }, []);
 
     const removeFavorite = async (salonId: string, e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent navigation
-        // Implement remove logic if needed, usually toggles. 
-        // For now just console log or simple alert as it requires cache update
-        alert('Favorilerden çıkarma işlemi eklenecek.');
+        e.preventDefault();
+        if (!confirm('Bu salonu favorilerinizden çıkarmak istediğinize emin misiniz?')) return;
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            await FavoriteService.toggleFavorite(user.id, salonId);
+
+            // Update local state immediately (remove item)
+            // Note: toggleFavorite returns true if added, false if removed. 
+            // Since we are removing, valid case is false, but we force remove here.
+            // Actually toggle logic might re-add if we clicked remove button.
+            // Let's use delete explicitly if we want to be safe, or logic:
+            // Since it's favorites page, we know it's already favored. Toggle will remove it.
+            setFavorites(prev => prev.filter((f: any) => f.salon.id !== salonId));
+
+        } catch (error) {
+            console.error('Error removing favorite:', error);
+            alert('Favori silinirken bir hata oluştu.');
+        }
     };
 
     if (loading) {
@@ -79,9 +106,9 @@ export default function FavoritesPage() {
                                 >
                                     <Heart className="w-5 h-5 fill-current" />
                                 </button>
-                                {/* Rating could be fetched if salons table has it, otherwise skip or default */}
+                                {/* Rating */}
                                 <div className="absolute top-3 left-3 flex items-center gap-1 bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
-                                    <Star className="w-3 h-3 fill-current" /> 4.9
+                                    <Star className="w-3 h-3 fill-current" /> {fav.salon?.average_rating || 0}
                                 </div>
                             </div>
 

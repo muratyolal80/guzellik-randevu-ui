@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export const UserMenu: React.FC = () => {
-    const { user, signOut, isAdmin, isStaff } = useAuth();
+    const { user, signOut, isAdmin, isOwner, isStaff } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
@@ -86,9 +86,9 @@ export const UserMenu: React.FC = () => {
                         </Link>
                     )}
 
-                    {user.role === 'SALON_OWNER' && (
+                    {isOwner && !isAdmin && (
                         <Link
-                            href="/salon-panel" // Placeholder route
+                            href="/owner/dashboard"
                             onClick={() => setIsOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors font-semibold"
                         >
@@ -108,9 +108,32 @@ export const UserMenu: React.FC = () => {
                         </Link>
                     )}
 
-                    {/* Common Customer Links */}
+                    {/* Customer Specific Links */}
+                    {!isAdmin && !isOwner && !isStaff && (
+                        <>
+                            <Link
+                                href="/customer/appointments"
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+                                Randevularım
+                            </Link>
+
+                            <Link
+                                href="/customer/favorites"
+                                onClick={() => setIsOpen(false)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">favorite</span>
+                                Favorilerim
+                            </Link>
+                        </>
+                    )}
+
+                    {/* Common Links for All Users (Dynamic Path) */}
                     <Link
-                        href="/profile"
+                        href={isAdmin ? '/admin/profile' : isOwner ? '/owner/profile' : '/customer/profile'}
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                     >
@@ -119,16 +142,7 @@ export const UserMenu: React.FC = () => {
                     </Link>
 
                     <Link
-                        href="/appointments"
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">calendar_month</span>
-                        Randevularım
-                    </Link>
-
-                    <Link
-                        href="/settings"
+                        href={isAdmin ? '/admin/settings' : isOwner ? '/owner/settings' : '/customer/settings'}
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                     >

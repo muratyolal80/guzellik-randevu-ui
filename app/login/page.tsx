@@ -6,31 +6,54 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 function LoginContent() {
-    const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading } = useAuth();
+    const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading, user } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
 
     // UI States
-    const [loginType, setLoginType] = useState<'customer' | 'business'>('customer');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    // Get redirect URL from query params or determine based on login type
+    // Helper to determine redirect URL based on role
+    const getRoleBasedRedirect = (role?: string) => {
+        switch (role) {
+            case 'SUPER_ADMIN':
+                return '/admin';
+            case 'SALON_OWNER':
+                return '/owner/dashboard';
+            case 'STAFF':
+                return '/staff/dashboard';
+            case 'CUSTOMER':
+            default:
+                return '/customer/dashboard'; // Customer dashboard fallback
+        }
+    };
+
+    // Get redirect URL from query params or determine based on role/login type
     const getRedirectUrl = () => {
         const paramRedirect = searchParams.get('redirect');
         if (paramRedirect) return paramRedirect;
-        return loginType === 'business' ? '/admin' : '/dashboard';
+
+        // If we have a user, use their role
+        if (user?.role) {
+            return getRoleBasedRedirect(user.role);
+        }
+
+        // Default fallback if user data isn't ready
+        return '/customer/dashboard';
     };
 
     // Auto-redirect if already authenticated
     useEffect(() => {
-        if (!authLoading && isAuthenticated) {
-            router.push(getRedirectUrl());
+        if (!authLoading && isAuthenticated && user) {
+            const dest = getRedirectUrl();
+            console.log('Redirecting authenticated user to:', dest, 'Role:', user.role);
+            router.push(dest);
         }
-    }, [authLoading, isAuthenticated, router, loginType, searchParams]);
+    }, [authLoading, isAuthenticated, user, router, searchParams]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -45,12 +68,25 @@ function LoginContent() {
         }
 
         try {
-            await signInWithEmail(email, password);
+            // Get profile directly from sign in action to avoid race conditions
+            const profile = await signInWithEmail(email, password);
+
             // Success is handled by auth state change in context or useAuth
             router.refresh(); // Refresh server components to update auth state
-            setTimeout(() => {
-                router.push(getRedirectUrl());
-            }, 500);
+
+            if (profile && profile.role) {
+                const dest = getRoleBasedRedirect(profile.role);
+                console.log('Login success. Redirecting to:', dest, 'Role:', profile.role);
+                router.replace(dest); // Use replace to prevent back navigation loop
+            } else {
+                // Fallback if no profile returned (shouldn't happen on success)
+                setTimeout(() => {
+                    const dest = getRedirectUrl();
+                    console.log('Login success (fallback). Redirecting to:', dest);
+                    router.push(dest);
+                }, 500);
+            }
+
         } catch (err) {
             const errorMessage = (err as Error).message;
             if (errorMessage.includes('Invalid login credentials')) {
@@ -60,9 +96,10 @@ function LoginContent() {
             } else {
                 setError('Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
             }
-        } finally {
-            setLoading(false);
+            setLoading(false); // Only stop loading on error, keep loading on success redirect
         }
+        // Note: We don't set loading(false) in finally block for success case 
+        // to prevent UI flash before redirect
     };
 
     const handleGoogleLogin = async () => {
@@ -74,11 +111,6 @@ function LoginContent() {
             setError('Google ile giriş yapılırken bir hata oluştu.');
             setLoading(false);
         }
-    };
-
-    const fillDemoAdmin = () => {
-        setEmail('info@guzellikrandevu.com.tr');
-        setPassword('admin123');
     };
 
     // Force show content after timeout to prevent infinite loading
@@ -120,31 +152,7 @@ function LoginContent() {
                             <span className="material-symbols-outlined text-[#CFA76D] filled">spa</span>
                         </div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-2 font-display">Hoş Geldiniz</h2>
-                        <p className="text-gray-500">Randevularınızı yönetmek için giriş yapın.</p>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex bg-gray-50 p-1 rounded-xl mb-8 border border-gray-100">
-                        <button
-                            type="button"
-                            onClick={() => setLoginType('customer')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'customer'
-                                ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            Müşteri
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setLoginType('business')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'business'
-                                ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            İşletme / Uzman
-                        </button>
+                        <p className="text-gray-500">Hesabınıza giriş yaparak devam edin.</p>
                     </div>
 
                     {/* Form */}
@@ -160,7 +168,7 @@ function LoginContent() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CFA76D]/20 focus:border-[#CFA76D] transition-all sm:text-sm font-medium"
-                                    placeholder={loginType === 'customer' ? "ornek@email.com" : "isletme@guzellik.com"}
+                                    placeholder="ornek@email.com"
                                     disabled={loading}
                                 />
                             </div>
@@ -230,18 +238,6 @@ function LoginContent() {
                         </button>
                     </form>
 
-                    {/* Admin Demo Filler */}
-                    <div className="mt-4 text-center">
-                        <button
-                            type="button"
-                            onClick={fillDemoAdmin}
-                            className="text-xs text-gray-400 hover:text-[#CFA76D] flex items-center justify-center gap-1 mx-auto transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-[14px]">smart_button</span>
-                            Demo Admin Doldur
-                        </button>
-                    </div>
-
                     {/* Divider */}
                     <div className="relative my-8">
                         <div className="absolute inset-0 flex items-center">
@@ -282,6 +278,7 @@ function LoginContent() {
                             </Link>
                         </p>
                     </div>
+
                 </div>
             </div>
 

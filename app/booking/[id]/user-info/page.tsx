@@ -79,18 +79,25 @@ export default function BookingUserInfoPage() {
   // Auto-fill user data and skip OTP if logged in
   useEffect(() => {
     if (user) {
+      // Logged-in users: Check if they have a verified phone
+      // IYS requirement: Must have verified phone via SMS at least once
       if (user.phone) {
         setPhone(user.phone);
-        // If user has phone, skip to step 3
+        // User has phone in auth.users, which means they verified it before
+        // (verify-phone API sets the phone field)
+        // Skip to step 3 (Details Form)
         setStep(3);
         setIsNewUser(false);
+      } else {
+        // No phone set, user must verify via SMS first (IYS compliance)
+        setStep(1); // Start from phone input
       }
 
       if (user.first_name || user.last_name) {
         setFullName(`${user.first_name || ''} ${user.last_name || ''}`.trim());
       }
 
-      if (user.email) {
+      if (user.email && !user.email.includes('@pending.user')) {
         setEmail(user.email);
       }
     }
@@ -121,7 +128,9 @@ export default function BookingUserInfoPage() {
         setDemoMode(data.demoMode || false);
 
         if (data.demoMode) {
-          setError('DEMO MODE: Doğrulama kodu "111111" kullanın');
+          // Demo mode message improvement: Show the actual generated code
+          const demoCode = data.demoCode || '111111';
+          setError(`DEMO MODU AKTİF: Lütfen doğrulama kodu olarak "${demoCode}" giriniz.`);
         }
       } else {
         setError(data.error || 'SMS gönderilemedi');
@@ -185,7 +194,7 @@ export default function BookingUserInfoPage() {
   const handleCreateBooking = async () => {
     setError('');
 
-    if (isNewUser && !fullName.trim()) {
+    if (!fullName.trim()) {
       setError('Lütfen adınızı ve soyadınızı girin');
       return;
     }
@@ -444,15 +453,14 @@ export default function BookingUserInfoPage() {
 
                     <div>
                       <label className="block text-text-main text-sm font-bold mb-2">
-                        Ad Soyad {isNewUser && '*'}
+                        Ad Soyad *
                       </label>
                       <input
                         type="text"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        disabled={!isNewUser}
                         placeholder="Örn: Ahmet Yılmaz"
-                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 
@@ -464,9 +472,8 @@ export default function BookingUserInfoPage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        disabled={!isNewUser}
                         placeholder="ornek@email.com"
-                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 

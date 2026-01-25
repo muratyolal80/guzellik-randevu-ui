@@ -241,7 +241,7 @@ export default function StaffSelection() {
                           </div>
                         </div>
                         <p className="text-primary text-sm font-medium mb-1">{s.role}</p>
-                        <p className="text-text-secondary text-xs line-clamp-2">{s.specialty} konusunda uzman.</p>
+                        <p className="text-text-secondary text-xs line-clamp-2">{s.bio || `${s.specialty} konusunda uzman.`}</p>
                       </div>
                     </div>
                     <div className={`mt-auto border-t p-3 transition-colors ${selectedStaffId === s.id ? 'border-primary/20 bg-primary/5' : 'border-border bg-gray-50'}`}>

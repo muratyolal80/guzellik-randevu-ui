@@ -9,7 +9,7 @@ import { SalonType, ServiceCategory } from '@/types';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, isOwner } = useAuth();
   const isBooking = pathname.includes('/booking');
 
   // Dynamic Menu State
@@ -128,9 +128,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               Yönetim
             </Link>
           )}
-          {!isBooking && user?.role === 'STAFF' && !isAdmin && (
+
+          {!isBooking && isOwner && !isAdmin && (
+            <Link href="/owner/dashboard" className="hidden xl:flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 whitespace-nowrap">
+              İşletmem
+            </Link>
+          )}
+
+          {!isBooking && user?.role === 'STAFF' && !isOwner && (
             <Link href="/booking/1/staff" className="hidden xl:flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-full shadow-lg shadow-primary/20 transition-all hover:scale-105 whitespace-nowrap">
-              İşletme Ekle
+              Personel Paneli
             </Link>
           )}
 

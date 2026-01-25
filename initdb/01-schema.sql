@@ -58,6 +58,8 @@ CREATE TABLE public.cities (
                                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                                name TEXT UNIQUE NOT NULL,
                                plate_code INTEGER UNIQUE NOT NULL,
+                               latitude DECIMAL(10, 8), -- Added for coordinates
+                               longitude DECIMAL(11, 8), -- Added for coordinates
                                created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -74,6 +76,7 @@ CREATE TABLE public.salon_types (
                                     name TEXT UNIQUE NOT NULL,
                                     slug TEXT UNIQUE NOT NULL,
                                     icon TEXT,
+                                    image TEXT, -- Added for UI display
                                     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -110,6 +113,8 @@ CREATE TABLE public.salons (
                                geo_longitude DECIMAL(11, 8),
                                image TEXT,
                                is_sponsored BOOLEAN DEFAULT false,
+                               description TEXT, -- Added for informational UI
+                               features JSONB DEFAULT '[]'::jsonb, -- Added for amenities
                                created_at TIMESTAMPTZ DEFAULT NOW(),
                                updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -125,6 +130,7 @@ CREATE TABLE public.staff (
                               photo TEXT,
                               specialty TEXT,
                               is_active BOOLEAN DEFAULT true,
+                              bio TEXT, -- Added for staff descriptions
                               created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -151,6 +157,17 @@ CREATE TABLE public.working_hours (
                                       is_day_off BOOLEAN DEFAULT false,
                                       created_at TIMESTAMPTZ DEFAULT NOW(),
                                       UNIQUE(staff_id, day_of_week)
+);
+
+CREATE TABLE public.salon_working_hours (
+                                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                                salon_id UUID NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+                                day_of_week INTEGER NOT NULL, -- 0=Sunday
+                                start_time TIME NOT NULL,
+                                end_time TIME NOT NULL,
+                                is_closed BOOLEAN DEFAULT false,
+                                created_at TIMESTAMPTZ DEFAULT NOW(),
+                                UNIQUE(salon_id, day_of_week)
 );
 
 CREATE TABLE public.appointments (
@@ -238,6 +255,8 @@ CREATE OR REPLACE VIEW salon_details WITH (security_invoker = on) AS
 SELECT
     s.id,
     s.name,
+    s.description, -- NEW
+    s.features,    -- NEW
     s.address,
     s.phone,
     s.geo_latitude,
@@ -267,6 +286,7 @@ SELECT
     gs.name AS service_name,
     sc.name AS category_name,
     sc.slug AS category_slug,
+    sc.icon AS category_icon, -- NEW
     s.name AS salon_name
 FROM public.salon_services ss
          JOIN public.global_services gs ON ss.global_service_id = gs.id
@@ -330,6 +350,7 @@ ALTER TABLE public.working_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.iys_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.salon_working_hours ENABLE ROW LEVEL SECURITY;
 
 -- Basic Read Policies (Allow Public Read for Storefront)
 CREATE POLICY "Public Read Access" ON public.cities FOR SELECT USING (true);
@@ -342,6 +363,7 @@ CREATE POLICY "Public Read Access" ON public.staff FOR SELECT USING (true);
 CREATE POLICY "Public Read Access" ON public.salon_services FOR SELECT USING (true);
 CREATE POLICY "Public Read Access" ON public.working_hours FOR SELECT USING (true);
 CREATE POLICY "Public Read Access" ON public.reviews FOR SELECT USING (true);
+CREATE POLICY "Public Read Access" ON public.salon_working_hours FOR SELECT USING (true);
 
 -- Auth Specific Policies
 CREATE POLICY "Users can see own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);

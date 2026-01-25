@@ -79,23 +79,33 @@ BEGIN
     SELECT id INTO makyaj_type_id FROM salon_types WHERE slug = 'makyaj';
 
     -- Step 6: Create salons with owner_id
-    INSERT INTO salons (owner_id, name, city_id, district_id, type_id, address, phone, geo_latitude, geo_longitude, image, is_sponsored) VALUES
+    INSERT INTO salons (owner_id, name, city_id, district_id, type_id, address, phone, geo_latitude, geo_longitude, image, is_sponsored, description, features) VALUES
     -- Istanbul Salons
-    (owner1_id, 'Stil Kuaför', istanbul_id, kadikoy_id, kuafor_type_id, 'Bahariye Caddesi No: 45, Kadıköy', '02161234567', 40.9875, 29.0245, 'https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop', true),
-    (owner2_id, 'Elit Berber Salonu', istanbul_id, sisli_id, berber_type_id, 'Halaskargazi Caddesi No: 123, Şişli', '02122345678', 41.0602, 28.9869, 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop', false),
-    (owner3_id, 'Güzellik Merkezi Luna', istanbul_id, besiktas_id, guzellik_type_id, 'Barbaros Bulvarı No: 78, Beşiktaş', '02123456789', 41.0422, 29.0078, 'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?q=80&w=800&auto=format&fit=crop', true),
-    (owner4_id, 'Zen Spa & Wellness', istanbul_id, besiktas_id, spa_type_id, 'Nişantaşı Mahallesi, Vali Konağı Caddesi No: 12', '02124567890', 41.0451, 28.9934, 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&auto=format&fit=crop', false),
-    (owner5_id, 'Makyaj Atölyesi Derya', istanbul_id, kadikoy_id, makyaj_type_id, 'Moda Caddesi No: 89, Kadıköy', '02165678901', 40.9876, 29.0289, 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=800&auto=format&fit=crop', false),
+    (owner1_id, 'Stil Kuaför', istanbul_id, kadikoy_id, kuafor_type_id, 'Bahariye Caddesi No: 45, Kadıköy', '02161234567', 40.9875, 29.0245, 'https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop', true, 'İstanbul''un en köklü kuaförlerinden biri olarak, modern saç tasarımları ve profesyonel renklendirme hizmetleri sunuyoruz.', '["Wi-Fi", "İkram", "Kredi Kartı", "Klima"]'::jsonb),
+    (owner2_id, 'Elit Berber Salonu', istanbul_id, sisli_id, berber_type_id, 'Halaskargazi Caddesi No: 123, Şişli', '02122345678', 41.0602, 28.9869, 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop', false, 'Geleneksel berber kültürünü modern spa deneyimiyle birleştiriyoruz. Sadece bir tıraş değil, kendinizi yenileyeceğiniz bir mola.', '["Wi-Fi", "Otopark", "İkram", "Kredi Kartı"]'::jsonb),
+    (owner3_id, 'Güzellik Merkezi Luna', istanbul_id, besiktas_id, guzellik_type_id, 'Barbaros Bulvarı No: 78, Beşiktaş', '02123456789', 41.0422, 29.0078, 'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?q=80&w=800&auto=format&fit=crop', true, 'Cilt bakımı, lazer epilasyon ve zayıflama ünitelerimizle, güzelliğinize bilimsel dokunuşlar yapıyoruz.', '["Özel Oda", "Valet", "Wi-Fi", "Kredi Kartı"]'::jsonb),
+    (owner4_id, 'Zen Spa & Wellness', istanbul_id, besiktas_id, spa_type_id, 'Nişantaşı Mahallesi, Vali Konağı Caddesi No: 12', '02124567890', 41.0451, 28.9934, 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&auto=format&fit=crop', false, 'Şehrin gürültüsünden uzaklaşın. Profesyonel masaj terapilerimizle ruhunuzu ve bedeninizi dinlendirin.', '["Havuz", "Sauna", "Wi-Fi", "Otopark"]'::jsonb),
+    (owner5_id, 'Makyaj Atölyesi Derya', istanbul_id, kadikoy_id, makyaj_type_id, 'Moda Caddesi No: 89, Kadıköy', '02165678901', 40.9876, 29.0289, 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=800&auto=format&fit=crop', false, 'Özel günlerinizde en doğal ve etkileyici makyaj tasarımları için uzman kadromuzla yanınızdayız.', '["Wi-Fi", "İkram", "Kredi Kartı"]'::jsonb),
 
     -- Ankara Salons
-    (owner1_id, 'Ankara Kuaför Evi', ankara_id, cankaya_id, kuafor_type_id, 'Tunalı Hilmi Caddesi No: 56, Çankaya', '03121234567', 39.9180, 32.8549, 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80&w=800&auto=format&fit=crop', false),
-    (owner2_id, 'Başkent Berber', ankara_id, cankaya_id, berber_type_id, 'Kızılay Meydanı No: 34, Çankaya', '03122345678', 39.9192, 32.8543, 'https://images.unsplash.com/photo-1503951914875-452162b7f304?q=80&w=800&auto=format&fit=crop', true),
+    (owner1_id, 'Ankara Kuaför Evi', ankara_id, cankaya_id, kuafor_type_id, 'Tunalı Hilmi Caddesi No: 56, Çankaya', '03121234567', 39.9180, 32.8549, 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80&w=800&auto=format&fit=crop', false, 'Ankara''nın merkezinde, en yeni trendleri takip eden enerjik ekibimizle hizmetinizdeyiz.', '["Wi-Fi", "Kredi Kartı", "Hafta Sonu Açık"]'::jsonb),
+    (owner2_id, 'Başkent Berber', ankara_id, cankaya_id, berber_type_id, 'Kızılay Meydanı No: 34, Çankaya', '03122345678', 39.9192, 32.8543, 'https://images.unsplash.com/photo-1503951914875-452162b7f304?q=80&w=800&auto=format&fit=crop', true, 'Klasik berber hizmetlerinin yanı sıra cilt bakımı ve saç terapileri ile Ankara erkeklerinin tercihi.', '["İkram", "Wi-Fi", "Kredi Kartı", "TV"]'::jsonb),
 
     -- İzmir Salons
-    (owner3_id, 'İzmir Güzellik Salonu', izmir_id, konak_id, guzellik_type_id, 'Alsancak Mahallesi, Kıbrıs Şehitleri Caddesi No: 145', '02321234567', 38.4366, 27.1461, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop', false),
-    (owner4_id, 'Ege Spa Center', izmir_id, konak_id, spa_type_id, 'Kordon Boyu No: 234, Konak', '02322345678', 38.4192, 27.1287, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop', true);
+    (owner3_id, 'İzmir Güzellik Salonu', izmir_id, konak_id, guzellik_type_id, 'Alsancak Mahallesi, Kıbrıs Şehitleri Caddesi No: 145', '02321234567', 38.4366, 27.1461, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop', false, 'Alsancak''ın kalbinde, her zaman en kaliteli ürünleri kullanarak cildinize değer veriyoruz.', '["Klima", "Wi-Fi", "İkram", "Kredi Kartı"]'::jsonb),
+    (owner4_id, 'Ege Spa Center', izmir_id, konak_id, spa_type_id, 'Kordon Boyu No: 234, Konak', '02322345678', 38.4192, 27.1287, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop', true, 'Ege''nin esintisini masaj odalarımıza getirdik. Uzman terapistlerimizle günün stresinden kurtulun.', '["Deniz Manzaralı", "İkram", "Wi-Fi", "Vale"]'::jsonb);
 
-    RAISE NOTICE 'Created 9 salons with owner links';
+    RAISE NOTICE 'Created 9 salons with descriptions and features';
+
+    -- Step 7: Create salon working hours
+    INSERT INTO salon_working_hours (salon_id, day_of_week, start_time, end_time, is_closed)
+    SELECT s.id, d, '09:00:00', '21:00:00', false FROM salons s, generate_series(1, 5) d; -- Mon-Fri
+    
+    INSERT INTO salon_working_hours (salon_id, day_of_week, start_time, end_time, is_closed)
+    SELECT s.id, 6, '10:00:00', '20:00:00', false FROM salons s; -- Sat
+    
+    INSERT INTO salon_working_hours (salon_id, day_of_week, start_time, end_time, is_closed)
+    SELECT s.id, 0, '09:00:00', '18:00:00', true FROM salons s; -- Sun
 END $$;
 
 -- ==============================================
