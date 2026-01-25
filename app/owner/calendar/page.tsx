@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { StaffService, SalonDataService, AppointmentService } from '@/services/db';
+import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import {
     Calendar as CalendarIcon,
     ChevronLeft,
@@ -24,6 +25,7 @@ export default function OwnerMasterCalendar() {
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -151,9 +153,9 @@ export default function OwnerMasterCalendar() {
                                                 <div
                                                     key={apt.id}
                                                     className={`absolute left-2 right-2 rounded-2xl border-2 p-3 overflow-hidden shadow-lg transition-all hover:scale-[1.03] hover:z-20 cursor-pointer ${apt.status === 'CONFIRMED' ? 'bg-blue-50 border-blue-200 text-blue-900' :
-                                                            apt.status === 'COMPLETED' ? 'bg-green-50 border-green-200 text-green-900 opacity-70' :
-                                                                apt.status === 'CANCELLED' ? 'bg-red-50 border-red-200 text-red-900' :
-                                                                    'bg-orange-50 border-orange-200 text-orange-900'
+                                                        apt.status === 'COMPLETED' ? 'bg-green-50 border-green-200 text-green-900 opacity-70' :
+                                                            apt.status === 'CANCELLED' ? 'bg-red-50 border-red-200 text-red-900' :
+                                                                'bg-orange-50 border-orange-200 text-orange-900'
                                                         }`}
                                                     style={{ top: `${topOffset}px`, height: `${height}px` }}
                                                 >
@@ -178,6 +180,28 @@ export default function OwnerMasterCalendar() {
                     </div>
                 </div>
             </div>
+
+            {/* Floating Action Button */}
+            {salon && (
+                <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="fixed bottom-8 right-8 z-40 flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-full shadow-2xl hover:bg-primary-hover hover:scale-110 transition-all group"
+                >
+                    <span className="material-symbols-outlined">add</span>
+                    <span className="font-bold hidden group-hover:inline">Manuel Randevu Ekle</span>
+                </button>
+            )}
+
+            {/* Add Appointment Modal */}
+            {salon && (
+                <AddAppointmentModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    salonId={salon.id}
+                    preselectedDate={selectedDate}
+                    onSuccess={() => fetchInitialData()}
+                />
+            )}
         </div>
     );
 }

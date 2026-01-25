@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import AppointmentCard from '@/components/dashboard/AppointmentCard';
+import { CancelRescheduleButtons } from '@/components/customer/CancelRescheduleButtons';
+import { RatingModal } from '@/components/customer/RatingModal';
 import { useRouter } from 'next/navigation';
 
 export default function AppointmentsPage() {
@@ -11,7 +13,9 @@ export default function AppointmentsPage() {
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const { user } = useAuth(); // Use useAuth hook
+    const { user } = useAuth();
+    const [ratingModalOpen, setRatingModalOpen] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
 
     // Fetch appointments when user is available or tab changes
     React.useEffect(() => {
@@ -119,23 +123,62 @@ export default function AppointmentsPage() {
                     </div>
                 ) : appointments.length > 0 ? (
                     appointments.map((apt) => (
-                        <AppointmentCard
-                            key={apt.id}
-                            id={apt.id} // Added missing id prop
-                            salonId={apt.salon?.id}
-                            salonName={apt.salon?.name || 'Salon'}
-                            salonAddress={apt.salon?.address || ''}
-                            date={new Date(apt.start_time).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                            time={new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                            serviceId={apt.service?.id}
-                            serviceName={apt.service?.global_service?.name || 'Hizmet'}
-                            staffId={apt.staff?.id}
-                            staffName={apt.staff?.name || 'Personel'}
-                            price={apt.service?.price || 0}
-                            status={apt.status}
-                            onCancel={() => handleCancelAppointment(apt.id)}
-                            onRate={() => router.push(`/salon/${apt.salon?.id}#reviews`)}
-                        />
+                        <div key={apt.id} className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-lg text-text-main">{apt.salon?.name || 'Salon'}</h3>
+                                    <p className="text-sm text-text-secondary">{apt.salon?.address}</p>
+                                    <div className="mt-3 flex flex-wrap gap-3">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="material-symbols-outlined text-primary">calendar_month</span>
+                                            <span className="font-medium">{new Date(apt.start_time).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="material-symbols-outlined text-primary">schedule</span>
+                                            <span className="font-medium">{new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="material-symbols-outlined text-primary">content_cut</span>
+                                            <span className="font-medium">{apt.service?.global_service?.name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${apt.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-300' :
+                                        apt.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                            apt.status === 'PENDING' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                                                'bg-red-100 text-red-700 border-red-300'
+                                    }`}>
+                                    {apt.status === 'COMPLETED' ? 'Tamamlandı' :
+                                        apt.status === 'CONFIRMED' ? 'Onaylandı' :
+                                            apt.status === 'PENDING' ? 'Bekliyor' : 'İptal'}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                                <div className="text-lg font-bold text-text-main">₺{apt.service?.price || 0}</div>
+                                <div className="flex gap-2">
+                                    {apt.status === 'COMPLETED' && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedAppointment(apt);
+                                                setRatingModalOpen(true);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">star</span>
+                                            Değerlendir
+                                        </button>
+                                    )}
+                                    <CancelRescheduleButtons
+                                        appointment={apt}
+                                        onUpdate={() => {
+                                            // Refresh appointments
+                                            setAppointments(prev => prev.filter(a => a.id !== apt.id));
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     ))
                 ) : (
                     <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
@@ -147,6 +190,20 @@ export default function AppointmentsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Rating Modal */}
+            {selectedAppointment && (
+                <RatingModal
+                    isOpen={ratingModalOpen}
+                    onClose={() => setRatingModalOpen(false)}
+                    appointment={selectedAppointment}
+                    salonId={selectedAppointment.salon?.id}
+                    onSubmit={() => {
+                        setRatingModalOpen(false);
+                        setSelectedAppointment(null);
+                    }}
+                />
+            )}
         </div>
     );
 }

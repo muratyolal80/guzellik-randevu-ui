@@ -1,16 +1,14 @@
 'use client';
 
-import React from 'react';
 import { AuthProvider } from '@/context/AuthContext';
-import { BookingProvider } from '@/context/BookingContext';
+import { TenantProvider } from '@/context/TenantContext';
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <BookingProvider>
+      <TenantProvider>
         {children}
-      </BookingProvider>
+      </TenantProvider>
     </AuthProvider>
   );
 }
-

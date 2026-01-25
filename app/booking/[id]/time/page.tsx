@@ -35,6 +35,7 @@ export default function TimeSelection() {
   const [dateOffset, setDateOffset] = useState(0);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
 
   // Fetch available slots when date or staff changes
   useEffect(() => {
@@ -320,6 +321,16 @@ export default function TimeSelection() {
                       <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                       </div>
+                    ) : slotsError ? (
+                      <div className="text-center py-8">
+                        <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">event_busy</span>
+                        <p className="text-text-secondary text-sm">{slotsError}</p>
+                      </div>
+                    ) : morningSlots.length === 0 ? (
+                      <div className="text-center py-8">
+                        <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
+                        <p className="text-text-muted text-sm">Sabah saatlerinde müsait slot yok</p>
+                      </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
                         {morningSlots.map((time) => (
@@ -344,6 +355,16 @@ export default function TimeSelection() {
                     {loadingSlots ? (
                       <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      </div>
+                    ) : slotsError ? (
+                      <div className="text-center py-8">
+                        <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">event_busy</span>
+                        <p className="text-text-secondary text-sm">{slotsError}</p>
+                      </div>
+                    ) : afternoonSlots.length === 0 ? (
+                      <div className="text-center py-8">
+                        <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
+                        <p className="text-text-muted text-sm">Öğleden sonra müsait slot yok</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">

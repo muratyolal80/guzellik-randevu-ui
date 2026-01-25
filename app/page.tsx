@@ -137,56 +137,67 @@ function HomePageContent() {
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const [salonsData, typesData, servicesData, citiesData] = await Promise.all([
-                SalonDataService.getSalons(),
-                MasterDataService.getSalonTypes(),
-                MasterDataService.getAllGlobalServices(),
-                MasterDataService.getCities()
-            ]);
+            try {
+                const [salonsData, typesData, servicesData, citiesData] = await Promise.all([
+                    SalonDataService.getSalons(),
+                    MasterDataService.getSalonTypes(),
+                    MasterDataService.getAllGlobalServices(),
+                    MasterDataService.getCities()
+                ]);
 
-            // Map database fields to display-friendly properties
-            const mappedData = salonsData.map(salon => ({
-                ...salon,
-                city: salon.city_name,
-                district: salon.district_name,
-                rating: salon.average_rating || 0,
-                tags: [salon.type_name], // Use type as a tag for now
-                startPrice: 100, // TODO: Get from salon_services minimum price
-                coordinates: {
-                    lat: salon.geo_latitude || 0,
-                    lng: salon.geo_longitude || 0
-                }
-            }));
-
-            setSalons(mappedData);
-            setSalonTypes(typesData);
-            setGlobalServices(servicesData);
-            setCities(citiesData);
-
-            // Populate CITY_COORDINATES based on DB data if available
-            // This allows us to remove the hardcoded list eventually
-            citiesData.forEach(city => {
-                if (city.latitude && city.longitude) {
-                    CITY_COORDINATES_CACHE[city.name] = { lat: city.latitude, lng: city.longitude };
-                }
-            });
-
-            // Load services for all salons to enable service-based search
-            const servicesMap: Record<string, string[]> = {};
-            await Promise.all(
-                salonsData.map(async (salon) => {
-                    try {
-                        const salonServices = await ServiceService.getServicesBySalon(salon.id);
-                        servicesMap[salon.id] = salonServices.map(s => s.service_name);
-                    } catch (error) {
-                        console.error(`Error loading services for salon ${salon.id}:`, error);
-                        servicesMap[salon.id] = [];
+                // Map database fields to display-friendly properties
+                const mappedData = salonsData.map(salon => ({
+                    ...salon,
+                    city: salon.city_name,
+                    district: salon.district_name,
+                    rating: salon.average_rating || 0,
+                    tags: [salon.type_name], // Use type as a tag for now
+                    startPrice: 100, // TODO: Get from salon_services minimum price
+                    coordinates: {
+                        lat: salon.geo_latitude || 0,
+                        lng: salon.geo_longitude || 0
                     }
-                })
-            );
-            setSalonServicesMap(servicesMap);
+                }));
 
-            setLoading(false);
+                setSalons(mappedData);
+                setSalonTypes(typesData);
+                setGlobalServices(servicesData);
+                setCities(citiesData);
+
+                // Populate CITY_COORDINATES based on DB data if available
+                citiesData.forEach(city => {
+                    if (city.latitude && city.longitude) {
+                        CITY_COORDINATES_CACHE[city.name] = { lat: city.latitude, lng: city.longitude };
+                    }
+                });
+
+                // Load services for all salons to enable service-based search
+                const servicesMap: Record<string, string[]> = {};
+                await Promise.all(
+                    salonsData.map(async (salon) => {
+                        try {
+                            const salonServices = await ServiceService.getServicesBySalon(salon.id);
+                            servicesMap[salon.id] = salonServices.map(s => s.service_name);
+                        } catch (error) {
+                            console.error(`Error loading services for salon ${salon.id}:`, error);
+                            servicesMap[salon.id] = [];
+                        }
+                    })
+                );
+                setSalonServicesMap(servicesMap);
+
+            } catch (err: any) {
+                console.error('Error fetching initial data details:', {
+                    message: err?.message || 'No message',
+                    code: err?.code,
+                    details: err?.details,
+                    hint: err?.hint,
+                    fullError: err
+                });
+                // Optional: Set some UI error state here if needed
+            } finally {
+                setLoading(false);
+            }
         };
         fetchData();
     }, []); // Run once on mount
