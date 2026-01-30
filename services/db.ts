@@ -272,19 +272,7 @@ export const SalonDataService = {
    * Get salons by user membership (Owner/Staff branches)
    */
   async getSalonsByMembership(userId: string): Promise<SalonDetail[]> {
-    const { data, error } = await supabase
-      .from('salon_details')
-      .select('*')
-      .in('id', (
-        supabase
-          .from('salon_memberships')
-          .select('salon_id')
-          .eq('user_id', userId)
-          .eq('is_active', true)
-      ) as any);
-
-    // Note: The subquery above might need adjustment depending on Supabase version.
-    // Let's use a join or two-step fetch for better compatibility.
+    // First, get the salon IDs from memberships
     const { data: memberships, error: memError } = await supabase
       .from('salon_memberships')
       .select('salon_id')
@@ -294,6 +282,7 @@ export const SalonDataService = {
     if (memError) throw memError;
     if (!memberships || memberships.length === 0) return [];
 
+    // Then fetch the salon details
     const salonIds = memberships.map(m => m.salon_id);
     const { data: salons, error: salonError } = await supabase
       .from('salon_details')
