@@ -24,15 +24,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useActiveSalon } from '@/context/ActiveSalonContext';
+import { useActiveBranch } from '@/context/ActiveBranchContext';
 
 export default function OwnerDashboard() {
     const router = useRouter();
     const { user } = useAuth();
-    const { setActiveSalon } = useActiveSalon();
-    const [salons, setSalons] = useState<any[]>([]);
-    const [salon, setSalon] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const { activeBranch, loading: branchLoading } = useActiveBranch();
     const [stats, setStats] = useState({
         todayCount: 0,
         todayRevenue: 0,
@@ -40,47 +37,20 @@ export default function OwnerDashboard() {
         activeStaff: 0
     });
     const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
-    const [isSalonSelectorOpen, setIsSalonSelectorOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (user) {
+        if (user && activeBranch) {
             fetchDashboardData();
         }
-    }, [user]);
+    }, [user, activeBranch]);
 
     const fetchDashboardData = async () => {
+        if (!activeBranch) return;
+
         try {
             setLoading(true);
-            const salonsData = await SalonDataService.getSalonsByOwner(user?.id!);
-            setSalons(salonsData);
-
-            if (salonsData.length === 0) {
-                router.push('/owner/onboarding');
-                return;
-            }
-
-            // Gate Logic: Check Active Salon
-            const savedSalonId = localStorage.getItem(`active_salon_${user?.id}`);
-            let current = salonsData.find(s => s.id === savedSalonId);
-
-            if (!current && salonsData.length === 1) {
-                current = salonsData[0];
-                setActiveSalon(current);
-            } else if (!current) {
-                router.push('/owner/branches/select');
-                return;
-            }
-
-            // Gate Logic: Check Status
-            if (current.status !== 'APPROVED') {
-                setActiveSalon(current);
-                router.push('/owner/branches/pending');
-                return;
-            }
-
-            setSalon(current);
-            setActiveSalon(current); // Sync context
-            await fetchSalonStats(current.id);
+            await fetchSalonStats(activeBranch.id);
         } catch (err) {
             console.error('Dashboard verisi çekilirken hata:', err);
         } finally {
@@ -123,30 +93,20 @@ export default function OwnerDashboard() {
         }
     };
 
-    const switchSalon = async (selectedSalon: any) => {
-        setSalon(selectedSalon);
-        setIsSalonSelectorOpen(false);
-        await fetchSalonStats(selectedSalon.id);
-    };
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-        );
+    if (branchLoading) {
+        return <div>Yükleniyor...</div>;
     }
 
-    if (!salon) {
+    if (!activeBranch) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-6">
                     <Store className="w-10 h-10" />
                 </div>
                 <h1 className="text-2xl font-black text-text-main mb-2">Salon Bulunamadı</h1>
-                <p className="text-text-secondary mb-8">Henüz yöneticisi olduğunuz bir salon kaydı bulunmuyor.</p>
-                <Link href="/owner/onboarding" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg">
-                    Yeni Salon Oluştur
+                <p className="text-text-secondary mb-8">Henüz yöneticisi olduğunuz bir salon kaydı bulunmuyor veya seçim yapılmadı.</p>
+                <Link href="/owner/salons" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg">
+                    Yeni Salon Ekle
                 </Link>
             </div>
         );
@@ -154,76 +114,42 @@ export default function OwnerDashboard() {
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">
-            {salon && salon.status !== 'APPROVED' && (
-                <div className={`p-4 rounded-3xl flex items-center justify-between gap-4 border ${salon.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-amber-50 border-amber-100 text-amber-800'}`}>
+            {activeBranch.status !== 'APPROVED' && (
+                <div className={`p-4 rounded-3xl flex items-center justify-between gap-4 border ${activeBranch.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-amber-50 border-amber-100 text-amber-800'}`}>
                     <div className="flex items-center gap-3">
-                        {salon.status === 'REJECTED' ? <XCircle className="w-5 h-5 text-red-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
+                        {activeBranch.status === 'REJECTED' ? <XCircle className="w-5 h-5 text-red-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
                         <div className="text-sm font-bold">
-                            {salon.status === 'REJECTED'
-                                ? 'Salon başvurunuz reddedildi. Neden: ' + (salon.rejected_reason || 'Belirtilmedi')
+                            {activeBranch.status === 'REJECTED'
+                                ? 'Salon başvurunuz reddedildi. Neden: ' + (activeBranch.rejected_reason || 'Belirtilmedi')
                                 : 'Salonunuz şu an onay bekliyor. Onaylandıktan sonra müşterilere görünür olacaktır.'}
                         </div>
                     </div>
-                    <Link href="/owner/salons" className="px-4 py-2 bg-white text-xs font-bold rounded-xl shadow-sm border border-current hover:bg-gray-50 transition-all uppercase">Detayları Gör</Link>
                 </div>
             )}
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="relative">
-                    <div
-                        onClick={() => salons.length > 1 && setIsSalonSelectorOpen(!isSalonSelectorOpen)}
-                        className={`group flex items-center gap-4 cursor-pointer p-2 -m-2 rounded-2xl transition-all ${salons.length > 1 ? 'hover:bg-gray-50' : ''}`}
-                    >
+                    <div className="group flex items-center gap-4 p-2 -m-2 rounded-2xl">
                         <div className="w-16 h-16 rounded-[22px] bg-primary/10 flex items-center justify-center text-primary shadow-inner border border-primary/5">
                             <Store className="w-8 h-8" />
                         </div>
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                                <h1 className="text-4xl font-black text-text-main tracking-tight leading-none">{salon.name}</h1>
-                                {salons.length > 1 && <ChevronDown className={`w-6 h-6 text-text-muted transition-transform ${isSalonSelectorOpen ? 'rotate-180' : ''}`} />}
+                                <h1 className="text-4xl font-black text-text-main tracking-tight leading-none">{activeBranch.name}</h1>
                             </div>
                             <p className="text-text-secondary font-medium flex items-center gap-2">
                                 <Activity className="w-4 h-4 text-green-500" /> Şubenizin bugünkü performans özeti.
                             </p>
                         </div>
                     </div>
-
-                    {isSalonSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-4 w-80 bg-white rounded-3xl border border-border shadow-2xl z-[100] p-3 animate-in fade-in slide-in-from-top-2">
-                            <p className="text-[10px] font-black text-text-muted uppercase tracking-widest p-3">SALON DEĞİŞTİR</p>
-                            <div className="space-y-1">
-                                {salons.map((s) => (
-                                    <div
-                                        key={s.id}
-                                        onClick={() => switchSalon(s)}
-                                        className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${s.id === salon.id ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50 border border-transparent'}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-cover bg-center border border-border" style={{ backgroundImage: `url(${s.image})` }}></div>
-                                            <div className="overflow-hidden">
-                                                <p className="text-sm font-bold text-text-main truncate">{s.name}</p>
-                                                <p className="text-[10px] font-bold text-text-muted truncate">{s.district_name}</p>
-                                            </div>
-                                        </div>
-                                        {s.id === salon.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="border-t border-border mt-3 p-3">
-                                <Link href="/owner/salons" className="flex items-center justify-center gap-2 py-3 bg-gray-50 text-text-main font-black text-[10px] rounded-xl hover:bg-gray-100 transition-colors border border-border uppercase tracking-widest">
-                                    <LayoutGrid className="w-3 h-3" /> Tüm Salonları Yönet
-                                </Link>
-                            </div>
-                        </div>
-                    )}
                 </div>
                 <div className="flex gap-3">
-                    <Link href="/owner/salons" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-border font-bold text-sm text-text-main shadow-sm hover:bg-gray-50 transition-all">
-                        <Store className="w-4 h-4 text-primary" /> Salonlarım
+                    <Link href={`/owner/salons/${activeBranch.id}/edit`} className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-border font-bold text-sm text-text-main shadow-sm hover:bg-gray-50 transition-all">
+                        <Store className="w-4 h-4 text-primary" /> Salonu Düzenle
                     </Link>
                     <Link
                         href="/owner/staff"
-                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:bg-primary-hover transition-all ${salon.status !== 'APPROVED' ? 'opacity-50 pointer-events-none' : ''}`}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:bg-primary-hover transition-all ${activeBranch.status !== 'APPROVED' ? 'opacity-50 pointer-events-none' : ''}`}
                     >
                         <UserPlus className="w-4 h-4" /> Personel Ekle
                     </Link>
@@ -263,13 +189,13 @@ export default function OwnerDashboard() {
                             </div>
                             <h3 className="text-xl font-black text-text-main tracking-tight font-display">Son Hareketler</h3>
                         </div>
-                        {salon.status === 'APPROVED' && (
+                        {activeBranch.status === 'APPROVED' && (
                             <Link href="/owner/calendar" className="text-xs font-black text-primary hover:underline underline-offset-4 flex items-center gap-1">Tümünü Yönet <ChevronRight className="w-3 h-3" /></Link>
                         )}
                     </div>
 
                     <div className="overflow-x-auto relative">
-                        {salon.status !== 'APPROVED' && (
+                        {activeBranch.status !== 'APPROVED' && (
                             <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center text-center p-8">
                                 <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-600 mb-4 shadow-sm border border-amber-100">
                                     <ShieldCheck className="w-6 h-6" />

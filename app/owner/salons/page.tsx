@@ -69,13 +69,13 @@ export default function OwnerSalonsPage() {
                     <h1 className="text-3xl font-black text-text-main tracking-tight">Salonlarım</h1>
                     <p className="text-text-secondary font-medium">Sahibi olduğunuz tüm işletmeleri buradan yönetebilirsiniz.</p>
                 </div>
-                <Link href="/admin/salons" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:bg-primary-hover transition-all">
+                <Link href="/owner/onboarding" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:bg-primary-hover transition-all">
                     <Plus className="w-4 h-4" /> Yeni Salon Ekle
                 </Link>
             </div>
 
             {/* Salons Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {salons.length > 0 ? (
                     salons.map((salon) => {
                         const status = getStatusInfo(salon.status || 'PENDING');
@@ -136,7 +136,7 @@ export default function OwnerSalonsPage() {
                             <h3 className="text-xl font-bold text-text-main">Henüz bir salonunuz yok</h3>
                             <p className="text-text-secondary text-sm max-w-sm mx-auto">Hemen ilk salonunuzu ekleyerek randevu almaya başlayabilirsiniz.</p>
                         </div>
-                        <Link href="/admin/salons" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg hover:bg-primary-hover transition-all">
+                        <Link href="/owner/onboarding" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg hover:bg-primary-hover transition-all">
                             İlk Salonu Ekle
                         </Link>
                     </div>

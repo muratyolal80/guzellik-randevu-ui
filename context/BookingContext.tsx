@@ -62,6 +62,17 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
       const fetchSalon = async () => {
         setLoading(true);
         try {
+          // Reset previous state when salonId changes
+          setSalon(null); // Clear previous salon data
+          setSelectedService(null);
+          setSelectedStaff(null);
+          setSelectedDate(null);
+          setSelectedTime(null);
+          setCustomerName('');
+          setCustomerPhone('');
+          setCustomerNotes('');
+          setAppointmentId(null);
+
           // Fetch full salon details including category/services if needed, 
           // but getSalonById is the main entry point
           const data = await SalonDataService.getSalonById(salonId);

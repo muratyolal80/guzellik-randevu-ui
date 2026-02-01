@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
+import BranchSelector from '@/components/owner/BranchSelector';
 import {
     LayoutDashboard,
     Calendar,
@@ -24,11 +25,11 @@ const OwnerSidebar: React.FC = () => {
 
     const menuItems = [
         { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
+        { name: 'Salonlarım', path: '/owner/salons', icon: Store },
         { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
         { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
         { name: 'Personel Yönetimi', path: '/owner/staff', icon: Users },
         { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
-        { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
     ];
 
     return (

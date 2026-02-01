@@ -179,6 +179,8 @@ export interface Staff {
   name: string;
   photo?: string;
   specialty?: string;
+  phone?: string; // Contact info
+  email?: string; // Contact info
   is_active?: boolean;
   bio?: string;
   created_at?: string;
@@ -248,6 +250,11 @@ export interface Review {
   comment?: string;
   created_at?: string;
   date?: string;
+  appointment_id?: string; // Links to the appointment if verified
+  // Visual verification fields (from view)
+  is_verified?: boolean;
+  service_name?: string;
+  service_date?: string;
 }
 
 export interface IYSLog {

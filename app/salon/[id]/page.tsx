@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, ReviewService, ServiceService, FavoriteService } from '@/services/db';
-import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite } from '@/types';
+import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, Appointment } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
 
@@ -41,6 +41,10 @@ export default function SalonDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isFavorite, setIsFavorite] = useState(false);
     const [togglingFavorite, setTogglingFavorite] = useState(false);
+
+    // Review Verification States
+    const [eligibleAppointments, setEligibleAppointments] = useState<Appointment[]>([]);
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
 
     // Review Form States
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -83,6 +87,16 @@ export default function SalonDetailPage() {
                 if (user) {
                     const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
                     setIsFavorite(favStatus);
+
+                    try {
+                        const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
+                        setEligibleAppointments(appointments);
+                        if (appointments.length > 0) {
+                            setSelectedAppointmentId(appointments[0].id);
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch eligible appointments', err);
+                    }
                 }
             }
             setReviews(reviewsData);
@@ -117,6 +131,12 @@ export default function SalonDetailPage() {
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !salon) return;
+
+        if (!selectedAppointmentId) {
+            alert("Lütfen değerlendirmek istediğiniz hizmeti seçiniz.");
+            return;
+        }
+
         if (newRating === 0) {
             alert("Lütfen bir puan seçiniz.");
             return;
@@ -130,7 +150,8 @@ export default function SalonDetailPage() {
                 user_name: `${user.first_name || ''} ${(user.last_name || '').charAt(0)}.`.trim(),
                 user_avatar: user.avatar_url,
                 rating: newRating,
-                comment: newComment
+                comment: newComment,
+                appointment_id: selectedAppointmentId
             });
 
             setReviews([newReviewData, ...reviews]);
@@ -138,12 +159,22 @@ export default function SalonDetailPage() {
             setNewRating(0);
             setNewComment('');
 
+            // Remove the reviewed appointment from eligible list
+            setEligibleAppointments(prev => prev.filter(a => a.id !== selectedAppointmentId));
+            setSelectedAppointmentId('');
+
             // Re-fetch salon to update average header immediately
             const updatedSalon = await SalonDataService.getSalonById(salon.id);
             if (updatedSalon) setSalon(updatedSalon);
 
-        } catch (error) {
-            console.error("Yorum eklenirken hata oluştu", error);
+        } catch (error: any) {
+            console.error("Yorum eklenirken hata oluştu:", {
+                message: error?.message || "Bilinmeyen hata",
+                error: error,
+                stack: error?.stack,
+                details: error?.details || error?.hint || error
+            });
+            alert(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`);
         } finally {
             setSubmitting(false);
         }
@@ -339,21 +370,53 @@ export default function SalonDetailPage() {
                                             </h3>
                                             <p className="text-text-secondary text-sm mt-2 ml-14">Bu salon için {reviews.length} gerçek müşteri yorumu.</p>
                                         </div>
-                                        <button
-                                            onClick={() => user ? setShowReviewForm(!showReviewForm) : alert("Yorum yapmak için giriş yapmalısınız.")}
-                                            className="px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-all flex items-center gap-2 shadow-sm"
-                                        >
-                                            <span className="material-symbols-outlined">edit</span>
-                                            Değerlendir
-                                        </button>
+                                        {user && eligibleAppointments.length === 0 ? (
+                                            <div className="text-sm text-yellow-600 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
+                                                Yorum yapmak için tamamlanmış bir hizmetiniz bulunmalıdır.
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => user ? setShowReviewForm(!showReviewForm) : alert("Yorum yapmak için giriş yapmalısınız.")}
+                                                className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 shadow-sm ${showReviewForm ? 'bg-gray-100 text-text-main hover:bg-gray-200' : 'bg-primary text-white hover:bg-primary-hover'
+                                                    }`}
+                                            >
+                                                <span className="material-symbols-outlined">{showReviewForm ? 'close' : 'edit'}</span>
+                                                {showReviewForm ? 'Vazgeç' : 'Değerlendir'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Add Review Form */}
-                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showReviewForm ? 'max-h-[500px] opacity-100 border-b border-border' : 'max-h-0 opacity-0'}`}>
+                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showReviewForm ? 'max-h-[800px] opacity-100 border-b border-border' : 'max-h-0 opacity-0'}`}>
                                     <div className="p-8 bg-gray-50">
                                         <h4 className="text-text-main font-bold mb-4">Deneyiminizi Puanlayın</h4>
                                         <form onSubmit={handleSubmitReview}>
+                                            {/* Appointment Selector */}
+                                            {eligibleAppointments.length > 0 && (
+                                                <div className="mb-6">
+                                                    <label className="block text-sm font-bold text-text-secondary mb-2">Hizmet Seçin</label>
+                                                    <div className="flex flex-col gap-2">
+                                                        {eligibleAppointments.map((apt) => (
+                                                            <label key={apt.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-white transition-colors ${selectedAppointmentId === apt.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-gray-200 bg-white'}`}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name="appointment"
+                                                                    value={apt.id}
+                                                                    checked={selectedAppointmentId === apt.id}
+                                                                    onChange={() => setSelectedAppointmentId(apt.id)}
+                                                                    className="w-4 h-4 text-primary focus:ring-primary"
+                                                                />
+                                                                <div className="flex-1">
+                                                                    <div className="font-bold text-text-main">{new Date(apt.start_time).toLocaleDateString()} - {new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                                    <div className="text-xs text-text-secondary">{apt.customer_name} adı ile alındı</div>
+                                                                </div>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="flex items-center gap-2 mb-4">
                                                 {[1, 2, 3, 4, 5].map((star) => (
                                                     <button
@@ -386,7 +449,7 @@ export default function SalonDetailPage() {
                                                 </button>
                                                 <button
                                                     type="submit"
-                                                    disabled={submitting || newRating === 0}
+                                                    disabled={submitting || newRating === 0 || !selectedAppointmentId}
                                                     className="px-8 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                                                 >
                                                     {submitting ? 'Gönderiliyor...' : 'Yorumu Gönder'}
@@ -437,8 +500,8 @@ export default function SalonDetailPage() {
                                                             className="size-10 rounded-full bg-cover bg-center border border-border"
                                                             style={{ backgroundImage: `url("${review.user_avatar || 'https://i.pravatar.cc/150?u=default'}")` }}
                                                         ></div>
-                                                        <div>
-                                                            <h5 className="font-bold text-text-main text-sm">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <h5 className="font-bold text-text-main text-sm flex items-center gap-2">
                                                                 {(() => {
                                                                     const nameParts = review.user_name.trim().split(' ');
                                                                     if (nameParts.length > 1) {
@@ -446,23 +509,36 @@ export default function SalonDetailPage() {
                                                                     }
                                                                     return review.user_name;
                                                                 })()}
-                                                            </h5>
-                                                            {(() => {
-                                                                const rawDate = review.created_at ?? review.date;
-                                                                if (!rawDate) return null;
-                                                                return (
-                                                                    <span className="text-xs text-text-secondary">
-                                                                        {new Date(rawDate).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                                {review.is_verified && (
+                                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100" title="Doğrulanmış Müşteri">
+                                                                        <span className="material-symbols-outlined text-[14px]">verified</span> Doğrulanmış
                                                                     </span>
-                                                                );
-                                                            })()}
+                                                                )}
+                                                            </h5>
+                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
+                                                                {(() => {
+                                                                    const rawDate = review.service_date || review.created_at || review.date;
+                                                                    if (!rawDate) return null;
+                                                                    return (
+                                                                        <span>
+                                                                            {new Date(rawDate).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                                {review.service_name && (
+                                                                    <>
+                                                                        <span className="text-gray-300">•</span>
+                                                                        <span className="text-text-main font-semibold">{review.service_name}</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100">
+                                                    <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100 h-fit">
                                                         {review.rating} <span className="material-symbols-outlined text-[14px] filled">star</span>
                                                     </div>
                                                 </div>
-                                                <p className="text-text-secondary text-sm leading-relaxed">{review.comment}</p>
+                                                <p className="text-text-secondary text-sm leading-relaxed mt-2">{review.comment}</p>
                                             </div>
                                         ))
                                     ) : (

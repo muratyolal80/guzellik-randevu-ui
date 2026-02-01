@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService, SalonDataService, StaffService } from '@/services/db';
 import {
     TrendingUp,
@@ -20,8 +21,8 @@ import {
 
 export default function OwnerReports() {
     const { user } = useAuth();
+    const { activeBranch, loading: branchLoading } = useActiveBranch();
     const [loading, setLoading] = useState(true);
-    const [salon, setSalon] = useState<any>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [reportData, setReportData] = useState({
         totalRevenue: 0,
@@ -33,66 +34,78 @@ export default function OwnerReports() {
     });
 
     useEffect(() => {
-        if (user) {
+        if (user && activeBranch) {
             fetchReportData();
         }
-    }, [user]);
+    }, [user, activeBranch]);
 
     const fetchReportData = async () => {
+        if (!activeBranch) return;
+
         try {
             setLoading(true);
-            const salonData = await SalonDataService.getSalonByOwner(user?.id!);
-            if (salonData) {
-                setSalon(salonData);
 
-                // Son 30 günlük veriyi getir
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            // Son 30 günlük veriyi getir
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-                const appts = await AppointmentService.getAppointmentsBySalon(
-                    salonData.id,
-                    thirtyDaysAgo.toISOString()
-                );
+            const appts = await AppointmentService.getAppointmentsBySalon(
+                activeBranch.id,
+                thirtyDaysAgo.toISOString()
+            );
 
-                setAppointments(appts);
+            setAppointments(appts);
 
-                // Hesaplamalar (Tip uyuşmazlığı için any kullanımı)
-                const completed = appts.filter(a => a.status === 'COMPLETED');
-                const totalRev = completed.reduce((sum, a: any) => sum + (a.service?.price || 0), 0);
+            // Hesaplamalar (Tip uyuşmazlığı için any kullanımı)
+            const completed = appts.filter(a => a.status === 'COMPLETED');
+            const totalRev = completed.reduce((sum, a: any) => sum + (a.service?.price || 0), 0);
 
-                // Servis bazlı dağılım
-                const serviceMap: Record<string, any> = {};
-                completed.forEach((a: any) => {
-                    const name = a.service?.global_service?.name || 'Diğer';
-                    if (!serviceMap[name]) serviceMap[name] = { name, count: 0, revenue: 0 };
-                    serviceMap[name].count++;
-                    serviceMap[name].revenue += (a.service?.price || 0);
-                });
+            // Servis bazlı dağılım
+            const serviceMap: Record<string, any> = {};
+            completed.forEach((a: any) => {
+                const name = a.service?.global_service?.name || 'Diğer';
+                if (!serviceMap[name]) serviceMap[name] = { name, count: 0, revenue: 0 };
+                serviceMap[name].count++;
+                serviceMap[name].revenue += (a.service?.price || 0);
+            });
 
-                // Personel bazlı dağılım
-                const staffMap: Record<string, any> = {};
-                completed.forEach((a: any) => {
-                    const name = a.staff_id;
-                    if (!staffMap[name]) staffMap[name] = { id: name, count: 0, revenue: 0 };
-                    staffMap[name].count++;
-                    staffMap[name].revenue += (a.service?.price || 0);
-                });
+            // Personel bazlı dağılım
+            const staffMap: Record<string, any> = {};
+            completed.forEach((a: any) => {
+                const name = a.staff_id;
+                if (!staffMap[name]) staffMap[name] = { id: name, count: 0, revenue: 0 };
+                staffMap[name].count++;
+                staffMap[name].revenue += (a.service?.price || 0);
+            });
 
-                setReportData({
-                    totalRevenue: totalRev,
-                    completedAppts: completed.length,
-                    avgTicket: completed.length > 0 ? Math.round(totalRev / completed.length) : 0,
-                    revenueTrend: '+12.5%',
-                    serviceStats: Object.values(serviceMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5),
-                    staffStats: Object.values(staffMap).sort((a, b) => b.revenue - a.revenue)
-                });
-            }
+            setReportData({
+                totalRevenue: totalRev,
+                completedAppts: completed.length,
+                avgTicket: completed.length > 0 ? Math.round(totalRev / completed.length) : 0,
+                revenueTrend: '+12.5%',
+                serviceStats: Object.values(serviceMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+                staffStats: Object.values(staffMap).sort((a, b) => b.revenue - a.revenue)
+            });
         } catch (err) {
             console.error('Rapor hatası:', err);
         } finally {
             setLoading(false);
         }
     };
+
+    if (branchLoading) return <div>Yükleniyor...</div>;
+
+    if (!activeBranch) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <TrendingUp className="w-8 h-8 text-text-muted" />
+                </div>
+                <h2 className="text-xl font-black text-text-main">Aktif Şube Seçilmedi</h2>
+                <p className="text-text-secondary mt-2 mb-6">Raporları görüntülemek için lütfen yukarıdan bir şube seçin.</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
