@@ -136,6 +136,9 @@ export interface Salon {
   owner_id?: string;
   status?: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejected_reason?: string;
+  type_ids?: string[]; // For multi-type support
+  primary_type_id?: string;
+
 
   // UI/card fields used by MOCK_SALONS and components
   location?: string;
@@ -160,6 +163,8 @@ export interface SalonDetail extends Salon {
   type_slug: string;
   review_count: number;
   average_rating: number;
+  assigned_types?: { id: string, name: string, slug: string, is_primary: boolean }[];
+
 
   // Legacy/compatibility properties (for existing code)
   city?: string;        // Alias for city_name

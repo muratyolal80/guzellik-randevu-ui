@@ -42,7 +42,8 @@ export default function OnboardingWizard() {
     const [salonData, setSalonData] = useState<any>({
         name: '',
         phone: '',
-        type_id: '',
+        type_ids: [] as string[], // Changed from type_id
+        primary_type_id: '', // New field
         city_id: '',
         district_id: '',
         address: '',
@@ -175,8 +176,14 @@ export default function OnboardingWizard() {
             if (salonData.id) {
                 salon = await SalonDataService.updateSalon(salonData.id, salonData);
             } else {
+                // Ensure we pass type_id for backward compatibility if needed by the service type definition, 
+                // but the service should handle the new fields.
+                // We'll map type_ids to the expected format for the creation service
                 salon = await SalonDataService.createSalon({
                     ...salonData,
+                    // Map primary_type_id to type_id for schema compatibility if the service expects it
+                    // The service implementation of createSalon needs to handle type_ids and primary_type_id
+                    type_id: salonData.primary_type_id,
                     owner_id: user?.id
                 }, workingHours, selectedServices);
             }
@@ -235,18 +242,74 @@ export default function OnboardingWizard() {
                             </div>
                         </div>
                         <div>
-                            <label className="label-sm">İşletme Tipi</label>
+                            <label className="label-sm">İşletme Tipleri (Birden fazla seçebilirsiniz)</label>
+                            <p className="text-xs text-text-muted mb-3">Lütfen işletmenizi tanımlayan kategorileri seçin. İlk seçtiğiniz kategori <strong>Ana Kategori</strong> olarak belirlenecektir.</p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                {salonTypes.map(t => (
-                                    <div
-                                        key={t.id}
-                                        onClick={() => setSalonData({ ...salonData, type_id: t.id })}
-                                        className={`p-4 rounded-2xl border-2 text-center cursor-pointer transition-all ${salonData.type_id === t.id ? 'border-primary bg-primary/5' : 'border-border bg-white hover:border-primary/20'}`}
-                                    >
-                                        <p className="text-xs font-black uppercase text-text-main">{t.name}</p>
-                                    </div>
-                                ))}
+                                {salonTypes.map(t => {
+                                    const isSelected = salonData.type_ids.includes(t.id);
+                                    const isPrimary = salonData.primary_type_id === t.id;
+
+                                    return (
+                                        <div
+                                            key={t.id}
+                                            onClick={() => {
+                                                let newTypeIds = [...salonData.type_ids];
+                                                if (isSelected) {
+                                                    newTypeIds = newTypeIds.filter(id => id !== t.id);
+                                                    // If we removed the primary, set new primary if exists
+                                                    if (isPrimary && newTypeIds.length > 0) {
+                                                        setSalonData({ ...salonData, type_ids: newTypeIds, primary_type_id: newTypeIds[0] });
+                                                    } else if (newTypeIds.length === 0) {
+                                                        setSalonData({ ...salonData, type_ids: [], primary_type_id: '' });
+                                                    } else {
+                                                        setSalonData({ ...salonData, type_ids: newTypeIds });
+                                                    }
+                                                } else {
+                                                    newTypeIds.push(t.id);
+                                                    if (newTypeIds.length === 1) {
+                                                        setSalonData({ ...salonData, type_ids: newTypeIds, primary_type_id: t.id });
+                                                    } else {
+                                                        setSalonData({ ...salonData, type_ids: newTypeIds });
+                                                    }
+                                                }
+                                            }}
+                                            className={`relative p-4 rounded-2xl border-2 text-center cursor-pointer transition-all ${isSelected
+                                                ? 'border-primary bg-primary/5'
+                                                : 'border-border bg-white hover:border-primary/20'}`}
+                                        >
+                                            {isPrimary && (
+                                                <span className="absolute -top-2 -right-2 bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                                                    ANA
+                                                </span>
+                                            )}
+                                            <p className={`text-xs font-black uppercase ${isSelected ? 'text-primary' : 'text-text-main'}`}>{t.name}</p>
+                                        </div>
+                                    );
+                                })}
                             </div>
+                            {salonData.type_ids.length > 1 && (
+                                <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                    <p className="text-xs text-blue-800 font-bold mb-2">Ana Kategori Seçimi:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {salonData.type_ids.map((id: string) => {
+                                            const type = salonTypes.find(t => t.id === id);
+                                            if (!type) return null;
+                                            return (
+                                                <button
+                                                    key={id}
+                                                    onClick={() => setSalonData({ ...salonData, primary_type_id: id })}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${salonData.primary_type_id === id
+                                                            ? 'bg-primary text-white shadow-md'
+                                                            : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100'
+                                                        }`}
+                                                >
+                                                    {type.name}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="label-sm">Kısa Açıklama</label>

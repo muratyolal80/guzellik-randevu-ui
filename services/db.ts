@@ -348,14 +348,20 @@ export const SalonDataService = {
     }
 
     if (filters.typeId) {
-      const { data: typeData } = await supabase
-        .from('salon_types')
-        .select('name')
-        .eq('id', filters.typeId)
-        .single();
+      // Use salon_assigned_types to filtering multi-type assignment
+      const { data: assigned } = await supabase
+        .from('salon_assigned_types')
+        .select('salon_id')
+        .eq('type_id', filters.typeId);
 
-      if (typeData) {
-        query = query.eq('type_name', typeData.name);
+      if (assigned && assigned.length > 0) {
+        const ids = assigned.map(a => a.salon_id);
+        query = query.in('id', ids);
+      } else {
+        // No salons found for this type, return empty immediately to save query
+        // Or create impossible condition
+        // But better to just return empty if we want to be efficient
+        return [];
       }
     }
 
@@ -402,13 +408,33 @@ export const SalonDataService = {
     customHours?: { day_of_week: number, start_time: string, end_time: string, is_closed: boolean }[],
     initialServices?: { global_service_id: string, price: number, duration_min: number }[]
   ): Promise<Salon> {
+    const { type_ids, primary_type_id, ...salonData } = salon;
+
+    // Use primary_type_id as fallback for type_id for backward compatibility
+    const dbSalon = {
+      ...salonData,
+      type_id: primary_type_id || salonData.type_id
+    };
+
     const { data, error } = await supabase
       .from('salons')
-      .insert(salon)
+      .insert(dbSalon)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Insert Assignments
+    if (type_ids && type_ids.length > 0) {
+      const assignments = type_ids.map(tid => ({
+        salon_id: data.id,
+        type_id: tid,
+        is_primary: tid === (primary_type_id || dbSalon.type_id)
+      }));
+
+      const { error: assignError } = await supabase.from('salon_assigned_types').insert(assignments);
+      if (assignError) console.error("Error assigning salon types:", assignError);
+    }
 
     let hoursToInsert;
 
@@ -496,17 +522,55 @@ export const SalonDataService = {
    * Update salon
    */
   async updateSalon(id: string, updates: Partial<Salon>): Promise<Salon> {
+    // Extract multi-type fields to prevent them from being sent to 'salons' table
+    const { type_ids, primary_type_id, ...salonUpdates } = updates;
+
+    // If primary type is updated, sync it to the legacy type_id column
+    if (primary_type_id) {
+      (salonUpdates as any).type_id = primary_type_id;
+    }
+
+    // Update main table
     const { data, error } = await supabase
       .from('salons')
-      .update(updates)
+      .update(salonUpdates)
       .eq('id', id)
       .select();
 
     if (error) throw error;
     if (!data || data.length === 0) {
-      // This usually happens when RLS doesn't allow reading the row back even if update worked
       throw new Error('Update successful but RLS policy prevented retrieving the updated data. Please refresh.');
     }
+
+    // Handle Assignment Updates
+    if (type_ids && type_ids.length > 0) {
+      // Strategy: Delete all existing assignments and re-insert
+      // This is safe because it's a join table without extra metadata (except is_primary which we re-calculate)
+      const { error: deleteError } = await supabase
+        .from('salon_assigned_types')
+        .delete()
+        .eq('salon_id', id);
+
+      if (deleteError) {
+        console.error("Error clearing old types:", deleteError);
+        // We continue to try inserting even if delete failed (though unique constraint might hit)
+      }
+
+      const effectivePrimary = primary_type_id || data[0].type_id;
+
+      const assignments = type_ids.map(tid => ({
+        salon_id: id,
+        type_id: tid,
+        is_primary: tid === effectivePrimary
+      }));
+
+      const { error: insertError } = await supabase
+        .from('salon_assigned_types')
+        .insert(assignments);
+
+      if (insertError) console.error("Error updating salon types:", insertError);
+    }
+
     return data[0];
   },
 

@@ -21,3 +21,17 @@ CREATE POLICY "Everyone can insert notifications" ON public.notifications FOR IN
 CREATE POLICY "Public can view invite by token" ON public.invites FOR SELECT USING (true);
 CREATE POLICY public_read_salons ON public.salons FOR SELECT USING (true);
 CREATE POLICY salons_public_read ON public.salons FOR SELECT USING (true);
+
+-- Salon Assigned Types Policies
+ALTER TABLE public.salon_assigned_types ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read Access" ON public.salon_assigned_types FOR SELECT USING (true);
+CREATE POLICY "Owners manage own salon types" ON public.salon_assigned_types 
+    FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.salons 
+            WHERE id = salon_assigned_types.salon_id 
+            AND owner_id = (SELECT id FROM public.users WHERE email = current_user OR id::text = current_setting('request.jwt.claim.sub', true))
+        )
+    );
+

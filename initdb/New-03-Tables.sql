@@ -97,6 +97,16 @@ CREATE TABLE public.profiles (
     last_name text
 );
 
+CREATE TABLE public.salon_assigned_types (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    salon_id bigint NOT NULL,
+    type_id uuid NOT NULL,
+    is_primary boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT salon_assigned_types_pkey PRIMARY KEY (id),
+    CONSTRAINT salon_assigned_types_salon_id_type_id_key UNIQUE (salon_id, type_id)
+);
+
 CREATE TABLE public.salon_types (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     name text NOT NULL,
@@ -149,6 +159,14 @@ CREATE VIEW public.salon_details AS
     COALESCE(d.name, 'Bilinmiyor'::text) AS district_name,
     COALESCE(st.name, 'Genel'::text) AS type_name,
     COALESCE(st.slug, 'genel'::text) AS type_slug,
+    ( SELECT array_agg(json_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'is_primary', sat.is_primary)) AS array_agg
+           FROM (public.salon_assigned_types sat
+             JOIN public.salon_types t ON ((sat.type_id = t.id)))
+          WHERE (sat.salon_id = s.id)) AS assigned_types,
+    ( SELECT array_agg(json_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'is_primary', sat.is_primary)) AS array_agg
+           FROM (public.salon_assigned_types sat
+             JOIN public.salon_types t ON ((sat.type_id = t.id)))
+          WHERE (sat.salon_id = s.id)) AS assigned_types,
     0 AS review_count,
     0 AS average_rating,
     s.created_at
@@ -283,3 +301,6 @@ ALTER TABLE ONLY public.appointments ADD CONSTRAINT fkn7uk5bmcf2qd5oam22wfqcx3j 
 ALTER TABLE ONLY public.global_services ADD CONSTRAINT global_services_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES public.profiles(id);
 ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_salon_id_fkey FOREIGN KEY (salon_id) REFERENCES public.salons(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.salon_assigned_types ADD CONSTRAINT salon_assigned_types_salon_id_fkey FOREIGN KEY (salon_id) REFERENCES public.salons(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.salon_assigned_types ADD CONSTRAINT salon_assigned_types_type_id_fkey FOREIGN KEY (type_id) REFERENCES public.salon_types(id) ON DELETE CASCADE;
+
