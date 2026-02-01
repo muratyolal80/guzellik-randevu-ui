@@ -35,42 +35,42 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setLoading(true);
 
             if (isOwner) {
-                // Get salon owned by this user
+                // Get salons owned by this user
                 const { data, error } = await supabase
                     .from('salons')
                     .select('id')
-                    .eq('owner_id', user.id)
-                    .maybeSingle(); // maybeSingle() kullan - salon olmayabilir
+                    .eq('owner_id', user.id);
 
                 if (error) {
-                    console.error('[TenantContext] Error fetching owner salon details:', {
-                        code: error.code,
-                        message: error.message,
-                        details: error.details,
-                        hint: error.hint
-                    });
+                    // PGRST116 is multiple rows error which we handle by choosing one, 
+                    // but other errors should be logged.
+                    if (error.code !== 'PGRST116') {
+                        console.error('[TenantContext] Error fetching owner salons:', error);
+                    }
                     setSalonId(null);
                 } else {
-                    setSalonId(data?.id || null);
+                    // Try to restore from localStorage to be consistent with ActiveBranchContext
+                    const savedBranchId = typeof window !== 'undefined' ? localStorage.getItem(`active_branch_${user.id}`) : null;
+                    const exists = data?.find(s => s.id === savedBranchId);
+
+                    if (exists) {
+                        setSalonId(exists.id);
+                    } else {
+                        setSalonId(data?.[0]?.id || null);
+                    }
                 }
             } else if (isStaff) {
-                // Get salon this staff belongs to
+                // Get salons this staff belongs to
                 const { data, error } = await supabase
                     .from('staff')
                     .select('salon_id')
-                    .eq('user_id', user.id)
-                    .maybeSingle(); // maybeSingle() kullan - staff kaydı olmayabilir
+                    .eq('user_id', user.id);
 
                 if (error) {
-                    console.error('[TenantContext] Error fetching staff salon details:', {
-                        code: error.code,
-                        message: error.message,
-                        details: error.details,
-                        hint: error.hint
-                    });
+                    console.error('[TenantContext] Error fetching staff salon details:', error);
                     setSalonId(null);
                 } else {
-                    setSalonId(data?.salon_id || null);
+                    setSalonId(data?.[0]?.salon_id || null);
                 }
             }
         } catch (err) {

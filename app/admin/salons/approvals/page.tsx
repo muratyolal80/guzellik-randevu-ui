@@ -303,7 +303,11 @@ export default function AdminApprovalsPage() {
                                             <span className="text-[10px] font-black uppercase tracking-wider">LOKASYON BİLGİSİ</span>
                                         </div>
                                         <p className="text-lg font-black text-text-main">{selectedSalon.city_name}, {selectedSalon.district_name}</p>
-                                        <p className="text-sm font-bold text-text-secondary leading-relaxed">{selectedSalon.address}</p>
+                                        <p className="text-sm font-bold text-text-secondary leading-relaxed">
+                                            {(selectedSalon.neighborhood || selectedSalon.street || selectedSalon.building_no)
+                                                ? `${selectedSalon.neighborhood ? `${selectedSalon.neighborhood}, ` : ''}${selectedSalon.street ? `${selectedSalon.street} No:${selectedSalon.building_no}` : ''}`
+                                                : selectedSalon.address}
+                                        </p>
                                     </div>
                                 </div>
 

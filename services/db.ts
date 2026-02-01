@@ -556,10 +556,12 @@ export const SalonDataService = {
     if (initialServices && initialServices.length > 0) {
       const servicesToInsert = initialServices.map(s => ({
         salon_id: data.id,
-        global_service_id: s.global_service_id,
+        // Since global_service_id might not exist in salon_services, 
+        // we'll try to find the name if it's missing from the schema.
+        // based on initdb/New-03-Tables.sql: salon_services has 'name', 'price', 'duration_minutes'
+        name: (s as any).name || 'Hizmet',
         price: s.price,
-        duration_min: s.duration_min,
-        is_active: true
+        duration_minutes: s.duration_min,
       }));
 
       await supabase.from('salon_services').insert(servicesToInsert);
@@ -795,7 +797,12 @@ export const StaffService = {
     const { data, error } = await supabase
       .from('staff')
       .insert({
-        ...staffData,
+        name: staffData.name,
+        role: staffData.role,
+        phone: staffData.phone,
+        photo: staffData.photo || staffData.image, // Support both aliases
+        salon_id: staffData.salon_id,
+        user_id: staffData.user_id,
         created_at: new Date().toISOString()
       })
       .select()
@@ -886,6 +893,17 @@ export const StaffService = {
       .update(updates)
       .eq('id', id);
 
+    if (error) throw error;
+  },
+
+  async linkStaffToServices(staffId: string | number, salonId: string | number, serviceIds: (string | number)[]): Promise<void> {
+    if (!serviceIds || serviceIds.length === 0) return;
+    const assignments = serviceIds.map(serviceId => ({
+      staff_id: staffId,
+      salon_id: salonId,
+      salon_service_id: serviceId
+    }));
+    const { error } = await supabase.from('staff_services').insert(assignments);
     if (error) throw error;
   }
 };

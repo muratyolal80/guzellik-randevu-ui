@@ -124,6 +124,11 @@ export interface Salon {
   district_id?: string;
   type_id?: string;
   address?: string;
+  neighborhood?: string; // Mahalle
+  street?: string;       // Cadde/Sokak
+  building_no?: string;  // Dış Kapı No
+  apartment_no?: string; // İç Kapı/Daire
+  postal_code?: string;
   phone?: string;
   geo_latitude?: number;
   geo_longitude?: number;
@@ -181,6 +186,7 @@ export interface SalonDetail extends Salon {
 export interface Staff {
   id: string;
   salon_id?: string;
+  user_id?: string;
   name: string;
   photo?: string;
   specialty?: string;

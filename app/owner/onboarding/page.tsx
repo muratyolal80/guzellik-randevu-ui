@@ -35,9 +35,9 @@ export default function OnboardingWizard() {
     const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [globalServices, setGlobalServices] = useState<any[]>([]);
-    const [selectedServices, setSelectedServices] = useState<{ global_service_id: string, price: number, duration_min: number }[]>([]);
-    const [staffMembers, setStaffMembers] = useState<{ name: string, role: string, phone: string, email: string, is_owner: boolean }[]>([]);
-    const [newStaff, setNewStaff] = useState({ name: '', role: '', phone: '', email: '' });
+    const [selectedServices, setSelectedServices] = useState<{ global_service_id: string, name: string, price: number, duration_min: number }[]>([]);
+    const [staffMembers, setStaffMembers] = useState<{ name: string, role: string, phone: string, email: string, is_owner: boolean, service_ids: string[] }[]>([]);
+    const [newStaff, setNewStaff] = useState({ name: '', role: '', phone: '', email: '', service_ids: [] as string[] });
 
     const [salonData, setSalonData] = useState<any>({
         name: '',
@@ -47,6 +47,10 @@ export default function OnboardingWizard() {
         city_id: '',
         district_id: '',
         address: '',
+        neighborhood: '',
+        street: '',
+        building_no: '',
+        apartment_no: '',
         description: '',
         geo_latitude: 41.0082,
         geo_longitude: 28.9784,
@@ -82,7 +86,13 @@ export default function OnboardingWizard() {
         if (exists) {
             setSelectedServices(selectedServices.filter(s => s.global_service_id !== serviceId));
         } else {
-            setSelectedServices([...selectedServices, { global_service_id: serviceId, price: 0, duration_min: 30 }]);
+            const gs = globalServices.find(g => g.id === serviceId);
+            setSelectedServices([...selectedServices, {
+                global_service_id: serviceId,
+                name: gs?.name || 'Hizmet',
+                price: 0,
+                duration_min: 30
+            }]);
         }
     };
 
@@ -98,7 +108,12 @@ export default function OnboardingWizard() {
 
         categoryServices.forEach(gs => {
             if (!newServices.find(s => s.global_service_id === gs.id)) {
-                newServices.push({ global_service_id: gs.id, price: 0, duration_min: 30 });
+                newServices.push({
+                    global_service_id: gs.id,
+                    name: gs.name,
+                    price: 0,
+                    duration_min: 30
+                });
             }
         });
         setSelectedServices(newServices);
@@ -113,7 +128,7 @@ export default function OnboardingWizard() {
     const addStaff = () => {
         if (!newStaff.name || !newStaff.role) return;
         setStaffMembers([...staffMembers, { ...newStaff, is_owner: false }]);
-        setNewStaff({ name: '', role: '', phone: '', email: '' });
+        setNewStaff({ name: '', role: '', phone: '', email: '', service_ids: [] });
     };
 
     const removeStaff = (index: number) => {
@@ -132,7 +147,8 @@ export default function OnboardingWizard() {
             role: 'Yönetici & Uzman',
             phone: user.phone || '',
             email: user.email || '',
-            is_owner: true
+            is_owner: true,
+            service_ids: selectedServices.map(s => s.global_service_id)
         }, ...staffMembers]);
     };
 
@@ -187,6 +203,7 @@ export default function OnboardingWizard() {
                 // 3. Varsayılan fiyat ve süre ile otomatik ekle
                 const autoServices = services.map(service => ({
                     global_service_id: service.id,
+                    name: service.name,
                     price: 0, // Kullanıcı belirleyecek
                     duration_min: 30 // Varsayılan süre
                 }));
@@ -244,19 +261,41 @@ export default function OnboardingWizard() {
 
             // 3. Clear active salon cache for this user to force refresh
             // 3. Clear active salon cache for this user to force refresh
-            // 3. Create Staff Members
+            // 3. Create Staff Members & Link Services
             if (staffMembers.length > 0) {
-                console.log('Onboarding step 3: Creating staff...');
-                await Promise.all(staffMembers.map(staff =>
-                    StaffService.createStaff({
+                console.log('Onboarding step 3: Creating staff and linking services...');
+
+                // Fetch created salon services to get their DB ids
+                // We match by name because global_service_id might not be in salon_services table
+                const dbServices = await ServiceService.getServicesBySalon(salon.id);
+                const serviceMapping: Record<string, string> = {};
+                dbServices.forEach(s => {
+                    serviceMapping[s.service_name] = s.id;
+                });
+
+                await Promise.all(staffMembers.map(async (staff) => {
+                    const createdStaff = await StaffService.createStaff({
                         salon_id: salon.id,
+                        user_id: staff.is_owner ? user?.id : undefined,
                         name: staff.name,
                         role: staff.role,
                         phone: staff.phone,
-                        email: staff.email,
                         is_active: true
-                    })
-                ));
+                    });
+
+                    if (createdStaff && staff.service_ids?.length > 0) {
+                        // Map global_service_ids to database salon_service_ids via name
+                        const dbServiceIds = staff.service_ids.map(gsId => {
+                            const gsName = selectedServices.find(s => s.global_service_id === gsId)?.name;
+                            return gsName ? serviceMapping[gsName] : null;
+                        }).filter(Boolean) as string[];
+
+                        if (dbServiceIds.length > 0) {
+                            await StaffService.linkStaffToServices(createdStaff.id, salon.id, dbServiceIds);
+                        }
+                    }
+                    return createdStaff;
+                }));
             }
 
             console.log('Onboarding step 4: Success, redirecting...');
@@ -386,9 +425,29 @@ export default function OnboardingWizard() {
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <label className="label-sm">Açık Adres</label>
-                            <textarea className="input-field h-24 pt-3" placeholder="Sokak, No, Kapı..." value={salonData.address} onChange={e => setSalonData({ ...salonData, address: e.target.value })}></textarea>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="label-sm">Mahalle</label>
+                                <input className="input-field" placeholder="Örn: Barbaros Mah." value={salonData.neighborhood} onChange={e => setSalonData({ ...salonData, neighborhood: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="label-sm">Cadde / Sokak</label>
+                                <input className="input-field" placeholder="Örn: Karanfil Sokak" value={salonData.street} onChange={e => setSalonData({ ...salonData, street: e.target.value })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="label-sm">Bina No</label>
+                                    <input className="input-field" placeholder="No: 12" value={salonData.building_no} onChange={e => setSalonData({ ...salonData, building_no: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="label-sm">Daire / Kat</label>
+                                    <input className="input-field" placeholder="D: 5" value={salonData.apartment_no} onChange={e => setSalonData({ ...salonData, apartment_no: e.target.value })} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="label-sm">Ek Bilgiler (Opsiyonel)</label>
+                                <input className="input-field" placeholder="Örn: Market yanı, 2. kat" value={salonData.address} onChange={e => setSalonData({ ...salonData, address: e.target.value })} />
+                            </div>
                         </div>
 
                         {/* Coordinate Display for User Feedback */}
@@ -438,7 +497,11 @@ export default function OnboardingWizard() {
                             </div>
                             <div className="flex justify-between border-b border-white pb-3">
                                 <span className="text-[10px] font-black text-text-muted uppercase">Adres</span>
-                                <span className="text-sm font-bold text-text-main truncate max-w-[200px]">{salonData.address || '-'}</span>
+                                <span className="text-sm font-bold text-text-main truncate max-w-[200px]">
+                                    {salonData.neighborhood || salonData.street
+                                        ? `${salonData.neighborhood} ${salonData.street} No:${salonData.building_no}`
+                                        : (salonData.address || '-')}
+                                </span>
                             </div>
                             <div className="flex justify-between border-b border-white pb-3">
                                 <span className="text-[10px] font-black text-text-muted uppercase">Statü</span>
@@ -523,7 +586,93 @@ export default function OnboardingWizard() {
                         </div>
                     </div>
                 );
+            case 4:
+                return (
+                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                        <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 flex items-start gap-4">
+                            <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                                <Star className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-text-main mb-1">Hizmet Seçimi</h3>
+                                <p className="text-sm text-text-secondary font-medium">Salonunuzun sunduğu hizmetleri belirleyin. Fiyat ve süreleri daha sonra da güncelleyebilirsiniz.</p>
+                            </div>
+                        </div>
 
+                        <div className="space-y-8">
+                            {categories.map(category => {
+                                const categoryServices = globalServices.filter(s => s.category_id === category.id);
+                                if (categoryServices.length === 0) return null;
+
+                                return (
+                                    <div key={category.id} className="space-y-4">
+                                        <div className="flex justify-between items-center group">
+                                            <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em]">{category.name}</h4>
+                                            <button
+                                                onClick={() => addCategoryServices(category.id)}
+                                                className="text-[10px] font-black text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                + TÜMÜNÜ EKLE
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {categoryServices.map(service => {
+                                                const selected = selectedServices.find(s => s.global_service_id === service.id);
+                                                return (
+                                                    <div
+                                                        key={service.id}
+                                                        className={`p-4 rounded-2xl border transition-all ${selected
+                                                            ? 'bg-white border-primary shadow-md ring-1 ring-primary/20'
+                                                            : 'bg-white border-border hover:border-primary/30'
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <button
+                                                                    onClick={() => toggleService(service.id)}
+                                                                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selected ? 'bg-primary border-primary text-white' : 'border-border'
+                                                                        }`}
+                                                                >
+                                                                    {selected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                </button>
+                                                                <span className={`text-sm font-bold ${selected ? 'text-text-main' : 'text-text-secondary'}`}>
+                                                                    {service.name}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {selected && (
+                                                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                                                                <div className="flex-1">
+                                                                    <label className="text-[9px] font-black text-text-muted uppercase mb-1 block">Fiyat (₺)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-gray-50 border border-border rounded-lg px-2 py-1 text-sm font-bold outline-none focus:border-primary"
+                                                                        value={selected.price}
+                                                                        onChange={e => updateServiceDetails(service.id, 'price', parseInt(e.target.value) || 0)}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <label className="text-[9px] font-black text-text-muted uppercase mb-1 block">Süre (Dk)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full bg-gray-50 border border-border rounded-lg px-2 py-1 text-sm font-bold outline-none focus:border-primary"
+                                                                        value={selected.duration_min}
+                                                                        onChange={e => updateServiceDetails(service.id, 'duration_min', parseInt(e.target.value) || 0)}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
             case 5:
                 return (
                     <div className="space-y-6 animate-in slide-in-from-right duration-300">
@@ -549,32 +698,53 @@ export default function OnboardingWizard() {
                                     + KENDİMİ EKLE
                                 </button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <input
-                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
-                                    placeholder="Ad Soyad *"
-                                    value={newStaff.name}
-                                    onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
-                                />
-                                <input
-                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
-                                    placeholder="Görevi (Örn: Kıdemli Kuaför) *"
-                                    value={newStaff.role}
-                                    onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}
-                                />
-                                <input
-                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
-                                    placeholder="Telefon (Opsiyonel)"
-                                    value={newStaff.phone}
-                                    onChange={e => setNewStaff({ ...newStaff, phone: e.target.value })}
-                                />
-                                <input
-                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
-                                    placeholder="E-posta (Opsiyonel)"
-                                    value={newStaff.email}
-                                    onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
-                                />
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-black text-text-muted uppercase tracking-wider">Uzmanlık Alanları (Hizmetler)</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setNewStaff({ ...newStaff, service_ids: selectedServices.map(s => s.global_service_id) })}
+                                            className="text-[10px] font-bold text-primary hover:underline"
+                                        >
+                                            TÜMÜNÜ SEÇ
+                                        </button>
+                                        <span className="text-gray-300">|</span>
+                                        <button
+                                            onClick={() => setNewStaff({ ...newStaff, service_ids: [] })}
+                                            className="text-[10px] font-bold text-text-muted hover:underline"
+                                        >
+                                            TEMİZLE
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 bg-white p-4 rounded-xl border border-border max-h-[200px] overflow-y-auto">
+                                    {selectedServices.map(s => {
+                                        const globalService = globalServices.find(gs => gs.id === s.global_service_id);
+                                        const isChecked = (newStaff as any).service_ids?.includes(s.global_service_id);
+                                        return (
+                                            <label key={s.global_service_id} className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${isChecked ? 'bg-primary/5 border-primary/20' : 'bg-gray-50/50 border-transparent hover:border-gray-200'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    onChange={() => {
+                                                        const current = (newStaff as any).service_ids || [];
+                                                        const next = current.includes(s.global_service_id)
+                                                            ? current.filter((id: string) => id !== s.global_service_id)
+                                                            : [...current, s.global_service_id];
+                                                        setNewStaff({ ...newStaff, service_ids: next });
+                                                    }}
+                                                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                                />
+                                                <span className="text-xs font-medium text-text-main truncate">{globalService?.name || 'Hizmet'}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {selectedServices.length === 0 && (
+                                        <p className="col-span-2 text-center py-4 text-xs text-text-muted italic">Önce hizmet seçmelisiniz.</p>
+                                    )}
+                                </div>
                             </div>
+
                             <button
                                 onClick={addStaff}
                                 disabled={!newStaff.name || !newStaff.role}
@@ -599,7 +769,11 @@ export default function OnboardingWizard() {
                                                     <h5 className="font-bold text-text-main">{staff.name}</h5>
                                                     {staff.is_owner && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black">YÖNETİCİ</span>}
                                                 </div>
-                                                <p className="text-xs text-text-muted">{staff.role}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs text-text-muted">{staff.role}</p>
+                                                    <span className="text-[8px] text-gray-300">•</span>
+                                                    <p className="text-[10px] text-primary font-bold uppercase tracking-tight">{staff.service_ids?.length || 0} Hizmet</p>
+                                                </div>
                                             </div>
                                         </div>
                                         <button
