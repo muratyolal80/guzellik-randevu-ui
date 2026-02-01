@@ -21,3 +21,7 @@ COMMENT ON EXTENSION postgis_tiger_geocoder IS 'PostGIS tiger geocoder and rever
 
 CREATE EXTENSION IF NOT EXISTS postgis_topology WITH SCHEMA topology;
 COMMENT ON EXTENSION postgis_topology IS 'PostGIS topology spatial types and functions';
+
+-- Realtime Setup
+DROP PUBLICATION IF EXISTS supabase_realtime;
+CREATE PUBLICATION supabase_realtime FOR ALL TABLES;
