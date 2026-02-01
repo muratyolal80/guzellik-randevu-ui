@@ -472,7 +472,17 @@ export const SalonDataService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Create error details:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        table: 'salons',
+        data: dbSalon
+      });
+      throw error;
+    }
 
     // Insert Assignments
     if (type_ids && type_ids.length > 0) {
@@ -589,7 +599,17 @@ export const SalonDataService = {
       .eq('id', id)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Update error details:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        table: 'salons',
+        updates: salonUpdates
+      });
+      throw error;
+    }
     if (!data || data.length === 0) {
       throw new Error('Update successful but RLS policy prevented retrieving the updated data. Please refresh.');
     }
