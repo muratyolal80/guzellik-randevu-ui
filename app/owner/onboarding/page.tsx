@@ -635,8 +635,8 @@ export default function OnboardingWizard() {
                             <div className="flex justify-between border-b border-white pb-3">
                                 <span className="text-[10px] font-black text-text-muted uppercase">Adres</span>
                                 <span className="text-sm font-bold text-text-main truncate max-w-[200px]">
-                                    {salonData.neighborhood || salonData.street
-                                        ? `${salonData.neighborhood} ${salonData.street} No:${salonData.building_no}`
+                                    {salonData.neighborhood || salonData.avenue || salonData.street
+                                        ? `${salonData.neighborhood} ${salonData.avenue ? salonData.avenue + ' ' : ''}${salonData.street} No:${salonData.building_no}`
                                         : (salonData.address || '-')}
                                 </span>
                             </div>

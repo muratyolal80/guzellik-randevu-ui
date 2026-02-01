@@ -120,6 +120,7 @@ CREATE TABLE public.salons (
     id bigint NOT NULL,
     address character varying(255),
     neighborhood character varying(255),
+    avenue character varying(255),
     street character varying(255),
     building_no character varying(50),
     apartment_no character varying(50),
@@ -157,6 +158,15 @@ CREATE TABLE public.staff (
     updated_at timestamp with time zone DEFAULT now()
 );
 
+CREATE TABLE public.salon_memberships (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    user_id uuid,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    role text NOT NULL CHECK (role IN ('OWNER', 'MANAGER', 'STAFF')),
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.working_hours (
     id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
     staff_id uuid NOT NULL,
@@ -183,6 +193,7 @@ CREATE OR REPLACE VIEW public.salon_details AS
     s.features,
     s.address,
     s.neighborhood,
+    s.avenue,
     s.street,
     s.building_no,
     s.apartment_no,
@@ -217,6 +228,7 @@ CREATE OR REPLACE VIEW public.salon_details_with_membership AS
     features,
     address,
     neighborhood,
+    avenue,
     street,
     building_no,
     apartment_no,
