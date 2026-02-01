@@ -152,6 +152,56 @@ export default function OnboardingWizard() {
         fetchMasterData();
     }, []);
 
+    // Auto-load services when salon types change
+    useEffect(() => {
+        console.log('🔍 useEffect tetiklendi - type_ids:', salonData.type_ids);
+
+        const loadServicesForSelectedTypes = async () => {
+            // Salon tipi seçilmemişse hizmetleri temizle
+            if (!salonData.type_ids || salonData.type_ids.length === 0) {
+                console.log('⚠️ Salon tipi seçili değil, hizmetler temizleniyor');
+                setSelectedServices([]);
+                return;
+            }
+
+            console.log('✅ Salon tipleri seçili, hizmetler yükleniyor...', salonData.type_ids);
+
+            try {
+                // 1. Seçilen salon tiplerine göre kategorileri al
+                console.log('1️⃣ Kategoriler getiriliyor...');
+                const relatedCategories = await MasterDataService.getServiceCategoriesForSalonTypes(salonData.type_ids);
+                console.log('📁 Bulunan kategoriler:', relatedCategories);
+
+                if (relatedCategories.length === 0) {
+                    console.warn('⚠️ Bu salon tipleri için tanımlanmış kategori bulunamadı');
+                    setSelectedServices([]);
+                    return;
+                }
+
+                // 2. Bu kategorilerdeki tüm hizmetleri al
+                const categoryIds = relatedCategories.map(c => c.id);
+                console.log('2️⃣ Hizmetler getiriliyor, kategori IDs:', categoryIds);
+                const services = await MasterDataService.getGlobalServicesByCategories(categoryIds);
+                console.log('📋 Bulunan hizmetler:', services);
+
+                // 3. Varsayılan fiyat ve süre ile otomatik ekle
+                const autoServices = services.map(service => ({
+                    global_service_id: service.id,
+                    price: 0, // Kullanıcı belirleyecek
+                    duration_min: 30 // Varsayılan süre
+                }));
+
+                setSelectedServices(autoServices);
+                console.log(`✅ ${autoServices.length} hizmet otomatik yüklendi`);
+            } catch (error) {
+                console.error('❌ Hizmetler yüklenirken hata:', error);
+            }
+        };
+
+        loadServicesForSelectedTypes();
+    }, [salonData.type_ids]); // type_ids değiştiğinde çalış
+
+
     useEffect(() => {
         if (salonData.city_id) {
             MasterDataService.getDistrictsByCity(salonData.city_id).then(setDistricts);
@@ -299,8 +349,8 @@ export default function OnboardingWizard() {
                                                     key={id}
                                                     onClick={() => setSalonData({ ...salonData, primary_type_id: id })}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${salonData.primary_type_id === id
-                                                            ? 'bg-primary text-white shadow-md'
-                                                            : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100'
+                                                        ? 'bg-primary text-white shadow-md'
+                                                        : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100'
                                                         }`}
                                                 >
                                                     {type.name}

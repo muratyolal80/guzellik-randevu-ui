@@ -40,7 +40,9 @@ interface SalonFormData {
     phone: string;
     city_id: string;
     district_id: string;
-    type_id: string;
+    type_id: string; // Legacy/Primary fallback
+    type_ids: string[];
+    primary_type_id: string;
     image: string;
     geo_latitude: number;
     geo_longitude: number;
@@ -65,6 +67,8 @@ export default function EditSalonPage() {
         city_id: '',
         district_id: '',
         type_id: '',
+        type_ids: [],
+        primary_type_id: '',
         image: '',
         geo_latitude: 41.0082,
         geo_longitude: 28.9784,
@@ -115,6 +119,20 @@ export default function EditSalonPage() {
             const data = await SalonDataService.getSalonById(salonId);
             if (data) {
                 setSalon(data);
+
+                // Process assigned types
+                let initialTypeIds: string[] = [];
+                let initialPrimaryId = data.type_id || '';
+
+                if (data.assigned_types && data.assigned_types.length > 0) {
+                    initialTypeIds = data.assigned_types.map(t => t.id);
+                    const primary = data.assigned_types.find(t => t.is_primary);
+                    if (primary) initialPrimaryId = primary.id;
+                } else if (data.type_id) {
+                    // Fallback to legacy type_id if no assigned_types
+                    initialTypeIds = [data.type_id];
+                }
+
                 setFormData({
                     name: data.name,
                     description: data.description || '',
@@ -123,6 +141,8 @@ export default function EditSalonPage() {
                     city_id: data.city_id || '',
                     district_id: data.district_id || '',
                     type_id: data.type_id || '',
+                    type_ids: initialTypeIds,
+                    primary_type_id: initialPrimaryId,
                     image: data.image || '',
                     geo_latitude: data.geo_latitude || 41.0082,
                     geo_longitude: data.geo_longitude || 28.9784,
@@ -149,7 +169,9 @@ export default function EditSalonPage() {
                 phone: formData.phone,
                 city_id: formData.city_id,
                 district_id: formData.district_id,
-                type_id: formData.type_id,
+                type_id: formData.primary_type_id, // Sync legacy column
+                primary_type_id: formData.primary_type_id,
+                type_ids: formData.type_ids,
                 image: formData.image,
                 geo_latitude: formData.geo_latitude,
                 geo_longitude: formData.geo_longitude,
@@ -198,8 +220,8 @@ export default function EditSalonPage() {
                                 <h1 className="text-lg md:text-2xl font-black text-text-main tracking-tight leading-none">{formData.name || 'Salon Düzenle'}</h1>
                                 <div className="mt-3 flex items-center gap-3">
                                     <div className={`px-3 py-1 rounded-full flex items-center gap-2 border shadow-sm transition-all duration-500 ${salon?.status === 'APPROVED'
-                                            ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                                            : 'bg-amber-50 border-amber-100 text-amber-700'
+                                        ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                                        : 'bg-amber-50 border-amber-100 text-amber-700'
                                         }`}>
                                         <div className="relative flex h-2 w-2">
                                             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${salon?.status === 'APPROVED' ? 'bg-emerald-400' : 'bg-amber-400'
@@ -364,18 +386,77 @@ export default function EditSalonPage() {
                                         <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
                                             <Scissors className="w-3.5 h-3.5" /> İşletme Tipi
                                         </label>
-                                        <div className="relative group">
-                                            <select
-                                                value={formData.type_id}
-                                                onChange={(e) => setFormData({ ...formData, type_id: e.target.value })}
-                                                className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option value="">Seçiniz</option>
-                                                {salonTypes.map(type => (
-                                                    <option key={type.id} value={type.id}>{type.name}</option>
-                                                ))}
-                                            </select>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {salonTypes.map(type => {
+                                                const isSelected = formData.type_ids.includes(type.id);
+                                                const isPrimary = formData.primary_type_id === type.id;
+
+                                                return (
+                                                    <div
+                                                        key={type.id}
+                                                        onClick={() => {
+                                                            let newTypeIds = [...formData.type_ids];
+                                                            if (isSelected) {
+                                                                newTypeIds = newTypeIds.filter(id => id !== type.id);
+                                                                // If removing primary, reassign primary
+                                                                if (isPrimary && newTypeIds.length > 0) {
+                                                                    setFormData({ ...formData, type_ids: newTypeIds, primary_type_id: newTypeIds[0] });
+                                                                } else if (newTypeIds.length === 0) {
+                                                                    setFormData({ ...formData, type_ids: [], primary_type_id: '' });
+                                                                } else {
+                                                                    setFormData({ ...formData, type_ids: newTypeIds });
+                                                                }
+                                                            } else {
+                                                                newTypeIds.push(type.id);
+                                                                if (newTypeIds.length === 1) {
+                                                                    setFormData({ ...formData, type_ids: newTypeIds, primary_type_id: type.id });
+                                                                } else {
+                                                                    setFormData({ ...formData, type_ids: newTypeIds });
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected
+                                                                ? 'border-primary bg-primary/5'
+                                                                : 'border-border bg-white hover:border-gray-300'
+                                                            }`}
+                                                    >
+                                                        {isPrimary && (
+                                                            <div className="absolute -top-2 -right-2 bg-primary text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                                                                ANA
+                                                            </div>
+                                                        )}
+                                                        <div className={`text-sm font-bold ${isSelected ? 'text-primary' : 'text-text-main'}`}>
+                                                            {type.name}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
+                                        {formData.type_ids.length > 1 && (
+                                            <div className="mt-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                                                <p className="text-[10px] font-bold text-blue-800 uppercase mb-2">Ana İşletme Türü Seçimi</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {formData.type_ids.map(tid => {
+                                                        const t = salonTypes.find(st => st.id === tid);
+                                                        if (!t) return null;
+                                                        const isPrim = formData.primary_type_id === tid;
+                                                        return (
+                                                            <button
+                                                                key={tid}
+                                                                type="button"
+                                                                onClick={() => setFormData({ ...formData, primary_type_id: tid })}
+                                                                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${isPrim
+                                                                        ? 'bg-primary text-white shadow-sm'
+                                                                        : 'bg-white border border-blue-200 text-blue-800 hover:bg-blue-50'
+                                                                    }`}
+                                                            >
+                                                                {t.name}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="md:col-span-2 space-y-3">

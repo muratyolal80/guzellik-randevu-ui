@@ -185,6 +185,56 @@ export const MasterDataService = {
   },
 
   /**
+   * Get service categories for selected salon types
+   * Returns unique categories associated with the given salon type IDs
+   */
+  async getServiceCategoriesForSalonTypes(typeIds: string[]): Promise<ServiceCategory[]> {
+    if (!typeIds || typeIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('salon_type_categories')
+      .select(`
+        category:service_categories(*)
+      `)
+      .in('salon_type_id', typeIds);
+
+    if (error) {
+      console.error('Error fetching categories for salon types:', error);
+      throw error;
+    }
+
+    // Extract and deduplicate categories
+    const uniqueCategories = new Map<string, ServiceCategory>();
+    data?.forEach((item: any) => {
+      if (item.category) {
+        uniqueCategories.set(item.category.id, item.category);
+      }
+    });
+
+    return Array.from(uniqueCategories.values());
+  },
+
+  /**
+   * Get global services by category IDs
+   */
+  async getGlobalServicesByCategories(categoryIds: string[]): Promise<GlobalService[]> {
+    if (!categoryIds || categoryIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('global_services')
+      .select('*')
+      .in('category_id', categoryIds)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching services by categories:', error);
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  /**
    * Create new global service
    */
   async createGlobalService(service: Omit<GlobalService, 'id' | 'created_at'>): Promise<GlobalService> {

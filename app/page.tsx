@@ -153,7 +153,9 @@ function HomePageContent() {
                     city: salon.city_name || salon.cities?.name || salon.city?.name || 'Belirtilmemiş',
                     district: salon.district_name || salon.districts?.name || salon.district?.name || '',
                     rating: salon.average_rating || 0,
-                    tags: salon.type_name ? [salon.type_name] : (salon.salon_types?.name ? [salon.salon_types.name] : []),
+                    tags: salon.assigned_types && salon.assigned_types.length > 0
+                        ? salon.assigned_types.map((t: any) => t.name)
+                        : (salon.type_name ? [salon.type_name] : (salon.salon_types?.name ? [salon.salon_types.name] : [])),
                     startPrice: salon.min_price || 100, // Fallback if not aggregated
                     coordinates: {
                         lat: salon.geo_latitude || 0,
