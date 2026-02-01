@@ -4,8 +4,10 @@ CREATE TABLE public.appointments (
     id bigint NOT NULL,
     end_time timestamp(6) without time zone,
     start_time timestamp(6) without time zone,
-    status character varying(255),
-    customer_id bigint,
+    first_name text,
+    last_name text,
+    email text,
+    customer_id uuid,
     salon_id bigint,
     service_id bigint,
     CONSTRAINT appointments_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])))
@@ -129,7 +131,7 @@ CREATE TABLE public.salons (
     location public.geometry(Point,4326),
     name character varying(255),
     rating double precision,
-    owner_id bigint NOT NULL,
+    owner_id uuid NOT NULL,
     postal_code character varying(20),
     status public.salon_status DEFAULT 'DRAFT'::public.salon_status,
     rejected_reason text,
@@ -162,7 +164,7 @@ CREATE TABLE public.staff (
 CREATE TABLE public.salon_memberships (
     id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
     user_id uuid,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     role text NOT NULL CHECK (role IN ('OWNER', 'MANAGER', 'STAFF')),
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
@@ -175,6 +177,28 @@ CREATE TABLE public.working_hours (
     start_time time without time zone NOT NULL,
     end_time time without time zone NOT NULL,
     is_day_off boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.salon_working_hours (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    day_of_week integer NOT NULL,
+    start_time time without time zone NOT NULL,
+    end_time time without time zone NOT NULL,
+    is_closed boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(salon_id, day_of_week)
+);
+
+CREATE TABLE public.reviews (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES public.profiles(id),
+    user_name text NOT NULL,
+    user_avatar text,
+    rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment text,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -207,6 +231,9 @@ CREATE OR REPLACE VIEW public.salon_details AS
     s.rejected_reason,
     s.owner_id,
     s.postal_code,
+    s.city_id,
+    s.district_id,
+    s.type_id,
     COALESCE(c.name, 'Bilinmiyor'::text) AS city_name,
     COALESCE(d.name, 'Bilinmiyor'::text) AS district_name,
     COALESCE(st.name, 'Genel'::text) AS type_name,
@@ -243,6 +270,9 @@ CREATE OR REPLACE VIEW public.salon_details_with_membership AS
     rejected_reason,
     owner_id,
     postal_code,
+    city_id,
+    district_id,
+    type_id,
     city_name,
     district_name,
     type_name,
@@ -332,8 +362,10 @@ ALTER TABLE ONLY public.salon_services ADD CONSTRAINT salon_services_pkey PRIMAR
 ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_name_key UNIQUE (name);
 ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_slug_key UNIQUE (slug);
-ALTER TABLE ONLY public.salons ADD CONSTRAINT salons_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_name_key UNIQUE (name);
+ ALTER TABLE ONLY public.salons ADD CONSTRAINT salons_pkey PRIMARY KEY (id);
+ ALTER TABLE ONLY public.salon_working_hours ADD CONSTRAINT salon_working_hours_pkey PRIMARY KEY (id);
+ ALTER TABLE ONLY public.reviews ADD CONSTRAINT reviews_pkey PRIMARY KEY (id);
+ ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_name_key UNIQUE (name);
 ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_slug_key UNIQUE (slug);
 ALTER TABLE ONLY public.users ADD CONSTRAINT uk_6dotkott2kjsp8vw4d0m25fb7 UNIQUE (email);
