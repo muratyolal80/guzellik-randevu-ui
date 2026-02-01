@@ -63,6 +63,8 @@ export default function EditSalonPage() {
     const [salon, setSalon] = useState<SalonDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [manualSearchQuery, setManualSearchQuery] = useState('');
 
     // Form Data
     const [formData, setFormData] = useState<SalonFormData>({
@@ -104,41 +106,62 @@ export default function EditSalonPage() {
 
     // Automatic Geocoding Effect (Debounced)
     useEffect(() => {
-        // Only run if we are in the profile tab or it's first load
-        const timer = setTimeout(async () => {
+        const timer = setTimeout(() => {
             if (!formData.city_id || !formData.district_id) return;
+            // Only auto-sync if we have at least 3 parts (City + District + something else)
+            if (formData.neighborhood || formData.avenue || formData.street) {
+                handleGeocode(false);
+            }
+        }, 1200); // 1.2s auto-debounce is safer than 800ms to avoid API limits while typing
 
-            const cityName = cities.find(c => c.id === formData.city_id)?.name;
-            const districtName = districts.find(d => d.id === formData.district_id)?.name;
+        return () => clearTimeout(timer);
+    }, [formData.city_id, formData.district_id, formData.neighborhood, formData.avenue, formData.street, formData.building_no]);
 
-            const searchParts = [
-                formData.avenue,
-                formData.street,
-                formData.building_no ? `No: ${formData.building_no}` : '',
-                formData.neighborhood,
-                districtName,
-                cityName,
-                'Türkiye'
-            ].filter(Boolean);
+    const handleGeocode = async (isManual = false, customQuery?: string) => {
+        if (!formData.city_id && !customQuery) return;
 
-            if (searchParts.length < 3) return; // Need at least city, district and neighborhood/street
+        setIsGeocoding(true);
+        try {
+            let searchQuery = '';
 
-            const searchQuery = searchParts.join(', ');
-            console.log('🔍 Geocoding search (Edit Page):', searchQuery);
+            if (customQuery) {
+                searchQuery = customQuery;
+            } else {
+                const cityName = cities.find(c => c.id === formData.city_id)?.name;
+                const districtName = districts.find(d => d.id === formData.district_id)?.name;
 
+                const searchParts = [
+                    formData.avenue,
+                    formData.street,
+                    formData.building_no ? `No: ${formData.building_no}` : '',
+                    formData.neighborhood,
+                    districtName,
+                    cityName,
+                    'Türkiye'
+                ].filter(Boolean);
+
+                searchQuery = searchParts.join(', ');
+            }
+
+            console.log(`🔍 Geocoding search (${isManual ? 'Manual' : 'Auto'}):`, searchQuery);
             const result = await GeocodingService.searchAddress(searchQuery);
+
             if (result) {
-                console.log('📍 Geocoding result found (Edit Page):', result);
+                console.log('📍 Geocoding result found:', result);
                 setFormData(prev => ({
                     ...prev,
                     geo_latitude: result.lat,
                     geo_longitude: result.lon
                 }));
+            } else if (isManual) {
+                alert('Belirtilen adres haritada bulunamadı. Lütfen kontrol edip tekrar deneyin veya haritadan manuel işaretleyin.');
             }
-        }, 2000); // 2s debounce for edit page to be less intrusive
-
-        return () => clearTimeout(timer);
-    }, [formData.city_id, formData.district_id, formData.neighborhood, formData.avenue, formData.street, formData.building_no, cities, districts]);
+        } catch (error) {
+            console.error('Geocoding error:', error);
+        } finally {
+            setIsGeocoding(false);
+        }
+    };
 
     const fetchMasterData = async () => {
         try {
@@ -214,9 +237,29 @@ export default function EditSalonPage() {
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation for mandatory address fields
+        const requiredFields = {
+            city_id: 'Şehir',
+            district_id: 'İlçe',
+            neighborhood: 'Mahalle',
+            avenue: 'Cadde',
+            street: 'Sokak',
+            building_no: 'Bina No'
+        };
+
+        const missingFields = Object.entries(requiredFields)
+            .filter(([key]) => !formData[key as keyof SalonFormData])
+            .map(([, label]) => label);
+
+        if (missingFields.length > 0) {
+            alert(`Lütfen şu zorunlu alanları doldurunuz: ${missingFields.join(', ')}`);
+            return;
+        }
+
         setSaving(true);
         try {
-            await SalonDataService.updateSalon(salonId, {
+            const updatedSalon = await SalonDataService.updateSalon(salonId, {
                 name: formData.name,
                 description: formData.description,
                 address: formData.address,
@@ -236,8 +279,13 @@ export default function EditSalonPage() {
                 geo_longitude: formData.geo_longitude,
             });
 
-            // Request approval if status is rejected or draft? 
-            // For now just update info.
+            // Update local state with fresh data from server
+            const data = await SalonDataService.getSalonById(salonId);
+            if (data) {
+                setSalon(data);
+                // We don't necessarily need to reset formData here as it's already in sync, 
+                // but setting salon state ensures the "Status" badge etc are correct.
+            }
 
             await SalonDataService.submitForApproval(salonId);
             alert('Şube bilgileri güncellendi ve onaya gönderildi.');
@@ -363,6 +411,15 @@ export default function EditSalonPage() {
                                         <Layout className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                     </div>
                                     Temel Bilgiler
+                                    <button
+                                        type="button"
+                                        onClick={() => handleGeocode(true)}
+                                        disabled={isGeocoding}
+                                        className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-black hover:bg-blue-100 transition-all border border-blue-200 disabled:opacity-50"
+                                    >
+                                        <MapPin className={`w-3.5 h-3.5 ${isGeocoding ? 'animate-bounce' : ''}`} />
+                                        {isGeocoding ? 'Aranıyor...' : 'Adresi Haritada Bul'}
+                                    </button>
                                 </h3>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 md:gap-y-10">
@@ -604,6 +661,26 @@ export default function EditSalonPage() {
                                     </div>
                                     Konum İşaretleme
                                 </h3>
+                                <div className="mb-4 flex gap-2">
+                                    <div className="relative flex-1 group">
+                                        <input
+                                            type="text"
+                                            value={manualSearchQuery}
+                                            onChange={(e) => setManualSearchQuery(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleGeocode(false, manualSearchQuery)}
+                                            placeholder="Haritada yer arayın (örn: Kadıköy Meydan, Akasya AVM...)"
+                                            className="w-full px-5 py-3.5 bg-surface-alt border border-border rounded-2xl font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm"
+                                        />
+                                        <MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-primary transition-colors" />
+                                    </div>
+                                    <button
+                                        onClick={() => handleGeocode(false, manualSearchQuery)}
+                                        disabled={isGeocoding || !manualSearchQuery}
+                                        className="px-6 py-3.5 bg-text-main text-white rounded-2xl font-black text-sm hover:bg-black transition-all disabled:opacity-50"
+                                    >
+                                        Ara
+                                    </button>
+                                </div>
                                 <div className="h-[400px] md:h-[500px] rounded-[24px] md:rounded-[32px] overflow-hidden border-2 border-border shadow-inner mt-4 relative z-0">
                                     <AdminSalonMap
                                         center={[formData.geo_latitude || 41.0082, formData.geo_longitude || 28.9784]}

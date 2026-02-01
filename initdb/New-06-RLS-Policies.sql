@@ -19,6 +19,8 @@ ALTER TABLE public.working_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.salon_assigned_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.salon_memberships ENABLE ROW LEVEL SECURITY;
+ ALTER TABLE public.salon_working_hours ENABLE ROW LEVEL SECURITY;
+ ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
 -- 2. MASTER DATA (Public Read-Only)
 -- Cities
@@ -118,3 +120,18 @@ CREATE POLICY "Users can view their own memberships" ON public.salon_memberships
 DROP POLICY IF EXISTS "Owners manage memberships" ON public.salon_memberships;
 CREATE POLICY "Owners manage memberships" ON public.salon_memberships
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
+
+-- 11. SALON WORKING HOURS
+DROP POLICY IF EXISTS "Public read salon working hours" ON public.salon_working_hours;
+CREATE POLICY "Public read salon working hours" ON public.salon_working_hours FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Owners manage salon working hours" ON public.salon_working_hours;
+CREATE POLICY "Owners manage salon working hours" ON public.salon_working_hours 
+    FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
+
+-- 12. REVIEWS
+DROP POLICY IF EXISTS "Public read reviews" ON public.reviews;
+CREATE POLICY "Public read reviews" ON public.reviews FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can leave reviews" ON public.reviews;
+CREATE POLICY "Authenticated users can leave reviews" ON public.reviews FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
