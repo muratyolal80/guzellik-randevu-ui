@@ -230,7 +230,7 @@ export default function SalonDetailPage() {
                             <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
                             <div className="flex flex-wrap items-center gap-4 text-gray-200 text-sm font-medium">
                                 <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm">
-                                    <span className="material-symbols-outlined text-primary">location_on</span> {salon.address || `${salon.district_name}, ${salon.city_name}`}
+                                    <span className="material-symbols-outlined text-primary">location_on</span> {(salon.neighborhood || salon.street || salon.building_no) ? `${salon.neighborhood ? `${salon.neighborhood}, ` : ''}${salon.street ? `${salon.street} No:${salon.building_no}` : ''}` : (salon.address || `${salon.district_name}, ${salon.city_name}`)}
                                 </span>
                                 {salon.tags && salon.tags.length > 0 && (
                                     <span className="flex items-center gap-2">

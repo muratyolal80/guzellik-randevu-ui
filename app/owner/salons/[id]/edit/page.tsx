@@ -37,6 +37,10 @@ interface SalonFormData {
     name: string;
     description: string;
     address: string;
+    neighborhood: string;
+    street: string;
+    building_no: string;
+    apartment_no: string;
     phone: string;
     city_id: string;
     district_id: string;
@@ -63,6 +67,10 @@ export default function EditSalonPage() {
         name: '',
         description: '',
         address: '',
+        neighborhood: '',
+        street: '',
+        building_no: '',
+        apartment_no: '',
         phone: '',
         city_id: '',
         district_id: '',
@@ -137,6 +145,10 @@ export default function EditSalonPage() {
                     name: data.name,
                     description: data.description || '',
                     address: data.address || '',
+                    neighborhood: data.neighborhood || '',
+                    street: data.street || '',
+                    building_no: data.building_no || '',
+                    apartment_no: data.apartment_no || '',
                     phone: data.phone || '',
                     city_id: data.city_id || '',
                     district_id: data.district_id || '',
@@ -166,6 +178,10 @@ export default function EditSalonPage() {
                 name: formData.name,
                 description: formData.description,
                 address: formData.address,
+                neighborhood: formData.neighborhood,
+                street: formData.street,
+                building_no: formData.building_no,
+                apartment_no: formData.apartment_no,
                 phone: formData.phone,
                 city_id: formData.city_id,
                 district_id: formData.district_id,
@@ -357,15 +373,68 @@ export default function EditSalonPage() {
                                         </div>
                                     </div>
 
+                                    <div className="md:col-span-1 space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <MapPin className="w-3.5 h-3.5" /> Mahalle
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.neighborhood}
+                                            onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                            placeholder="Örn: Barbaros Mah."
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-1 space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <MapPin className="w-3.5 h-3.5" /> Cadde / Sokak
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.street}
+                                            onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                            placeholder="Örn: Karanfil Sokak"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                                Bina No
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.building_no}
+                                                onChange={(e) => setFormData({ ...formData, building_no: e.target.value })}
+                                                className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                                placeholder="No"
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                                Daire
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.apartment_no}
+                                                onChange={(e) => setFormData({ ...formData, apartment_no: e.target.value })}
+                                                className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                                placeholder="D:"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="md:col-span-2 space-y-3">
                                         <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
-                                            <AlertCircle className="w-3.5 h-3.5" /> Açık Adres
+                                            <AlertCircle className="w-3.5 h-3.5" /> Diğer Adres Detayları (İsteğe Bağlı)
                                         </label>
                                         <textarea
                                             value={formData.address}
                                             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all min-h-[120px] resize-none"
-                                            placeholder="Mahalle, Cadde, Sokak No..."
+                                            className="w-full px-6 py-3 bg-surface-alt border border-border rounded-2xl font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all min-h-[80px] resize-none"
+                                            placeholder="Kat bilgisi, tarif vb..."
                                         />
                                     </div>
 
@@ -416,8 +485,8 @@ export default function EditSalonPage() {
                                                             }
                                                         }}
                                                         className={`relative p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected
-                                                                ? 'border-primary bg-primary/5'
-                                                                : 'border-border bg-white hover:border-gray-300'
+                                                            ? 'border-primary bg-primary/5'
+                                                            : 'border-border bg-white hover:border-gray-300'
                                                             }`}
                                                     >
                                                         {isPrimary && (
@@ -446,8 +515,8 @@ export default function EditSalonPage() {
                                                                 type="button"
                                                                 onClick={() => setFormData({ ...formData, primary_type_id: tid })}
                                                                 className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${isPrim
-                                                                        ? 'bg-primary text-white shadow-sm'
-                                                                        : 'bg-white border border-blue-200 text-blue-800 hover:bg-blue-50'
+                                                                    ? 'bg-primary text-white shadow-sm'
+                                                                    : 'bg-white border border-blue-200 text-blue-800 hover:bg-blue-50'
                                                                     }`}
                                                             >
                                                                 {t.name}

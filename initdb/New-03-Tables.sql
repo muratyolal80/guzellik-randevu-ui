@@ -119,6 +119,10 @@ CREATE TABLE public.salon_types (
 CREATE TABLE public.salons (
     id bigint NOT NULL,
     address character varying(255),
+    neighborhood character varying(255),
+    street character varying(255),
+    building_no character varying(50),
+    apartment_no character varying(50),
     description character varying(255),
     is_verified boolean NOT NULL,
     location public.geometry(Point,4326),
@@ -140,13 +144,48 @@ CREATE TABLE public.salons (
     updated_at timestamp with time zone DEFAULT now()
 );
 
+CREATE TABLE public.staff (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    salon_id bigint NOT NULL,
+    name text NOT NULL,
+    role text,
+    phone text,
+    photo text,
+    user_id uuid,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.working_hours (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    staff_id uuid NOT NULL,
+    day_of_week integer NOT NULL,
+    start_time time without time zone NOT NULL,
+    end_time time without time zone NOT NULL,
+    is_day_off boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.staff_services (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    salon_id bigint NOT NULL,
+    staff_id uuid NOT NULL,
+    salon_service_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 -- Views
-CREATE VIEW public.salon_details AS
+CREATE OR REPLACE VIEW public.salon_details AS
  SELECT s.id,
     s.name,
     s.description,
     s.features,
     s.address,
+    s.neighborhood,
+    s.street,
+    s.building_no,
+    s.apartment_no,
     s.phone,
     s.geo_latitude,
     s.geo_longitude,
@@ -171,12 +210,16 @@ CREATE VIEW public.salon_details AS
      LEFT JOIN public.districts d ON ((s.district_id = d.id)))
      LEFT JOIN public.salon_types st ON ((s.type_id = st.id)));
 
-CREATE VIEW public.salon_details_with_membership AS
+CREATE OR REPLACE VIEW public.salon_details_with_membership AS
  SELECT id,
     name,
     description,
     features,
     address,
+    neighborhood,
+    street,
+    building_no,
+    apartment_no,
     phone,
     geo_latitude,
     geo_longitude,

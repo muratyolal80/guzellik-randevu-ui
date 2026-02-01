@@ -101,7 +101,9 @@ export default function OwnerSalonsPage() {
                                     <div className="space-y-2">
                                         <div className="flex items-start gap-2 text-text-secondary text-sm font-medium">
                                             <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
-                                            <span className="line-clamp-2">{salon.address}</span>
+                                            <span className="line-clamp-2">
+                                                {salon.neighborhood ? `${salon.neighborhood}, ${salon.district_name}` : (salon.address || `${salon.district_name}, ${salon.city_name}`)}
+                                            </span>
                                         </div>
                                         <div className="flex items-center gap-2 text-text-secondary text-sm font-medium">
                                             <Phone className="w-4 h-4" />
