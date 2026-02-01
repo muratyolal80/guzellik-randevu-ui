@@ -125,7 +125,8 @@ export interface Salon {
   type_id?: string;
   address?: string;
   neighborhood?: string; // Mahalle
-  street?: string;       // Cadde/Sokak
+  avenue?: string;       // Cadde
+  street?: string;       // Sokak
   building_no?: string;  // Dış Kapı No
   apartment_no?: string; // İç Kapı/Daire
   postal_code?: string;
