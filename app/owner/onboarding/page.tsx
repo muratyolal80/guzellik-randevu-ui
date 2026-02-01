@@ -48,6 +48,7 @@ export default function OnboardingWizard() {
         district_id: '',
         address: '',
         neighborhood: '',
+        avenue: '',
         street: '',
         building_no: '',
         apartment_no: '',
@@ -225,6 +226,44 @@ export default function OnboardingWizard() {
         }
     }, [salonData.city_id]);
 
+    // Automatic Geocoding Effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            const cityName = cities.find(c => c.id === salonData.city_id)?.name;
+            const districtName = districts.find(d => d.id === salonData.district_id)?.name;
+
+            if (!cityName) return;
+
+            // Build full address search string
+            const searchParts = [
+                salonData.avenue,
+                salonData.street,
+                salonData.building_no ? `No: ${salonData.building_no}` : '',
+                salonData.neighborhood,
+                districtName,
+                cityName,
+                'Türkiye'
+            ].filter(Boolean);
+
+            if (searchParts.length < 3) return; // Need at least city, district and neighborhood/street
+
+            const searchQuery = searchParts.join(', ');
+            console.log('🔍 Geocoding search:', searchQuery);
+
+            const result = await GeocodingService.searchAddress(searchQuery);
+            if (result) {
+                console.log('📍 Geocoding result found:', result);
+                setSalonData((prev: any) => ({
+                    ...prev,
+                    geo_latitude: result.lat,
+                    geo_longitude: result.lon
+                }));
+            }
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(timer);
+    }, [salonData.city_id, salonData.district_id, salonData.neighborhood, salonData.avenue, salonData.street, salonData.building_no, cities, districts]);
+
     const handleNext = () => {
         if (currentStep < 6) setCurrentStep(prev => prev + 1);
         else handleComplete();
@@ -319,20 +358,40 @@ export default function OnboardingWizard() {
         switch (currentStep) {
             case 1:
                 return (
-                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="label-sm">Salon İsmi</label>
-                                <input className="input-field" placeholder="Lüks Güzellik Merkezi" value={salonData.name} onChange={e => setSalonData({ ...salonData, name: e.target.value })} />
+                    <div className="space-y-8 animate-in slide-in-from-right duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <Store className="w-3.5 h-3.5" /> Salon İsmi
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="Lüks Güzellik Merkezi"
+                                    value={salonData.name}
+                                    onChange={e => setSalonData({ ...salonData, name: e.target.value })}
+                                />
                             </div>
-                            <div>
-                                <label className="label-sm">İşletme Telefonu</label>
-                                <input className="input-field" placeholder="0212 XXX XX XX" value={salonData.phone} onChange={e => setSalonData({ ...salonData, phone: e.target.value })} />
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <Phone className="w-3.5 h-3.5" /> İşletme Telefonu
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="0212 XXX XX XX"
+                                    value={salonData.phone}
+                                    onChange={e => setSalonData({ ...salonData, phone: e.target.value })}
+                                />
                             </div>
                         </div>
-                        <div>
-                            <label className="label-sm">İşletme Tipleri (Birden fazla seçebilirsiniz)</label>
-                            <p className="text-xs text-text-muted mb-3">Lütfen işletmenizi tanımlayan kategorileri seçin. İlk seçtiğiniz kategori <strong>Ana Kategori</strong> olarak belirlenecektir.</p>
+
+                        <div className="space-y-6">
+                            <div className="flex flex-col gap-1">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                    <Info className="w-3.5 h-3.5" /> İşletme Tipleri
+                                </label>
+                                <p className="text-[11px] text-text-muted font-medium ml-1">Birden fazla seçilebilir. İlk seçilen ana kategori olur.</p>
+                            </div>
+
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                 {salonTypes.map(t => {
                                     const isSelected = salonData.type_ids.includes(t.id);
@@ -345,7 +404,6 @@ export default function OnboardingWizard() {
                                                 let newTypeIds = [...salonData.type_ids];
                                                 if (isSelected) {
                                                     newTypeIds = newTypeIds.filter(id => id !== t.id);
-                                                    // If we removed the primary, set new primary if exists
                                                     if (isPrimary && newTypeIds.length > 0) {
                                                         setSalonData({ ...salonData, type_ids: newTypeIds, primary_type_id: newTypeIds[0] });
                                                     } else if (newTypeIds.length === 0) {
@@ -362,23 +420,24 @@ export default function OnboardingWizard() {
                                                     }
                                                 }
                                             }}
-                                            className={`relative p-4 rounded-2xl border-2 text-center cursor-pointer transition-all ${isSelected
-                                                ? 'border-primary bg-primary/5'
-                                                : 'border-border bg-white hover:border-primary/20'}`}
+                                            className={`relative p-5 rounded-[24px] border-2 text-center cursor-pointer transition-all duration-300 ${isSelected
+                                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/5'
+                                                : 'border-border bg-white hover:border-primary/20 hover:scale-[1.02]'}`}
                                         >
                                             {isPrimary && (
-                                                <span className="absolute -top-2 -right-2 bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                                                <span className="absolute -top-2.5 -right-2 bg-primary text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-lg">
                                                     ANA
                                                 </span>
                                             )}
-                                            <p className={`text-xs font-black uppercase ${isSelected ? 'text-primary' : 'text-text-main'}`}>{t.name}</p>
+                                            <p className={`text-xs font-black uppercase tracking-tight ${isSelected ? 'text-primary' : 'text-text-main'}`}>{t.name}</p>
                                         </div>
                                     );
                                 })}
                             </div>
+
                             {salonData.type_ids.length > 1 && (
-                                <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                    <p className="text-xs text-blue-800 font-bold mb-2">Ana Kategori Seçimi:</p>
+                                <div className="p-4 bg-primary/5 rounded-[20px] border border-primary/10 animate-in fade-in duration-500">
+                                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-3">Ana Kategori Seçimi:</p>
                                     <div className="flex flex-wrap gap-2">
                                         {salonData.type_ids.map((id: string) => {
                                             const type = salonTypes.find(t => t.id === id);
@@ -387,9 +446,9 @@ export default function OnboardingWizard() {
                                                 <button
                                                     key={id}
                                                     onClick={() => setSalonData({ ...salonData, primary_type_id: id })}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${salonData.primary_type_id === id
-                                                        ? 'bg-primary text-white shadow-md'
-                                                        : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100'
+                                                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${salonData.primary_type_id === id
+                                                        ? 'bg-primary text-white shadow-xl shadow-primary/20'
+                                                        : 'bg-white border border-primary/10 text-text-secondary hover:bg-gray-50'
                                                         }`}
                                                 >
                                                     {type.name}
@@ -400,82 +459,160 @@ export default function OnboardingWizard() {
                                 </div>
                             )}
                         </div>
-                        <div>
-                            <label className="label-sm">Kısa Açıklama</label>
-                            <textarea className="input-field h-32 pt-4" placeholder="Müşterilerinize salonunuzu tanıtın..." value={salonData.description} onChange={e => setSalonData({ ...salonData, description: e.target.value })}></textarea>
+
+                        <div className="space-y-3">
+                            <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                <Info className="w-3.5 h-3.5" /> Kısa Açıklama
+                            </label>
+                            <textarea
+                                className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-medium text-text-secondary outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all min-h-[140px] resize-none leading-relaxed"
+                                placeholder="Müşterilerinize salonunuzu tanıtın..."
+                                value={salonData.description}
+                                onChange={e => setSalonData({ ...salonData, description: e.target.value })}
+                            />
                         </div>
                     </div>
                 );
+
             case 2:
                 return (
-                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="label-sm">Şehir</label>
-                                <select className="input-field" value={salonData.city_id} onChange={e => setSalonData({ ...salonData, city_id: e.target.value, district_id: '' })}>
-                                    <option value="">Şehir Seçin</option>
-                                    {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                    <div className="space-y-8 animate-in slide-in-from-right duration-300">
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Şehir
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer"
+                                        value={salonData.city_id}
+                                        onChange={e => setSalonData({ ...salonData, city_id: e.target.value, district_id: '' })}
+                                    >
+                                        <option value="">Şehir Seçin</option>
+                                        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
                             </div>
-                            <div>
-                                <label className="label-sm">İlçe</label>
-                                <select className="input-field" disabled={!salonData.city_id} value={salonData.district_id} onChange={e => setSalonData({ ...salonData, district_id: e.target.value })}>
-                                    <option value="">İlçe Seçin</option>
-                                    {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> İlçe
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer disabled:opacity-40"
+                                        disabled={!salonData.city_id}
+                                        value={salonData.district_id}
+                                        onChange={e => setSalonData({ ...salonData, district_id: e.target.value })}
+                                    >
+                                        <option value="">İlçe Seçin</option>
+                                        {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="label-sm">Mahalle</label>
-                                <input className="input-field" placeholder="Örn: Barbaros Mah." value={salonData.neighborhood} onChange={e => setSalonData({ ...salonData, neighborhood: e.target.value })} />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Mahalle
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="Örn: Barbaros Mah."
+                                    value={salonData.neighborhood}
+                                    onChange={e => setSalonData({ ...salonData, neighborhood: e.target.value })}
+                                />
                             </div>
-                            <div>
-                                <label className="label-sm">Cadde / Sokak</label>
-                                <input className="input-field" placeholder="Örn: Karanfil Sokak" value={salonData.street} onChange={e => setSalonData({ ...salonData, street: e.target.value })} />
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Cadde
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="Örn: Atatürk Cad."
+                                    value={salonData.avenue || ''}
+                                    onChange={e => setSalonData({ ...salonData, avenue: e.target.value })}
+                                />
+                            </div>
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Sokak
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="Örn: Karanfil Sokak"
+                                    value={salonData.street}
+                                    onChange={e => setSalonData({ ...salonData, street: e.target.value })}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="label-sm">Bina No</label>
-                                    <input className="input-field" placeholder="No: 12" value={salonData.building_no} onChange={e => setSalonData({ ...salonData, building_no: e.target.value })} />
+                                <div className="group">
+                                    <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                        Bina No
+                                    </label>
+                                    <input
+                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                        placeholder="No: 12"
+                                        value={salonData.building_no}
+                                        onChange={e => setSalonData({ ...salonData, building_no: e.target.value })}
+                                    />
                                 </div>
-                                <div>
-                                    <label className="label-sm">Daire / Kat</label>
-                                    <input className="input-field" placeholder="D: 5" value={salonData.apartment_no} onChange={e => setSalonData({ ...salonData, apartment_no: e.target.value })} />
+                                <div className="group">
+                                    <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                        Daire / Kat
+                                    </label>
+                                    <input
+                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                        placeholder="D: 5"
+                                        value={salonData.apartment_no}
+                                        onChange={e => setSalonData({ ...salonData, apartment_no: e.target.value })}
+                                    />
                                 </div>
                             </div>
-                            <div>
-                                <label className="label-sm">Ek Bilgiler (Opsiyonel)</label>
-                                <input className="input-field" placeholder="Örn: Market yanı, 2. kat" value={salonData.address} onChange={e => setSalonData({ ...salonData, address: e.target.value })} />
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <Info className="w-3.5 h-3.5" /> Ek Bilgiler (Opsiyonel)
+                                </label>
+                                <input
+                                    className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                    placeholder="Örn: Market yanı, 2. kat"
+                                    value={salonData.address}
+                                    onChange={e => setSalonData({ ...salonData, address: e.target.value })}
+                                />
                             </div>
                         </div>
 
-                        {/* Coordinate Display for User Feedback */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="relative group">
-                                <label className="label-sm">Enlem (Latitude)</label>
-                                <div className="flex items-center">
-                                    <input className="input-field bg-gray-50 cursor-default" readOnly value={salonData.geo_latitude.toFixed(6)} />
-                                    <MapPin className="absolute right-4 w-4 h-4 text-text-muted" />
+                        {/* Coordinate Display */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Enlem (Latitude)
+                                </label>
+                                <div className="relative">
+                                    <input className="w-full px-6 py-4.5 bg-gray-100/50 border border-border rounded-2xl font-black text-text-muted outline-none cursor-default" readOnly value={salonData.geo_latitude.toFixed(6)} />
                                 </div>
                             </div>
-                            <div className="relative group">
-                                <label className="label-sm">Boylam (Longitude)</label>
-                                <div className="flex items-center">
-                                    <input className="input-field bg-gray-50 cursor-default" readOnly value={salonData.geo_longitude.toFixed(6)} />
-                                    <MapPin className="absolute right-4 w-4 h-4 text-text-muted" />
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <MapPin className="w-3.5 h-3.5" /> Boylam (Longitude)
+                                </label>
+                                <div className="relative">
+                                    <input className="w-full px-6 py-4.5 bg-gray-100/50 border border-border rounded-2xl font-black text-text-muted outline-none cursor-default" readOnly value={salonData.geo_longitude.toFixed(6)} />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="h-[450px] rounded-3xl overflow-hidden border-2 border-border shadow-inner mt-4 relative">
-                            <AdminSalonMap
-                                center={[salonData.geo_latitude, salonData.geo_longitude]}
-                                markerPosition={{ lat: salonData.geo_latitude, lng: salonData.geo_longitude }}
-                                onLocationSelect={(lat, lng) => setSalonData({ ...salonData, geo_latitude: lat, geo_longitude: lng })}
-                            />
-                            <div className="absolute top-4 left-4 z-[1000] bg-white/90 backdrop-blur px-4 py-2 rounded-xl border border-border text-[10px] font-black uppercase text-text-main shadow-sm flex items-center gap-2">
-                                <MapPin className="w-3 h-3 text-primary" /> Konumunuzu haritadan işaretleyin
+                        <div className="relative group p-1.5 bg-surface border border-border rounded-[40px] shadow-card overflow-hidden">
+                            <div className="h-[450px] rounded-[32px] overflow-hidden border border-border relative z-0">
+                                <AdminSalonMap
+                                    center={[salonData.geo_latitude, salonData.geo_longitude]}
+                                    markerPosition={{ lat: salonData.geo_latitude, lng: salonData.geo_longitude }}
+                                    onLocationSelect={(lat, lng) => setSalonData({ ...salonData, geo_latitude: lat, geo_longitude: lng })}
+                                />
+                                <div className="absolute top-6 left-6 z-[1000] bg-white/95 backdrop-blur-md px-5 py-3 rounded-2xl border border-border/50 text-[10px] font-black uppercase tracking-widest text-text-main shadow-2xl flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    Konumunuzu Haritadan İşaretleyin
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -874,43 +1011,10 @@ export default function OnboardingWizard() {
                 </div>
 
                 <style jsx>{`
-                .label-sm {
-                    display: block;
-                    font-size: 11px;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 0.1em;
-                    color: #475569; /* Slate 600 */
-                    margin-bottom: 8px;
-                    padding-left: 4px;
-                }
-                .input-field {
-                    width: 100%;
-                    height: 58px;
-                    padding: 0 20px;
-                    border-radius: 18px;
-                    border: 1.5px solid #cbd5e1; /* Slightly thicker and darker */
-                    background-color: #f8fafc; /* Slate 50 for contrast */
-                    font-weight: 600;
-                    font-size: 14px;
-                    outline: none;
-                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                    color: #0f172a;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-                }
-                .input-field:hover {
-                    border-color: #94a3b8;
-                    background-color: #ffffff;
-                }
-                .input-field:focus {
-                    background-color: white;
-                    border-color: #f17290;
-                    box-shadow: 0 0 0 4px rgba(241, 114, 144, 0.15), 0 4px 12px rgba(241, 114, 144, 0.08);
-                    border-width: 1.5px;
-                }
                 .no-scrollbar::-webkit-scrollbar {
                     display: none;
                 }
+
                 `}</style>
             </div>
         </div>
