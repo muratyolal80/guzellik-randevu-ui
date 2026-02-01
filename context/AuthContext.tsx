@@ -308,8 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signUp,
             signOut,
             refreshUser,
-            isAdmin: user?.role === 'SUPER_ADMIN',
-            isOwner: user?.role === 'SALON_OWNER' || user?.role === 'SUPER_ADMIN',
+            isAdmin: user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
+            isOwner: user?.role === 'SALON_OWNER' || (user?.role as string) === 'OWNER' || user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
             isStaff: user?.role === 'STAFF',
             isAuthenticated: !!user
         }}>

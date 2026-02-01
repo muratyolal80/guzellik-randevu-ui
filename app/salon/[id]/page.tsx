@@ -230,7 +230,7 @@ export default function SalonDetailPage() {
                             <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
                             <div className="flex flex-wrap items-center gap-4 text-gray-200 text-sm font-medium">
                                 <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm">
-                                    <span className="material-symbols-outlined text-primary">location_on</span> {(salon.neighborhood || salon.street || salon.building_no) ? `${salon.neighborhood ? `${salon.neighborhood}, ` : ''}${salon.street ? `${salon.street} No:${salon.building_no}` : ''}` : (salon.address || `${salon.district_name}, ${salon.city_name}`)}
+                                    <span className="material-symbols-outlined text-primary">location_on</span> {(salon.neighborhood || salon.avenue || salon.street || salon.building_no) ? `${salon.neighborhood ? `${salon.neighborhood}, ` : ''}${salon.avenue ? `${salon.avenue}, ` : ''}${salon.street ? `${salon.street} No:${salon.building_no}` : ''}` : (salon.address || `${salon.district_name}, ${salon.city_name}`)}
                                 </span>
                                 {salon.tags && salon.tags.length > 0 && (
                                     <span className="flex items-center gap-2">
@@ -600,7 +600,14 @@ export default function SalonDetailPage() {
                             <div className="flex gap-3 items-start">
                                 <span className="material-symbols-outlined text-primary shrink-0 mt-0.5">location_on</span>
                                 <p className="text-text-secondary text-sm leading-relaxed">
-                                    {salon.address || `${salon.district_name}, ${salon.city_name}`}
+                                    {salon.neighborhood || salon.avenue || salon.street ? (
+                                        <>
+                                            {salon.neighborhood} {salon.avenue ? `${salon.avenue} ` : ''}{salon.street} No: {salon.building_no}<br />
+                                            {salon.district_name}, {salon.city_name}
+                                        </>
+                                    ) : (
+                                        salon.address || `${salon.district_name}, ${salon.city_name}`
+                                    )}
                                 </p>
                             </div>
                         </div>

@@ -33,7 +33,7 @@ VALUES
         now(),
         now(),
         '{"provider":"email","providers":["email"]}',
-        '{"role":"ADMIN","full_name":"Sistem Admin"}',
+        '{"role":"SUPER_ADMIN","full_name":"Sistem Admin"}',
         now(),
         now(),
         '',

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
 import { SalonDataService, MasterDataService } from '@/services/db';
+import { GeocodingService } from '@/lib/geocoding';
 import { City, SalonDetail, SalonType, District } from '@/types';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/ImageUpload';
@@ -38,6 +39,7 @@ interface SalonFormData {
     description: string;
     address: string;
     neighborhood: string;
+    avenue: string;
     street: string;
     building_no: string;
     apartment_no: string;
@@ -68,6 +70,7 @@ export default function EditSalonPage() {
         description: '',
         address: '',
         neighborhood: '',
+        avenue: '',
         street: '',
         building_no: '',
         apartment_no: '',
@@ -98,6 +101,44 @@ export default function EditSalonPage() {
             fetchDistricts(formData.city_id);
         }
     }, [formData.city_id]);
+
+    // Automatic Geocoding Effect (Debounced)
+    useEffect(() => {
+        // Only run if we are in the profile tab or it's first load
+        const timer = setTimeout(async () => {
+            if (!formData.city_id || !formData.district_id) return;
+
+            const cityName = cities.find(c => c.id === formData.city_id)?.name;
+            const districtName = districts.find(d => d.id === formData.district_id)?.name;
+
+            const searchParts = [
+                formData.avenue,
+                formData.street,
+                formData.building_no ? `No: ${formData.building_no}` : '',
+                formData.neighborhood,
+                districtName,
+                cityName,
+                'Türkiye'
+            ].filter(Boolean);
+
+            if (searchParts.length < 3) return; // Need at least city, district and neighborhood/street
+
+            const searchQuery = searchParts.join(', ');
+            console.log('🔍 Geocoding search (Edit Page):', searchQuery);
+
+            const result = await GeocodingService.searchAddress(searchQuery);
+            if (result) {
+                console.log('📍 Geocoding result found (Edit Page):', result);
+                setFormData(prev => ({
+                    ...prev,
+                    geo_latitude: result.lat,
+                    geo_longitude: result.lon
+                }));
+            }
+        }, 2000); // 2s debounce for edit page to be less intrusive
+
+        return () => clearTimeout(timer);
+    }, [formData.city_id, formData.district_id, formData.neighborhood, formData.avenue, formData.street, formData.building_no, cities, districts]);
 
     const fetchMasterData = async () => {
         try {
@@ -146,6 +187,7 @@ export default function EditSalonPage() {
                     description: data.description || '',
                     address: data.address || '',
                     neighborhood: data.neighborhood || '',
+                    avenue: data.avenue || '',
                     street: data.street || '',
                     building_no: data.building_no || '',
                     apartment_no: data.apartment_no || '',
@@ -179,6 +221,7 @@ export default function EditSalonPage() {
                 description: formData.description,
                 address: formData.address,
                 neighborhood: formData.neighborhood,
+                avenue: formData.avenue,
                 street: formData.street,
                 building_no: formData.building_no,
                 apartment_no: formData.apartment_no,
@@ -388,7 +431,19 @@ export default function EditSalonPage() {
 
                                     <div className="md:col-span-1 space-y-3">
                                         <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
-                                            <MapPin className="w-3.5 h-3.5" /> Cadde / Sokak
+                                            <MapPin className="w-3.5 h-3.5" /> Cadde
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.avenue}
+                                            onChange={(e) => setFormData({ ...formData, avenue: e.target.value })}
+                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                            placeholder="Örn: Atatürk Cad."
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <MapPin className="w-3.5 h-3.5" /> Sokak
                                         </label>
                                         <input
                                             type="text"
@@ -399,7 +454,7 @@ export default function EditSalonPage() {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                                    <div className="grid grid-cols-2 gap-4 md:col-span-1">
                                         <div className="space-y-3">
                                             <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
                                                 Bina No

@@ -18,6 +18,7 @@ ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.working_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.salon_assigned_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.salon_memberships ENABLE ROW LEVEL SECURITY;
 
 -- 2. MASTER DATA (Public Read-Only)
 -- Cities
@@ -108,3 +109,12 @@ CREATE POLICY "Users view own notifications" ON public.notifications FOR SELECT
 -- 9. INVITES
 DROP POLICY IF EXISTS "Invite access" ON public.invites;
 CREATE POLICY "Invite access" ON public.invites FOR SELECT USING (true);
+
+-- 10. SALON MEMBERSHIPS
+DROP POLICY IF EXISTS "Users can view their own memberships" ON public.salon_memberships;
+CREATE POLICY "Users can view their own memberships" ON public.salon_memberships
+    FOR SELECT USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Owners manage memberships" ON public.salon_memberships;
+CREATE POLICY "Owners manage memberships" ON public.salon_memberships
+    FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
