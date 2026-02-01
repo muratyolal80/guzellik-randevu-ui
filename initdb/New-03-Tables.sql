@@ -163,10 +163,6 @@ CREATE VIEW public.salon_details AS
            FROM (public.salon_assigned_types sat
              JOIN public.salon_types t ON ((sat.type_id = t.id)))
           WHERE (sat.salon_id = s.id)) AS assigned_types,
-    ( SELECT array_agg(json_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'is_primary', sat.is_primary)) AS array_agg
-           FROM (public.salon_assigned_types sat
-             JOIN public.salon_types t ON ((sat.type_id = t.id)))
-          WHERE (sat.salon_id = s.id)) AS assigned_types,
     0 AS review_count,
     0 AS average_rating,
     s.created_at

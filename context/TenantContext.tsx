@@ -40,19 +40,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     .from('salons')
                     .select('id')
                     .eq('owner_id', user.id)
-                    .single();
+                    .maybeSingle(); // maybeSingle() kullan - salon olmayabilir
 
                 if (error) {
-                    // PGRST116 = JSON object requested, multiple (or no) rows returned
-                    // This is expected if the admin/owner hasn't created a salon yet.
-                    if (error.code !== 'PGRST116') {
-                        console.error('[TenantContext] Error fetching owner salon details:', {
-                            code: error.code,
-                            message: error.message,
-                            details: error.details,
-                            hint: error.hint
-                        });
-                    }
+                    console.error('[TenantContext] Error fetching owner salon details:', {
+                        code: error.code,
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint
+                    });
                     setSalonId(null);
                 } else {
                     setSalonId(data?.id || null);
@@ -63,17 +59,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     .from('staff')
                     .select('salon_id')
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle(); // maybeSingle() kullan - staff kaydı olmayabilir
 
                 if (error) {
-                    if (error.code !== 'PGRST116') {
-                        console.error('[TenantContext] Error fetching staff salon details:', {
-                            code: error.code,
-                            message: error.message,
-                            details: error.details,
-                            hint: error.hint
-                        });
-                    }
+                    console.error('[TenantContext] Error fetching staff salon details:', {
+                        code: error.code,
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint
+                    });
                     setSalonId(null);
                 } else {
                     setSalonId(data?.salon_id || null);
