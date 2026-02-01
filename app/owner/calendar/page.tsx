@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { StaffService, SalonDataService, AppointmentService } from '@/services/db';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import {
@@ -20,7 +21,7 @@ import {
 
 export default function OwnerMasterCalendar() {
     const { user } = useAuth();
-    const [salon, setSalon] = useState<any>(null);
+    const { activeBranch, loading: branchLoading } = useActiveBranch();
     const [staff, setStaff] = useState<any[]>([]);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,27 +29,25 @@ export default function OwnerMasterCalendar() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     useEffect(() => {
-        if (user) {
+        if (user && activeBranch) {
             fetchInitialData();
         }
-    }, [user, selectedDate]);
+    }, [user, activeBranch, selectedDate]);
 
     const fetchInitialData = async () => {
+        if (!activeBranch) return;
+
         try {
             setLoading(true);
-            const salonData = await SalonDataService.getSalonByOwner(user?.id!);
-            if (salonData) {
-                setSalon(salonData);
-                const dateStr = selectedDate.toISOString().split('T')[0];
+            const dateStr = selectedDate.toISOString().split('T')[0];
 
-                const [staffList, apptsList] = await Promise.all([
-                    StaffService.getStaffBySalon(salonData.id),
-                    AppointmentService.getAppointmentsBySalon(salonData.id, `${dateStr}T00:00:00Z`, `${dateStr}T23:59:59Z`)
-                ]);
+            const [staffList, apptsList] = await Promise.all([
+                StaffService.getStaffBySalon(activeBranch.id),
+                AppointmentService.getAppointmentsBySalon(activeBranch.id, `${dateStr}T00:00:00Z`, `${dateStr}T23:59:59Z`)
+            ]);
 
-                setStaff(staffList);
-                setAppointments(apptsList);
-            }
+            setStaff(staffList);
+            setAppointments(apptsList);
         } catch (err) {
             console.error('Takvim verisi çekilemedi:', err);
         } finally {
@@ -62,11 +61,29 @@ export default function OwnerMasterCalendar() {
         setSelectedDate(next);
     };
 
+    const goToToday = () => {
+        setSelectedDate(new Date());
+    };
+
     const timeSlots = Array.from({ length: 24 }, (_, i) => {
         const hour = Math.floor(i / 2) + 9;
         const min = (i % 2) * 30;
         return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
     }).filter((_, i) => i < 21); // 09:00 - 19:00 approx
+
+    if (branchLoading) return <div>Yükleniyor...</div>;
+
+    if (!activeBranch) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <Clock className="w-8 h-8 text-text-muted" />
+                </div>
+                <h2 className="text-xl font-black text-text-main">Aktif Şube Seçilmedi</h2>
+                <p className="text-text-secondary mt-2 mb-6">Takvimi görüntülemek için lütfen yukarıdan bir şube seçin.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex flex-col space-y-8 animate-fade-in relative">
@@ -86,6 +103,12 @@ export default function OwnerMasterCalendar() {
                         </div>
                         <button onClick={() => changeDate(1)} className="p-2 hover:bg-white rounded-xl transition-all shadow-sm"><ChevronRight className="w-5 h-5" /></button>
                     </div>
+                    <button
+                        onClick={goToToday}
+                        className="px-6 py-3.5 bg-white border border-border rounded-2xl text-sm font-black text-text-main hover:border-primary hover:text-primary transition-all shadow-sm whitespace-nowrap"
+                    >
+                        Bugün
+                    </button>
                     <button className="p-3.5 bg-white border border-border rounded-2xl text-text-secondary hover:text-primary hover:border-primary transition-all shadow-sm">
                         <Filter className="w-5 h-5" />
                     </button>
@@ -136,7 +159,19 @@ export default function OwnerMasterCalendar() {
                                     <div key={s.id} className="min-w-[240px] relative bg-grid-slate-100/[0.1] bg-[length:20px_20px]">
                                         {/* Background Slot Markers */}
                                         {timeSlots.map(time => (
-                                            <div key={time} className="h-20 border-b border-gray-100/50 w-full group hover:bg-primary/5 transition-colors cursor-pointer"></div>
+                                            <div
+                                                key={time}
+                                                onClick={() => {
+                                                    // Set preselected time or something? 
+                                                    // For now just open modal
+                                                    setIsAddModalOpen(true);
+                                                }}
+                                                className="h-20 border-b border-gray-100/50 w-full group hover:bg-primary/5 transition-colors cursor-pointer"
+                                            >
+                                                <div className="opacity-0 group-hover:opacity-100 flex items-center justify-center h-full text-[10px] font-black text-primary uppercase tracking-widest">
+                                                    Randevu Ekle ({time})
+                                                </div>
+                                            </div>
                                         ))}
 
                                         {/* Appointment Blocks */}
@@ -182,7 +217,7 @@ export default function OwnerMasterCalendar() {
             </div>
 
             {/* Floating Action Button */}
-            {salon && (
+            {activeBranch && (
                 <button
                     onClick={() => setIsAddModalOpen(true)}
                     className="fixed bottom-8 right-8 z-40 flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-full shadow-2xl hover:bg-primary-hover hover:scale-110 transition-all group"
@@ -193,11 +228,11 @@ export default function OwnerMasterCalendar() {
             )}
 
             {/* Add Appointment Modal */}
-            {salon && (
+            {activeBranch && (
                 <AddAppointmentModal
                     isOpen={isAddModalOpen}
                     onClose={() => setIsAddModalOpen(false)}
-                    salonId={salon.id}
+                    salonId={activeBranch.id}
                     preselectedDate={selectedDate}
                     onSuccess={() => fetchInitialData()}
                 />

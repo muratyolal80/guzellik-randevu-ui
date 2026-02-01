@@ -131,6 +131,7 @@ function HomePageContent() {
         const fetchData = async () => {
             setLoading(true);
             try {
+                console.log('🔄 Fetching Front Page Data...');
                 const [salonsData, typesData, servicesData, citiesData] = await Promise.all([
                     SalonDataService.getSalons(),
                     MasterDataService.getSalonTypes(),
@@ -138,56 +139,66 @@ function HomePageContent() {
                     MasterDataService.getCities()
                 ]);
 
+                console.log('✅ Base Data Fetched:', {
+                    salonsCount: salonsData?.length,
+                    typesCount: typesData?.length,
+                    servicesCount: servicesData?.length,
+                    citiesCount: citiesData?.length
+                });
+
                 // Map database fields to display-friendly properties
-                const mappedData = salonsData.map(salon => ({
+                // Handling both flat results and nested joins from Supabase
+                const mappedData = (salonsData || []).map((salon: any) => ({
                     ...salon,
-                    city: salon.city_name,
-                    district: salon.district_name,
+                    city: salon.city_name || salon.cities?.name || salon.city?.name || 'Belirtilmemiş',
+                    district: salon.district_name || salon.districts?.name || salon.district?.name || '',
                     rating: salon.average_rating || 0,
-                    tags: [salon.type_name], // Use type as a tag for now
-                    startPrice: 100, // TODO: Get from salon_services minimum price
+                    tags: salon.type_name ? [salon.type_name] : (salon.salon_types?.name ? [salon.salon_types.name] : []),
+                    startPrice: salon.min_price || 100, // Fallback if not aggregated
                     coordinates: {
                         lat: salon.geo_latitude || 0,
                         lng: salon.geo_longitude || 0
                     }
                 }));
 
+                console.log('✅ Data Mapped Successfully:', mappedData.length, 'salons');
                 setSalons(mappedData);
-                setSalonTypes(typesData);
-                setGlobalServices(servicesData);
-                setCities(citiesData);
+                setSalonTypes(typesData || []);
+                setGlobalServices(servicesData || []);
+                setCities(citiesData || []);
 
                 // Populate CITY_COORDINATES based on DB data if available
-                citiesData.forEach(city => {
+                (citiesData || []).forEach(city => {
                     if (city.latitude && city.longitude) {
                         CITY_COORDINATES_CACHE[city.name] = { lat: city.latitude, lng: city.longitude };
                     }
                 });
 
                 // Load services for all salons to enable service-based search
+                console.log('🔄 Loading services for', salonsData?.length, 'salons...');
                 const servicesMap: Record<string, string[]> = {};
                 await Promise.all(
-                    salonsData.map(async (salon) => {
+                    (salonsData || []).map(async (salon) => {
                         try {
                             const salonServices = await ServiceService.getServicesBySalon(salon.id);
                             servicesMap[salon.id] = salonServices.map(s => s.service_name);
                         } catch (error) {
-                            console.error(`Error loading services for salon ${salon.id}:`, error);
+                            console.error(`❌ Error loading services for salon ${salon.id}:`, error);
                             servicesMap[salon.id] = [];
                         }
                     })
                 );
                 setSalonServicesMap(servicesMap);
+                console.log('✅ Services Map Loaded');
 
             } catch (err: any) {
-                console.error('Error fetching initial data details:', {
+                console.error('❌ Error fetching initial data details:', {
                     message: err?.message || 'No message',
                     code: err?.code,
                     details: err?.details,
                     hint: err?.hint,
                     fullError: err
                 });
-                // Optional: Set some UI error state here if needed
             } finally {
                 setLoading(false);
             }
@@ -230,21 +241,17 @@ function HomePageContent() {
     // --- Filtering Logic ---
     const filteredSalons = salons.filter(salon => {
         // 1. City Filter
-        if (selectedCity !== 'Tümü') {
-            const salonCity = normalize(salon.city_name);
+        if (selectedCity && selectedCity !== 'Tümü' && selectedCity !== 'all') {
+            const salonCity = normalize(salon.city || '');
             const targetCity = normalize(selectedCity);
-            // Strict check for city (prevents "Istanbul" matching inside "Istanbul yolu")
-            const salonAddress = normalize(salon.address);
-            if (salonCity !== targetCity && !salonAddress.includes(targetCity)) return false;
+            if (salonCity !== targetCity) return false;
         }
 
         // 2. District Filter
-        if (selectedDistrict !== 'Tümü') {
-            const salonDistrict = normalize(salon.district_name);
+        if (selectedDistrict && selectedDistrict !== 'Tümü' && selectedDistrict !== 'all') {
+            const salonDistrict = normalize(salon.district || '');
             const targetDistrict = normalize(selectedDistrict);
-            // Use includes for address string fallback
-            const salonAddress = normalize(salon.address);
-            if (salonDistrict !== targetDistrict && !salonAddress.includes(targetDistrict)) return false;
+            if (salonDistrict !== targetDistrict) return false;
         }
 
         // 3. Type/Category Filter (from URL)

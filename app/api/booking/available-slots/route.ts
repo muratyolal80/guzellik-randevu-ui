@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
             staffId: (staffId && staffId !== 'any') ? staffId : undefined
         });
 
+        console.log(`✅ Generated ${availableSlots.length} slots for ${dateStr} (Staff: ${staffId || 'any'})`);
+
+        // Return only unique slots by time (e.g. 09:00, 09:30)
         // Convert TimeSlot[] to string[] (HH:MM format) for backward compatibility
         const slots = availableSlots.map(slot => {
             return slot.startTime.toLocaleTimeString('tr-TR', {

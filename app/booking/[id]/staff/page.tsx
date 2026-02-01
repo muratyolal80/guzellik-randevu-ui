@@ -55,13 +55,13 @@ export default function StaffSelection() {
 
         const [salonData, staffData, serviceData] = await Promise.all(requests);
 
-        if (salonData) {
+        if (salonData && (!bookingSalon || bookingSalon.id !== salonData.id)) {
           setSalon(salonData);
           setBookingSalon(salonData);
         }
 
         // Handle Service Hydration
-        if (serviceData) {
+        if (serviceData && (!selectedService || selectedService.id !== serviceData.id)) {
           setSelectedService(serviceData);
         }
 
@@ -77,7 +77,7 @@ export default function StaffSelection() {
         setStaff(mappedStaff);
 
         // Handle Staff Pre-selection
-        if (rescheduleStaffId) {
+        if (rescheduleStaffId && (!bookingStaff || bookingStaff.id !== rescheduleStaffId)) {
           const staffMember = mappedStaff.find((s: Staff) => s.id === rescheduleStaffId);
           if (staffMember) {
             setSelectedStaffId(staffMember.id);
@@ -98,7 +98,7 @@ export default function StaffSelection() {
     }
 
     fetchData();
-  }, [id, bookingSalon, setBookingSalon, rescheduleServiceId, rescheduleStaffId, selectedService, setSelectedService, setBookingStaff, setContextAppointmentId, appointmentId]);
+  }, [id, rescheduleServiceId, rescheduleStaffId, appointmentId]); // Removed context state from dependencies
 
   const selectedStaff = selectedStaffId ? staff.find(s => s.id === selectedStaffId) : null;
 

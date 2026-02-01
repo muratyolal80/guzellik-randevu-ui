@@ -91,9 +91,9 @@ export default function TimeSelection() {
         if (selectedService) {
           setServices([selectedService]);
         } else {
-          // Fallback: fetch all services
-          const servicesData = await ServiceService.getServicesBySalon(id);
-          setServices(servicesData);
+          // No service selected, should probably redirect back or show error
+          console.warn('⚠️ No service selected in context');
+          setServices([]);
         }
 
         // Use booking context staff if available

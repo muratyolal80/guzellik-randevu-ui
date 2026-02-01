@@ -33,6 +33,11 @@ export default function OnboardingWizard() {
     const [cities, setCities] = useState<City[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
+    const [categories, setCategories] = useState<any[]>([]);
+    const [globalServices, setGlobalServices] = useState<any[]>([]);
+    const [selectedServices, setSelectedServices] = useState<{ global_service_id: string, price: number, duration_min: number }[]>([]);
+    const [staffMembers, setStaffMembers] = useState<{ name: string, role: string, phone: string, email: string, is_owner: boolean }[]>([]);
+    const [newStaff, setNewStaff] = useState({ name: '', role: '', phone: '', email: '' });
 
     const [salonData, setSalonData] = useState<any>({
         name: '',
@@ -49,14 +54,99 @@ export default function OnboardingWizard() {
         status: 'DRAFT'
     });
 
+    const [workingHours, setWorkingHours] = useState([
+        { day_of_week: 1, start_time: '09:00', end_time: '19:00', is_closed: false }, // Pazartesi
+        { day_of_week: 2, start_time: '09:00', end_time: '19:00', is_closed: false }, // Salı
+        { day_of_week: 3, start_time: '09:00', end_time: '19:00', is_closed: false }, // Çarşamba
+        { day_of_week: 4, start_time: '09:00', end_time: '19:00', is_closed: false }, // Perşembe
+        { day_of_week: 5, start_time: '09:00', end_time: '19:00', is_closed: false }, // Cuma
+        { day_of_week: 6, start_time: '09:00', end_time: '19:00', is_closed: false }, // Cumartesi
+        { day_of_week: 0, start_time: '09:00', end_time: '19:00', is_closed: true },  // Pazar
+    ]);
+
+    const handleHourChange = (index: number, field: 'start_time' | 'end_time', value: string) => {
+        const newHours = [...workingHours];
+        newHours[index] = { ...newHours[index], [field]: value };
+        setWorkingHours(newHours);
+    };
+
+    const toggleDay = (index: number) => {
+        const newHours = [...workingHours];
+        newHours[index] = { ...newHours[index], is_closed: !newHours[index].is_closed };
+        setWorkingHours(newHours);
+    };
+
+    const toggleService = (serviceId: string) => {
+        const exists = selectedServices.find(s => s.global_service_id === serviceId);
+        if (exists) {
+            setSelectedServices(selectedServices.filter(s => s.global_service_id !== serviceId));
+        } else {
+            setSelectedServices([...selectedServices, { global_service_id: serviceId, price: 0, duration_min: 30 }]);
+        }
+    };
+
+    const updateServiceDetails = (serviceId: string, field: 'price' | 'duration_min', value: number) => {
+        setSelectedServices(selectedServices.map(s =>
+            s.global_service_id === serviceId ? { ...s, [field]: value } : s
+        ));
+    };
+
+    const addCategoryServices = (categoryId: string) => {
+        const categoryServices = globalServices.filter(s => s.category_id === categoryId);
+        const newServices = [...selectedServices];
+
+        categoryServices.forEach(gs => {
+            if (!newServices.find(s => s.global_service_id === gs.id)) {
+                newServices.push({ global_service_id: gs.id, price: 0, duration_min: 30 });
+            }
+        });
+        setSelectedServices(newServices);
+    };
+
+    const removeCategoryServices = (categoryId: string) => {
+        const categoryServices = globalServices.filter(s => s.category_id === categoryId);
+        const serviceIdsToRemove = categoryServices.map(s => s.id);
+        setSelectedServices(selectedServices.filter(s => !serviceIdsToRemove.includes(s.global_service_id)));
+    };
+
+    const addStaff = () => {
+        if (!newStaff.name || !newStaff.role) return;
+        setStaffMembers([...staffMembers, { ...newStaff, is_owner: false }]);
+        setNewStaff({ name: '', role: '', phone: '', email: '' });
+    };
+
+    const removeStaff = (index: number) => {
+        const newStaffMembers = [...staffMembers];
+        newStaffMembers.splice(index, 1);
+        setStaffMembers(newStaffMembers);
+    };
+
+    const addMyselfAsStaff = () => {
+        if (!user) return;
+        // Check if already added
+        if (staffMembers.find(s => s.is_owner)) return;
+
+        setStaffMembers([{
+            name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Salon Sahibi',
+            role: 'Yönetici & Uzman',
+            phone: user.phone || '',
+            email: user.email || '',
+            is_owner: true
+        }, ...staffMembers]);
+    };
+
     useEffect(() => {
         const fetchMasterData = async () => {
-            const [c, t] = await Promise.all([
+            const [c, t, cats, gs] = await Promise.all([
                 MasterDataService.getCities(),
-                MasterDataService.getSalonTypes()
+                MasterDataService.getSalonTypes(),
+                MasterDataService.getServiceCategories(),
+                MasterDataService.getAllGlobalServices()
             ]);
             setCities(c);
             setSalonTypes(t);
+            setCategories(cats);
+            setGlobalServices(gs);
         };
         fetchMasterData();
     }, []);
@@ -88,7 +178,7 @@ export default function OnboardingWizard() {
                 salon = await SalonDataService.createSalon({
                     ...salonData,
                     owner_id: user?.id
-                });
+                }, workingHours, selectedServices);
             }
 
             console.log('Onboarding step 2: Submitting for approval...');
@@ -96,12 +186,31 @@ export default function OnboardingWizard() {
             await SalonDataService.submitForApproval(salon.id);
 
             // 3. Clear active salon cache for this user to force refresh
-            if (user?.id) {
-                localStorage.removeItem(`active_salon_${user.id}`);
+            // 3. Clear active salon cache for this user to force refresh
+            // 3. Create Staff Members
+            if (staffMembers.length > 0) {
+                console.log('Onboarding step 3: Creating staff...');
+                await Promise.all(staffMembers.map(staff =>
+                    StaffService.createStaff({
+                        salon_id: salon.id,
+                        name: staff.name,
+                        role: staff.role,
+                        phone: staff.phone,
+                        email: staff.email,
+                        is_active: true
+                    })
+                ));
             }
 
-            console.log('Onboarding step 3: Success, redirecting...');
-            router.push('/owner/dashboard?onboarding=success');
+            console.log('Onboarding step 4: Success, redirecting...');
+
+            // 4. Clear active salon cache for this user to force refresh
+            if (user?.id) {
+                localStorage.removeItem(`active_branch_${user.id}`);
+            }
+
+            // Force hard reload to update ActiveBranchContext with new salon
+            window.location.href = '/owner/dashboard?onboarding=success';
         } catch (err) {
             console.error('Onboarding complete error:', err);
             alert('İşlem tamamlanırken bir hata oluştu. Lütfen detaylar için konsolu kontrol edin.');
@@ -218,21 +327,178 @@ export default function OnboardingWizard() {
                                 <span className="text-[10px] font-black text-text-muted uppercase">Adres</span>
                                 <span className="text-sm font-bold text-text-main truncate max-w-[200px]">{salonData.address || '-'}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between border-b border-white pb-3">
                                 <span className="text-[10px] font-black text-text-muted uppercase">Statü</span>
                                 <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 uppercase">Hazırlanıyor</span>
+                            </div>
+                            <div className="flex justify-between border-b border-white pb-3">
+                                <span className="text-[10px] font-black text-text-muted uppercase">Seçilen Hizmetler</span>
+                                <span className="text-sm font-bold text-text-main">{selectedServices.length} Adet</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-[10px] font-black text-text-muted uppercase">Personel Sayısı</span>
+                                <span className="text-sm font-bold text-text-main">{staffMembers.length > 0 ? `${staffMembers.length} Kişi` : 'Belirlenmedi'}</span>
                             </div>
                         </div>
                     </div>
                 );
-            default:
+            case 3:
                 return (
-                    <div className="py-20 text-center space-y-4">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
-                            <Star className="w-8 h-8" />
+                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                        <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
+                            <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
+                                <Clock className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-blue-900 mb-1">Çalışma Saatleri</h3>
+                                <p className="text-sm text-blue-800/80 font-medium">İşletmenizin standart çalışma saatlerini belirleyin. Bu saatler personel vardiyaları için de varsayılan olarak kullanılacaktır. Daha sonra dilediğiniz zaman değiştirebilirsiniz.</p>
+                            </div>
                         </div>
-                        <p className="font-bold text-text-secondary italic">Bu adım ({STEPS[currentStep - 1].title}) yakında aktif edilecektir...</p>
-                        <p className="text-xs text-text-muted">MVP aşamasında bu adımlar opsiyoneldir.</p>
+
+                        <div className="grid grid-cols-1 gap-3">
+                            {workingHours.map((h, index) => (
+                                <div
+                                    key={h.day_of_week}
+                                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${h.is_closed
+                                        ? 'bg-gray-50 border-gray-200 opacity-60'
+                                        : 'bg-white border-border shadow-sm hover:border-primary/50'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${h.is_closed ? 'bg-gray-200 text-text-muted' : 'bg-primary/10 text-primary'
+                                            }`}>
+                                            {['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'][h.day_of_week]}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-text-main">
+                                                {['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][h.day_of_week]}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        {!h.is_closed && (
+                                            <div className="flex items-center gap-2 bg-surface-alt px-3 py-2 rounded-xl border border-border">
+                                                <input
+                                                    type="time"
+                                                    value={h.start_time}
+                                                    onChange={(e) => handleHourChange(index, 'start_time', e.target.value)}
+                                                    className="bg-transparent font-bold text-sm outline-none w-20 text-center"
+                                                />
+                                                <span className="text-text-muted font-black">-</span>
+                                                <input
+                                                    type="time"
+                                                    value={h.end_time}
+                                                    onChange={(e) => handleHourChange(index, 'end_time', e.target.value)}
+                                                    className="bg-transparent font-bold text-sm outline-none w-20 text-center"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <button
+                                            onClick={() => toggleDay(index)}
+                                            className={`w-28 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${h.is_closed
+                                                ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                                                : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                }`}
+                                        >
+                                            {h.is_closed ? 'Açık Yap' : 'Kapat'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+
+            case 5:
+                return (
+                    <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                        <div className="bg-orange-50/50 p-6 rounded-3xl border border-orange-100 flex items-start gap-4">
+                            <div className="p-3 bg-orange-100 rounded-xl text-orange-600">
+                                <Users className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-orange-900 mb-1">Ekibinizi Oluşturun</h3>
+                                <p className="text-sm text-orange-800/80 font-medium">Salonunuzda çalışan personelleri ekleyin. Randevu takvimi ve hizmetler personellere göre özelleştirilecektir. Kendinizi eklemeyi unutmayın!</p>
+                            </div>
+                        </div>
+
+                        {/* Add Staff Form */}
+                        <div className="bg-gray-50 rounded-2xl p-5 border border-border space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h4 className="font-bold text-text-main">Yeni Personel Ekle</h4>
+                                <button
+                                    onClick={addMyselfAsStaff}
+                                    disabled={staffMembers.some(s => s.is_owner)}
+                                    className="text-xs font-black text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    + KENDİMİ EKLE
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <input
+                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
+                                    placeholder="Ad Soyad *"
+                                    value={newStaff.name}
+                                    onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
+                                />
+                                <input
+                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
+                                    placeholder="Görevi (Örn: Kıdemli Kuaför) *"
+                                    value={newStaff.role}
+                                    onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}
+                                />
+                                <input
+                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
+                                    placeholder="Telefon (Opsiyonel)"
+                                    value={newStaff.phone}
+                                    onChange={e => setNewStaff({ ...newStaff, phone: e.target.value })}
+                                />
+                                <input
+                                    className="px-4 py-3 rounded-xl border border-border bg-white text-sm font-medium outline-none focus:border-primary"
+                                    placeholder="E-posta (Opsiyonel)"
+                                    value={newStaff.email}
+                                    onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
+                                />
+                            </div>
+                            <button
+                                onClick={addStaff}
+                                disabled={!newStaff.name || !newStaff.role}
+                                className="w-full py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors disabled:opacity-50"
+                            >
+                                Listeye Ekle
+                            </button>
+                        </div>
+
+                        {/* Staff List */}
+                        {staffMembers.length > 0 && (
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-text-muted text-xs uppercase tracking-wider pl-2">Eklenecek Personeller ({staffMembers.length})</h4>
+                                {staffMembers.map((staff, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-4 bg-white border border-border rounded-xl shadow-sm group hover:border-primary/30 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${staff.is_owner ? 'bg-primary' : 'bg-gray-400'}`}>
+                                                {staff.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="font-bold text-text-main">{staff.name}</h5>
+                                                    {staff.is_owner && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black">YÖNETİCİ</span>}
+                                                </div>
+                                                <p className="text-xs text-text-muted">{staff.role}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => removeStaff(idx)}
+                                            className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                                        >
+                                            <div className="w-5 h-5 flex items-center justify-center border border-current rounded-full">×</div>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 );
         }

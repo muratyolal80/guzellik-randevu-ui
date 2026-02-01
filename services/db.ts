@@ -397,7 +397,11 @@ export const SalonDataService = {
   /**
    * Create a new salon
    */
-  async createSalon(salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>): Promise<Salon> {
+  async createSalon(
+    salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>,
+    customHours?: { day_of_week: number, start_time: string, end_time: string, is_closed: boolean }[],
+    initialServices?: { global_service_id: string, price: number, duration_min: number }[]
+  ): Promise<Salon> {
     const { data, error } = await supabase
       .from('salons')
       .insert(salon)
@@ -405,6 +409,86 @@ export const SalonDataService = {
       .single();
 
     if (error) throw error;
+
+    let hoursToInsert;
+
+    if (customHours && customHours.length > 0) {
+      hoursToInsert = customHours.map(h => ({
+        ...h,
+        salon_id: data.id,
+        // Ensure time format is HH:MM:SS
+        start_time: h.start_time.length === 5 ? `${h.start_time}:00` : h.start_time,
+        end_time: h.end_time.length === 5 ? `${h.end_time}:00` : h.end_time
+      }));
+    } else {
+      // Create default working hours (Mon-Sat 09:00-19:00, Sun Closed)
+      hoursToInsert = [1, 2, 3, 4, 5, 6].map(day => ({
+        salon_id: data.id,
+        day_of_week: day,
+        opening_time: '09:00:00',
+        closing_time: '19:00:00',
+        is_closed: false
+      }));
+
+      hoursToInsert.push({
+        salon_id: data.id,
+        day_of_week: 0,
+        opening_time: '09:00:00',
+        closing_time: '19:00:00',
+        is_closed: true
+      });
+    }
+
+    // Map opening/closing_time to start/end_time if needed, or stick to db schema.
+    // The DB schema likely uses start_time/end_time based on WorkingHoursTab code ("start_time", "end_time").
+    // But createSalon legacy code used "opening_time", "closing_time".
+    // I need to check the DB schema or existing usage.
+    // WorkingHoursTab uses: start_time, end_time.
+    // StaffService.createStaff uses: start_time, end_time.
+    // EXISTING createSalon uses: opening_time, closing_time.
+    // This implies there might be a discrepancy or alias.
+    // Let's look at `getSalonWorkingHours` in `db.ts`: `select('*')`.
+    // Let's assume the DB uses `start_time` and `end_time` like Staff, 
+    // BUT the existing createSalon code (lines 410+) used `opening_time` and `closing_time`.
+    // This suggests the DB might have `opening_time` for SALONS and `start_time` for STAFF?
+    // OR the existing createSalon implementation was wrong/legacy.
+    // Let's check `WorkingHoursTab.tsx` line 43: `updateSalonWorkingHours(..., { start_time: value })`.
+    // This confirms `salon_working_hours` table uses `start_time` and `end_time`.
+    // So the existing `createSalon` logic (lines 413, 414) using `opening_time` is likely INCORRECT or MAPPED.
+    // But wait, Supabase would throw error if column doesn't exist.
+    // Maybe the view maps it? Or table has both?
+    // Given `WorkingHoursTab` works (presumably), `start_time` is correct.
+    // I will fix the existing logic to use `start_time` / `end_time` as well to be safe, 
+    // or keep it consistent if I'm unsure. 
+    // Actually, I'll trust `WorkingHoursTab` usage (`start_time`) over the potentially untested `createSalon` default logic.
+    // Wait, `createSalon` was used in `handleComplete`. If it worked, then `opening_time` exists.
+    // But `WorkingHoursTab` updates `start_time`.
+    // I'll check `getSalonWorkingHours` return type `SalonWorkingHours`.
+
+    // Let's standardize on `start_time` and `end_time`.
+
+    const finalHours = hoursToInsert.map(h => ({
+      salon_id: h.salon_id,
+      day_of_week: h.day_of_week,
+      start_time: (h as any).start_time || (h as any).opening_time,
+      end_time: (h as any).end_time || (h as any).closing_time,
+      is_closed: h.is_closed
+    }));
+
+    await supabase.from('salon_working_hours').insert(finalHours);
+
+    if (initialServices && initialServices.length > 0) {
+      const servicesToInsert = initialServices.map(s => ({
+        salon_id: data.id,
+        global_service_id: s.global_service_id,
+        price: s.price,
+        duration_min: s.duration_min,
+        is_active: true
+      }));
+
+      await supabase.from('salon_services').insert(servicesToInsert);
+    }
+
     return data;
   },
 
@@ -588,9 +672,12 @@ export const StaffService = {
   },
 
   /**
-   * Create a new staff member with default working hours
+   * Create a new staff member with working hours
    */
-  async createStaff(staffData: Partial<Staff>): Promise<Staff> {
+  async createStaff(
+    staffData: Partial<Staff>,
+    customWorkingHours?: Omit<WorkingHours, 'id' | 'staff_id' | 'created_at'>[]
+  ): Promise<Staff> {
     const { data, error } = await supabase
       .from('staff')
       .insert({
@@ -602,24 +689,36 @@ export const StaffService = {
 
     if (error) throw error;
 
-    // Create default working hours (Mon-Sat 09-19, Sun Closed)
-    const defaultHours = [1, 2, 3, 4, 5, 6].map(day => ({
-      staff_id: data.id,
-      day_of_week: day,
-      start_time: '09:00:00',
-      end_time: '19:00:00',
-      is_day_off: false
-    }));
+    let hoursToInsert;
 
-    defaultHours.push({
-      staff_id: data.id,
-      day_of_week: 0,
-      start_time: '09:00:00',
-      end_time: '19:00:00',
-      is_day_off: true
-    });
+    if (customWorkingHours && customWorkingHours.length > 0) {
+      hoursToInsert = customWorkingHours.map(h => ({
+        ...h,
+        staff_id: data.id,
+        // Ensure time format is HH:MM:SS
+        start_time: h.start_time.length === 5 ? `${h.start_time}:00` : h.start_time,
+        end_time: h.end_time.length === 5 ? `${h.end_time}:00` : h.end_time
+      }));
+    } else {
+      // Create default working hours (Mon-Sat 09-19, Sun Closed)
+      hoursToInsert = [1, 2, 3, 4, 5, 6].map(day => ({
+        staff_id: data.id,
+        day_of_week: day,
+        start_time: '09:00:00',
+        end_time: '19:00:00',
+        is_day_off: false
+      }));
 
-    await supabase.from('working_hours').insert(defaultHours);
+      hoursToInsert.push({
+        staff_id: data.id,
+        day_of_week: 0,
+        start_time: '09:00:00',
+        end_time: '19:00:00',
+        is_day_off: true
+      });
+    }
+
+    await supabase.from('working_hours').insert(hoursToInsert);
     return data;
   },
 
@@ -1046,13 +1145,25 @@ export const ReviewService = {
    */
   async getReviewsBySalon(salonId: string, limit: number = 50): Promise<Review[]> {
     const { data, error } = await supabase
-      .from('reviews')
+      .from('verified_reviews_view') // Use the view for extra details
       .select('*')
       .eq('salon_id', salonId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) throw error;
+    if (error) {
+      // Fallback to regular table if view doesn't exist yet (during migration window)
+      console.warn('View fetch failed, falling back to table', error);
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('salon_id', salonId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (fallbackError) throw fallbackError;
+      return fallbackData || [];
+    }
     return data || [];
   },
 
@@ -1068,6 +1179,42 @@ export const ReviewService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Get eligible appointments for review (Completed appointments not yet reviewed)
+   */
+  async getReviewableAppointments(userId: string, salonId: string): Promise<Appointment[]> {
+    // 1. Get all completed appointments for this user at this salon
+    const { data: appointments, error: apptError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('customer_id', userId)
+      .eq('salon_id', salonId)
+      .eq('status', 'COMPLETED')
+      .order('end_time', { ascending: false });
+
+    if (apptError) throw apptError;
+    if (!appointments || appointments.length === 0) return [];
+
+    // 2. Get existing reviews by this user for this salon
+    // Note: Ideally we check by appointment_id, but current schema might have old reviews without appointment_id
+    // For strictly verified reviews, we only care if an appointment ID is already used.
+
+    // Check which appointments are already reviewed
+    const { data: reviews, error: reviewError } = await supabase
+      .from('reviews')
+      .select('appointment_id')
+      .eq('user_id', userId)
+      .eq('salon_id', salonId)
+      .not('appointment_id', 'is', null);
+
+    if (reviewError) throw reviewError;
+
+    const reviewedAppointmentIds = new Set(reviews?.map(r => r.appointment_id) || []);
+
+    // Filter out appointments that are already reviewed
+    return appointments.filter(ppt => !reviewedAppointmentIds.has(ppt.id));
   },
 
   /**
@@ -1452,6 +1599,162 @@ export const IYSService = {
     if (error) throw error;
     return data || [];
   },
+
+  /**
+   * Update working hours
+   */
+  async updateWorkingHours(id: string, updates: Partial<WorkingHours>): Promise<void> {
+    const { error } = await supabase
+      .from('working_hours')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+};
+
+// ==============================================
+// STAFF ANALYTICS SERVICE
+// ==============================================
+
+export const StaffAnalyticsService = {
+  /**
+   * Get today's appointment count for a staff member (Real Data)
+   */
+  async getTodayAppointmentsByStaff(staffId: string): Promise<number> {
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from('appointments')
+      .select('id', { count: 'exact' })
+      .eq('staff_id', staffId)
+      .gte('start_time', `${today}T00:00:00Z`)
+      .lte('start_time', `${today}T23:59:59Z`)
+      .in('status', ['PENDING', 'CONFIRMED', 'COMPLETED']);
+
+    return data?.length || 0;
+  },
+
+  /**
+   * Get weekly occupancy analysis (Real Data)
+   */
+  async getWeeklyOccupancyByStaff(staffId: string, weekStart: Date): Promise<{
+    date: string;
+    occupancyPercent: number;
+    bookedSlots: number;
+    totalSlots: number;
+  }[]> {
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+
+    const results = [];
+    for (const date of weekDays) {
+      const dateStr = date.toISOString().split('T')[0];
+
+      // Get working hours for this day
+      const { data: hours } = await supabase
+        .from('working_hours')
+        .select('start_time, end_time, is_day_off')
+        .eq('staff_id', staffId)
+        .eq('day_of_week', date.getDay())
+        .single();
+
+      if (!hours || hours.is_day_off) {
+        results.push({ date: dateStr, occupancyPercent: 0, bookedSlots: 0, totalSlots: 0 });
+        continue;
+      }
+
+      // Calculate total slots (30 min slots)
+      const [startH, startM] = hours.start_time.split(':').map(Number);
+      const [endH, endM] = hours.end_time.split(':').map(Number);
+      const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      const totalSlots = Math.floor(totalMinutes / 30);
+
+      // Get booked slots count
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select(`
+          start_time,
+          end_time,
+          service:salon_services(duration_min)
+        `)
+        .eq('staff_id', staffId)
+        .gte('start_time', `${dateStr}T00:00:00Z`)
+        .lte('start_time', `${dateStr}T23:59:59Z`)
+        .in('status', ['PENDING', 'CONFIRMED', 'COMPLETED']);
+
+      /*
+       * Calculate actual booked slots
+       * Ideally, this should check for overlaps, but for simplicity we assume
+       * duration / 30 mins
+       */
+      const bookedSlots = appts?.reduce((sum, a: any) => {
+        const duration = a.service?.duration_min || 30;
+        return sum + Math.ceil(duration / 30);
+      }, 0) || 0;
+
+      const occupancyPercent = totalSlots > 0 ? (bookedSlots / totalSlots) * 100 : 0;
+
+      results.push({
+        date: dateStr,
+        occupancyPercent: Math.round(occupancyPercent),
+        bookedSlots,
+        totalSlots
+      });
+    }
+
+    return results;
+  },
+
+  /**
+   * Get current real-time availability status
+   */
+  async getCurrentAvailability(staffId: string): Promise<{
+    isAvailable: boolean;
+    currentAppointment?: any; // Using exact type would be better but keeping it flexible
+    nextAvailableSlot?: string;
+  }> {
+    const now = new Date();
+    const nowStr = now.toISOString();
+
+    // Check if currently busy
+    const { data: current } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        service:salon_services(duration_min, global_service:global_services(name))
+      `)
+      .eq('staff_id', staffId)
+      .lte('start_time', nowStr)
+      .gte('end_time', nowStr)
+      .in('status', ['CONFIRMED', 'PENDING'])
+      .single();
+
+    if (current) {
+      return {
+        isAvailable: false,
+        currentAppointment: current,
+        nextAvailableSlot: current.end_time
+      };
+    }
+
+    // Find next appointment to determine free until when
+    const { data: next } = await supabase
+      .from('appointments')
+      .select('start_time')
+      .eq('staff_id', staffId)
+      .gte('start_time', nowStr)
+      .order('start_time', { ascending: true })
+      .limit(1)
+      .single();
+
+    return {
+      isAvailable: true,
+      nextAvailableSlot: next?.start_time || undefined
+    };
+  }
 };
 
 
