@@ -41,7 +41,7 @@ export default function Confirmation() {
     useEffect(() => {
         const checkAuth = async () => {
             console.log('🔄 Checking auth state on confirmation page...');
-            
+
             // 1. Check current session
             const { data: { session } } = await supabase.auth.getSession();
             console.log('   Current Session:', session ? 'Active' : 'None');
@@ -68,7 +68,7 @@ export default function Confirmation() {
                 }
             }
         };
-        
+
         checkAuth();
     }, [refreshUser]);
 
@@ -192,13 +192,13 @@ export default function Confirmation() {
                             <p className="text-text-secondary mt-2">
                                 Randevu detaylariniz asagidadir. Telefonunuza SMS ile de bilgilendirme yapilmistir.
                             </p>
-                            
+
                             {/* User Status Badge */}
                             <div className="mt-4 flex justify-center">
                                 {user ? (
                                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">
                                         <span className="material-symbols-outlined text-lg">verified_user</span>
-                                        Giriş Yapıldı: {user.full_name || user.phone}
+                                        Giriş Yapıldı: {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.phone}
                                     </div>
                                 ) : (
                                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-sm font-medium border border-gray-200">
@@ -315,7 +315,7 @@ export default function Confirmation() {
                                 <span className="material-symbols-outlined">home</span>
                                 Ana Sayfaya Don
                             </Link>
-                            
+
                             {user && (
                                 <Link
                                     href="/profile"
@@ -325,7 +325,7 @@ export default function Confirmation() {
                                     Profilime Git
                                 </Link>
                             )}
-                            
+
                             <button
                                 onClick={() => window.print()}
                                 className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

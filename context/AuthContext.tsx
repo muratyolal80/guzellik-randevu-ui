@@ -14,12 +14,13 @@ const ROLES = {
 interface AuthContextType {
     user: Profile | null;
     loading: boolean;
-    signInWithEmail: (email: string, password: string) => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<Profile | null>;
     signInWithGoogle: () => Promise<void>;
-    signUp: (email: string, password: string, fullName?: string) => Promise<{ user: any; session: any } | undefined>;
+    signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ user: any; session: any } | undefined>;
     signOut: () => Promise<void>;
     refreshUser: () => Promise<void>;
     isAdmin: boolean;
+    isOwner: boolean;
     isStaff: boolean;
     isAuthenticated: boolean;
 }
@@ -73,9 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .insert({
                     id: user.id,
                     email: user.email,
-                    full_name: user.user_metadata?.full_name || null,
+                    first_name: user.user_metadata?.first_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : null),
+                    last_name: user.user_metadata?.last_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ').slice(1).join(' ') : null),
                     avatar_url: user.user_metadata?.avatar_url || null,
-                    role: ROLES.CUSTOMER
+                    role: user.user_metadata?.role || ROLES.CUSTOMER
                 })
                 .select()
                 .single();
@@ -100,9 +102,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const refreshUser = useCallback(async () => {
         try {
-            // Force refresh session from server
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
+            // Force refresh session from server with a timeout
+            // This prevents the app from hanging if the browser extension or network causes getSession to hang
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Session check timeout')), 5000)
+            );
+
+            const { data, error } = await Promise.race([
+                supabase.auth.getSession(),
+                timeoutPromise
+            ]) as any;
+
+            const session = data?.session;
+
             if (error) throw error;
 
             if (session?.user) {
@@ -115,23 +127,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Set user with profile data or fallback to session data
                 if (profile) {
-                    setUser(profile);
+                    // Update user with profile data, ensuring phone is set if available in session but not profile
+                    setUser({
+                        ...profile,
+                        phone: profile.phone || session.user.phone
+                    });
                 } else {
                     // Last resort fallback
                     setUser({
                         id: session.user.id,
                         email: session.user.email!,
-                        role: ROLES.CUSTOMER,
-                        full_name: session.user.user_metadata?.full_name,
-                        avatar_url: session.user.user_metadata?.avatar_url
+                        role: (session.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                        first_name: session.user.user_metadata?.first_name || session.user.user_metadata?.full_name?.split(' ')[0],
+                        last_name: session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                        avatar_url: session.user.user_metadata?.avatar_url,
+                        phone: session.user.phone
                     });
                 }
             } else {
                 setUser(null); // Explicitly set to null when no session
             }
-        } catch (error) {
-            console.error('[AuthContext] Session check error:', error);
-            setUser(null); // Also clear user on error
+        } catch (error: any) {
+            if (error.message === 'Session check timeout') {
+                console.warn('[AuthContext] Session check timed out. Proceeding as unauthenticated.');
+                // Don't clear user here immediately if we want to be optimistic, but safest is to assume no session.
+                // However, falling back to unauthenticated is better than hanging.
+            } else {
+                console.error('[AuthContext] Session check error:', error);
+            }
+            setUser(null);
         } finally {
             setLoading(false);
         }
@@ -143,8 +167,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth State Change:', event, session?.user?.email);
-            
+
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (event === 'SIGNED_IN') {
+                    router.refresh();
+                }
+
                 if (session?.user) {
                     let profile = await fetchProfile(session.user.id);
 
@@ -154,12 +182,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
 
                     // Set user with profile data or fallback to session data
-                    const userData = profile || {
+                    const userData = profile ? {
+                        ...profile,
+                        phone: profile.phone || session.user.phone
+                    } : {
                         id: session.user.id,
                         email: session.user.email!,
-                        role: ROLES.CUSTOMER,
-                        full_name: session.user.user_metadata?.full_name,
-                        avatar_url: session.user.user_metadata?.avatar_url
+                        role: (session.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                        first_name: session.user.user_metadata?.first_name || session.user.user_metadata?.full_name?.split(' ')[0],
+                        last_name: session.user.user_metadata?.last_name || session.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                        avatar_url: session.user.user_metadata?.avatar_url,
+                        phone: session.user.phone
                     };
 
                     setUser(userData);
@@ -167,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
             }
-            
+
             setLoading(false);
         });
 
@@ -176,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [refreshUser]);
 
-    const signInWithEmail = async (email: string, password: string) => {
+    const signInWithEmail = async (email: string, password: string): Promise<Profile | null> => {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -185,10 +218,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
             throw new Error(error.message);
         }
-        // State update handled by onAuthStateChange
+
+        if (data.user) {
+            // Fetch profile immediately to return it for redirection logic
+            // This avoids race conditions where state hasn't updated yet
+            const profile = await fetchProfile(data.user.id);
+
+            // If profile is missing, fallback to basic user data structure like in refreshUser
+            if (!profile) {
+                return {
+                    id: data.user.id,
+                    email: data.user.email!,
+                    role: (data.user.user_metadata?.role as UserRole) || ROLES.CUSTOMER,
+                    first_name: data.user.user_metadata?.first_name || data.user.user_metadata?.full_name?.split(' ')[0],
+                    last_name: data.user.user_metadata?.last_name || data.user.user_metadata?.full_name?.split(' ').slice(1).join(' '),
+                    avatar_url: data.user.user_metadata?.avatar_url,
+                    phone: data.user.phone
+                } as Profile;
+            }
+
+            return profile;
+        }
+
+        return null;
     };
 
-    const signUp = async (email: string, password: string, fullName?: string) => {
+    const signUp = async (email: string, password: string, firstName: string, lastName: string, role: UserRole = 'CUSTOMER') => {
         const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:3000/';
 
         const { data, error } = await supabase.auth.signUp({
@@ -196,8 +251,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password,
             options: {
                 data: {
-                    full_name: fullName,
-                    role: 'CUSTOMER',
+                    first_name: firstName,
+                    last_name: lastName,
+                    full_name: `${firstName} ${lastName}`, // Keep for backward compatibility if needed by generic providers
+                    role: role,
                 },
                 emailRedirectTo: redirectUrl,
             },
@@ -248,10 +305,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             loading,
             signInWithEmail,
             signInWithGoogle,
-signUp,
+            signUp,
             signOut,
             refreshUser,
-            isAdmin: user?.role === 'SUPER_ADMIN' || user?.role === 'SALON_OWNER',
+            isAdmin: user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
+            isOwner: user?.role === 'SALON_OWNER' || (user?.role as string) === 'OWNER' || user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
             isStaff: user?.role === 'STAFF',
             isAuthenticated: !!user
         }}>

@@ -15,6 +15,46 @@ export async function saveOTP(phone: string, code: string): Promise<boolean> {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRY_MINUTES);
 
+    // Strategy: First check if there's an active OTP for this phone
+    const { data: existing } = await supabaseAdmin
+      .from('otp_codes')
+      .select('id')
+      .eq('phone', phone)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      // Update the existing OTP instead of creating a new one
+      // This prevents rate limit abuse and avoids unique constraint violation
+      const { error } = await supabaseAdmin
+        .from('otp_codes')
+        .update({
+          code,
+          expires_at: expiresAt.toISOString(),
+          created_at: new Date().toISOString(), // Reset created_at for timer
+        })
+        .eq('id', existing.id);
+
+      if (error) {
+        console.error('Error updating OTP:', error);
+        throw new Error(`DB Error: ${error.message}`);
+      }
+
+      console.log(`Updated existing OTP for phone ${phone}`);
+      return true;
+    }
+
+    // No active OTP found, insert new one
+    // First invalidate any expired/unused codes to clean up
+    await supabaseAdmin
+      .from('otp_codes')
+      .update({ used: true })
+      .eq('phone', phone)
+      .eq('used', false);
+
     const { error } = await supabaseAdmin
       .from('otp_codes')
       .insert({
@@ -26,13 +66,31 @@ export async function saveOTP(phone: string, code: string): Promise<boolean> {
 
     if (error) {
       console.error('Error saving OTP:', error);
-      return false;
+      throw new Error(`DB Error: ${error.message}`);
     }
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Exception saving OTP:', err);
-    return false;
+    throw new Error(`Exception: ${err.message}`);
+  }
+}
+
+export async function getActiveOTP(phone: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('otp_codes')
+      .select('code')
+      .eq('phone', phone)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return data?.code || null;
+  } catch (err) {
+    return null;
   }
 }
 
