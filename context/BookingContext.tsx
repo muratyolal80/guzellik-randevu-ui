@@ -30,14 +30,23 @@ interface BookingContextType {
   customerNotes: string;
   setCustomerNotes: (notes: string) => void;
 
+  // Rescheduling info
+  appointmentId: string | null;
+  setAppointmentId: (id: string | null) => void;
+
   // Reset booking
   resetBooking: () => void;
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
-export function BookingProvider({ children }: { children: ReactNode }) {
+import { SalonDataService } from '@/services/db';
+
+// ... interface unchanged ...
+
+export function BookingProvider({ children, salonId }: { children: ReactNode; salonId?: string }) {
   const [salon, setSalon] = useState<SalonDetail | null>(null);
+  const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<SalonServiceDetail | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -45,9 +54,44 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
+  const [appointmentId, setAppointmentId] = useState<string | null>(null);
+
+  // Auto-fetch salon if salonId is provided
+  React.useEffect(() => {
+    if (salonId) {
+      const fetchSalon = async () => {
+        setLoading(true);
+        try {
+          // Reset previous state when salonId changes
+          setSalon(null); // Clear previous salon data
+          setSelectedService(null);
+          setSelectedStaff(null);
+          setSelectedDate(null);
+          setSelectedTime(null);
+          setCustomerName('');
+          setCustomerPhone('');
+          setCustomerNotes('');
+          setAppointmentId(null);
+
+          // Fetch full salon details including category/services if needed, 
+          // but getSalonById is the main entry point
+          const data = await SalonDataService.getSalonById(salonId);
+          if (data) {
+            setSalon(data);
+          }
+        } catch (err) {
+          console.error('Error fetching salon for booking context:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchSalon();
+    }
+  }, [salonId]);
 
   const resetBooking = () => {
-    setSalon(null);
+    // Keep salon loaded if salonId was provided
+    if (!salonId) setSalon(null);
     setSelectedService(null);
     setSelectedStaff(null);
     setSelectedDate(null);
@@ -55,6 +99,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerNotes('');
+    setAppointmentId(null);
   };
 
   return (
@@ -76,6 +121,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         setCustomerPhone,
         customerNotes,
         setCustomerNotes,
+        appointmentId,
+        setAppointmentId,
         resetBooking,
       }}
     >

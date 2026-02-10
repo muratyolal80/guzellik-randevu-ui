@@ -1,16 +1,20 @@
 'use client';
 
-import React from 'react';
 import { AuthProvider } from '@/context/AuthContext';
+import { TenantProvider } from '@/context/TenantContext';
+import { ActiveBranchProvider } from '@/context/ActiveBranchContext';
 import { BookingProvider } from '@/context/BookingContext';
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <BookingProvider>
-        {children}
-      </BookingProvider>
+      <TenantProvider>
+        <ActiveBranchProvider>
+          <BookingProvider>
+            {children}
+          </BookingProvider>
+        </ActiveBranchProvider>
+      </TenantProvider>
     </AuthProvider>
   );
 }
-

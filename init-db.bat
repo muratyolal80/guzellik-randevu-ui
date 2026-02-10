@@ -34,38 +34,46 @@ timeout /t 30 /nobreak >nul
 echo.
 echo [*] Running database migrations...
 
-REM Run schema migration
-type volumes\db\init\01-schema.sql | docker exec -i supabase-db psql -U postgres -d postgres
+REM Run schema migration (New Structure)
+echo Running New-00-Drop-All.sql...
+type initdb\New-00-Drop-All.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-01-Extensions.sql...
+type initdb\New-01-Extensions.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-02-Types-and-Enums.sql...
+type initdb\New-02-Types-and-Enums.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-03-Tables.sql...
+type initdb\New-03-Tables.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-04-Functions.sql...
+type initdb\New-04-Functions.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-05-Triggers.sql...
+type initdb\New-05-Triggers.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-06-RLS-Policies.sql...
+type initdb\New-06-RLS-Policies.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-07-Seed-Data.sql...
+type initdb\New-07-Seed-Data.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-08-Storage.sql...
+type initdb\New-08-Storage.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-09-Auth-Users.sql...
+type initdb\New-09-Auth-Users.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
+echo Running New-10-Separate-Avenue-Street.sql...
+type initdb\New-10-Separate-Avenue-Street.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
+
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Schema creation failed
+    echo [ERROR] Migration failed
     pause
     exit /b 1
 )
-echo [OK] Schema created successfully
-
-echo.
-echo [*] Loading seed data...
-
-REM Run seed data
-type volumes\db\init\02-seed-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Seed data loading failed
-    pause
-    exit /b 1
-)
-echo [OK] Seed data loaded successfully
-
-echo.
-echo [*] Loading sample business data...
-
-REM Run sample business data
-type volumes\db\init\03-sample-data.sql | docker exec -i supabase-db psql -U postgres -d postgres
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Sample data loading failed
-    pause
-    exit /b 1
-)
-echo [OK] Sample data loaded successfully
+echo [OK] All migrations applied successfully
 
 echo.
 echo [SUCCESS] Database initialization complete!
@@ -76,6 +84,6 @@ echo.
 echo Next steps:
 echo 1. Ensure your .env.local file has the correct Supabase keys
 echo 2. Run: npm run dev
-echo 3. Visit: http://localhost:3001 (Next.js app)
+echo 3. Visit: http://localhost:3000 (Next.js app)
 echo.
 pause

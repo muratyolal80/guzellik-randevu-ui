@@ -39,28 +39,46 @@ export default function ServiceManager() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Bu hizmeti silmek istediğinize emin misiniz?')) {
-            setServices(prev => prev.filter(s => s.id !== id));
+            try {
+                await MasterDataService.deleteGlobalService(id);
+                setServices(prev => prev.filter(s => s.id !== id));
+            } catch (error) {
+                console.error('Error deleting service:', error);
+                alert('Hizmet silinirken bir hata oluştu.');
+            }
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!editingService?.name || !editingService?.category_id) return;
 
-        if (editingService?.id) {
-            setServices(prev => prev.map(s => s.id === editingService.id ? { ...s, ...editingService } as GlobalService : s));
-        } else {
-            const newService = {
-                ...editingService,
-                id: Math.random().toString(36).substr(2, 9),
-            } as GlobalService;
-            setServices(prev => [...prev, newService]);
+        try {
+            if (editingService.id) {
+                await MasterDataService.updateGlobalService(editingService.id, {
+                    name: editingService.name,
+                    category_id: editingService.category_id
+                });
+            } else {
+                await MasterDataService.createGlobalService({
+                    name: editingService.name,
+                    category_id: editingService.category_id
+                });
+            }
+
+            setIsModalOpen(false);
+            setEditingService(null);
+
+            // Refresh data
+            const servicesData = await MasterDataService.getAllGlobalServices();
+            setServices(servicesData);
+        } catch (error) {
+            console.error('Error saving service:', error);
+            alert('Hizmet kaydedilirken bir hata oluştu.');
         }
-        setIsModalOpen(false);
-        setEditingService(null);
     };
 
     const filteredServices = filterCategory === 'Tümü'
@@ -116,20 +134,20 @@ export default function ServiceManager() {
                         {filteredServices.map(service => {
                             const category = categories.find(c => c.id === service.category_id);
                             return (
-                            <tr key={service.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="p-4 font-bold text-text-main">{service.name}</td>
-                                <td className="p-4">
-                                    <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary font-medium">{category?.name || 'N/A'}</span>
-                                </td>
-                                <td className="p-4 text-sm text-text-secondary">N/A</td>
-                                <td className="p-4 text-sm font-bold text-text-main">N/A</td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(service)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(service.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
-                                    </div>
-                                </td>
-                            </tr>
+                                <tr key={service.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-4 font-bold text-text-main">{service.name}</td>
+                                    <td className="p-4">
+                                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary font-medium">{category?.name || 'N/A'}</span>
+                                    </td>
+                                    <td className="p-4 text-sm text-text-secondary">N/A</td>
+                                    <td className="p-4 text-sm font-bold text-text-main">N/A</td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => handleEdit(service)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
+                                            <button onClick={() => handleDelete(service.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                                        </div>
+                                    </td>
+                                </tr>
                             );
                         })}
                     </tbody>

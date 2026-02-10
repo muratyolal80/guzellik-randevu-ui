@@ -32,22 +32,45 @@ export default function SalonTypeManager() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Bu salon tipini silmek istediğinize emin misiniz?')) {
-            setTypes(prev => prev.filter(t => t.id !== id));
+            try {
+                await MasterDataService.deleteSalonType(id);
+                setTypes(prev => prev.filter(t => t.id !== id));
+            } catch (error) {
+                console.error('Error deleting salon type:', error);
+                alert('Salon tipi silinirken bir hata oluştu.');
+            }
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingType?.id) {
-            setTypes(prev => prev.map(t => t.id === editingType.id ? editingType as SalonType : t));
-        } else {
-            const newType = { ...editingType, id: Math.random().toString(36).substr(2, 9) } as SalonType;
-            setTypes(prev => [...prev, newType]);
+        if (!editingType?.name || !editingType?.slug) return;
+
+        try {
+            if (editingType.id) {
+                await MasterDataService.updateSalonType(editingType.id, {
+                    name: editingType.name,
+                    slug: editingType.slug
+                });
+            } else {
+                await MasterDataService.createSalonType({
+                    name: editingType.name,
+                    slug: editingType.slug
+                });
+            }
+
+            setIsModalOpen(false);
+            setEditingType(null);
+
+            // Refresh data
+            const data = await MasterDataService.getSalonTypes();
+            setTypes(data);
+        } catch (error) {
+            console.error('Error saving salon type:', error);
+            alert('Salon tipi kaydedilirken bir hata oluştu.');
         }
-        setIsModalOpen(false);
-        setEditingType(null);
     };
 
     return (
@@ -98,11 +121,11 @@ export default function SalonTypeManager() {
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Tip Adı</label>
-                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingType.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingType({...editingType, name: e.target.value})} />
+                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingType.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingType({ ...editingType, name: e.target.value })} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">Slug</label>
-                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingType.slug} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingType({...editingType, slug: e.target.value})} />
+                                <input required className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingType.slug} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingType({ ...editingType, slug: e.target.value })} />
                             </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 rounded-lg border border-border text-text-secondary font-bold">İptal</button>

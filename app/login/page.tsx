@@ -1,32 +1,65 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-export default function Login() {
-    const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading } = useAuth();
+function LoginContent() {
+    const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading, user } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
 
     // UI States
-    const [loginType, setLoginType] = useState<'customer' | 'business'>('customer');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    // Get redirect URL from query params
-    const redirectUrl = searchParams.get('redirect') || '/';
+    // Helper to determine redirect URL based on role
+    const getRoleBasedRedirect = (role?: string) => {
+        if (!role) return '/customer/dashboard';
+
+        const normalizedRole = role.toUpperCase();
+
+        switch (normalizedRole) {
+            case 'SUPER_ADMIN':
+            case 'ADMIN': // Handle legacy or generic admin role
+                return '/admin';
+            case 'SALON_OWNER':
+            case 'OWNER':
+                return '/owner/dashboard';
+            case 'STAFF':
+                return '/staff/dashboard';
+            case 'CUSTOMER':
+            default:
+                return '/customer/dashboard';
+        }
+    };
+
+    // Get redirect URL from query params or determine based on role/login type
+    const getRedirectUrl = () => {
+        const paramRedirect = searchParams.get('redirect');
+        if (paramRedirect) return paramRedirect;
+
+        // If we have a user, use their role
+        if (user?.role) {
+            return getRoleBasedRedirect(user.role);
+        }
+
+        // Default fallback if user data isn't ready
+        return '/customer/dashboard';
+    };
 
     // Auto-redirect if already authenticated
     useEffect(() => {
-        if (!authLoading && isAuthenticated) {
-            router.push(redirectUrl);
+        if (!authLoading && isAuthenticated && user) {
+            const dest = getRedirectUrl();
+            console.log('Redirecting authenticated user to:', dest, 'Role:', user.role);
+            router.push(dest);
         }
-    }, [authLoading, isAuthenticated, router, redirectUrl]);
+    }, [authLoading, isAuthenticated, user, router, searchParams]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,12 +74,31 @@ export default function Login() {
         }
 
         try {
-            await signInWithEmail(email, password);
+            console.log('[Login] Attempting sign in with:', email);
+            // Get profile directly from sign in action to avoid race conditions
+            const profile = await signInWithEmail(email, password);
+            console.log('[Login] Sign in result profile:', profile);
+
             // Success is handled by auth state change in context or useAuth
-            setTimeout(() => {
-                router.push(redirectUrl);
-            }, 500);
+            router.refresh(); // Refresh server components to update auth state
+
+            if (profile && profile.role) {
+                const dest = getRoleBasedRedirect(profile.role);
+                console.log('[Login] Login success. Role found:', profile.role);
+                console.log('[Login] Redirecting to:', dest);
+                router.replace(dest); // Use replace to prevent back navigation loop
+            } else {
+                console.warn('[Login] Profile or role missing after login. Profile:', profile);
+                // Fallback if no profile returned (shouldn't happen on success)
+                setTimeout(() => {
+                    const dest = getRedirectUrl();
+                    console.log('[Login] Fallback redirecting to:', dest);
+                    router.push(dest);
+                }, 500);
+            }
+
         } catch (err) {
+            console.error('[Login] Error during login:', err);
             const errorMessage = (err as Error).message;
             if (errorMessage.includes('Invalid login credentials')) {
                 setError('E-posta veya şifre hatalı.');
@@ -55,9 +107,10 @@ export default function Login() {
             } else {
                 setError('Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
             }
-        } finally {
-            setLoading(false);
+            setLoading(false); // Only stop loading on error, keep loading on success redirect
         }
+        // Note: We don't set loading(false) in finally block for success case 
+        // to prevent UI flash before redirect
     };
 
     const handleGoogleLogin = async () => {
@@ -71,12 +124,17 @@ export default function Login() {
         }
     };
 
-    const fillDemoAdmin = () => {
-        setEmail('info@guzellikrandevu.com.tr');
-        setPassword('admin123');
-    };
+    // Force show content after timeout to prevent infinite loading
+    const [forceShow, setForceShow] = useState(false);
 
-    if (authLoading) {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setForceShow(true);
+        }, 2000); // Wait 2 seconds max for auth check
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (authLoading && !forceShow) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-white">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -89,7 +147,7 @@ export default function Login() {
             {/* Left Side - Image Section */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900 overflow-hidden">
                 <img
-                    src="/images/salon-login-bg.png"
+                    src="/images/bg-final.png?v=3"
                     alt="Salon Interior"
                     className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -105,29 +163,7 @@ export default function Login() {
                             <span className="material-symbols-outlined text-[#CFA76D] filled">spa</span>
                         </div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-2 font-display">Hoş Geldiniz</h2>
-                        <p className="text-gray-500">Randevularınızı yönetmek için giriş yapın.</p>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex bg-gray-50 p-1 rounded-xl mb-8 border border-gray-100">
-                        <button
-                            onClick={() => setLoginType('customer')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'customer'
-                                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            Müşteri
-                        </button>
-                        <button
-                            onClick={() => setLoginType('business')}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${loginType === 'business'
-                                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            İşletme / Uzman
-                        </button>
+                        <p className="text-gray-500">Hesabınıza giriş yaparak devam edin.</p>
                     </div>
 
                     {/* Form */}
@@ -143,7 +179,7 @@ export default function Login() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CFA76D]/20 focus:border-[#CFA76D] transition-all sm:text-sm font-medium"
-                                    placeholder={loginType === 'customer' ? "ornek@email.com" : "isletme@guzellik.com"}
+                                    placeholder="ornek@email.com"
                                     disabled={loading}
                                 />
                             </div>
@@ -213,18 +249,6 @@ export default function Login() {
                         </button>
                     </form>
 
-                    {/* Admin Demo Filler */}
-                    <div className="mt-4 text-center">
-                        <button
-                            type="button"
-                            onClick={fillDemoAdmin}
-                            className="text-xs text-gray-400 hover:text-[#CFA76D] flex items-center justify-center gap-1 mx-auto transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-[14px]">smart_button</span>
-                            Demo Admin Doldur
-                        </button>
-                    </div>
-
                     {/* Divider */}
                     <div className="relative my-8">
                         <div className="absolute inset-0 flex items-center">
@@ -265,6 +289,7 @@ export default function Login() {
                             </Link>
                         </p>
                     </div>
+
                 </div>
             </div>
 
@@ -273,5 +298,17 @@ export default function Login() {
                 /* Add any custom inline styles or tailwind extensions if needed */
             `}</style>
         </div>
+    );
+}
+
+export default function Login() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }

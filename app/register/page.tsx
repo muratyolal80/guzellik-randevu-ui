@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { Store } from 'lucide-react';
 
 export default function Register() {
     const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
 
-    const [fullName, setFullName] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +32,7 @@ export default function Register() {
         setLoading(true);
 
         // Validation
-        if (!fullName || !email || !password || !confirmPassword) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword) {
             setError('Lütfen tüm alanları doldurunuz.');
             setLoading(false);
             return;
@@ -55,12 +57,12 @@ export default function Register() {
         }
 
         try {
-            await signUp(email, password, fullName);
+            await signUp(email, password, firstName, lastName);
             setSuccess(true);
             // User is automatically logged in after registration
-            // Redirect to home page
+            // Redirect to dashboard page
             setTimeout(() => {
-                router.push('/');
+                router.push('/customer/dashboard');
             }, 1500);
         } catch (err) {
             const errorMessage = (err as Error).message;
@@ -133,16 +135,29 @@ export default function Register() {
                         </div>
 
                         <form onSubmit={handleRegister} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-text-main mb-2">Ad Soyad</label>
-                                <input
-                                    type="text"
-                                    value={fullName}
-                                    onChange={e => setFullName(e.target.value)}
-                                    disabled={loading || success}
-                                    placeholder="Adınız Soyadınız"
-                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Ad</label>
+                                    <input
+                                        type="text"
+                                        value={firstName}
+                                        onChange={e => setFirstName(e.target.value)}
+                                        disabled={loading || success}
+                                        placeholder="Adınız"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Soyad</label>
+                                    <input
+                                        type="text"
+                                        value={lastName}
+                                        onChange={e => setLastName(e.target.value)}
+                                        disabled={loading || success}
+                                        placeholder="Soyadınız"
+                                        className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                    />
+                                </div>
                             </div>
 
                             <div>
@@ -203,13 +218,26 @@ export default function Register() {
                             </button>
                         </form>
 
-                        <div className="mt-6 text-center">
-                            <p className="text-sm text-text-secondary">
+                        <div className="mt-8 pt-6 border-t border-gray-100 space-y-4">
+                            <p className="text-sm text-center text-text-secondary">
                                 Zaten hesabınız var mı?{' '}
                                 <a href="/login" className="text-primary font-bold hover:underline">
                                     Giriş Yap
                                 </a>
                             </p>
+                            <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-5 rounded-2xl border border-primary/20 shadow-sm group hover:border-primary/40 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+                                        <Store className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-text-main font-black uppercase tracking-wider">İşletme Sahibi misiniz?</p>
+                                        <a href="/register/business" className="block text-[11px] font-bold text-primary mt-0.5 group-hover:underline">
+                                            Hemen Şubenizi Kaydedin →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

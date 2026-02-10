@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOTP, saveOTP, cleanPhone } from '@/lib/otp';
+import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/otp';
 import { sendOTPSMS } from '@/lib/sms';
 
 // Rate limiting icin basit bir in-memory store
@@ -25,7 +25,8 @@ function checkRateLimit(phone: string): boolean {
     return true;
   }
 
-  if (limit.count >= 2) {
+  // Rate limit is slightly relaxed here because we might just be returning "existing code"
+  if (limit.count >= 5) {
     return false;
   }
 
@@ -61,15 +62,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 1. Check for existing active OTP (Optimize SMS usage)
+    const activeCode = await getActiveOTP(cleanedPhone);
+    const isDemoMode = process.env.OTP_DEMO_MODE === 'true';
+
+    if (activeCode) {
+      console.log('Active OTP found for', cleanedPhone, 'skipping SMS');
+      return NextResponse.json({
+        success: true,
+        message: isDemoMode
+          ? `Demo mode: Mevcut kod "${activeCode}" kullanin`
+          : 'Mevcut dogrulama kodu hala gecerli. Lutfen kontrol edin.',
+        demoMode: isDemoMode,
+        ...(isDemoMode && { demoCode: activeCode }),
+      });
+    }
+
     const code = generateOTP();
 
-    const saved = await saveOTP(cleanedPhone, code);
-    if (!saved) {
-      return NextResponse.json(
-        { error: 'OTP kaydedilemedi' },
-        { status: 500 }
-      );
-    }
+    // saveOTP now throws error if it fails
+    await saveOTP(cleanedPhone, code);
 
     const smsSent = await sendOTPSMS(cleanedPhone, code);
 
@@ -77,7 +89,6 @@ export async function POST(request: NextRequest) {
       console.warn('SMS gonderilemedi ama OTP DBye kaydedildi');
     }
 
-    const isDemoMode = process.env.OTP_DEMO_MODE === 'true';
 
     return NextResponse.json({
       success: true,
@@ -91,7 +102,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Unexpected error in send-otp:', err);
     return NextResponse.json(
-      { error: 'Sunucu hatasi' },
+      { error: `Hata: ${(err as Error).message}` },
       { status: 500 }
     );
   }
