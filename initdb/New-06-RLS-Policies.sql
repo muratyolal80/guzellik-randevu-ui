@@ -39,9 +39,29 @@ CREATE POLICY "Public read salon_types" ON public.salon_types FOR SELECT USING (
 DROP POLICY IF EXISTS "Public read service_categories" ON public.service_categories;
 CREATE POLICY "Public read service_categories" ON public.service_categories FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins manage service_categories" ON public.service_categories;
+CREATE POLICY "Admins manage service_categories" ON public.service_categories FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
+
 -- Global Services
 DROP POLICY IF EXISTS "Public read global_services" ON public.global_services;
 CREATE POLICY "Public read global_services" ON public.global_services FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins manage global_services" ON public.global_services;
+CREATE POLICY "Admins manage global_services" ON public.global_services FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
 
 -- 3. PROFILES
 DROP POLICY IF EXISTS "Public profiles are viewable" ON public.profiles;
@@ -53,6 +73,20 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 -- 4. SALONS & ASSIGNED TYPES
 DROP POLICY IF EXISTS "Public read salons" ON public.salons;
 CREATE POLICY "Public read salons" ON public.salons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Owners manage own salons" ON public.salons;
+CREATE POLICY "Owners manage own salons" ON public.salons
+    FOR ALL USING (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS "Admins manage all salons" ON public.salons;
+CREATE POLICY "Admins manage all salons" ON public.salons FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
 
 DROP POLICY IF EXISTS "Public Read Access" ON public.salon_assigned_types;
 CREATE POLICY "Public Read Access" ON public.salon_assigned_types FOR SELECT USING (true);
@@ -108,6 +142,16 @@ CREATE POLICY "System can insert notifications" ON public.notifications FOR INSE
 DROP POLICY IF EXISTS "Users view own notifications" ON public.notifications;
 CREATE POLICY "Users view own notifications" ON public.notifications FOR SELECT 
     USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins manage all notifications" ON public.notifications;
+CREATE POLICY "Admins manage all notifications" ON public.notifications FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
 
 -- 9. INVITES
 DROP POLICY IF EXISTS "Invite access" ON public.invites;

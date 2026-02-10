@@ -29,6 +29,7 @@ CREATE TYPE public.iys_status AS ENUM (
 CREATE TYPE public.salon_status AS ENUM (
     'DRAFT',
     'SUBMITTED',
+    'REVISION_REQUESTED',
     'APPROVED',
     'REJECTED',
     'SUSPENDED'

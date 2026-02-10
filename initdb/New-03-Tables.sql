@@ -53,6 +53,8 @@ CREATE TABLE public.global_services (
     id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
     category_id uuid NOT NULL REFERENCES public.service_categories(id) ON DELETE CASCADE,
     name text NOT NULL,
+    avg_duration_min integer DEFAULT 30,
+    avg_price numeric(10,2) DEFAULT 0,
     created_at timestamp with time zone DEFAULT now(),
     UNIQUE(category_id, name)
 );

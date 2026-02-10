@@ -27,16 +27,16 @@ INSERT INTO public.service_categories (id, name, slug, icon) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 4. GLOBAL SERVICES
-INSERT INTO public.global_services (id, category_id, name) VALUES 
-('bcd2f8ee-a2c7-4188-9de1-83923a565c0b', 'ed6ebf1b-2345-4259-9dfc-93eb5176d510', 'Saç Kesimi'),
-('a1b2c3d4-e5f6-4a8b-9c0d-e1f2a3b4c5d6', 'ed6ebf1b-2345-4259-9dfc-93eb5176d510', 'Saç Boyama'),
-('b2c3d4e5-f6a7-8b9c-0d1e-f2a3b4c5d6e7', 'a4c9379d-87c6-4fc7-bb66-0de9aca7965c', 'Manikür')
+INSERT INTO public.global_services (id, category_id, name, avg_duration_min, avg_price) VALUES 
+('bcd2f8ee-a2c7-4188-9de1-83923a565c0b', 'ed6ebf1b-2345-4259-9dfc-93eb5176d510', 'Saç Kesimi', 45, 250.00),
+('a1b2c3d4-e5f6-4a8b-9c0d-e1f2a3b4c5d6', 'ed6ebf1b-2345-4259-9dfc-93eb5176d510', 'Saç Boyama', 120, 1500.00),
+('b2c3d4e5-f6a7-8b9c-0d1e-f2a3b4c5d6e7', 'a4c9379d-87c6-4fc7-bb66-0de9aca7965c', 'Manikür', 30, 400.00)
 ON CONFLICT (category_id, name) DO NOTHING;
 
 -- 5. TEST PROFILES (Matching Auth IDs if known, or dummy)
 INSERT INTO public.profiles (id, email, full_name, role) VALUES 
 ('00000000-0000-0000-0000-000000000001', 'owner@example.com', 'Test Salon Sahibi', 'SALON_OWNER'),
-('00000000-0000-0000-0000-000000000002', 'admin@example.com', 'Sistem Yöneticisi', 'ADMIN')
+('00000000-0000-0000-0000-000000000002', 'admin@example.com', 'Sistem Yöneticisi', 'SUPER_ADMIN')
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. SALONS
