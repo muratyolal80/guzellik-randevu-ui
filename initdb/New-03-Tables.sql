@@ -1,188 +1,182 @@
 -- Tables and Sequences
 
+-- 1. APPOINTMENTS
 CREATE TABLE public.appointments (
-    id bigint NOT NULL,
-    end_time timestamp(6) without time zone,
-    start_time timestamp(6) without time zone,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    end_time timestamp with time zone,
+    start_time timestamp with time zone,
+    status text DEFAULT 'PENDING'::text,
     first_name text,
     last_name text,
     email text,
     customer_id uuid,
-    salon_id bigint,
-    service_id bigint,
-    CONSTRAINT appointments_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'CONFIRMED'::character varying, 'CANCELLED'::character varying, 'COMPLETED'::character varying])::text[])))
+    salon_id uuid,
+    salon_service_id uuid, -- Link to salon_services.id
+    staff_id uuid,   -- Link to staff.id
+    customer_phone text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT appointments_status_check CHECK (status = ANY (ARRAY['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED']))
 );
 
-CREATE SEQUENCE public.appointments_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.appointments_id_seq OWNED BY public.appointments.id;
-
+-- 2. CITIES
 CREATE TABLE public.cities (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    plate_code integer NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    plate_code integer NOT NULL UNIQUE,
     latitude numeric(10,8),
     longitude numeric(11,8),
     created_at timestamp with time zone DEFAULT now()
 );
 
+-- 3. DISTRICTS
 CREATE TABLE public.districts (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    city_id uuid NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    city_id uuid NOT NULL REFERENCES public.cities(id) ON DELETE CASCADE,
     name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE public.global_services (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    category_id uuid NOT NULL,
-    name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE public.invites (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    salon_id bigint NOT NULL,
-    email text NOT NULL,
-    role public.user_role DEFAULT 'STAFF'::public.user_role,
-    token text NOT NULL,
-    status public.invite_status DEFAULT 'PENDING'::public.invite_status,
-    inviter_id uuid NOT NULL,
-    expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    accepted_at timestamp with time zone
+    UNIQUE(city_id, name)
 );
 
-CREATE TABLE public.iys_logs (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    phone text NOT NULL,
-    message_type public.iys_msg_type NOT NULL,
-    content text NOT NULL,
-    status public.iys_status NOT NULL,
+-- 4. SERVICE CATEGORIES
+CREATE TABLE public.service_categories (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    slug text NOT NULL UNIQUE,
+    icon text,
     created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.notifications (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    title text NOT NULL,
-    message text NOT NULL,
-    type text DEFAULT 'SYSTEM'::text,
-    is_read boolean DEFAULT false,
-    action_url text,
-    created_at timestamp with time zone DEFAULT now()
+-- 5. GLOBAL SERVICES
+CREATE TABLE public.global_services (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    category_id uuid NOT NULL REFERENCES public.service_categories(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(category_id, name)
 );
 
-CREATE TABLE public.otp_codes (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    phone text NOT NULL,
-    code text NOT NULL,
-    expires_at timestamp with time zone NOT NULL,
-    used boolean DEFAULT false,
-    created_at timestamp with time zone DEFAULT now()
-);
-
+-- 6. PROFILES
 CREATE TABLE public.profiles (
-    id uuid NOT NULL,
-    email text NOT NULL,
+    id uuid PRIMARY KEY, -- Matches auth.users.id
+    email text NOT NULL UNIQUE,
     full_name text,
     avatar_url text,
     phone text,
     role public.user_role DEFAULT 'CUSTOMER'::public.user_role,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
     first_name text,
-    last_name text
-);
-
-CREATE TABLE public.salon_assigned_types (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    salon_id bigint NOT NULL,
-    type_id uuid NOT NULL,
-    is_primary boolean DEFAULT false,
+    last_name text,
     created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT salon_assigned_types_pkey PRIMARY KEY (id),
-    CONSTRAINT salon_assigned_types_salon_id_type_id_key UNIQUE (salon_id, type_id)
+    updated_at timestamp with time zone DEFAULT now()
 );
 
+-- 7. SALON TYPES
 CREATE TABLE public.salon_types (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    name text NOT NULL UNIQUE,
+    slug text NOT NULL UNIQUE,
     icon text,
     image text,
     created_at timestamp with time zone DEFAULT now()
 );
 
+-- 8. SALONS
 CREATE TABLE public.salons (
-    id bigint NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    name character varying(255) NOT NULL,
+    slug character varying(255),
+    description text,
     address character varying(255),
     neighborhood character varying(255),
     avenue character varying(255),
     street character varying(255),
     building_no character varying(50),
     apartment_no character varying(50),
-    description character varying(255),
-    is_verified boolean NOT NULL,
-    location public.geometry(Point,4326),
-    name character varying(255),
-    rating double precision,
-    owner_id uuid NOT NULL,
     postal_code character varying(20),
+    phone text,
+    image text,
+    is_verified boolean DEFAULT false,
+    is_sponsored boolean DEFAULT false,
     status public.salon_status DEFAULT 'DRAFT'::public.salon_status,
     rejected_reason text,
-    city_id uuid,
-    district_id uuid,
-    type_id uuid,
+    owner_id uuid NOT NULL REFERENCES public.profiles(id),
+    city_id uuid REFERENCES public.cities(id),
+    district_id uuid REFERENCES public.districts(id),
+    type_id uuid REFERENCES public.salon_types(id),
     geo_latitude numeric(10,8),
     geo_longitude numeric(11,8),
-    image text,
-    is_sponsored boolean DEFAULT false,
+    location public.geometry(Point,4326),
     features jsonb DEFAULT '[]'::jsonb,
-    phone text,
+    tags text[] DEFAULT '{}'::text[],
+    rating double precision DEFAULT 0,
+    review_count integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
 
+-- 9. SALON ASSIGNED TYPES (Multiple types per salon)
+CREATE TABLE public.salon_assigned_types (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    type_id uuid NOT NULL REFERENCES public.salon_types(id) ON DELETE CASCADE,
+    is_primary boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(salon_id, type_id)
+);
+
+-- 10. SALON SERVICES
+CREATE TABLE public.salon_services (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    global_service_id uuid NOT NULL REFERENCES public.global_services(id),
+    price numeric(10,2) NOT NULL,
+    duration_min integer NOT NULL,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(salon_id, global_service_id)
+);
+
+-- 11. STAFF
 CREATE TABLE public.staff (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    salon_id bigint NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     name text NOT NULL,
     role text,
     phone text,
     photo text,
-    user_id uuid,
+    user_id uuid REFERENCES public.profiles(id),
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.salon_memberships (
+-- 12. STAFF SERVICES (Skills)
+CREATE TABLE public.staff_services (
     id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
-    user_id uuid,
-    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
-    role text NOT NULL CHECK (role IN ('OWNER', 'MANAGER', 'STAFF')),
-    is_active boolean DEFAULT true,
-    created_at timestamp with time zone DEFAULT now()
+    staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_service_id uuid NOT NULL REFERENCES public.salon_services(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(staff_id, salon_service_id)
 );
 
+-- 13. WORKING HOURS (Staff)
 CREATE TABLE public.working_hours (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    staff_id uuid NOT NULL,
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
     day_of_week integer NOT NULL,
     start_time time without time zone NOT NULL,
     end_time time without time zone NOT NULL,
     is_day_off boolean DEFAULT false,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(staff_id, day_of_week)
 );
 
+-- 14. SALON WORKING HOURS
 CREATE TABLE public.salon_working_hours (
     id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
-    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     day_of_week integer NOT NULL,
     start_time time without time zone NOT NULL,
     end_time time without time zone NOT NULL,
@@ -191,31 +185,75 @@ CREATE TABLE public.salon_working_hours (
     UNIQUE(salon_id, day_of_week)
 );
 
+-- 15. REVIEWS
 CREATE TABLE public.reviews (
     id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
-    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     user_id uuid REFERENCES public.profiles(id),
+    appointment_id uuid REFERENCES public.appointments(id),
     user_name text NOT NULL,
     user_avatar text,
     rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment text,
+    is_verified boolean DEFAULT false,
     created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE TABLE public.staff_services (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    salon_id bigint NOT NULL,
-    staff_id uuid NOT NULL,
-    salon_service_id bigint NOT NULL,
+-- 16. INVITES
+CREATE TABLE public.invites (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    email text NOT NULL,
+    role public.user_role DEFAULT 'STAFF'::public.user_role,
+    token text NOT NULL UNIQUE,
+    status public.invite_status DEFAULT 'PENDING'::public.invite_status,
+    inviter_id uuid NOT NULL REFERENCES public.profiles(id),
+    expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    accepted_at timestamp with time zone
+);
+
+-- 17. NOTIFICATIONS
+CREATE TABLE public.notifications (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title text NOT NULL,
+    message text NOT NULL,
+    type text DEFAULT 'SYSTEM'::text,
+    is_read boolean DEFAULT false,
+    action_url text,
     created_at timestamp with time zone DEFAULT now()
 );
 
--- Views
+-- 18. OTP CODES
+CREATE TABLE public.otp_codes (
+    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    phone text NOT NULL,
+    code text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(phone, code)
+);
+
+-- 13. FAVORITES
+CREATE TABLE public.favorites (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  salon_id uuid NOT NULL REFERENCES salons(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now(),
+  UNIQUE(user_id, salon_id)
+);
+
+-- VIEWS
+
 CREATE OR REPLACE VIEW public.salon_details AS
  SELECT s.id,
     s.name,
+    s.slug,
     s.description,
     s.features,
+    s.tags,
     s.address,
     s.neighborhood,
     s.avenue,
@@ -239,154 +277,47 @@ CREATE OR REPLACE VIEW public.salon_details AS
     COALESCE(st.name, 'Genel'::text) AS type_name,
     COALESCE(st.slug, 'genel'::text) AS type_slug,
     ( SELECT array_agg(json_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'is_primary', sat.is_primary)) AS array_agg
-           FROM (public.salon_assigned_types sat
-             JOIN public.salon_types t ON ((sat.type_id = t.id)))
-          WHERE (sat.salon_id = s.id)) AS assigned_types,
-    0 AS review_count,
-    0 AS average_rating,
+           FROM public.salon_assigned_types sat
+           JOIN public.salon_types t ON sat.type_id = t.id
+          WHERE sat.salon_id = s.id) AS assigned_types,
+    s.review_count,
+    s.rating AS average_rating,
     s.created_at
-   FROM (((public.salons s
-     LEFT JOIN public.cities c ON ((s.city_id = c.id)))
-     LEFT JOIN public.districts d ON ((s.district_id = d.id)))
-     LEFT JOIN public.salon_types st ON ((s.type_id = st.id)));
+   FROM public.salons s
+     LEFT JOIN public.cities c ON s.city_id = c.id
+     LEFT JOIN public.districts d ON s.district_id = d.id
+     LEFT JOIN public.salon_types st ON s.type_id = st.id;
 
-CREATE OR REPLACE VIEW public.salon_details_with_membership AS
- SELECT id,
-    name,
-    description,
-    features,
-    address,
-    neighborhood,
-    avenue,
-    street,
-    building_no,
-    apartment_no,
-    phone,
-    geo_latitude,
-    geo_longitude,
-    image,
-    is_sponsored,
-    status,
-    rejected_reason,
-    owner_id,
-    postal_code,
-    city_id,
-    district_id,
-    type_id,
-    city_name,
-    district_name,
-    type_name,
-    type_slug,
-    review_count,
-    average_rating,
-    created_at,
-    'OWNER'::text AS user_role,
-    (owner_id)::text AS current_user_id
-   FROM public.salon_details s;
+CREATE OR REPLACE VIEW public.salon_service_details WITH (security_invoker = on) AS
+SELECT
+    ss.id,
+    ss.salon_id,
+    ss.duration_min,
+    ss.price,
+    ss.is_active,
+    gs.name AS service_name,
+    sc.name AS category_name,
+    sc.slug AS category_slug,
+    sc.icon AS category_icon,
+    s.name AS salon_name
+FROM public.salon_services ss
+JOIN public.global_services gs ON ss.global_service_id = gs.id
+JOIN public.service_categories sc ON gs.category_id = sc.id
+JOIN public.salons s ON ss.salon_id = s.id;
 
-CREATE TABLE public.salon_services (
-    id bigint NOT NULL,
-    duration_minutes integer,
-    name character varying(255),
-    price numeric(38,2),
-    salon_id bigint
-);
-
-CREATE SEQUENCE public.salon_services_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.salon_services_id_seq OWNED BY public.salon_services.id;
-
-CREATE SEQUENCE public.salons_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.salons_id_seq OWNED BY public.salons.id;
-
-CREATE TABLE public.service_categories (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    icon text,
-    created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE public.users (
-    id bigint NOT NULL,
-    created_at timestamp(6) without time zone,
-    email character varying(255) NOT NULL,
-    first_name character varying(255),
-    is_active boolean NOT NULL,
-    last_name character varying(255),
-    password character varying(255) NOT NULL,
-    role character varying(255),
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['CUSTOMER'::character varying, 'HAIRDRESSER'::character varying, 'ADMIN'::character varying])::text[])))
-);
-
-CREATE SEQUENCE public.users_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
-
--- Sequence Defaults
-ALTER TABLE ONLY public.appointments ALTER COLUMN id SET DEFAULT nextval('public.appointments_id_seq'::regclass);
-ALTER TABLE ONLY public.salon_services ALTER COLUMN id SET DEFAULT nextval('public.salon_services_id_seq'::regclass);
-ALTER TABLE ONLY public.salons ALTER COLUMN id SET DEFAULT nextval('public.salons_id_seq'::regclass);
-ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
-
--- Constraints and Primary Keys
-ALTER TABLE ONLY public.appointments ADD CONSTRAINT appointments_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.cities ADD CONSTRAINT cities_name_key UNIQUE (name);
-ALTER TABLE ONLY public.cities ADD CONSTRAINT cities_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.cities ADD CONSTRAINT cities_plate_code_key UNIQUE (plate_code);
-ALTER TABLE ONLY public.districts ADD CONSTRAINT districts_city_id_name_key UNIQUE (city_id, name);
-ALTER TABLE ONLY public.districts ADD CONSTRAINT districts_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.global_services ADD CONSTRAINT global_services_category_id_name_key UNIQUE (category_id, name);
-ALTER TABLE ONLY public.global_services ADD CONSTRAINT global_services_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_token_key UNIQUE (token);
-ALTER TABLE ONLY public.iys_logs ADD CONSTRAINT iys_logs_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.notifications ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.otp_codes ADD CONSTRAINT otp_codes_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_email_key UNIQUE (email);
-ALTER TABLE ONLY public.profiles ADD CONSTRAINT profiles_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.salon_services ADD CONSTRAINT salon_services_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_name_key UNIQUE (name);
-ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.salon_types ADD CONSTRAINT salon_types_slug_key UNIQUE (slug);
- ALTER TABLE ONLY public.salons ADD CONSTRAINT salons_pkey PRIMARY KEY (id);
- ALTER TABLE ONLY public.salon_working_hours ADD CONSTRAINT salon_working_hours_pkey PRIMARY KEY (id);
- ALTER TABLE ONLY public.reviews ADD CONSTRAINT reviews_pkey PRIMARY KEY (id);
- ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_name_key UNIQUE (name);
-ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_slug_key UNIQUE (slug);
-ALTER TABLE ONLY public.users ADD CONSTRAINT uk_6dotkott2kjsp8vw4d0m25fb7 UNIQUE (email);
-ALTER TABLE ONLY public.salons ADD CONSTRAINT uk_6fir817ee3gbq1tr9skvy373u UNIQUE (owner_id);
-ALTER TABLE ONLY public.otp_codes ADD CONSTRAINT unique_active_otp UNIQUE (phone, code);
-ALTER TABLE ONLY public.users ADD CONSTRAINT users_pkey PRIMARY KEY (id);
-
--- Indexes
-CREATE INDEX idx_otp_cleanup ON public.otp_codes USING btree (expires_at) WHERE (used = false);
-CREATE INDEX idx_otp_phone_expires ON public.otp_codes USING btree (phone, expires_at) WHERE (used = false);
-
--- Foreign Keys
-ALTER TABLE ONLY public.districts ADD CONSTRAINT districts_city_id_fkey FOREIGN KEY (city_id) REFERENCES public.cities(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.appointments ADD CONSTRAINT fk4q5rt20vvnkv7eohwq22l3ayy FOREIGN KEY (customer_id) REFERENCES public.users(id);
-ALTER TABLE ONLY public.appointments ADD CONSTRAINT fk6eufma68nfpop0y70rect7wxr FOREIGN KEY (service_id) REFERENCES public.salon_services(id);
-ALTER TABLE ONLY public.salons ADD CONSTRAINT fk98acq1e3p3p8bm8hjv611yyn8 FOREIGN KEY (owner_id) REFERENCES public.users(id);
-ALTER TABLE ONLY public.salon_services ADD CONSTRAINT fkegyh145ukwo5iowe4x4bow6fa FOREIGN KEY (salon_id) REFERENCES public.salons(id);
-ALTER TABLE ONLY public.appointments ADD CONSTRAINT fkn7uk5bmcf2qd5oam22wfqcx3j FOREIGN KEY (salon_id) REFERENCES public.salons(id);
-ALTER TABLE ONLY public.global_services ADD CONSTRAINT global_services_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES public.profiles(id);
-ALTER TABLE ONLY public.invites ADD CONSTRAINT invites_salon_id_fkey FOREIGN KEY (salon_id) REFERENCES public.salons(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.salon_assigned_types ADD CONSTRAINT salon_assigned_types_salon_id_fkey FOREIGN KEY (salon_id) REFERENCES public.salons(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.salon_assigned_types ADD CONSTRAINT salon_assigned_types_type_id_fkey FOREIGN KEY (type_id) REFERENCES public.salon_types(id) ON DELETE CASCADE;
-
+CREATE OR REPLACE VIEW public.verified_reviews_view AS
+ SELECT r.id,
+    r.salon_id,
+    r.user_id,
+    r.appointment_id,
+    r.user_name,
+    r.user_avatar,
+    r.rating,
+    r.comment,
+    r.created_at,
+    (r.appointment_id IS NOT NULL) AS is_verified,
+    gs.service_name AS service_name,
+    a.start_time AS service_date
+   FROM public.reviews r
+     LEFT JOIN public.appointments a ON r.appointment_id = a.id
+     LEFT JOIN public.salon_service_details gs ON a.salon_service_id = gs.id;

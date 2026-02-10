@@ -226,40 +226,70 @@ export default function OnboardingWizard() {
         }
     }, [salonData.city_id]);
 
-    // Automatic Geocoding Effect
+    // State for map loading indicator
+    const [mapLoading, setMapLoading] = useState(false);
+
+    // Automatic Geocoding Effect (Updated Logic)
     useEffect(() => {
+        // Don't geocode if we don't have a city
+        if (!salonData.city_id) return;
+
         const timer = setTimeout(async () => {
             const cityName = cities.find(c => c.id === salonData.city_id)?.name;
             const districtName = districts.find(d => d.id === salonData.district_id)?.name;
 
             if (!cityName) return;
 
-            // Build full address search string
-            const searchParts = [
-                salonData.avenue,
-                salonData.street,
-                salonData.building_no ? `No: ${salonData.building_no}` : '',
-                salonData.neighborhood,
-                districtName,
-                cityName,
-                'Türkiye'
-            ].filter(Boolean);
+            // Prioritize specific address parts if available
+            // If user selected generic "Istanbul" -> "Kadikoy", we should jump there even without street info
+            const hasDetailedAddress = salonData.avenue || salonData.street || salonData.neighborhood;
 
-            if (searchParts.length < 3) return; // Need at least city, district and neighborhood/street
+            // Build search query based on available granularity
+            let searchQuery = '';
 
-            const searchQuery = searchParts.join(', ');
-            console.log('🔍 Geocoding search:', searchQuery);
+            if (hasDetailedAddress) {
+                // Full address search
+                const searchParts = [
+                    salonData.avenue,
+                    salonData.street,
+                    salonData.building_no ? `No: ${salonData.building_no}` : '',
+                    salonData.neighborhood,
+                    districtName, // Might be undefined if not selected, that's okay
+                    cityName,
+                    'Türkiye'
+                ].filter(Boolean);
 
-            const result = await GeocodingService.searchAddress(searchQuery);
-            if (result) {
-                console.log('📍 Geocoding result found:', result);
-                setSalonData((prev: any) => ({
-                    ...prev,
-                    geo_latitude: result.lat,
-                    geo_longitude: result.lon
-                }));
+                // Need somewhat specific info for detailed search
+                if (searchParts.length < 3) return;
+                searchQuery = searchParts.join(', ');
+            } else if (districtName) {
+                // District level search (e.g. "Kadikoy, Istanbul, Turkiye")
+                searchQuery = `${districtName}, ${cityName}, Türkiye`;
+            } else {
+                // Just city (usually unnecessary as default map is centered properly, but good fallback)
+                // Don't auto-move on just city selection to avoid annoying jumps
+                return;
             }
-        }, 1500); // 1.5s debounce
+
+            console.log('🔍 Geocoding search:', searchQuery);
+            setMapLoading(true);
+
+            try {
+                const result = await GeocodingService.searchAddress(searchQuery);
+                if (result) {
+                    console.log('📍 Geocoding result found:', result);
+                    setSalonData((prev: any) => ({
+                        ...prev,
+                        geo_latitude: result.lat,
+                        geo_longitude: result.lon
+                    }));
+                }
+            } catch (error) {
+                console.error("Geocoding failed", error);
+            } finally {
+                setMapLoading(false);
+            }
+        }, 1000); // Reduced debounce to 1s for faster feel
 
         return () => clearTimeout(timer);
     }, [salonData.city_id, salonData.district_id, salonData.neighborhood, salonData.avenue, salonData.street, salonData.building_no, cities, districts]);
@@ -285,13 +315,21 @@ export default function OnboardingWizard() {
                 // Ensure we pass type_id for backward compatibility if needed by the service type definition, 
                 // but the service should handle the new fields.
                 // We'll map type_ids to the expected format for the creation service
+
+                // Explicitly map services to the expected backend format
+                const formattedServices = selectedServices.map(s => ({
+                    global_service_id: s.global_service_id,
+                    price: s.price,
+                    duration_min: s.duration_min
+                }));
+
                 salon = await SalonDataService.createSalon({
                     ...salonData,
                     // Map primary_type_id to type_id for schema compatibility if the service expects it
                     // The service implementation of createSalon needs to handle type_ids and primary_type_id
                     type_id: salonData.primary_type_id,
                     owner_id: user?.id
-                }, workingHours, selectedServices);
+                }, workingHours, formattedServices);
             }
 
             console.log('Onboarding step 2: Submitting for approval...');
@@ -610,8 +648,8 @@ export default function OnboardingWizard() {
                                     onLocationSelect={(lat, lng) => setSalonData({ ...salonData, geo_latitude: lat, geo_longitude: lng })}
                                 />
                                 <div className="absolute top-6 left-6 z-[1000] bg-white/95 backdrop-blur-md px-5 py-3 rounded-2xl border border-border/50 text-[10px] font-black uppercase tracking-widest text-text-main shadow-2xl flex items-center gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                    Konumunuzu Haritadan İşaretleyin
+                                    <div className={`w-2 h-2 rounded-full ${mapLoading ? 'bg-amber-500 animate-ping' : 'bg-primary animate-pulse'}`} />
+                                    {mapLoading ? 'Konum Aranıyor...' : 'Konumunuzu Haritadan İşaretleyin'}
                                 </div>
                             </div>
                         </div>
@@ -834,6 +872,46 @@ export default function OnboardingWizard() {
                                 >
                                     + KENDİMİ EKLE
                                 </button>
+                            </div>
+
+                            {/* Staff Input Fields */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">Ad Soyad <span className="text-red-500">*</span></label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-white border border-border rounded-xl font-bold text-text-main text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all placeholder:font-medium"
+                                        placeholder="Örn: Ayşe Yılmaz"
+                                        value={newStaff.name}
+                                        onChange={e => setNewStaff({ ...newStaff, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">Ünvan / Rol <span className="text-red-500">*</span></label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-white border border-border rounded-xl font-bold text-text-main text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all placeholder:font-medium"
+                                        placeholder="Örn: Saç Tasarım Uzmanı"
+                                        value={newStaff.role}
+                                        onChange={e => setNewStaff({ ...newStaff, role: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">Telefon</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-white border border-border rounded-xl font-bold text-text-main text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all placeholder:font-medium"
+                                        placeholder="05XX XXX XX XX"
+                                        value={newStaff.phone}
+                                        onChange={e => setNewStaff({ ...newStaff, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">E-Posta</label>
+                                    <input
+                                        className="w-full px-4 py-3 bg-white border border-border rounded-xl font-bold text-text-main text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all placeholder:font-medium"
+                                        placeholder="personel@ornek.com"
+                                        value={newStaff.email}
+                                        onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
+                                    />
+                                </div>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">

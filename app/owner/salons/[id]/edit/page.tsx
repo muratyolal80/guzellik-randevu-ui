@@ -112,7 +112,7 @@ export default function EditSalonPage() {
             if (formData.neighborhood || formData.avenue || formData.street) {
                 handleGeocode(false);
             }
-        }, 1200); // 1.2s auto-debounce is safer than 800ms to avoid API limits while typing
+        }, 800); // Reduced to 800ms for snappier automatic updates
 
         return () => clearTimeout(timer);
     }, [formData.city_id, formData.district_id, formData.neighborhood, formData.avenue, formData.street, formData.building_no]);
@@ -444,6 +444,7 @@ export default function EditSalonPage() {
                                             <select
                                                 value={formData.city_id}
                                                 onChange={(e) => setFormData({ ...formData, city_id: e.target.value, district_id: '' })}
+                                                onBlur={() => handleGeocode(false)}
                                                 className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer"
                                             >
                                                 <option value="">Seçiniz</option>
@@ -462,6 +463,7 @@ export default function EditSalonPage() {
                                             <select
                                                 value={formData.district_id}
                                                 onChange={(e) => setFormData({ ...formData, district_id: e.target.value })}
+                                                onBlur={() => handleGeocode(false)}
                                                 disabled={!formData.city_id}
                                                 className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer disabled:opacity-40"
                                             >
@@ -481,6 +483,7 @@ export default function EditSalonPage() {
                                             type="text"
                                             value={formData.neighborhood}
                                             onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                                            onBlur={() => handleGeocode(false)}
                                             className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
                                             placeholder="Örn: Barbaros Mah."
                                         />
@@ -494,6 +497,7 @@ export default function EditSalonPage() {
                                             type="text"
                                             value={formData.avenue}
                                             onChange={(e) => setFormData({ ...formData, avenue: e.target.value })}
+                                            onBlur={() => handleGeocode(false)}
                                             className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
                                             placeholder="Örn: Atatürk Cad."
                                         />
@@ -506,6 +510,7 @@ export default function EditSalonPage() {
                                             type="text"
                                             value={formData.street}
                                             onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                                            onBlur={() => handleGeocode(false)}
                                             className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
                                             placeholder="Örn: Karanfil Sokak"
                                         />
@@ -520,6 +525,7 @@ export default function EditSalonPage() {
                                                 type="text"
                                                 value={formData.building_no}
                                                 onChange={(e) => setFormData({ ...formData, building_no: e.target.value })}
+                                                onBlur={() => handleGeocode(false)}
                                                 className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
                                                 placeholder="No"
                                             />

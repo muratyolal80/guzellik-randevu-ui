@@ -453,6 +453,9 @@ export const SalonDataService = {
   /**
    * Create a new salon
    */
+  /**
+   * Create a new salon
+   */
   async createSalon(
     salon: Omit<Salon, 'id' | 'created_at' | 'updated_at'>,
     customHours?: { day_of_week: number, start_time: string, end_time: string, is_closed: boolean }[],
@@ -484,10 +487,12 @@ export const SalonDataService = {
       throw error;
     }
 
+    const salonId = data.id;
+
     // Insert Assignments
     if (type_ids && type_ids.length > 0) {
       const assignments = type_ids.map(tid => ({
-        salon_id: data.id,
+        salon_id: salonId,
         type_id: tid,
         is_primary: tid === (primary_type_id || dbSalon.type_id)
       }));
@@ -496,85 +501,55 @@ export const SalonDataService = {
       if (assignError) console.error("Error assigning salon types:", assignError);
     }
 
+    // Prepare Working Hours
     let hoursToInsert;
 
     if (customHours && customHours.length > 0) {
       hoursToInsert = customHours.map(h => ({
-        ...h,
-        salon_id: data.id,
-        // Ensure time format is HH:MM:SS
+        salon_id: salonId,
+        day_of_week: h.day_of_week,
         start_time: h.start_time.length === 5 ? `${h.start_time}:00` : h.start_time,
-        end_time: h.end_time.length === 5 ? `${h.end_time}:00` : h.end_time
+        end_time: h.end_time.length === 5 ? `${h.end_time}:00` : h.end_time,
+        is_closed: h.is_closed
       }));
     } else {
       // Create default working hours (Mon-Sat 09:00-19:00, Sun Closed)
       hoursToInsert = [1, 2, 3, 4, 5, 6].map(day => ({
-        salon_id: data.id,
+        salon_id: salonId,
         day_of_week: day,
-        opening_time: '09:00:00',
-        closing_time: '19:00:00',
+        start_time: '09:00:00',
+        end_time: '19:00:00',
         is_closed: false
       }));
 
       hoursToInsert.push({
-        salon_id: data.id,
+        salon_id: salonId,
         day_of_week: 0,
-        opening_time: '09:00:00',
-        closing_time: '19:00:00',
+        start_time: '09:00:00',
+        end_time: '19:00:00',
         is_closed: true
       });
     }
 
-    // Map opening/closing_time to start/end_time if needed, or stick to db schema.
-    // The DB schema likely uses start_time/end_time based on WorkingHoursTab code ("start_time", "end_time").
-    // But createSalon legacy code used "opening_time", "closing_time".
-    // I need to check the DB schema or existing usage.
-    // WorkingHoursTab uses: start_time, end_time.
-    // StaffService.createStaff uses: start_time, end_time.
-    // EXISTING createSalon uses: opening_time, closing_time.
-    // This implies there might be a discrepancy or alias.
-    // Let's look at `getSalonWorkingHours` in `db.ts`: `select('*')`.
-    // Let's assume the DB uses `start_time` and `end_time` like Staff, 
-    // BUT the existing createSalon code (lines 410+) used `opening_time` and `closing_time`.
-    // This suggests the DB might have `opening_time` for SALONS and `start_time` for STAFF?
-    // OR the existing createSalon implementation was wrong/legacy.
-    // Let's check `WorkingHoursTab.tsx` line 43: `updateSalonWorkingHours(..., { start_time: value })`.
-    // This confirms `salon_working_hours` table uses `start_time` and `end_time`.
-    // So the existing `createSalon` logic (lines 413, 414) using `opening_time` is likely INCORRECT or MAPPED.
-    // But wait, Supabase would throw error if column doesn't exist.
-    // Maybe the view maps it? Or table has both?
-    // Given `WorkingHoursTab` works (presumably), `start_time` is correct.
-    // I will fix the existing logic to use `start_time` / `end_time` as well to be safe, 
-    // or keep it consistent if I'm unsure. 
-    // Actually, I'll trust `WorkingHoursTab` usage (`start_time`) over the potentially untested `createSalon` default logic.
-    // Wait, `createSalon` was used in `handleComplete`. If it worked, then `opening_time` exists.
-    // But `WorkingHoursTab` updates `start_time`.
-    // I'll check `getSalonWorkingHours` return type `SalonWorkingHours`.
-
-    // Let's standardize on `start_time` and `end_time`.
-
-    const finalHours = hoursToInsert.map(h => ({
-      salon_id: h.salon_id,
-      day_of_week: h.day_of_week,
-      start_time: (h as any).start_time || (h as any).opening_time,
-      end_time: (h as any).end_time || (h as any).closing_time,
-      is_closed: h.is_closed
-    }));
-
-    await supabase.from('salon_working_hours').insert(finalHours);
+    const { error: hoursError } = await supabase.from('salon_working_hours').insert(hoursToInsert);
+    if (hoursError) {
+      console.error("Error inserting working hours:", hoursError);
+      // We don't throw here to allow partial success, but logged.
+    }
 
     if (initialServices && initialServices.length > 0) {
       const servicesToInsert = initialServices.map(s => ({
-        salon_id: data.id,
-        // Since global_service_id might not exist in salon_services, 
-        // we'll try to find the name if it's missing from the schema.
-        // based on initdb/New-03-Tables.sql: salon_services has 'name', 'price', 'duration_minutes'
-        name: (s as any).name || 'Hizmet',
+        salon_id: salonId,
+        global_service_id: s.global_service_id,
         price: s.price,
-        duration_minutes: s.duration_min,
+        duration_min: s.duration_min,
+        is_active: true
       }));
 
-      await supabase.from('salon_services').insert(servicesToInsert);
+      const { error: servicesError } = await supabase.from('salon_services').insert(servicesToInsert);
+      if (servicesError) {
+        console.error("Error inserting services:", servicesError);
+      }
     }
 
     return data;

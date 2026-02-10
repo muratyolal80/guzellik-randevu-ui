@@ -3,12 +3,13 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, MasterDataService, ServiceService } from '@/services/db';
 import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 
 // Fallback Cache for Coordinates (Populated from DB)
 const CITY_COORDINATES_CACHE: Record<string, { lat: number; lng: number }> = {
@@ -83,8 +84,36 @@ function HomePageContent() {
     const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
     const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [cities, setCities] = useState<City[]>([]);
+    const { user, isAuthenticated, loading: authLoading } = useAuth();
     const [showUnauthorizedError, setShowUnauthorizedError] = useState(false);
 
+    // Search Parameters from URL
+    const typeParam = searchParams.get('type');
+    const searchParam = searchParams.get('search');
+    const cityParam = searchParams.get('city');
+    const modeParam = searchParams.get('mode');
+
+    // Determine if we are in search mode
+    const isSearchMode = !!(typeParam || searchParam || cityParam);
+
+    // Auto-redirect authenticated users to their dashboards
+    useEffect(() => {
+        if (!authLoading && isAuthenticated && user) {
+            // Only redirect if they are on the root homepage and not searching
+            if (!isSearchMode) {
+                const role = user.role?.toUpperCase();
+                console.log('[Home] Redirecting authenticated user:', user.email, 'Role:', role);
+
+                if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+                    router.push('/admin');
+                } else if (role === 'SALON_OWNER' || role === 'OWNER') {
+                    router.push('/owner/dashboard');
+                } else if (role === 'STAFF') {
+                    router.push('/staff/dashboard');
+                }
+            }
+        }
+    }, [authLoading, isAuthenticated, user, router, isSearchMode]);
     // Check for error parameter (unauthorized access)
     useEffect(() => {
         const errorParam = searchParams.get('error');
@@ -96,18 +125,10 @@ function HomePageContent() {
             router.replace('/');
         }
     }, [searchParams, router]);
+
     const [districts, setDistricts] = useState<District[]>([]);
     const [salonServicesMap, setSalonServicesMap] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(true);
-
-    // Search Parameters from URL
-    const typeParam = searchParams.get('type');
-    const searchParam = searchParams.get('search');
-    const cityParam = searchParams.get('city');
-    const modeParam = searchParams.get('mode'); // 'service', 'type', 'salon'
-
-    // Mode Check
-    const isSearchMode = !!(typeParam || searchParam || cityParam);
 
     // States
     const [hoveredSalonId, setHoveredSalonId] = useState<string | null>(null);
@@ -209,11 +230,19 @@ function HomePageContent() {
     }, []); // Run once on mount
 
     // Sync URL params to State when URL changes (e.g. back button)
+    // Sync URL params to State when URL changes (e.g. back button or menu click)
     useEffect(() => {
-        if (searchParam !== null) setLocalSearch(searchParam);
+        if (searchParam !== null) {
+            setLocalSearch(searchParam);
+        } else if (typeParam) {
+            // Check if user clicked a type menu item, clear conflicting search text
+            // Optional: You could set it to type name if desired, but clearing is safer for filtering logic
+            setLocalSearch('');
+        }
+
         if (cityParam !== null) setSelectedCity(cityParam);
         // Note: We don't sync district from URL yet as it's not in the main query params typically, but could be added.
-    }, [searchParam, cityParam]);
+    }, [searchParam, cityParam, typeParam]);
 
     // Load districts when city changes
     useEffect(() => {
@@ -730,38 +759,40 @@ function HomePageContent() {
                         </div>
 
                         {/* Inputs */}
-                        <div className="flex flex-col md:flex-row gap-2 p-2">
+                        <div className="flex flex-col md:flex-row gap-2 p-3 bg-white rounded-xl border border-gray-100 shadow-sm relative z-50">
                             {/* Combobox Search Input */}
-                            <div className="flex-grow relative group" ref={searchWrapperRef}>
+                            <div className="flex-grow relative group w-full md:w-2/5" ref={searchWrapperRef}>
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                    <span className="material-symbols-outlined">search</span>
+                                    <span className="material-symbols-outlined text-primary">search</span>
                                 </div>
                                 <input
                                     type="text"
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm font-medium transition-shadow"
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm font-medium transition-shadow hover:bg-white focus:bg-white"
                                     placeholder={
-                                        activeTab === 'service' ? 'Hizmet ara (örn. Saç Kesimi, Manikür)...' :
-                                            activeTab === 'type' ? 'Salon türü ara (örn. Kuaför, Berber)...' :
-                                                'Salon adı ile ara...'
+                                        activeTab === 'service' ? 'Hizmet ara (örn. Saç Kesimi)...' :
+                                            activeTab === 'type' ? 'Salon türü ara (örn. Kuaför)...' :
+                                                'Salon adı ara...'
                                     }
                                     value={localSearch}
                                     onChange={(e) => handleSearchChange((e.target as HTMLInputElement).value)}
-                                    onFocus={() => localSearch.length >= 2 && setShowSuggestions(true)}
+                                    // Make sure suggestions appear on click if there is text
+                                    onClick={() => localSearch.length >= 2 && setShowSuggestions(true)}
                                     onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
+                                    autoComplete="off"
                                 />
 
                                 {/* Suggestions Dropdown (Landing Page) */}
                                 {showSuggestions && suggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-xl shadow-xl z-[100] max-h-80 overflow-y-auto">
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-xl shadow-xl z-[100] max-h-80 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
                                         <div className="p-2 border-b border-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-wider pl-4">Önerilenler</div>
                                         {suggestions.map((item, idx) => (
                                             <div
                                                 key={idx}
                                                 onClick={() => handleSuggestionSelect(item)}
-                                                className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3"
+                                                className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors"
                                             >
-                                                <div className="size-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                                                    <span className="material-symbols-outlined text-gray-500 text-sm">
+                                                <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'salon' ? 'bg-blue-50 text-blue-600' : item.type === 'service' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
+                                                    <span className="material-symbols-outlined text-sm">
                                                         {item.type === 'salon' ? 'store' : item.type === 'service' ? 'spa' : 'category'}
                                                     </span>
                                                 </div>
@@ -777,12 +808,13 @@ function HomePageContent() {
                                 )}
                             </div>
 
-                            <div className="w-full md:w-1/3 relative">
+                            {/* City Selector */}
+                            <div className="w-full md:w-1/4 relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                    <span className="material-symbols-outlined">location_on</span>
+                                    <span className="material-symbols-outlined text-primary/70">location_on</span>
                                 </div>
                                 <select
-                                    className="block w-full pl-10 pr-8 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-text-main focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm appearance-none cursor-pointer font-medium"
+                                    className="block w-full pl-10 pr-8 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-text-main focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm appearance-none cursor-pointer font-medium hover:bg-white focus:bg-white transition-colors"
                                     value={selectedCity}
                                     onChange={(e) => setSelectedCity((e.target as HTMLSelectElement).value)}
                                 >
@@ -794,11 +826,32 @@ function HomePageContent() {
                                 </div>
                             </div>
 
+                            {/* District Selector (NEW) */}
+                            <div className="w-full md:w-1/4 relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                    <span className="material-symbols-outlined text-primary/70">map</span>
+                                </div>
+                                <select
+                                    className="block w-full pl-10 pr-8 py-3 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-text-main focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm appearance-none cursor-pointer font-medium hover:bg-white focus:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    value={selectedDistrict}
+                                    disabled={!selectedCity || selectedCity === 'Tümü'}
+                                    onChange={(e) => setSelectedDistrict((e.target as HTMLSelectElement).value)}
+                                >
+                                    <option value="Tümü">Tüm İlçeler</option>
+                                    {districts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                </select>
+                                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                    <span className="material-symbols-outlined text-gray-400 text-sm">expand_more</span>
+                                </div>
+                            </div>
+
                             <button
                                 onClick={executeSearch}
-                                className="w-full md:w-auto bg-primary hover:bg-primary-hover text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2 shrink-0"
+                                className="w-full md:w-auto bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-lg font-bold shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2 shrink-0 transform active:scale-95"
                             >
-                                Ara
+                                <span className="hidden md:inline">Ara</span>
+                                <span className="md:hidden">Sonuçları Göster</span>
+                                <span className="material-symbols-outlined">arrow_forward</span>
                             </button>
                         </div>
 

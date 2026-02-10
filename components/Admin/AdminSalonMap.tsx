@@ -68,6 +68,16 @@ const AdminSalonMap = ({ center, zoom = 13, onLocationSelect, markerPosition }: 
                 <Marker
                     position={[markerPosition.lat, markerPosition.lng]}
                     icon={adminIcon}
+                    draggable={true}
+                    eventHandlers={{
+                        dragend: (e) => {
+                            const marker = e.target;
+                            const position = marker.getLatLng();
+                            if (onLocationSelect) {
+                                onLocationSelect(position.lat, position.lng);
+                            }
+                        }
+                    }}
                 />
             )}
         </MapContainer>

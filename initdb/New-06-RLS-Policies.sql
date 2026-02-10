@@ -59,7 +59,8 @@ CREATE POLICY "Public Read Access" ON public.salon_assigned_types FOR SELECT USI
 
 DROP POLICY IF EXISTS "Owners manage own salon types" ON public.salon_assigned_types;
 CREATE POLICY "Owners manage own salon types" ON public.salon_assigned_types 
-    FOR ALL USING (EXISTS (SELECT 1 FROM public.salons WHERE id = salon_id AND owner_id = auth.uid()));
+    FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()))
+    WITH CHECK (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
 
 -- 5. SALON SERVICES
 DROP POLICY IF EXISTS "Public can view salon services" ON public.salon_services;
@@ -94,7 +95,7 @@ CREATE POLICY "Owners manage staff services" ON public.staff_services
 -- 7. APPOINTMENTS (Müşteri & Salon Sahibi Erişimi)
 DROP POLICY IF EXISTS "Customers view own appointments" ON public.appointments;
 CREATE POLICY "Customers view own appointments" ON public.appointments FOR SELECT 
-    USING (customer_id::text = auth.uid()::text);
+    USING (customer_id = auth.uid());
 
 DROP POLICY IF EXISTS "Salons view own appointments" ON public.appointments;
 CREATE POLICY "Salons view own appointments" ON public.appointments FOR SELECT 
