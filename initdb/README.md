@@ -17,7 +17,7 @@ Run the scripts in the following numeric order. If you are using `psql`, you can
 
 ### 2. Core Structure
 *   **[New-01-Extensions.sql](New-01-Extensions.sql)**: Enables PostGIS, UUID, etc.
-*   **[New-02-Types-and-Enums.sql](New-02-Types-and-Enums.sql)**: Sets up `user_role`, `salon_status` etc.
+*   **[New-02-Types-and-Enums.sql](New-02-Types-and-Enums.sql)**: Sets up `user_role`, `salon_status` etc
 *   **[New-03-Tables.sql](New-03-Tables.sql)**: Creates tables, views, and constraints.
 
 ### 3. Logic & Security
