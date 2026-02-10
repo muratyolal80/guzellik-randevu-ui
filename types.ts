@@ -110,6 +110,8 @@ export interface GlobalService {
   id: string;
   category_id: string;
   name: string;
+  avg_duration_min?: number;
+  avg_price?: number;
   created_at?: string;
 }
 
@@ -140,7 +142,7 @@ export interface Salon {
   created_at?: string;
   updated_at?: string;
   owner_id?: string;
-  status?: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejected_reason?: string;
   type_ids?: string[]; // For multi-type support
   primary_type_id?: string;

@@ -697,6 +697,13 @@ export const SalonDataService = {
   },
 
   /**
+   * Admin: Request revision for a salon
+   */
+  async requestRevision(id: string, reason: string): Promise<void> {
+    await this.updateSalonStatus(id, 'REVISION_REQUESTED', reason);
+  },
+
+  /**
    * Admin: Reject a salon
    */
   async rejectSalon(id: string, reason: string): Promise<void> {
@@ -945,7 +952,7 @@ export const ServiceService = {
   /**
    * Get all global services (for selection)
    */
-  async getGlobalServices(): Promise<{ id: string; name: string; category_id: string }[]> {
+  async getGlobalServices(): Promise<GlobalService[]> {
     const { data, error } = await supabase
       .from('global_services')
       .select('*')
@@ -1886,6 +1893,75 @@ export const StaffAnalyticsService = {
 
 
 // ==============================================
+// FAVORITE SERVICE
+// ==============================================
+
+export const FavoriteService = {
+  /**
+   * Get user favorites
+   */
+  async getUserFavorites(): Promise<Favorite[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('salon_favorites')
+      .select('*, salon:salons(*)')
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Check if salon is favorited
+   */
+  async isFavorited(salonId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data, error } = await supabase
+      .from('salon_favorites')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('salon_id', salonId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return !!data;
+  },
+
+  /**
+   * Toggle favorite
+   */
+  async toggleFavorite(salonId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Yalnızca giriş yapmış kullanıcılar favori ekleyebilir.');
+
+    const isFav = await this.isFavorited(salonId);
+
+    if (isFav) {
+      const { error } = await supabase
+        .from('salon_favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('salon_id', salonId);
+      if (error) throw error;
+      return false;
+    } else {
+      const { error } = await supabase
+        .from('salon_favorites')
+        .insert({
+          user_id: user.id,
+          salon_id: salonId
+        });
+      if (error) throw error;
+      return true;
+    }
+  }
+};
+
+// ==============================================
 // NOTIFICATION SERVICE
 // ==============================================
 
@@ -2032,5 +2108,6 @@ export default {
   IYSService,
   NotificationService,
   InviteService,
+  FavoriteService,
 };
 

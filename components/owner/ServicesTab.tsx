@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ServiceService } from '@/services/db';
-import { SalonServiceDetail } from '@/types';
+import { SalonServiceDetail, GlobalService } from '@/types';
 import {
     Plus,
     Trash2,
@@ -23,15 +23,27 @@ interface ServicesTabProps {
 
 export default function ServicesTab({ salonId }: ServicesTabProps) {
     const [services, setServices] = useState<SalonServiceDetail[]>([]);
-    const [globalServices, setGlobalServices] = useState<any[]>([]);
+    const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
+    const [editingService, setEditingService] = useState<SalonServiceDetail | null>(null);
     const [saving, setSaving] = useState(false);
 
     // New Service Form
     const [newServiceId, setNewServiceId] = useState('');
     const [newPrice, setNewPrice] = useState(100);
     const [newDuration, setNewDuration] = useState(30);
+
+    // Smart Defaults: Update price/duration when global service is selected
+    useEffect(() => {
+        if (newServiceId && !editingService) {
+            const selected = globalServices.find(gs => gs.id === newServiceId);
+            if (selected) {
+                if (selected.avg_price) setNewPrice(selected.avg_price);
+                if (selected.avg_duration_min) setNewDuration(selected.avg_duration_min);
+            }
+        }
+    }, [newServiceId, globalServices, editingService]);
 
     useEffect(() => {
         fetchData();
@@ -52,27 +64,53 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
         }
     };
 
-    const handleAddService = async () => {
-        if (!newServiceId) return;
+    const handleEdit = (service: SalonServiceDetail) => {
+        setEditingService(service);
+        setNewServiceId(service.global_service_id);
+        setNewPrice(service.price);
+        setNewDuration(service.duration_min);
+        setShowAdd(true);
+    };
+
+    const handleSaveService = async () => {
+        if (!newServiceId && !editingService) return;
         setSaving(true);
         try {
-            await ServiceService.createService({
-                salon_id: salonId,
-                global_service_id: newServiceId,
-                price: newPrice,
-                duration_min: newDuration
-            });
+            if (editingService) {
+                // Update existing
+                await ServiceService.updateService(editingService.id, {
+                    price: newPrice,
+                    duration_min: newDuration
+                }, salonId);
+            } else {
+                // Create new
+                await ServiceService.createService({
+                    salon_id: salonId,
+                    global_service_id: newServiceId,
+                    price: newPrice,
+                    duration_min: newDuration
+                });
+            }
+
             setShowAdd(false);
+            setEditingService(null);
             setNewServiceId('');
+            setNewPrice(100); // Reset to default or keep last used? Resetting is safer.
+            setNewDuration(30);
             fetchData();
         } catch (err: any) {
-            console.error('Hizmet ekleme detayı:', err);
-            // If it's a supabase error, it usually has message and details
-            const errorMsg = err.message || 'Hizmet eklenirken hata oluştu';
+            console.error('Hizmet kaydetme hatası:', err);
+            const errorMsg = err.message || 'Hizmet kaydedilirken hata oluştu';
             alert(errorMsg);
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleCloseModal = () => {
+        setShowAdd(false);
+        setEditingService(null);
+        setNewServiceId('');
     };
 
     const handleDelete = async (id: string) => {
@@ -95,7 +133,11 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
                     <p className="text-xs text-text-secondary mt-1">{services.length} farklı işlem sunuyorsunuz.</p>
                 </div>
                 <button
-                    onClick={() => setShowAdd(true)}
+                    onClick={() => {
+                        setEditingService(null);
+                        setNewServiceId('');
+                        setShowAdd(true);
+                    }}
                     className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                 >
                     <Plus className="w-5 h-5" /> Yeni Hizmet Ekle
@@ -112,12 +154,12 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
                                     <Wand2 className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-black text-text-main">Yeni Hizmet Oluştur</h3>
+                                    <h3 className="text-xl md:text-2xl font-black text-text-main">{editingService ? 'Hizmeti Düzenle' : 'Yeni Hizmet Oluştur'}</h3>
                                     <p className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1">Salon Kataloğuna Ekle</p>
                                 </div>
                             </div>
                             <button
-                                onClick={() => setShowAdd(false)}
+                                onClick={handleCloseModal}
                                 className="p-3 hover:bg-gray-100 rounded-2xl transition-all group"
                             >
                                 <X className="w-6 h-6 text-text-muted group-hover:text-text-main group-hover:rotate-90 transition-all" />
@@ -135,7 +177,8 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
                                         <select
                                             value={newServiceId}
                                             onChange={(e) => setNewServiceId(e.target.value)}
-                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer"
+                                            disabled={!!editingService} // Disable changing service type when editing
+                                            className={`w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer ${editingService ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             <option value="">Seçiniz...</option>
                                             {globalServices.map(gs => (
@@ -190,17 +233,17 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
 
                         <div className="sticky bottom-0 bg-white/80 backdrop-blur-md px-8 py-6 border-t border-border flex items-center justify-end gap-4">
                             <button
-                                onClick={() => setShowAdd(false)}
+                                onClick={handleCloseModal}
                                 className="px-8 py-4 font-black text-text-muted hover:text-text-main transition-all"
                             >
                                 İptal Et
                             </button>
                             <button
-                                onClick={handleAddService}
+                                onClick={handleSaveService}
                                 disabled={saving}
                                 className="px-10 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-3 disabled:opacity-50"
                             >
-                                {saving ? 'Kaydediliyor...' : 'Hizmeti Kaydet'}
+                                {saving ? 'Kaydediliyor...' : (editingService ? 'Güncelle' : 'Hizmeti Kaydet')}
                                 <Save className="w-5 h-5" />
                             </button>
                         </div>
@@ -229,7 +272,7 @@ export default function ServicesTab({ salonId }: ServicesTabProps) {
                         </div>
 
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="p-3 hover:bg-gray-100 rounded-xl text-text-secondary transition-colors"><Edit2 className="w-4 h-4" /></button>
+                            <button onClick={() => handleEdit(service)} className="p-3 hover:bg-gray-100 rounded-xl text-text-secondary transition-colors"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => handleDelete(service.id)} className="p-3 hover:bg-red-50 rounded-xl text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
                     </div>
