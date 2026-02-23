@@ -12,7 +12,8 @@ import {
     User,
     LogOut,
     ChevronRight,
-    Star
+    Star,
+    CreditCard
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -43,6 +44,11 @@ const Sidebar = () => {
             title: 'Değerlendirmelerim',
             href: '/customer/reviews',
             icon: Star
+        },
+        {
+            title: 'Ödemelerim',
+            href: '/customer/payments',
+            icon: CreditCard
         },
         {
             title: 'Destek Taleplerim',

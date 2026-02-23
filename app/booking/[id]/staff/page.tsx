@@ -18,8 +18,8 @@ export default function StaffSelection() {
   const {
     salon: bookingSalon,
     setSalon: setBookingSalon,
-    selectedService,
-    setSelectedService,
+    selectedServices,
+    setSelectedServices,
     selectedStaff: bookingStaff,
     setSelectedStaff: setBookingStaff,
     setAppointmentId: setContextAppointmentId,
@@ -49,7 +49,7 @@ export default function StaffSelection() {
         ];
 
         // If we are rescheduling (have serviceId) and context is empty or mismatch, fetch service details
-        if (rescheduleServiceId && (!selectedService || selectedService.id !== rescheduleServiceId)) {
+        if (rescheduleServiceId && (selectedServices.length === 0 || selectedServices[0].id !== rescheduleServiceId)) {
           requests.push(ServiceService.getServiceById(rescheduleServiceId));
         }
 
@@ -61,8 +61,8 @@ export default function StaffSelection() {
         }
 
         // Handle Service Hydration
-        if (serviceData && (!selectedService || selectedService.id !== serviceData.id)) {
-          setSelectedService(serviceData);
+        if (serviceData && (selectedServices.length === 0 || selectedServices[0].id !== serviceData.id)) {
+          setSelectedServices([serviceData]);
         }
 
         // Map staff data
@@ -102,10 +102,9 @@ export default function StaffSelection() {
 
   const selectedStaff = selectedStaffId ? staff.find(s => s.id === selectedStaffId) : null;
 
-  // Get selected service from booking context
-  const selectedServices = selectedService ? [selectedService] : [];
-  const totalPrice = selectedService?.price || 0;
-  const totalDuration = selectedService?.duration_min ? `${selectedService.duration_min} dakika` : 'Belirsiz';
+  // Price and duration calculated from all selected services
+  const totalPrice = selectedServices.reduce((acc, s) => acc + (s.price || 0), 0);
+  const totalDuration = `${selectedServices.reduce((acc, s) => acc + (s.duration_min || 0), 0)} dakika`;
 
   const handleStaffSelect = (staffId: string) => {
     setSelectedStaffId(staffId);

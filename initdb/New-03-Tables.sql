@@ -2,7 +2,7 @@
 
 -- 1. APPOINTMENTS
 CREATE TABLE public.appointments (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     end_time timestamp with time zone,
     start_time timestamp with time zone,
     status text DEFAULT 'PENDING'::text,
@@ -22,7 +22,7 @@ CREATE TABLE public.appointments (
 
 -- 2. CITIES
 CREATE TABLE public.cities (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL UNIQUE,
     plate_code integer NOT NULL UNIQUE,
     latitude numeric(10,8),
@@ -32,7 +32,7 @@ CREATE TABLE public.cities (
 
 -- 3. DISTRICTS
 CREATE TABLE public.districts (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     city_id uuid NOT NULL REFERENCES public.cities(id) ON DELETE CASCADE,
     name text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
@@ -41,7 +41,7 @@ CREATE TABLE public.districts (
 
 -- 4. SERVICE CATEGORIES
 CREATE TABLE public.service_categories (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL UNIQUE,
     slug text NOT NULL UNIQUE,
     icon text,
@@ -50,7 +50,7 @@ CREATE TABLE public.service_categories (
 
 -- 5. GLOBAL SERVICES
 CREATE TABLE public.global_services (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     category_id uuid NOT NULL REFERENCES public.service_categories(id) ON DELETE CASCADE,
     name text NOT NULL,
     avg_duration_min integer DEFAULT 30,
@@ -75,7 +75,7 @@ CREATE TABLE public.profiles (
 
 -- 7. SALON TYPES
 CREATE TABLE public.salon_types (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL UNIQUE,
     slug text NOT NULL UNIQUE,
     icon text,
@@ -85,7 +85,7 @@ CREATE TABLE public.salon_types (
 
 -- 8. SALONS
 CREATE TABLE public.salons (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name character varying(255) NOT NULL,
     slug character varying(255),
     description text,
@@ -119,7 +119,7 @@ CREATE TABLE public.salons (
 
 -- 9. SALON ASSIGNED TYPES (Multiple types per salon)
 CREATE TABLE public.salon_assigned_types (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     type_id uuid NOT NULL REFERENCES public.salon_types(id) ON DELETE CASCADE,
     is_primary boolean DEFAULT false,
@@ -129,7 +129,7 @@ CREATE TABLE public.salon_assigned_types (
 
 -- 10. SALON SERVICES
 CREATE TABLE public.salon_services (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     global_service_id uuid NOT NULL REFERENCES public.global_services(id),
     price numeric(10,2) NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE public.salon_services (
 
 -- 11. STAFF
 CREATE TABLE public.staff (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     name text NOT NULL,
     role text,
@@ -155,7 +155,7 @@ CREATE TABLE public.staff (
 
 -- 12. STAFF SERVICES (Skills)
 CREATE TABLE public.staff_services (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     salon_service_id uuid NOT NULL REFERENCES public.salon_services(id) ON DELETE CASCADE,
@@ -165,7 +165,7 @@ CREATE TABLE public.staff_services (
 
 -- 13. WORKING HOURS (Staff)
 CREATE TABLE public.working_hours (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
     day_of_week integer NOT NULL,
     start_time time without time zone NOT NULL,
@@ -177,7 +177,7 @@ CREATE TABLE public.working_hours (
 
 -- 14. SALON WORKING HOURS
 CREATE TABLE public.salon_working_hours (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     day_of_week integer NOT NULL,
     start_time time without time zone NOT NULL,
@@ -189,7 +189,7 @@ CREATE TABLE public.salon_working_hours (
 
 -- 15. REVIEWS
 CREATE TABLE public.reviews (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     user_id uuid REFERENCES public.profiles(id),
     appointment_id uuid REFERENCES public.appointments(id),
@@ -203,7 +203,7 @@ CREATE TABLE public.reviews (
 
 -- 16. INVITES
 CREATE TABLE public.invites (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     email text NOT NULL,
     role public.user_role DEFAULT 'STAFF'::public.user_role,
@@ -217,7 +217,7 @@ CREATE TABLE public.invites (
 
 -- 17. NOTIFICATIONS
 CREATE TABLE public.notifications (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     title text NOT NULL,
     message text NOT NULL,
@@ -229,7 +229,7 @@ CREATE TABLE public.notifications (
 
 -- 18. OTP CODES
 CREATE TABLE public.otp_codes (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     phone text NOT NULL,
     code text NOT NULL,
     expires_at timestamp with time zone NOT NULL,
@@ -240,7 +240,7 @@ CREATE TABLE public.otp_codes (
 
 -- 13. FAVORITES
 CREATE TABLE public.favorites (
-  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   salon_id uuid NOT NULL REFERENCES salons(id) ON DELETE CASCADE,
   created_at timestamp with time zone DEFAULT now(),

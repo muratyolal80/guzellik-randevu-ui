@@ -23,7 +23,7 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
 };
 
 // Updates map center when city changes or salon is hovered
-const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonId: string | null, salons: SalonDetail[] }> = ({ center, hoveredSalonId, salons }) => {
+const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonId?: string | null, salons: SalonDetail[] }> = ({ center, hoveredSalonId, salons }) => {
     const map = useMap();
 
     // Fix: Invalidate size on mount/updates to prevent grey areas
@@ -109,8 +109,8 @@ const createCustomIcon = (isHovered: boolean) => {
 interface SalonMapProps {
     center: { lat: number; lng: number };
     salons: SalonDetail[];
-    hoveredSalonId: string | null;
-    onSalonHover: (id: string | null) => void;
+    hoveredSalonId?: string | null;
+    onSalonHover?: (id: string | null) => void;
 }
 
 interface SalonMarkerProps {
@@ -223,7 +223,7 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
                     key={salon.id}
                     salon={salon}
                     isHovered={hoveredSalonId === salon.id}
-                    onHover={onSalonHover}
+                    onHover={onSalonHover || ((_id: string | null) => { })}
                     onClick={() => router.push(`/salon/${salon.id}`)}
                 />
             ))}
