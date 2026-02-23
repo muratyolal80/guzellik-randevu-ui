@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { StaffService, AppointmentService } from '@/services/db';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
+import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
 import {
     Calendar as CalendarIcon,
     ChevronLeft,
@@ -32,6 +33,8 @@ export default function OwnerMasterCalendar() {
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedStaffId, setSelectedStaffId] = useState<string | 'all'>('all');
+    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const calendarRef = useRef<FullCalendar>(null);
 
@@ -46,7 +49,6 @@ export default function OwnerMasterCalendar() {
 
         try {
             setLoading(true);
-            // Fetch more appointments for a wider range in FullCalendar (e.g., current month)
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
@@ -65,17 +67,8 @@ export default function OwnerMasterCalendar() {
         }
     };
 
-    // Color mapping for staff
     const getStaffColor = (index: number) => {
-        const colors = [
-            '#3B82F6', // Blue
-            '#10B981', // Emerald
-            '#F59E0B', // Amber
-            '#EF4444', // Red
-            '#8B5CF6', // Violet
-            '#EC4899', // Pink
-            '#06B6D4', // Cyan
-        ];
+        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
         return colors[index % colors.length];
     };
 
@@ -105,14 +98,26 @@ export default function OwnerMasterCalendar() {
         try {
             await AppointmentService.updateAppointment(event.id, {
                 start_time: event.start.toISOString()
-            });
-            // Update local state
+            }, activeBranch?.id);
             setAppointments(prev => prev.map(apt =>
                 apt.id === event.id ? { ...apt, start_time: event.start.toISOString() } : apt
             ));
         } catch (err) {
             console.error('Randevu taşınamadı:', err);
             info.revert();
+        }
+    };
+
+    const handleEventClick = (info: any) => {
+        const { event } = info;
+        const apt = appointments.find(a => a.id === event.id);
+        if (apt) {
+            setSelectedAppointment({
+                ...apt,
+                title: event.title,
+                staff_name: event.extendedProps.staffName
+            });
+            setIsDetailModalOpen(true);
         }
     };
 
@@ -147,7 +152,6 @@ export default function OwnerMasterCalendar() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-                    {/* Staff Filter */}
                     <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl border border-border">
                         <Users className="w-4 h-4 ml-2 text-text-secondary" />
                         <select
@@ -247,7 +251,7 @@ export default function OwnerMasterCalendar() {
                     headerToolbar={{
                         left: 'prev,next today',
                         center: 'title',
-                        right: '' // Handled by our custom buttons
+                        right: ''
                     }}
                     locale={trLocale}
                     events={events}
@@ -261,19 +265,26 @@ export default function OwnerMasterCalendar() {
                     slotMaxTime="22:00:00"
                     allDaySlot={false}
                     eventDrop={handleEventDrop}
+                    eventClick={handleEventClick}
                     height="auto"
                 />
             </div>
 
             {/* Add Appointment Modal */}
-            {activeBranch && (
-                <AddAppointmentModal
-                    isOpen={isAddModalOpen}
-                    onClose={() => setIsAddModalOpen(false)}
-                    salonId={activeBranch.id}
-                    onSuccess={() => fetchInitialData()}
-                />
-            )}
+            <AddAppointmentModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                salonId={activeBranch.id}
+                onSuccess={() => fetchInitialData()}
+            />
+
+            {/* Appointment Detail Modal */}
+            <AppointmentDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                appointment={selectedAppointment}
+                onSuccess={() => fetchInitialData()}
+            />
         </div>
     );
 }
