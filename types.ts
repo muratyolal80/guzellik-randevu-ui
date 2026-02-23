@@ -1,4 +1,4 @@
-export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'SUPER_ADMIN';
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
 export type SalonPlan = 'FREE' | 'PRO' | 'ENTERPRISE';
 
 export type Permission =
@@ -24,6 +24,13 @@ export interface Profile {
   created_at?: string;
   updated_at?: string;
   bio?: string;
+  // Account & Security Updates (Faz 1)
+  is_active?: boolean;
+  deleted_at?: string;
+  kvkk_accepted_at?: string;
+  marketing_opt_in?: boolean;
+  language_preference?: string;
+  default_city_id?: string;
 }
 
 export interface Favorite {
@@ -189,6 +196,7 @@ export interface SalonDetail extends Salon {
   startPrice?: number;  // Minimum service price
   description?: string;
   features?: string[];
+  is_closed?: boolean;
 }
 
 export interface Staff {
@@ -392,6 +400,76 @@ export interface SalonGallery {
   display_order: number;
   is_cover: boolean;
   caption?: string;
+  created_at: string;
+}
+
+// ==============================================
+// FINANCE & CAMPAIGN TYPES (Faz 3)
+// ==============================================
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
+export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'WALLET' | 'OTHER';
+export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'FAILED';
+
+export interface Coupon {
+  id: string;
+  salon_id?: string; // Null if global
+  code: string;
+  description?: string;
+  discount_type: DiscountType;
+  discount_value: number;
+  min_purchase_amount?: number;
+  max_discount_amount?: number;
+  expires_at?: string;
+  usage_limit?: number;
+  used_count?: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface Package {
+  id: string;
+  salon_id: string;
+  name: string;
+  description?: string;
+  price: number;
+  is_active: boolean;
+  expires_at?: string;
+  created_at?: string;
+  services?: PackageService[];
+}
+
+export interface PackageService {
+  id: string;
+  package_id: string;
+  salon_service_id: string;
+  quantity: number;
+  created_at?: string;
+  service?: SalonServiceDetail; // Joined data
+}
+
+export interface Transaction {
+  id: string;
+  salon_id: string;
+  customer_id?: string;
+  appointment_id?: string;
+  amount: number;
+  currency: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  provider_transaction_id?: string;
+  commission_amount?: number;
+  notes?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentCoupon {
+  id: string;
+  appointment_id: string;
+  coupon_id: string;
+  discount_amount: number;
   created_at: string;
 }
 

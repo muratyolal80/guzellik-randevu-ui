@@ -90,9 +90,9 @@ export default function AdminApprovalsPage() {
                 await NotificationService.sendNotification({
                     user_id: selectedSalon.owner_id,
                     title: 'İşletme Başvurusu Onaylandı!',
-                    message: `${selectedSalon.name} isimli işletmeniz onaylanmıştır. Artık şubeyi yönetmeye başlayabilirsiniz.`,
+                    content: `${selectedSalon.name} isimli işletmeniz onaylanmıştır. Artık şubeyi yönetmeye başlayabilirsiniz.`,
                     type: 'SYSTEM',
-                    action_url: '/owner/dashboard'
+                    link: '/owner/dashboard'
                 });
             }
 
@@ -115,9 +115,9 @@ export default function AdminApprovalsPage() {
                 await NotificationService.sendNotification({
                     user_id: selectedSalon.owner_id,
                     title: 'İşletme Başvurusu Reddedildi',
-                    message: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}.`,
+                    content: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}.`,
                     type: 'SYSTEM',
-                    action_url: '/owner/onboarding'
+                    link: '/owner/onboarding'
                 });
             }
 
@@ -140,9 +140,9 @@ export default function AdminApprovalsPage() {
                 await NotificationService.sendNotification({
                     user_id: selectedSalon.owner_id,
                     title: 'İşletme İçin Revizyon İstendi',
-                    message: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
+                    content: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
                     type: 'SYSTEM',
-                    action_url: '/owner/settings'
+                    link: '/owner/settings'
                 });
             }
 

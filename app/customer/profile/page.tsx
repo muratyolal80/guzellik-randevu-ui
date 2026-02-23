@@ -1,112 +1,62 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Lock, Mail, Phone, Calendar, User as UserIcon, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { ProfileService } from '@/services/db';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import ImageUpload from '@/components/ImageUpload';
 
 export default function ProfilePage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
+    const { user, refreshProfile } = useAuth();
+    const [loading, setLoading] = useState(!user);
     const [saving, setSaving] = useState(false);
 
     const [formData, setFormData] = useState({
-        first_name: '',
-        last_name: '',
-        phone: '',
-        email: '',
-        birth_date: ''
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
+        phone: user?.phone || '',
+        email: user?.email || '',
+        birth_date: user?.birth_date || ''
     });
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user?.avatar_url || undefined);
 
     useEffect(() => {
-        async function fetchProfile() {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    router.push('/login');
-                    return;
-                }
-
-                // Initial data from auth user
-                let initialData = {
-                    first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '',
-                    last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-                    email: user.email || '',
-                    phone: user.phone || '',
-                    birth_date: ''
-                };
-
-                // Get extended profile data
-                const { data: profile, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profile) {
-                    initialData = {
-                        ...initialData,
-                        first_name: profile.first_name || initialData.first_name,
-                        last_name: profile.last_name || initialData.last_name,
-                        phone: profile.phone || initialData.phone,
-                        email: user.email || '', // Always trust auth email first
-                        birth_date: profile.birth_date || ''
-                    };
-                    setAvatarUrl(profile.avatar_url || user.user_metadata?.avatar_url || null);
-                }
-
-                setFormData(initialData);
-
-            } catch (error) {
-                console.error('Error fetching profile:', error);
-                // Even on error, we might have set some data if we refactored differently, 
-                // but here user flow starts from auth.getUser.
-            } finally {
-                setLoading(false);
-            }
+        if (!user && !loading) {
+            router.push('/login');
+            return;
         }
 
-
-        // Add timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-            if (loading) {
-                console.warn('Profile fetch timed out, forcing load completion');
-                setLoading(false);
-            }
-        }, 3000);
-
-        fetchProfile();
-
-        return () => clearTimeout(timeoutId);
-    }, [router]);
+        if (user) {
+            setFormData({
+                first_name: user.first_name || '',
+                last_name: user.last_name || '',
+                phone: user.phone || '',
+                email: user.email || '',
+                birth_date: user.birth_date || ''
+            });
+            setAvatarUrl(user.avatar_url || undefined);
+            setLoading(false);
+        }
+    }, [user, router, loading]);
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!user) return;
         setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('No user');
-
-            const updates = {
-                id: user.id,
-                email: user.email, // Required field for upsert if row doesn't exist
+            await ProfileService.updateProfile(user.id, {
                 first_name: formData.first_name,
                 last_name: formData.last_name,
                 phone: formData.phone,
-                birth_date: formData.birth_date || null,
-                avatar_url: avatarUrl, // Include avatar in updates
-                updated_at: new Date().toISOString(),
-            };
-
-            const { error } = await supabase.from('profiles').upsert(updates);
-            if (error) throw error;
-
+                birth_date: formData.birth_date || undefined,
+                avatar_url: avatarUrl || undefined,
+            });
+            await refreshProfile();
             alert('Profiliniz başarıyla güncellendi.');
         } catch (error: any) {
             alert(`Profil güncellenirken bir hata oluştu: ${error.message || error}`);
-            console.error('Update Error:', error);
         } finally {
             setSaving(false);
         }
@@ -255,11 +205,13 @@ function PasswordChangeForm() {
 
         setLoading(true);
         try {
-            const { error } = await supabase.auth.updateUser({
+            const { supabase } = await import('@/lib/supabase');
+            const { error: authError } = await supabase.auth.updateUser({
                 password: formData.newPassword
             });
 
-            if (error) throw error;
+            if (authError) throw authError;
+
             alert('Şifreniz başarıyla güncellendi.');
             setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (error: any) {

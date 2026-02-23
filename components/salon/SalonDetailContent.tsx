@@ -10,9 +10,9 @@ import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, A
 import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
 import GallerySlider from '@/components/GallerySlider';
-import ImageUpload from '@/components/ImageUpload';
 import Skeleton from '@/components/Skeleton';
 import Lightbox from '@/components/common/Lightbox';
+import { ShoppingBag, ChevronRight, X, Plus, MapPin } from 'lucide-react';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -36,7 +36,7 @@ interface SalonDetailContentProps {
 
 export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
     const { user } = useAuth();
-    const { setSalon: setBookingSalon, setSelectedService } = useBooking();
+    const { salon: bookingSalon, setSalon: setBookingSalon, selectedServices, addService, removeService } = useBooking();
 
     const [salon, setSalon] = useState<SalonDetail | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -93,38 +93,49 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
     const fetchData = async () => {
         if (!salonId) return;
         setLoading(true);
-        const [salonData, reviewsData, servicesData, hoursData, galleryData] = await Promise.all([
-            SalonDataService.getSalonById(salonId),
-            ReviewService.getReviewsBySalon(salonId),
-            ServiceService.getServicesBySalon(salonId),
-            SalonDataService.getSalonWorkingHours(salonId),
-            GalleryService.getSalonGallery(salonId)
-        ]);
+        try {
+            const [salonData, reviewsData, servicesData, hoursData, galleryData] = await Promise.all([
+                SalonDataService.getSalonById(salonId),
+                ReviewService.getReviewsBySalon(salonId),
+                ServiceService.getServicesBySalon(salonId),
+                SalonDataService.getSalonWorkingHours(salonId),
+                GalleryService.getSalonGallery(salonId)
+            ]);
 
-        if (salonData) {
-            setSalon(salonData);
-            setBookingSalon(salonData);
+            if (salonData) {
+                setSalon(salonData);
+                if (!bookingSalon || bookingSalon.id !== salonData.id) {
+                    setBookingSalon(salonData);
+                }
 
-            if (user) {
-                const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
-                setIsFavorite(favStatus);
-
-                try {
-                    const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
-                    setEligibleAppointments(appointments);
-                    if (appointments.length > 0) {
-                        setSelectedAppointmentId(appointments[0].id);
+                if (user) {
+                    try {
+                        const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
+                        setIsFavorite(favStatus);
+                    } catch (err) {
+                        console.error('Favori durumu alınamadı:', err);
                     }
-                } catch (err) {
-                    console.error('Failed to fetch eligible appointments', err);
+
+                    try {
+                        const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
+                        setEligibleAppointments(appointments);
+                        if (appointments.length > 0) {
+                            setSelectedAppointmentId(appointments[0].id);
+                        }
+                    } catch (err) {
+                        console.error('Değerlendirilebilir randevular alınamadı:', err);
+                    }
                 }
             }
+            setReviews(reviewsData);
+            setServices(servicesData);
+            setWorkingHours(hoursData);
+            setGallery(galleryData);
+        } catch (err) {
+            console.error('Salon verileri yüklenirken hata oluştu:', err);
+        } finally {
+            setLoading(false);
         }
-        setReviews(reviewsData);
-        setServices(servicesData);
-        setWorkingHours(hoursData);
-        setGallery(galleryData);
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -188,9 +199,9 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
             setNewRating(0);
             setNewComment('');
             setReviewImagesUrls([]);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Yorum eklenirken hata oluştu:", error);
-            alert(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`);
+            alert(`Yorum eklenirken hata oluştu: ${error instanceof Error ? error.message : "Lütfen tekrar deneyin"}`);
         } finally {
             setSubmitting(false);
         }
@@ -257,7 +268,15 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                             <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
                             <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm w-fit text-white text-sm">
                                 <span className="material-symbols-outlined text-primary text-sm">location_on</span>
-                                {salon.neighborhood}, {salon.district_name}, {salon.city_name}
+                                {[
+                                    salon.neighborhood && `${salon.neighborhood} Mah.`,
+                                    salon.avenue && `${salon.avenue} Cad.`,
+                                    salon.street && `${salon.street} Sok.`,
+                                    salon.building_no && `No: ${salon.building_no}`,
+                                    salon.apartment_no && `D: ${salon.apartment_no}`,
+                                    salon.district_name,
+                                    salon.city_name
+                                ].filter(Boolean).join(', ')}
                             </div>
                         </div>
                         <div className="flex gap-3">
@@ -303,15 +322,23 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                                                         <h4 className="font-bold text-text-main group-hover:text-primary transition-colors">{service.service_name}</h4>
                                                         <p className="text-xs text-text-muted font-bold">{service.duration_min} dk</p>
                                                     </div>
-                                                    <div className="flex items-center gap-6">
+                                                    <div className="flex items-center gap-4">
                                                         <span className="text-lg font-black text-text-main">₺{service.price}</span>
-                                                        <Link
-                                                            href={`/booking/staff?salonId=${salon.id}&serviceId=${service.id}`}
-                                                            onClick={() => setSelectedService(service)}
-                                                            className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-                                                        >
-                                                            Al
-                                                        </Link>
+                                                        {selectedServices.some(s => s.id === service.id) ? (
+                                                            <button
+                                                                onClick={() => removeService(service.id)}
+                                                                className="px-4 py-2 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100 hover:bg-red-100 transition-all flex items-center gap-2"
+                                                            >
+                                                                <X className="w-4 h-4" /> Kaldır
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => addService(service)}
+                                                                className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+                                                            >
+                                                                <Plus className="w-4 h-4" /> Ekle
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -360,14 +387,36 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                                 <span className="material-symbols-outlined text-primary">pin_drop</span> Konum
                             </h4>
                             <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-5 border border-border relative">
-                                {salon.geo_latitude && (
+                                {salon.geo_latitude && salon.geo_longitude && (
                                     <SalonMap
                                         center={{ lat: salon.geo_latitude, lng: salon.geo_longitude }}
                                         salons={[{ ...salon, coordinates: { lat: salon.geo_latitude, lng: salon.geo_longitude } }]}
                                     />
                                 )}
                             </div>
-                            <p className="text-xs text-text-secondary">{salon.neighborhood}, {salon.district_name}, {salon.city_name}</p>
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3 text-sm">
+                                    <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-text-main font-bold">
+                                            {[
+                                                salon.neighborhood && `${salon.neighborhood} Mah.`,
+                                                salon.avenue && `${salon.avenue} Cad.`,
+                                            ].filter(Boolean).join(', ')}
+                                        </p>
+                                        <p className="text-text-secondary">
+                                            {[
+                                                salon.street && `${salon.street} Sok.`,
+                                                salon.building_no && `No: ${salon.building_no}`,
+                                                salon.apartment_no && `D: ${salon.apartment_no}`,
+                                            ].filter(Boolean).join(' ')}
+                                        </p>
+                                        <p className="text-text-main font-bold mt-1">
+                                            {salon.district_name}, {salon.city_name}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
@@ -386,6 +435,43 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                     </div>
                 </div>
             </div>
+            {/* Hizmet Sepeti (Sticky Footer) */}
+            {selectedServices.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 bg-white/80 backdrop-blur-xl border-t border-border animate-slide-up">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
+                        <div className="flex items-center gap-6 divide-x divide-gray-100">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-primary/10 text-primary rounded-2xl relative">
+                                    <ShoppingBag className="w-6 h-6" />
+                                    <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-black size-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                                        {selectedServices.length}
+                                    </span>
+                                </div>
+                                <div className="hidden sm:block">
+                                    <h4 className="font-bold text-text-main text-sm">Seçili Hizmetler</h4>
+                                    <p className="text-xs text-text-muted font-bold truncate max-w-[200px]">
+                                        {selectedServices.map(s => s.service_name).join(', ')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pl-6">
+                                <p className="text-[10px] text-text-muted font-black uppercase tracking-wider mb-0.5">Toplam Tutar</p>
+                                <p className="text-xl font-black text-text-main">
+                                    ₺{selectedServices.reduce((sum, s) => sum + s.price, 0)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <Link
+                            href={`/booking/${salon?.id}/staff`}
+                            className="bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-primary/25 hover:scale-[1.02] transition-all flex items-center gap-3 whitespace-nowrap"
+                        >
+                            Randevu Al <ChevronRight className="w-5 h-5" />
+                        </Link>
+                    </div>
+                </div>
+            )}
+
             <GeminiChat />
             <Lightbox
                 isOpen={lightboxState.isOpen}

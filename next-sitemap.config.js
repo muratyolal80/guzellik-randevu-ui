@@ -1,16 +1,13 @@
 /** @type {import('next-sitemap').IConfig} */
-export default {
+module.exports = {
     siteUrl: process.env.SITE_URL || 'https://guzellikrandevu.com',
     generateRobotsTxt: true,
     sitemapSize: 7000,
-    exclude: ['/owner/*', '/admin/*', '/auth/*'],
+    exclude: ['/owner/*', '/admin/*', '/auth/*', '/api/*'],
     robotsTxtOptions: {
-        policies: [
-            {
-                userAgent: '*',
-                allow: '/',
-                disallow: ['/owner', '/admin', '/auth'],
-            },
+        additionalSitemaps: [
+            `${process.env.SITE_URL || 'https://guzellikrandevu.com'}/server-sitemap.xml`,
         ],
     },
 }
+

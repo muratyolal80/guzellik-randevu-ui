@@ -9,7 +9,8 @@ import type {
   Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
   WorkingHours, SalonWorkingHours, Appointment, Review, IYSLog,
   SupportTicket, TicketMessage, Favorite, Notification,
-  Invite, StaffReview, SalonGallery, ReviewImage
+  Invite, StaffReview, SalonGallery, ReviewImage, Profile,
+  Coupon, Package, Transaction, AppointmentCoupon, DiscountType, PaymentMethod, PaymentStatus
 } from '@/types';
 
 // Helper to check if we have a real connection
@@ -1001,6 +1002,18 @@ export const ServiceService = {
   },
 
   /**
+   * Get all salon services in a single batch query (for search/homepage optimization)
+   */
+  async getAllSalonServices(): Promise<{ salon_id: string; service_name: string }[]> {
+    const { data, error } = await supabase
+      .from('salon_service_details')
+      .select('salon_id, service_name');
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
    * Get service by ID (with tenant check)
    */
   async getServiceById(id: string, salonId?: string): Promise<SalonServiceDetail | null> {
@@ -1309,6 +1322,18 @@ export const AppointmentService = {
     const { data, error } = await query.select().single();
 
     if (error) throw error;
+
+    // Log the action for audit trail
+    if (salonId) {
+      AuditLogService.logAction({
+        salon_id: salonId,
+        action: `APPOINTMENT_STATUS_UPDATED_${status}`,
+        resource_type: 'appointment',
+        resource_id: id,
+        changes: { status }
+      }).catch(err => console.error('[AuditLog] Failed to log status update:', err));
+    }
+
     return data;
   },
 
@@ -2455,6 +2480,122 @@ export const InviteService = {
 };
 
 // ==============================================
+// PROFILE SERVICE (User Account & Security)
+// ==============================================
+
+export const ProfileService = {
+  /**
+   * Get profile by ID
+   */
+  async getProfile(userId: string): Promise<Profile | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*, default_city:cities(name)')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update profile information
+   */
+  async updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log the action
+    AuditLogService.logAction({
+      salon_id: updates.default_city_id || '',
+      user_id: userId,
+      action: 'PROFILE_UPDATED',
+      resource_type: 'profile',
+      resource_id: userId,
+      changes: updates
+    }).catch(err => console.error('[AuditLog] Failed to log profile update:', err));
+
+    return data;
+  },
+
+  /**
+   * Request account deletion (Soft Delete)
+   */
+  async requestAccountDeletion(): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.rpc('request_account_deletion');
+    if (error) throw error;
+
+    if (user) {
+      AuditLogService.logAction({
+        salon_id: '',
+        user_id: user.id,
+        action: 'ACCOUNT_DELETION_REQUESTED',
+        resource_type: 'profile',
+        resource_id: user.id
+      }).catch(err => console.error('[AuditLog] Failed to log deletion request:', err));
+    }
+  },
+
+  /**
+   * Get active sessions for a user
+   */
+  async getActiveSessions(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('user_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_revoked', false)
+      .order('last_active_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Terminate a specific session
+   */
+  async terminateSession(sessionId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({ is_revoked: true })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+
+    if (user) {
+      AuditLogService.logAction({
+        salon_id: '',
+        user_id: user.id,
+        action: 'SESSION_TERMINATED',
+        resource_type: 'session',
+        resource_id: sessionId
+      }).catch(err => console.error('[AuditLog] Failed to log session termination:', err));
+    }
+  },
+
+  /**
+   * Terminate all other sessions
+   */
+  async terminateAllOtherSessions(userId: string, currentSessionId: string): Promise<void> {
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({ is_revoked: true })
+      .eq('user_id', userId)
+      .neq('id', currentSessionId);
+
+    if (error) throw error;
+  }
+};
+
+// ==============================================
 // GLOBAL SEARCH SERVICE
 // ==============================================
 
@@ -2487,17 +2628,157 @@ export const GlobalSearchService = {
 };
 
 // ==============================================
-// LEGACY COMPATIBILITY (for existing components)
+// AUDIT LOG SERVICE (Security & Tracking)
 // ==============================================
 
-// Re-export new services with old names for backward compatibility
-export const MasterService = MasterDataService;
+export const AuditLogService = {
+  /**
+   * Create a new audit log entry
+   */
+  async logAction(log: {
+    salon_id: string;
+    user_id?: string;
+    action: string;
+    resource_type: string;
+    resource_id?: string;
+    changes?: any;
+    ip_address?: string;
+    user_agent?: string;
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('audit_logs')
+      .insert(log);
 
+    if (error) {
+      console.error('[AuditLogService] Error creating audit log:', error);
+      // We don't necessarily want to throw and break the main flow if logging fails
+    }
+  },
+
+  /**
+   * Get audit logs for a salon
+   */
+  async getLogsBySalon(salonId: string, limit: number = 100): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select(`
+        *,
+        user:profiles(full_name, email)
+      `)
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  }
+};
+
+// ==============================================
+// CAMPAIGN SERVICE (Coupons & Packages)
+// ==============================================
+
+export const CampaignService = {
+  // Validate a coupon code for a specific salon and amount
+  async validateCoupon(code: string, salonId: string | null, amount: number): Promise<Coupon | null> {
+    let query = supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', code)
+      .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+    if (salonId) {
+      query = query.or(`salon_id.is.null,salon_id.eq.${salonId}`);
+    } else {
+      query = query.is('salon_id', null);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error || !data) return null;
+
+    // Check usage limit in JS (Postgrest doesn't support col-to-col comparison directly)
+    if (data.usage_limit !== null && data.used_count >= data.usage_limit) {
+      return null;
+    }
+
+    // Check minimum purchase amount
+    if (data.min_purchase_amount && amount < data.min_purchase_amount) {
+      throw new Error(`Minimum sepet tutarı ${data.min_purchase_amount} TL olmalıdır.`);
+    }
+
+    return data;
+  },
+
+  // Get all active packages for a salon
+  async getSalonPackages(salonId: string): Promise<Package[]> {
+    const { data, error } = await supabase
+      .from('packages')
+      .select('*, package_services(*, salon_services(*, global_services(name)))')
+      .eq('salon_id', salonId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get coupons for a salon (Admin/Owner view)
+  async getSalonCoupons(salonId: string): Promise<Coupon[]> {
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('salon_id', salonId);
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// ==============================================
+// PAYMENT & TRANSACTION SERVICE
+// ==============================================
+
+export const PaymentService = {
+  // Record a new transaction
+  async createTransaction(transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>): Promise<Transaction> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(transaction)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get transactions for a salon (Owner view)
+  async getSalonTransactions(salonId: string): Promise<Transaction[]> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get transactions for a customer
+  async getCustomerTransactions(customerId: string): Promise<Transaction[]> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*, salons(name)')
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+};
 
 // Export all services
 export default {
   MasterDataService,
-  MasterService,
   SalonDataService,
   StaffService,
   ServiceService,
@@ -2511,6 +2792,11 @@ export default {
   InviteService,
   FavoriteService,
   GalleryService,
+  ProfileService,
+  AuditLogService,
+  CampaignService,
+  PaymentService,
+  GlobalSearchService,
 };
 
 

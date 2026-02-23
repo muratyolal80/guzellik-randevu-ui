@@ -37,7 +37,7 @@ export default function SalonDetailPage() {
     const router = useRouter();
     const id = params.id as string;
     const { user } = useAuth();
-    const { setSalon: setBookingSalon, setSelectedService } = useBooking();
+    const { setSalon: setBookingSalon, setSelectedServices } = useBooking();
 
     const [salon, setSalon] = useState<SalonDetail | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -449,7 +449,7 @@ export default function SalonDetailPage() {
                                                                 <span className="text-lg font-black text-text-main">₺{service.price}</span>
                                                                 <Link
                                                                     href={`/booking/staff?salonId=${salon.id}&serviceId=${service.id}`}
-                                                                    onClick={() => setSelectedService(service)}
+                                                                    onClick={() => setSelectedServices([service])}
                                                                     className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                                                                 >
                                                                     Randevu Al

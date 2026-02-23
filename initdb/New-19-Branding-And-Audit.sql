@@ -14,7 +14,7 @@ COMMENT ON COLUMN public.salons.logo_url IS 'Business brand logo (Storage URL)';
 
 -- 2. Audit Logs Table (For security and tracking)
 CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id uuid DEFAULT public.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
     action TEXT NOT NULL, -- e.g., 'APPOINTMENT_CANCELLED', 'STAFF_ADDED', 'PLAN_UPGRADED'

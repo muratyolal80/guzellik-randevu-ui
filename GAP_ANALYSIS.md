@@ -26,6 +26,6 @@ Sistemin Admin, Salon Sahibi (Owner) ve Personel (Staff) akışları incelenmiş
 3.  [x] Personel için "Sadece Kendi Randevularım" görünümünün `StaffDashboard` üzerinden doğrulanması.
 4.  [x] Plan kısıtlamalarının (Plan-based Gate) uygulanması (PRO/ENTERPRISE kontrolü).
 5.  [x] Admin Dashboard (Platform geneli istatistikler).
-6.  [ ] Çoklu Tema (Tenant Branding) altyapısı (CSS Variables).
-7.  [ ] Abonelik ve Ödeme Sayfası (Billing Page).
-8.  [ ] İşlem Günlükleri (Audit Logs).
+6. [x] Çoklu Tema (Tenant Branding) altyapısı (CSS Variables) - ✅ Tamamlandı.
+7. [x] Abonelik ve Ödeme Sayfası (Billing Page) - ✅ Tamamlandı.
+8. [x] İşlem Günlükleri (Audit Logs) - ✅ Temel altyapı ve Appointment entegrasyonu tamamlandı.

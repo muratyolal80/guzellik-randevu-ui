@@ -37,8 +37,8 @@ export default function GalleryManager({ salonId, onCoverChange }: GalleryManage
             setLoading(true);
             const data = await GalleryService.getSalonGallery(salonId);
             setImages(data);
-        } catch (err: any) {
-            console.error('Gallery load error:', err);
+        } catch (err: unknown) {
+            console.error('Galeri yüklenirken hata:', err);
             setError('Galeri yüklenirken bir hata oluştu.');
         } finally {
             setLoading(false);
@@ -81,8 +81,8 @@ export default function GalleryManager({ salonId, onCoverChange }: GalleryManage
             }
 
             await fetchGallery();
-        } catch (err: any) {
-            console.error('Upload error:', err);
+        } catch (err: unknown) {
+            console.error('Yükleme hatası:', err);
             setError('Görsel yüklenirken bir hata oluştu.');
         } finally {
             setUploading(false);

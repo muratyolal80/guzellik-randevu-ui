@@ -1,9 +1,11 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import { MasterService, SalonDataService, NotificationService } from '@/services/db';
+import { MasterDataService, SalonDataService, NotificationService } from '@/services/db';
 import { UserMenu } from './common/UserMenu';
 import { SalonType, ServiceCategory, SalonDetail } from '@/types';
 import NotificationCenter from './NotificationCenter';
@@ -34,7 +36,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     const fetchMenuData = async () => {
       try {
         console.log('🔄 Fetching Menu Data...');
-        const data = await MasterService.getNavMenuData();
+        const data = await MasterDataService.getNavMenuData();
         console.log('✅ Menu Data Fetched:', {
           typesCount: data.salonTypes?.length,
           catsCount: data.categories?.length
