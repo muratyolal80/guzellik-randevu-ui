@@ -8,7 +8,7 @@ interface ImageUploadProps {
     /**
      * The storage bucket to upload to
      */
-    bucket: 'avatars' | 'salon-images' | 'staff-photos' | 'system-assets';
+    bucket: 'avatars' | 'salon-images' | 'staff-photos' | 'system-assets' | 'reviews';
     /**
      * The current image URL to display
      */
@@ -126,7 +126,7 @@ export default function ImageUpload({
         e.stopPropagation();
         // We don't delete from storage automatically, just clear UI
         setPreviewUrl(null);
-        onUpload(''); 
+        onUpload('');
     };
 
     // Aspect ratio classes
@@ -137,7 +137,7 @@ export default function ImageUpload({
     };
 
     return (
-        <div 
+        <div
             className={`relative group cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed transition-all ${className} ${ratioClasses[aspectRatio]} ${dragActive ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -163,9 +163,9 @@ export default function ImageUpload({
 
             {previewUrl ? (
                 <>
-                    <img 
-                        src={previewUrl} 
-                        alt="Preview" 
+                    <img
+                        src={previewUrl}
+                        alt="Preview"
                         className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">

@@ -31,10 +31,30 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // Refresh token if needed
+    // 2. Refresh session
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 3. Auth Page Redirection (Prevent logged-in users from seeing login/register)
+    // 3. Subdomain / Multi-tenant Routing
+    const url = request.nextUrl.clone();
+    const host = request.headers.get('host') || '';
+
+    // Define main domains (Update this with production domain)
+    const mainDomains = ['localhost:3000', 'guzellikrandevu.com', 'www.guzellikrandevu.com'];
+
+    const isMainDomain = mainDomains.includes(host);
+
+    if (!isMainDomain && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next')) {
+        const subdomain = host.split('.')[0];
+
+        // Skip 'www' or other internal subdomains if needed
+        if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
+            console.log(`[Middleware] Subdomain detected: ${subdomain}, rewriting to /salon-slug/${subdomain}`);
+            // Rewrite to a specialized route that handles slug-based lookup
+            return NextResponse.rewrite(new URL(`/salon-slug/${subdomain}${url.pathname}`, request.url));
+        }
+    }
+
+    // 4. Auth Page Redirection
     if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register'))) {
         try {
             const { data: profile } = await supabase
@@ -103,7 +123,7 @@ export async function middleware(request: NextRequest) {
             const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
             const role = profile?.role ? profile.role.toUpperCase() : '';
 
-            if (role !== 'SALON_OWNER' && role !== 'OWNER' && role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+            if (role !== 'SALON_OWNER' && role !== 'MANAGER' && role !== 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/?error=unauthorized_owner', request.url))
             }
         } catch (e) {
@@ -124,7 +144,7 @@ export async function middleware(request: NextRequest) {
             const role = profile?.role ? profile.role.toUpperCase() : '';
 
             // Staff can be accessed by Staff, Owner and Admin
-            if (role !== 'STAFF' && role !== 'SALON_OWNER' && role !== 'OWNER' && role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+            if (role !== 'STAFF' && role !== 'SALON_OWNER' && role !== 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/?error=unauthorized_staff', request.url))
             }
         } catch (e) {
@@ -148,7 +168,7 @@ export async function middleware(request: NextRequest) {
             if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
                 return NextResponse.redirect(new URL('/admin', request.url));
             }
-            if (role === 'SALON_OWNER' || role === 'OWNER') {
+            if (role === 'SALON_OWNER' || role === 'MANAGER') {
                 // If they are on a generic /profile page, redirect to owner profile or dashboard
                 return NextResponse.redirect(new URL('/owner/dashboard', request.url));
             }

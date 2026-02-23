@@ -7,9 +7,16 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonDataService, MasterDataService, ServiceService } from '@/services/db';
-import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
+import { SalonDataService, MasterDataService, ServiceService, FavoriteService } from '@/services/db';
+import { SalonDetail, SalonType, GlobalService, City, District, Favorite } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Güzellik Randevu | Türkiye\'nin En İyi Salonları',
+    description: 'En yakın kuaför, berber ve güzellik merkezlerini keşfedin. Ücretsiz randevu alın.',
+    keywords: 'randevu, güzellik salonu, kuaför, berber, kişisel bakım'
+};
 
 // Fallback Cache for Coordinates (Populated from DB)
 const CITY_COORDINATES_CACHE: Record<string, { lat: number; lng: number }> = {
@@ -127,6 +134,7 @@ function HomePageContent() {
     }, [searchParams, router]);
 
     const [districts, setDistricts] = useState<District[]>([]);
+    const [userFavorites, setUserFavorites] = useState<string[]>([]);
     const [salonServicesMap, setSalonServicesMap] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(true);
 
@@ -146,6 +154,26 @@ function HomePageContent() {
     const [suggestions, setSuggestions] = useState<{ type: 'salon' | 'service' | 'category', text: string, id?: string }[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchWrapperRef = useRef<HTMLDivElement>(null);
+
+    const handleToggleFavorite = async (e: React.MouseEvent, salonId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!user) {
+            alert("Favorilere eklemek için giriş yapmalısınız.");
+            return;
+        }
+
+        try {
+            const isNowFavorite = await FavoriteService.toggleFavorite(user.id, salonId);
+            if (isNowFavorite) {
+                setUserFavorites(prev => [...prev, salonId]);
+            } else {
+                setUserFavorites(prev => prev.filter(id => id !== salonId));
+            }
+        } catch (error) {
+            console.error("Favori işlemi sırasında hata:", error);
+        }
+    };
 
     // Data Loading
     useEffect(() => {
@@ -196,6 +224,12 @@ function HomePageContent() {
                         CITY_COORDINATES_CACHE[city.name] = { lat: city.latitude, lng: city.longitude };
                     }
                 });
+
+                // Load favorites if user logged in
+                if (user) {
+                    const favs = await FavoriteService.getUserFavorites();
+                    setUserFavorites(favs.map(f => f.salon_id));
+                }
 
                 // Load services for all salons to enable service-based search
                 console.log('🔄 Loading services for', salonsData?.length, 'salons...');
@@ -606,6 +640,12 @@ function HomePageContent() {
                                             <div className={`relative shrink-0 rounded-xl overflow-hidden bg-gray-100 ${viewMode === 'wide' ? 'w-full aspect-[4/3] mb-4' : 'w-32 h-32'}`}>
                                                 <img src={salon.image} alt={salon.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                                 {salon.is_sponsored && <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-primary text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Öne Çıkan</div>}
+                                                <button
+                                                    onClick={(e) => handleToggleFavorite(e, salon.id)}
+                                                    className="absolute top-2 right-2 size-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-red-500 transition-all shadow-sm z-30"
+                                                >
+                                                    <span className={`material-symbols-outlined text-lg ${userFavorites.includes(salon.id) ? 'filled text-red-500' : ''}`}>favorite</span>
+                                                </button>
                                             </div>
 
                                             <div className="flex-1 min-w-0 flex flex-col justify-between">

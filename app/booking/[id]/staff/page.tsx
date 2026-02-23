@@ -70,7 +70,7 @@ export default function StaffSelection() {
           ...s,
           image: s.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`,
           role: s.specialty || 'Uzman',
-          rating: 0, // Ratings should come from DB/Reviews, reset mock
+          rating: s.rating || 0,
           isOnline: s.is_active
         }));
 

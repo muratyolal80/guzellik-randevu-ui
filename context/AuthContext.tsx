@@ -7,6 +7,7 @@ import { Profile, UserRole } from '@/types';
 const ROLES = {
     CUSTOMER: 'CUSTOMER' as UserRole,
     STAFF: 'STAFF' as UserRole,
+    MANAGER: 'MANAGER' as UserRole,
     SALON_OWNER: 'SALON_OWNER' as UserRole,
     SUPER_ADMIN: 'SUPER_ADMIN' as UserRole,
 };
@@ -308,8 +309,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signUp,
             signOut,
             refreshUser,
-            isAdmin: user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
-            isOwner: user?.role === 'SALON_OWNER' || (user?.role as string) === 'OWNER' || user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
+            isAdmin: user?.role === 'SUPER_ADMIN',
+            isOwner: user?.role === 'SALON_OWNER' || user?.role === 'MANAGER' || user?.role === 'SUPER_ADMIN',
             isStaff: user?.role === 'STAFF',
             isAuthenticated: !!user
         }}>

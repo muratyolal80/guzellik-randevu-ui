@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { StaffService, SalonDataService } from '@/services/db';
+import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 const DEFAULT_HOURS = [
     { day_of_week: 1, start_time: '09:00', end_time: '19:00', is_day_off: false },
     { day_of_week: 2, start_time: '09:00', end_time: '19:00', is_day_off: false },
@@ -38,9 +38,12 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
     const [showShiftModal, setShowShiftModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
     const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
+    const [salonServices, setSalonServices] = useState<any[]>([]);
+    const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
     // Form States
     const [newStaffName, setNewStaffName] = useState('');
+    const [newStaffEmail, setNewStaffEmail] = useState('');
     const [newStaffSpecialty, setNewStaffSpecialty] = useState('');
     const [newStaffPhoto, setNewStaffPhoto] = useState<string>('');
     const [saving, setSaving] = useState(false);
@@ -50,7 +53,17 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
     useEffect(() => {
         fetchStaff();
         fetchSalon();
+        fetchServices();
     }, [salonId]);
+
+    const fetchServices = async () => {
+        try {
+            const services = await ServiceService.getServicesBySalon(salonId);
+            setSalonServices(services);
+        } catch (err) {
+            console.error('Hizmetler çekilemedi:', err);
+        }
+    };
 
     const fetchSalon = async () => {
         try {
@@ -77,17 +90,26 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
         e.preventDefault();
         setSaving(true);
         try {
-            await StaffService.createStaff({
+            const newMember = await StaffService.createStaff({
                 salon_id: salonId,
                 name: newStaffName,
+                email: newStaffEmail,
                 specialty: newStaffSpecialty,
                 photo: newStaffPhoto,
                 is_active: true
             }, newStaffWorkingHours);
+
+            // Link services if selected
+            if (newMember && selectedServiceIds.length > 0) {
+                await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+            }
+
             setShowAddModal(false);
             setNewStaffName('');
+            setNewStaffEmail('');
             setNewStaffSpecialty('');
             setNewStaffPhoto('');
+            setSelectedServiceIds([]);
             setNewStaffWorkingHours(DEFAULT_HOURS);
             fetchStaff();
         } catch (err) {
@@ -180,9 +202,16 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
                         </div>
 
                         <h3 className="text-lg font-black text-text-main mb-1">{member.name}</h3>
-                        <div className="flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-wider mb-4">
-                            <Briefcase className="w-3.5 h-3.5" />
-                            {member.specialty}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-wider">
+                                <Briefcase className="w-3.5 h-3.5" />
+                                {member.specialty || 'Genel Uzman'}
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-100">
+                                <span className="material-symbols-outlined text-[14px] filled text-yellow-600">star</span>
+                                <span className="text-xs font-black text-yellow-700">{member.rating || 0}</span>
+                                <span className="text-xs text-yellow-600/50">({member.review_count || 0})</span>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2 pt-4 border-t border-border">
@@ -261,6 +290,64 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
                                             placeholder="Örn: Saç Tasarımı, Boya Uzmanı"
                                         />
                                     </div>
+                                    <div className="group">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                            E-Posta (Hesap Eşleştirme İçin)
+                                        </label>
+                                        <input
+                                            required
+                                            type="email"
+                                            value={newStaffEmail}
+                                            onChange={(e) => setNewStaffEmail(e.target.value)}
+                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                            placeholder="personel@firsat.com"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-8 border-t border-border">
+                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-6 text-primary">
+                                    <Briefcase className="w-4 h-4" /> Verilen Hizmetler
+                                </label>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {salonServices.map((service) => (
+                                        <button
+                                            key={service.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedServiceIds(prev =>
+                                                    prev.includes(service.id)
+                                                        ? prev.filter(id => id !== service.id)
+                                                        : [...prev, service.id]
+                                                );
+                                            }}
+                                            className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${selectedServiceIds.includes(service.id)
+                                                ? 'bg-primary/10 border-primary text-primary shadow-sm ring-2 ring-primary/20'
+                                                : 'bg-surface-alt border-border text-text-muted hover:border-primary/50'
+                                                }`}
+                                        >
+                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${selectedServiceIds.includes(service.id)
+                                                ? 'bg-primary border-primary text-white scale-110'
+                                                : 'border-border bg-white'
+                                                }`}>
+                                                {selectedServiceIds.includes(service.id) && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-black truncate leading-tight">
+                                                    {service.service_name || service.global_service?.name}
+                                                </span>
+                                                <span className="text-[10px] font-bold opacity-60">
+                                                    {service.price} TL • {service.duration_min} dk
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {salonServices.length === 0 && (
+                                        <div className="col-span-full p-8 rounded-3xl bg-surface-alt border border-dashed border-border text-center">
+                                            <p className="text-xs font-bold text-text-muted">Bu şube için henüz hizmet tanımlanmamış.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

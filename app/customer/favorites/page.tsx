@@ -13,38 +13,9 @@ export default function FavoritesPage() {
     useEffect(() => {
         async function fetchFavorites() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
-
-                // Use the service which joins with salon_details view for rich data (ratings etc.)
-                // Note: Ensure foreign key exists between favorites.salon_id and salon_details.id (view) 
-                // typically views don't have FKs, so we might need a two-step fetch if join fails.
-                // Let's rely on standard logic: fetch favs -> get IDs -> fetch salon details
-
-                // Fetch basic favs
-                const { data: favs } = await supabase
-                    .from('favorites')
-                    .select('id, salon_id')
-                    .eq('user_id', user.id);
-
-                if (favs && favs.length > 0) {
-                    const salonIds = favs.map((f: any) => f.salon_id);
-                    // Fetch details from view
-                    const { data: details } = await supabase
-                        .from('salon_details')
-                        .select('*')
-                        .in('id', salonIds);
-
-                    // Merge
-                    const fullData = details?.map((d: any) => ({
-                        id: favs.find((f: any) => f.salon_id === d.id)?.id || 'temp', // we don't need fav id much
-                        salon: d
-                    }));
-                    setFavorites(fullData || []);
-                } else {
-                    setFavorites([]);
-                }
-
+                setLoading(true);
+                const data = await FavoriteService.getUserFavorites();
+                setFavorites(data || []);
             } catch (error) {
                 console.error('Error fetching favorites:', error);
             } finally {
@@ -117,7 +88,7 @@ export default function FavoritesPage() {
                                 <h3 className="font-bold text-lg text-gray-900 mb-1">{fav.salon?.name}</h3>
                                 <div className="flex items-center text-gray-500 text-sm mb-4">
                                     <MapPin className="w-4 h-4 mr-1" />
-                                    {fav.salon?.district?.name}, {fav.salon?.city?.name}
+                                    {fav.salon?.district_name}, {fav.salon?.city_name}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">

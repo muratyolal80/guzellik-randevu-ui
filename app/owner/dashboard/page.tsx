@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { SalonDataService } from '@/services/db';
+import { SalonDataService, DashboardService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
 import {
     Users,
@@ -25,6 +25,8 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
+import OwnerAnalyticsCharts from '@/components/owner/OwnerAnalyticsCharts';
+import PlanGuard from '@/components/PlanGuard';
 
 export default function OwnerDashboard() {
     const router = useRouter();
@@ -37,6 +39,7 @@ export default function OwnerDashboard() {
         activeStaff: 0
     });
     const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
+    const [analyticsData, setAnalyticsData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -50,11 +53,23 @@ export default function OwnerDashboard() {
 
         try {
             setLoading(true);
-            await fetchSalonStats(activeBranch.id);
+            await Promise.all([
+                fetchSalonStats(activeBranch.id),
+                fetchAnalyticsData(activeBranch.id)
+            ]);
         } catch (err) {
             console.error('Dashboard verisi çekilirken hata:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAnalyticsData = async (salonId: string) => {
+        try {
+            const data = await DashboardService.getOwnerDashboardData(salonId);
+            setAnalyticsData(data);
+        } catch (err) {
+            console.error('Analytics error:', err);
         }
     };
 
@@ -156,29 +171,15 @@ export default function OwnerDashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                    { label: 'Bugünkü Randevu', value: stats.todayCount, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50', trend: '' },
-                    { label: 'Tahmini Gelir', value: `₺${stats.todayRevenue}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50', trend: '' },
-                    { label: 'Doluluk Oranı', value: `%${stats.weeklyOccupancy}`, icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50', trend: '' },
-                    { label: 'Aktif Personel', value: stats.activeStaff, icon: Users, color: 'text-orange-600', bg: 'bg-orange-50', trend: '' },
-                ].map((kpi, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[32px] border border-border shadow-card group hover:scale-[1.02] transition-transform relative overflow-hidden">
-                        <div className={`w-14 h-14 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-5 relative z-10`}>
-                            <kpi.icon className="w-7 h-7" />
-                        </div>
-                        <div className="space-y-1 relative z-10">
-                            <p className="text-[11px] font-black text-text-muted uppercase tracking-widest leading-none">{kpi.label}</p>
-                            <p className="text-3xl font-black text-text-main tracking-tight">{kpi.value}</p>
-                        </div>
-                        <div className="mt-4 flex items-center gap-1.5 text-xs relative z-10 font-bold">
-                            {kpi.trend && <span className="text-green-600 flex items-center translate-y-[-1px]"><ArrowUpRight className="w-3 h-3" /> {kpi.trend}</span>}
-                            <span className="text-text-muted font-medium">aktif veri</span>
-                        </div>
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gray-50 rounded-full -mr-12 -mt-12 group-hover:bg-gray-100 transition-colors"></div>
-                    </div>
-                ))}
-            </div>
+            {/* Analytics Charts - Gated for PRO users */}
+            <PlanGuard
+                requiredPlan="PRO"
+                featureName="Gelişmiş Analitik"
+            >
+                {analyticsData && (
+                    <OwnerAnalyticsCharts data={analyticsData} />
+                )}
+            </PlanGuard>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 bg-white rounded-[40px] border border-border shadow-card overflow-hidden">
