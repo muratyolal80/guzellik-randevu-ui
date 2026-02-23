@@ -121,8 +121,21 @@ export default function SalonDetailPage() {
             ]);
 
             if (salonData) {
-                setSalon(salonData);
-                setBookingSalon(salonData); // Store in booking context
+                // Defensive mapping to prevent [object Object] rendering
+                const mappedSalon = {
+                    ...salonData,
+                    city_name: typeof salonData.city_name === 'object' ? (salonData.city_name as any)?.name : (salonData.city_name || 'Belirtilmemiş'),
+                    district_name: typeof salonData.district_name === 'object' ? (salonData.district_name as any)?.name : (salonData.district_name || ''),
+                    features: Array.isArray(salonData.features)
+                        ? salonData.features.map((f: any) => typeof f === 'string' ? f : (f.name || JSON.stringify(f)))
+                        : [],
+                    tags: Array.isArray((salonData as any).assigned_types)
+                        ? (salonData as any).assigned_types.map((t: any) => typeof t === 'string' ? t : t.name)
+                        : (salonData.type_name ? [salonData.type_name] : [])
+                };
+
+                setSalon(mappedSalon);
+                setBookingSalon(mappedSalon); // Store in booking context
 
                 // Fetch favorite status if user logged in
                 if (user) {

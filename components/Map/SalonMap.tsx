@@ -182,7 +182,7 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
                         <h3 className="font-display font-bold text-lg text-gray-900 truncate mb-1 leading-tight">{salon.name}</h3>
                         <p className="text-xs text-gray-500 truncate mb-4 flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
-                            {salon.district}, {salon.city_name}
+                            {typeof salon.district === 'object' ? '' : (salon.district || '')}{salon.district ? ', ' : ''}{typeof salon.city_name === 'object' ? '' : (salon.city_name || '')}
                         </p>
                         <div className="flex justify-between items-center border-t border-gray-100 pt-3 mt-1">
                             <div className="flex flex-col">
