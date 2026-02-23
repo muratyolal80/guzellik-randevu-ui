@@ -264,6 +264,8 @@ export interface Appointment {
   end_time: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   notes?: string;
+  coupon_code?: string;
+  discount_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -365,6 +367,8 @@ export interface BookingDisplay {
   staff: {
     name: string;
   };
+  coupon_code?: string;
+  discount_amount?: number;
 }
 
 export interface SalonWorkingHours {

@@ -2182,17 +2182,6 @@ export const IYSService = {
     return data || [];
   },
 
-  /**
-   * Update working hours
-   */
-  async updateWorkingHours(id: string, updates: Partial<WorkingHours>): Promise<void> {
-    const { error } = await supabase
-      .from('working_hours')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) throw error;
-  }
 };
 
 // ==============================================
@@ -2679,27 +2668,28 @@ export const AuditLogService = {
 // ==============================================
 
 export const CampaignService = {
-  // Validate a coupon code for a specific salon and amount
-  async validateCoupon(code: string, salonId: string | null, amount: number): Promise<Coupon | null> {
-    let query = supabase
+  /**
+   * Validate a coupon code for a specific salon and amount
+   */
+  async validateCoupon(code: string, salonId: string, amount: number): Promise<Coupon> {
+    const { data, error } = await supabase
       .from('coupons')
       .select('*')
-      .eq('code', code)
+      .eq('code', code.toUpperCase())
+      .eq('salon_id', salonId)
       .eq('is_active', true)
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+      .single();
 
-    if (salonId) {
-      query = query.or(`salon_id.is.null,salon_id.eq.${salonId}`);
-    } else {
-      query = query.is('salon_id', null);
+    if (error || !data) throw new Error('Geçersiz veya süresi dolmuş kupon kodu.');
+
+    // Check usage limit
+    if (data.usage_limit && data.used_count >= data.usage_limit) {
+      throw new Error('Bu kuponun kullanım sınırı dolmuştur.');
     }
 
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) return null;
-
-    // Check usage limit in JS (Postgrest doesn't support col-to-col comparison directly)
-    if (data.usage_limit !== null && data.used_count >= data.usage_limit) {
-      return null;
+    // Check expiry date
+    if (data.end_date && new Date(data.end_date) < new Date()) {
+      throw new Error('Bu kuponun süresi dolmuştur.');
     }
 
     // Check minimum purchase amount
@@ -2707,30 +2697,109 @@ export const CampaignService = {
       throw new Error(`Minimum sepet tutarı ${data.min_purchase_amount} TL olmalıdır.`);
     }
 
-    return data;
+    return data as Coupon;
   },
 
-  // Get all active packages for a salon
-  async getSalonPackages(salonId: string): Promise<Package[]> {
-    const { data, error } = await supabase
-      .from('packages')
-      .select('*, package_services(*, salon_services(*, global_services(name)))')
-      .eq('salon_id', salonId)
-      .eq('is_active', true);
 
-    if (error) throw error;
-    return data;
-  },
-
-  // Get coupons for a salon (Admin/Owner view)
+  /**
+   * Get coupons for a salon (Admin/Owner view)
+   */
   async getSalonCoupons(salonId: string): Promise<Coupon[]> {
     const { data, error } = await supabase
       .from('coupons')
       .select('*')
-      .eq('salon_id', salonId);
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data as any) || [];
+  },
+
+  /**
+   * Create a new coupon
+   */
+  async createCoupon(coupon: Omit<Coupon, 'id' | 'created_at' | 'used_count'>): Promise<Coupon> {
+    const { data, error } = await supabase
+      .from('coupons')
+      .insert(coupon)
+      .select()
+      .single();
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Delete a coupon
+   */
+  async deleteCoupon(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('coupons')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Get all active packages for a salon
+   */
+  async getSalonPackages(salonId: string): Promise<Package[]> {
+    const { data, error } = await supabase
+      .from('packages')
+      .select(`
+        *,
+        services:package_services(
+          *,
+          service:salon_services(*)
+        )
+      `)
+      .eq('salon_id', salonId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+    return (data as any) || [];
+  },
+
+  /**
+   * Create a new package
+   */
+  async createPackage(packageData: Omit<Package, 'id' | 'created_at'>, services: { salon_service_id: string, quantity: number }[]): Promise<Package> {
+    // 1. Create the package
+    const { data: pkg, error: pkgError } = await supabase
+      .from('packages')
+      .insert(packageData)
+      .select()
+      .single();
+
+    if (pkgError) throw pkgError;
+
+    // 2. Add services to the package
+    const packageServices = services.map(s => ({
+      package_id: pkg.id,
+      salon_service_id: s.salon_service_id,
+      quantity: s.quantity
+    }));
+
+    const { error: srvError } = await supabase
+      .from('package_services')
+      .insert(packageServices);
+
+    if (srvError) throw srvError;
+
+    return pkg;
+  },
+
+  /**
+   * Delete a package
+   */
+  async deletePackage(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('packages')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 };
 

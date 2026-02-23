@@ -211,7 +211,7 @@ export default function BookingUserInfoPage() {
       }
 
       const totalPriceValue = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0);
-      const coupon = await CampaignService.validateCoupon(couponCode, salon?.id || null, totalPriceValue);
+      const coupon = await CampaignService.validateCoupon(couponCode, salon?.id as string, totalPriceValue);
 
       if (coupon) {
         setAppliedCoupon(coupon);
@@ -272,6 +272,7 @@ export default function BookingUserInfoPage() {
           staffId: selectedStaff!.id,
           serviceId: selectedServices[0].id,
           startTime: startDateTime.toISOString(),
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         }),
       });
 

@@ -276,9 +276,28 @@ export default function Confirmation() {
                                         <span className="material-symbols-outlined text-primary">payments</span>
                                         Toplam Ücret
                                     </span>
-                                    <span className="font-bold text-primary text-xl">
-                                        {services.reduce((acc, s) => acc + (s.price || 0), 0)} TL
-                                    </span>
+                                    <div className="text-right">
+                                        {(appointment?.discount_amount && appointment.discount_amount > 0) ? (
+                                            <>
+                                                <div className="text-sm text-text-muted line-through">
+                                                    {services.reduce((acc, s) => acc + (s.price || 0), 0)} TL
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-bold text-primary text-xl">
+                                                        {services.reduce((acc, s) => acc + (s.price || 0), 0) - (appointment.discount_amount || 0)} TL
+                                                    </span>
+                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
+                                                        <span className="material-symbols-outlined text-xs">sell</span>
+                                                        {appointment.coupon_code} Uygulandı
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <span className="font-bold text-primary text-xl">
+                                                {services.reduce((acc, s) => acc + (s.price || 0), 0)} TL
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}

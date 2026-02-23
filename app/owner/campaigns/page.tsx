@@ -8,6 +8,8 @@ import { Coupon, Package } from '@/types';
 import { Ticket, Package as PackageIcon, Plus, Trash2, Edit, CheckCircle2, XCircle, Search, Filter, Percent, Banknote } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import AddCouponModal from '@/components/owner/AddCouponModal';
+import AddPackageModal from '@/components/owner/AddPackageModal';
 
 export default function OwnerCampaignsPage() {
     const { user } = useAuth();
@@ -16,6 +18,8 @@ export default function OwnerCampaignsPage() {
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+    const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
 
     useEffect(() => {
         if (activeBranch) {
@@ -41,6 +45,28 @@ export default function OwnerCampaignsPage() {
         }
     };
 
+    const handleDeleteCoupon = async (id: string) => {
+        if (!confirm('Bu kuponu silmek istediğinize emin misiniz?')) return;
+        try {
+            await CampaignService.deleteCoupon(id);
+            setCoupons(coupons.filter(c => c.id !== id));
+        } catch (error) {
+            console.error('Kupon silinirken hata:', error);
+            alert('Silme işlemi başarısız oldu.');
+        }
+    };
+
+    const handleDeletePackage = async (id: string) => {
+        if (!confirm('Bu paketi silmek istediğinize emin misiniz?')) return;
+        try {
+            await CampaignService.deletePackage(id);
+            setPackages(packages.filter(p => p.id !== id));
+        } catch (error) {
+            console.error('Paket silinirken hata:', error);
+            alert('Silme işlemi başarısız oldu.');
+        }
+    };
+
     if (!activeBranch) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-white rounded-[40px] border border-border">
@@ -59,7 +85,10 @@ export default function OwnerCampaignsPage() {
                     <h1 className="text-3xl font-black text-text-main tracking-tight">Kampanya & Sadakat</h1>
                     <p className="text-text-secondary font-medium">Müşterilerinizi ödüllendirmek için kupon ve paketler oluşturun.</p>
                 </div>
-                <button className="flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:bg-primary-hover hover:scale-105 transition-all">
+                <button
+                    onClick={() => activeTab === 'coupons' ? setIsCouponModalOpen(true) : setIsPackageModalOpen(true)}
+                    className="flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:bg-primary-hover hover:scale-105 transition-all"
+                >
                     <Plus className="w-5 h-5" />
                     {activeTab === 'coupons' ? 'Yeni Kupon Oluştur' : 'Yeni Paket Oluştur'}
                 </button>
@@ -105,7 +134,10 @@ export default function OwnerCampaignsPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button className="p-2 hover:bg-gray-100 rounded-xl text-text-secondary transition-colors"><Edit className="w-4 h-4" /></button>
-                                    <button className="p-2 hover:bg-red-50 rounded-xl text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    <button
+                                        onClick={() => handleDeleteCoupon(coupon.id)}
+                                        className="p-2 hover:bg-red-50 rounded-xl text-red-400 transition-colors"
+                                    ><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             </div>
 
@@ -165,14 +197,36 @@ export default function OwnerCampaignsPage() {
                                     <p className="text-[10px] font-black text-text-muted uppercase">PAKET FİYATI</p>
                                     <p className="text-xl font-black text-text-main">₺{Number(pkg.price).toFixed(2)}</p>
                                 </div>
-                                <button className="p-3 bg-surface-alt hover:bg-white border border-border hover:border-primary hover:text-primary rounded-2xl transition-all shadow-sm">
-                                    <Edit className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button className="p-3 bg-surface-alt hover:bg-white border border-border hover:border-primary hover:text-primary rounded-2xl transition-all shadow-sm">
+                                        <Edit className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeletePackage(pkg.id)}
+                                        className="p-3 bg-red-50 hover:bg-red-100 border border-transparent text-red-400 rounded-2xl transition-all shadow-sm"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            <AddCouponModal
+                isOpen={isCouponModalOpen}
+                onClose={() => setIsCouponModalOpen(false)}
+                onSuccess={(newCoupon) => setCoupons([newCoupon, ...coupons])}
+                salonId={activeBranch.id}
+            />
+
+            <AddPackageModal
+                isOpen={isPackageModalOpen}
+                onClose={() => setIsPackageModalOpen(false)}
+                onSuccess={(newPkg) => setPackages([newPkg, ...packages])}
+                salonId={activeBranch.id}
+            />
         </div>
     );
 }

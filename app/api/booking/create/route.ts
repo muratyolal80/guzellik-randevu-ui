@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime } = body;
+    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode } = body;
 
     if (!customerName || !salonId || !staffId || !serviceId || !startTime) {
       return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
@@ -58,11 +58,47 @@ export async function POST(request: NextRequest) {
     // 3. Get Service Info
     const { data: service } = await supabaseAdmin
       .from('salon_services')
-      .select('duration_min')
+      .select('duration_min, price')
       .eq('id', serviceId)
       .single();
 
     if (!service) return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
+
+    // 4. Handle Coupon Validation
+    let discountAmount = 0;
+    let validCoupon = null;
+
+    if (couponCode) {
+      const { data: coupon, error: couponError } = await supabaseAdmin
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode.toUpperCase())
+        .eq('salon_id', salonId)
+        .eq('is_active', true)
+        .single();
+
+      if (coupon && !couponError) {
+        // Check usage limit
+        if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+          console.warn('Coupon usage limit reached');
+        } else if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+          console.warn('Coupon expired');
+        } else if (coupon.min_purchase_amount && service.price < coupon.min_purchase_amount) {
+          console.warn('Minimum purchase amount not met');
+        } else {
+          // Valid coupon!
+          validCoupon = coupon;
+          if (coupon.discount_type === 'PERCENTAGE') {
+            discountAmount = (service.price * coupon.discount_value) / 100;
+            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+              discountAmount = coupon.max_discount_amount;
+            }
+          } else {
+            discountAmount = coupon.discount_value;
+          }
+        }
+      }
+    }
 
     const startDate = new Date(startTime);
     const endDate = new Date(startDate.getTime() + service.duration_min * 60 * 1000);
@@ -136,6 +172,8 @@ export async function POST(request: NextRequest) {
             end_time: endDate.toISOString(),
             status: 'PENDING', // Reset status to pending approval
             notes: notes || '',
+            coupon_code: validCoupon?.code || null,
+            discount_amount: discountAmount,
             updated_at: new Date().toISOString()
           })
           .eq('id', appointmentId)
@@ -161,6 +199,8 @@ export async function POST(request: NextRequest) {
           end_time: endDate.toISOString(),
           status: 'PENDING',
           notes: notes || '',
+          coupon_code: validCoupon?.code || null,
+          discount_amount: discountAmount,
         })
         .select()
         .single();
@@ -176,10 +216,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Randevu işleminiz gerçekleştirilemedi.' }, { status: 500 });
     }
 
-    // 5. Send SMS
-    if (user.phone) {
-      const cleanPhone = user.phone.replace('+90', '');
-      sendAppointmentSMS(cleanPhone, 'Randevunuz alındı!').catch(() => { });
+    // 6. Finalize Coupon Usage
+    if (validCoupon) {
+      await supabaseAdmin.rpc('increment_coupon_usage', { p_coupon_id: validCoupon.id });
     }
 
     return NextResponse.json({
