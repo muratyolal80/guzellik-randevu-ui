@@ -6,10 +6,15 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
-import { SalonDataService, ReviewService, ServiceService, FavoriteService } from '@/services/db';
-import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, Appointment } from '@/types';
+import { SalonDataService, ReviewService, ServiceService, FavoriteService, GalleryService, StaffReviewService } from '@/services/db';
+import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, Appointment, StaffReview, SalonGallery } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
+import GallerySlider from '@/components/GallerySlider';
+import ImageUpload from '@/components/ImageUpload';
+import Skeleton from '@/components/Skeleton';
+import Lightbox from '@/components/common/Lightbox';
+import { UserRole } from '@/types';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -51,6 +56,41 @@ export default function SalonDetailPage() {
     const [newRating, setNewRating] = useState(0);
     const [newComment, setNewComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState<'services' | 'staff-reviews'>('services');
+    const [staffReviews, setStaffReviews] = useState<StaffReview[]>([]);
+    const [loadingStaffReviews, setLoadingStaffReviews] = useState(false);
+    const [gallery, setGallery] = useState<SalonGallery[]>([]);
+    const [reviewImagesUrls, setReviewImagesUrls] = useState<string[]>([]);
+    const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+    // Lightbox for Review Images State
+    const [lightboxState, setLightboxState] = useState<{
+        isOpen: boolean;
+        images: string[];
+        currentIndex: number;
+    }>({
+        isOpen: false,
+        images: [],
+        currentIndex: 0
+    });
+
+    useEffect(() => {
+        if (activeTab === 'staff-reviews' && id) {
+            fetchStaffReviews();
+        }
+    }, [activeTab, id]);
+
+    const fetchStaffReviews = async () => {
+        try {
+            setLoadingStaffReviews(true);
+            const data = await StaffReviewService.getReviewsBySalon(id);
+            setStaffReviews(data);
+        } catch (error) {
+            console.error('Error fetching staff reviews:', error);
+        } finally {
+            setLoadingStaffReviews(false);
+        }
+    };
 
     // Group services by category
     const groupedServices = services.reduce((acc: Record<string, SalonServiceDetail[]>, service) => {
@@ -72,11 +112,12 @@ export default function SalonDetailPage() {
             if (!id) return;
             setLoading(true);
             // Fetch salon, reviews, services, and working hours in parallel
-            const [salonData, reviewsData, servicesData, hoursData] = await Promise.all([
+            const [salonData, reviewsData, servicesData, hoursData, galleryData] = await Promise.all([
                 SalonDataService.getSalonById(id),
                 ReviewService.getReviewsBySalon(id),
                 ServiceService.getServicesBySalon(id),
-                SalonDataService.getSalonWorkingHours(id)
+                SalonDataService.getSalonWorkingHours(id),
+                GalleryService.getSalonGallery(id)
             ]);
 
             if (salonData) {
@@ -102,6 +143,7 @@ export default function SalonDetailPage() {
             setReviews(reviewsData);
             setServices(servicesData);
             setWorkingHours(hoursData);
+            setGallery(galleryData);
             setLoading(false);
         };
         fetchData();
@@ -154,10 +196,23 @@ export default function SalonDetailPage() {
                 appointment_id: selectedAppointmentId
             });
 
-            setReviews([newReviewData, ...reviews]);
+            // Handle review images if any
+            let finalReviewData = { ...newReviewData, images: [] as any[] };
+            if (reviewImagesUrls.length > 0) {
+                const addedImages = await Promise.all(reviewImagesUrls.map(url =>
+                    GalleryService.addReviewImage({
+                        review_id: newReviewData.id,
+                        image_url: url
+                    })
+                ));
+                finalReviewData.images = addedImages;
+            }
+
+            setReviews([finalReviewData, ...reviews]);
             setShowReviewForm(false);
             setNewRating(0);
             setNewComment('');
+            setReviewImagesUrls([]);
 
             // Remove the reviewed appointment from eligible list
             setEligibleAppointments(prev => prev.filter(a => a.id !== selectedAppointmentId));
@@ -183,10 +238,63 @@ export default function SalonDetailPage() {
     if (loading || !salon) {
         return (
             <Layout>
-                <div className="flex h-screen items-center justify-center bg-background">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-text-secondary">Salon bilgileri yükleniyor...</p>
+                <div className="bg-background min-h-screen">
+                    {/* Hero Skeleton */}
+                    <Skeleton className="h-[480px] w-full rounded-none" />
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <div className="lg:col-span-8">
+                                {/* Header Info Skeleton */}
+                                <div className="bg-white rounded-[32px] p-8 md:p-10 border border-border shadow-card mb-8">
+                                    <Skeleton className="h-10 w-2/3 mb-4" />
+                                    <div className="flex flex-wrap gap-4 mb-6">
+                                        <Skeleton className="h-6 w-32" />
+                                        <Skeleton className="h-6 w-48" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Skeleton className="h-10 w-32 rounded-xl" />
+                                        <Skeleton className="h-10 w-32 rounded-xl" />
+                                    </div>
+                                </div>
+
+                                {/* Tabs Skeleton */}
+                                <div className="space-y-4">
+                                    <div className="flex gap-4 border-b border-border pb-4">
+                                        <Skeleton className="h-8 w-24" />
+                                        <Skeleton className="h-8 w-32" />
+                                    </div>
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="bg-white p-6 rounded-2xl border border-border">
+                                            <div className="flex justify-between mb-4">
+                                                <Skeleton className="h-6 w-1/4" />
+                                                <Skeleton className="h-6 w-16" />
+                                            </div>
+                                            <Skeleton className="h-4 w-full mb-2" />
+                                            <Skeleton className="h-4 w-2/3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Sidebar Skeleton */}
+                            <div className="lg:col-span-4 space-y-8">
+                                <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                                    <Skeleton className="h-8 w-1/2 mb-6" />
+                                    <Skeleton className="h-48 w-full rounded-2xl mb-6" />
+                                    <Skeleton className="h-20 w-full rounded-2xl" />
+                                </div>
+                                <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                                    <Skeleton className="h-8 w-2/3 mb-6" />
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <div key={i} className="flex justify-between mb-4">
+                                            <Skeleton className="h-4 w-20" />
+                                            <Skeleton className="h-4 w-24" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </Layout>
@@ -209,16 +317,20 @@ export default function SalonDetailPage() {
     return (
         <Layout>
             {/* Professional Hero Section */}
-            <div className="relative h-[400px] w-full group">
-                <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
-                    style={{ backgroundImage: `url("${salon.image}")` }}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
-                </div>
+            <div className="relative h-[480px] w-full group">
+                {gallery.length > 0 ? (
+                    <GallerySlider images={gallery} salonName={salon.name} />
+                ) : (
+                    <div
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
+                        style={{ backgroundImage: `url("${salon.image}")` }}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
+                    </div>
+                )}
 
-                <div className="absolute bottom-0 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 z-10">
-                    <div className="flex flex-col md:flex-row items-end justify-between gap-6">
+                <div className="absolute bottom-0 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 z-10 pointer-events-none">
+                    <div className="flex flex-col md:flex-row items-end justify-between gap-6 pointer-events-auto">
                         <div className="space-y-3">
                             <div className="flex items-center gap-3">
                                 {salon.is_sponsored && <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full tracking-wide shadow-md">ÖNERİLEN</span>}
@@ -289,74 +401,136 @@ export default function SalonDetailPage() {
                             </div>
                         </section>
 
-                        {/* Services Section */}
-                        <section>
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
-                                    <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">spa</span></span>
-                                    Hizmetlerimiz
-                                </h3>
-                            </div>
+                        {/* Tab Navigation */}
+                        <div className="flex border-b border-border mb-8">
+                            <button
+                                onClick={() => setActiveTab('services')}
+                                className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === 'services' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
+                            >
+                                Hizmetler
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('staff-reviews')}
+                                className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === 'staff-reviews' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
+                            >
+                                Uzman Yorumları
+                            </button>
+                        </div>
 
-                            <div className="space-y-6">
-                                {Object.entries(groupedServices).map(([category, services]) => (
-                                    <div key={category} className="bg-white rounded-3xl border border-border overflow-hidden shadow-card transition-all duration-300">
-                                        <button
-                                            onClick={() => toggleCategory(category)}
-                                            className="w-full px-6 py-4 bg-gray-50 border-b border-border flex items-center justify-between hover:bg-gray-100 transition-colors cursor-pointer text-left"
-                                        >
-                                            <h4 className="text-lg font-bold text-text-main flex items-center gap-3">
-                                                <span className={`w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary transition-transform duration-300 ${openCategories[category] ? 'rotate-90' : ''}`}>
-                                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
-                                                </span>
-                                                {category}
-                                            </h4>
-                                            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider bg-white border border-border px-2 py-1 rounded-md">{services.length} Hizmet</span>
-                                        </button>
+                        {activeTab === 'services' && (
+                            <section>
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
+                                        <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined text-xl">content_cut</span></span>
+                                        Hizmetler
+                                    </h3>
+                                </div>
 
-                                        {/* Accordion Content */}
-                                        <div className={`divide-y divide-gray-100 transition-all duration-300 ease-in-out origin-top ${openCategories[category] ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                                            {services.map((service) => (
-                                                <div key={service.id} className="group p-5 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row gap-4 justify-between items-center">
-                                                    <div className="flex items-start gap-4 w-full sm:w-auto">
-                                                        <div className="hidden sm:flex size-14 rounded-2xl bg-surface-alt border border-border items-center justify-center text-text-muted group-hover:text-primary group-hover:border-primary/30 transition-all shrink-0">
-                                                            <span className="material-symbols-outlined text-2xl">
-                                                                {service.category_icon || (category === 'Saç' ? 'content_cut' : category === 'Bakım' ? 'face' : category === 'Tırnak' ? 'brush' : 'spa')}
-                                                            </span>
+                                <div className="space-y-6">
+                                    {Object.entries(groupedServices).map(([category, items]) => (
+                                        <div key={category} className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                            <button
+                                                onClick={() => toggleCategory(category)}
+                                                className="w-full flex items-center justify-between p-6 bg-surface-alt hover:bg-gray-100/80 transition-colors"
+                                            >
+                                                <span className="text-lg font-black text-text-main uppercase tracking-tight">{category}</span>
+                                                <span className={`material-symbols-outlined transition-transform duration-300 ${openCategories[category] ? 'rotate-180' : ''}`}>expand_more</span>
+                                            </button>
+
+                                            {openCategories[category] && (
+                                                <div className="p-2 md:p-4 space-y-2 animate-fade-in">
+                                                    {items.map((service) => (
+                                                        <div key={service.id} className="flex items-center justify-between p-4 md:p-6 rounded-2xl hover:bg-primary/5 transition-all group border border-transparent hover:border-primary/20">
+                                                            <div className="flex-1">
+                                                                <h4 className="font-black text-text-main group-hover:text-primary transition-colors">{service.service_name}</h4>
+                                                                <p className="text-xs text-text-muted mt-1 font-bold">{service.duration_min} Dakika</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-6">
+                                                                <span className="text-lg font-black text-text-main">₺{service.price}</span>
+                                                                <Link
+                                                                    href={`/booking/staff?salonId=${salon.id}&serviceId=${service.id}`}
+                                                                    onClick={() => setSelectedService(service)}
+                                                                    className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                                                >
+                                                                    Randevu Al
+                                                                </Link>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {activeTab === 'staff-reviews' && (
+                            <section className="animate-fade-in space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
+                                        <span className="p-2 bg-amber-500/10 rounded-lg text-amber-600"><span className="material-symbols-outlined text-xl">reviews</span></span>
+                                        Uzman Yorumları
+                                    </h3>
+                                </div>
+
+                                {loadingStaffReviews ? (
+                                    <div className="space-y-4">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="bg-white p-6 rounded-3xl border border-border animate-pulse h-32" />
+                                        ))}
+                                    </div>
+                                ) : staffReviews.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {staffReviews.map((review) => (
+                                            <div key={review.id} className="bg-white p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="size-10 rounded-full bg-gray-100 overflow-hidden relative border border-border">
+                                                            {review.user_avatar ? (
+                                                                <img src={review.user_avatar} alt={review.user_name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold">
+                                                                    {review.user_name.charAt(0)}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div>
-                                                            <h5 className="text-base font-bold text-text-main group-hover:text-primary transition-colors mb-1">{service.service_name}</h5>
-                                                            <div className="flex items-center gap-3 text-xs text-text-secondary">
-                                                                <span className="flex items-center gap-1 bg-surface-alt px-2 py-0.5 rounded border border-border">
-                                                                    <span className="material-symbols-outlined text-[14px]">schedule</span> {service.duration_min} dk
-                                                                </span>
-                                                                <span>•</span>
-                                                                <span>Uzman eşliğinde</span>
+                                                            <p className="font-bold text-text-main text-sm">{review.user_name}</p>
+                                                            <div className="flex items-center gap-1">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <span key={i} className={`material-symbols-outlined text-[14px] ${i < review.rating ? 'text-yellow-400 filled' : 'text-gray-200'}`}>star</span>
+                                                                ))}
                                                             </div>
                                                         </div>
                                                     </div>
-
-                                                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                                        <div className="text-right">
-                                                            <div className="text-lg font-bold text-text-main">{service.price} ₺</div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedService(service);
-                                                                router.push(`/booking/${id}/staff`);
-                                                            }}
-                                                            className="h-10 px-5 bg-white text-text-main border border-border hover:bg-primary hover:text-white hover:border-primary font-bold rounded-xl transition-all flex items-center gap-2 text-sm shadow-sm active:scale-95"
-                                                        >
-                                                            Randevu
-                                                        </button>
-                                                    </div>
+                                                    <span className="text-[10px] text-text-muted font-bold">{new Date(review.created_at!).toLocaleDateString('tr-TR')}</span>
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <p className="text-sm text-text-secondary line-clamp-3 mb-4">{review.comment}</p>
+                                                <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-black text-text-muted uppercase">Uzman:</span>
+                                                        <span className="text-xs font-bold text-primary">{review.staff_name}</span>
+                                                    </div>
+                                                    {review.is_verified && (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black text-green-600 uppercase tracking-tight">
+                                                            <span className="material-symbols-outlined text-[14px]">verified</span> Onaylı
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        </section>
+                                ) : (
+                                    <div className="bg-surface-alt p-12 rounded-[32px] text-center border-2 border-dashed border-border">
+                                        <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                                            <span className="material-symbols-outlined text-3xl text-text-muted/30">forum</span>
+                                        </div>
+                                        <p className="text-text-muted font-medium">Henüz uzman bazlı yorum yapılmamış.</p>
+                                    </div>
+                                )}
+                            </section>
+                        )}
 
                         {/* REVIEWS SECTION */}
                         <section id="reviews" className="scroll-mt-24">
@@ -439,6 +613,37 @@ export default function SalonDetailPage() {
                                                     required
                                                 ></textarea>
                                             </div>
+
+                                            <div className="mb-6">
+                                                <label className="block text-sm font-bold text-text-main mb-3">Fotoğraf Ekle (Opsiyonel)</label>
+                                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                                                    {reviewImagesUrls.map((url, idx) => (
+                                                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-border group">
+                                                            <img src={url} alt="upload" className="w-full h-full object-cover" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setReviewImagesUrls(prev => prev.filter((_, i) => i !== idx))}
+                                                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <span className="material-symbols-outlined text-xs">close</span>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {reviewImagesUrls.length < 5 && (
+                                                        <div className="aspect-square">
+                                                            <ImageUpload
+                                                                bucket="reviews"
+                                                                currentImage={null}
+                                                                onUpload={(url) => setReviewImagesUrls(prev => [...prev, url])}
+                                                                label="Ekle"
+                                                                className="h-full"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-text-secondary mt-2">En fazla 5 fotoğraf ekleyebilirsiniz.</p>
+                                            </div>
+
                                             <div className="flex justify-end gap-3">
                                                 <button
                                                     type="button"
@@ -534,11 +739,43 @@ export default function SalonDetailPage() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100 h-fit">
-                                                        {review.rating} <span className="material-symbols-outlined text-[14px] filled">star</span>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100 h-fit">
+                                                            {review.rating} <span className="material-symbols-outlined text-[14px] filled">star</span>
+                                                        </div>
+                                                        <span className="text-text-muted text-xs bg-gray-100 px-3 py-1 rounded-full">{new Date(review.created_at || Date.now()).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
-                                                <p className="text-text-secondary text-sm leading-relaxed mt-2">{review.comment}</p>
+
+                                                {/* Rating Score */}
+                                                <div className="flex gap-1 mb-3 text-yellow-400">
+                                                    {[1, 2, 3, 4, 5].map(s => (
+                                                        <span key={s} className={`material-symbols-outlined text-sm ${s <= review.rating ? 'filled' : ''}`}>star</span>
+                                                    ))}
+                                                </div>
+
+                                                <p className="text-text-main leading-relaxed mb-4">{review.comment}</p>
+
+                                                {/* Review Images */}
+                                                {review.images && review.images.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {review.images.map((img: any, idx: number) => (
+                                                            <button
+                                                                key={idx}
+                                                                className="w-20 h-20 rounded-lg overflow-hidden border border-border hover:opacity-80 transition-opacity"
+                                                                onClick={() => {
+                                                                    setLightboxState({
+                                                                        isOpen: true,
+                                                                        images: (review.images || []).map((i: any) => i.image_url),
+                                                                        currentIndex: idx
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <img src={img.image_url} alt="Review" className="w-full h-full object-cover" />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     ) : (
@@ -647,6 +884,16 @@ export default function SalonDetailPage() {
                 </div>
             </div>
             <GeminiChat />
+
+            {/* Review Lightbox */}
+            <Lightbox
+                isOpen={lightboxState.isOpen}
+                images={lightboxState.images}
+                currentIndex={lightboxState.currentIndex}
+                onClose={() => setLightboxState(prev => ({ ...prev, isOpen: false }))}
+                onNext={() => setLightboxState(prev => ({ ...prev, currentIndex: (prev.currentIndex + 1) % prev.images.length }))}
+                onPrev={() => setLightboxState(prev => ({ ...prev, currentIndex: (prev.currentIndex - 1 + prev.images.length) % prev.images.length }))}
+            />
         </Layout>
     );
 }

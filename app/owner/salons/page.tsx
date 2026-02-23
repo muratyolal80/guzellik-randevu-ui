@@ -48,6 +48,8 @@ export default function OwnerSalonsPage() {
                 return { label: 'Yayında', color: 'text-green-600', bg: 'bg-green-50', icon: CheckCircle2 };
             case 'REJECTED':
                 return { label: 'Reddedildi', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle };
+            case 'REVISION_REQUESTED':
+                return { label: 'Revizyon Gerekli', color: 'text-orange-600', bg: 'bg-orange-50', icon: AlertCircle };
             default:
                 return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: AlertCircle };
         }
@@ -109,6 +111,14 @@ export default function OwnerSalonsPage() {
                                             <Phone className="w-4 h-4" />
                                             <span>{salon.phone}</span>
                                         </div>
+                                        {(salon.status === 'REJECTED' || salon.status === 'REVISION_REQUESTED') && salon.rejected_reason && (
+                                            <div className="mt-2 p-3 bg-red-50 rounded-xl border border-red-100">
+                                                <p className="text-[10px] text-red-800 font-black uppercase tracking-wider mb-1 flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" /> Yönetici Notu
+                                                </p>
+                                                <p className="text-xs text-red-600 font-bold leading-snug line-clamp-2">"{salon.rejected_reason}"</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="pt-4 border-t border-border mt-auto flex gap-3">

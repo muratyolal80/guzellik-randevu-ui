@@ -26,7 +26,8 @@ import {
     Star,
     ChevronRight,
     Map as MapIcon,
-    Camera
+    Camera,
+    PenLine
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -114,7 +115,7 @@ export default function AdminApprovalsPage() {
                 await NotificationService.sendNotification({
                     user_id: selectedSalon.owner_id,
                     title: 'İşletme Başvurusu Reddedildi',
-                    message: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}. Lütfen gerekli düzeltmeleri yapıp tekrar onaya gönderin.`,
+                    message: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}.`,
                     type: 'SYSTEM',
                     action_url: '/owner/onboarding'
                 });
@@ -126,9 +127,34 @@ export default function AdminApprovalsPage() {
         }
     };
 
+    const handleRequestRevision = async (id: string) => {
+        const reason = prompt('Revizyon isteği nedeni (Sahibinin neleri düzeltmesi gerektiğini detaylıca yazın):');
+        if (reason === null || reason.trim() === '') return;
+        try {
+            await SalonDataService.requestRevision(id, reason);
+            setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'REVISION_REQUESTED', rejected_reason: reason } : s));
+            if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'REVISION_REQUESTED', rejected_reason: reason } : null);
+
+            // Send notification to owner
+            if (selectedSalon?.owner_id) {
+                await NotificationService.sendNotification({
+                    user_id: selectedSalon.owner_id,
+                    title: 'İşletme İçin Revizyon İstendi',
+                    message: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
+                    type: 'SYSTEM',
+                    action_url: '/owner/settings'
+                });
+            }
+
+            alert('Revizyon isteği gönderildi.');
+        } catch (err) {
+            alert('İşlem sırasında hata oluştu.');
+        }
+    };
+
     const filteredSalons = salons.filter(s => {
         if (filter === 'ALL') return true;
-        if (filter === 'PENDING') return s.status === 'SUBMITTED' || s.status === 'PENDING' as any;
+        if (filter === 'PENDING') return s.status === 'SUBMITTED' || s.status === 'PENDING' as any || s.status === 'REVISION_REQUESTED';
         return s.status === filter;
     });
 
@@ -156,7 +182,7 @@ export default function AdminApprovalsPage() {
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-2 rounded-[24px] border border-border shadow-sm">
                             <div className="flex flex-wrap gap-1">
                                 {[
-                                    { id: 'PENDING', label: 'Başvurular', icon: Clock, count: salons.filter(s => s.status === 'SUBMITTED').length },
+                                    { id: 'PENDING', label: 'Başvurular', icon: Clock, count: salons.filter(s => s.status === 'SUBMITTED' || s.status === 'REVISION_REQUESTED').length },
                                     { id: 'APPROVED', label: 'Onaylı', icon: CheckCircle, count: salons.filter(s => s.status === 'APPROVED').length },
                                     { id: 'REJECTED', label: 'Reddedilen', icon: XCircle, count: salons.filter(s => s.status === 'REJECTED').length },
                                     { id: 'ALL', label: 'Tümü', icon: Filter, count: salons.length }
@@ -362,13 +388,21 @@ export default function AdminApprovalsPage() {
                                             )}
                                         </div>
 
-                                        <div className="bg-amber-50 rounded-[28px] p-6 border border-amber-100 flex gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
-                                                <Info className="w-5 h-5" />
+                                        <div className="bg-amber-50 rounded-[28px] p-6 border border-amber-100 space-y-4">
+                                            <div className="flex gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
+                                                    <ShieldCheck className="w-5 h-5" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-black text-amber-800 uppercase">Onay Öncesi Kontrol Listesi</p>
+                                                    <p className="text-[10px] font-medium text-amber-700/80 leading-relaxed italic">Onaylamadan önce bu kriterleri gözden geçirin.</p>
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-black text-amber-800 uppercase">Önemli Not</p>
-                                                <p className="text-xs font-medium text-amber-700/80 leading-relaxed">Bu salon henüz onaylanmadığı için kullanıcılar tarafından görünemez. Onay sonrası tüm veriler canlıya alınacaktır.</p>
+                                            <div className="space-y-2 pl-2">
+                                                <CheckListItem label="Profil resmi yeterli ve profesyonel mi?" checked={!!selectedSalon.image} />
+                                                <CheckListItem label="Hizmet tanımlamaları yapılmış mı?" checked={salonServices.length > 0} />
+                                                <CheckListItem label="Adres ve konum bilgileri tutarlı mı?" checked={!!selectedSalon.address && !!selectedSalon.geo_latitude} />
+                                                <CheckListItem label="İsim ve kategori uyumlu mu?" checked={true} />
                                             </div>
                                         </div>
                                     </div>
@@ -377,29 +411,43 @@ export default function AdminApprovalsPage() {
                             </div>
 
                             {/* Drawer Footer - Action Bar */}
-                            <div className="px-8 py-8 border-t border-border bg-gray-50/50 flex justify-between items-center gap-4">
+                            <div className="px-8 py-8 border-t border-border bg-gray-50/50 flex flex-wrap justify-between items-center gap-4">
                                 <button
                                     onClick={() => handleReject(selectedSalon.id)}
-                                    className="flex items-center gap-3 px-8 py-4 bg-white text-red-600 border-2 border-red-100 hover:border-red-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
+                                    className="flex items-center gap-3 px-6 py-4 bg-white text-red-600 border-2 border-red-100 hover:border-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                 >
-                                    <XCircle className="w-5 h-5" /> Başvuruyu Reddet
+                                    <XCircle className="w-4 h-4" /> Reddet
                                 </button>
 
-                                <div className="flex gap-4">
+                                <div className="flex flex-wrap gap-4">
+                                    <button
+                                        onClick={() => handleRequestRevision(selectedSalon.id)}
+                                        className="flex items-center gap-3 px-6 py-4 bg-white text-amber-600 border-2 border-amber-100 hover:border-amber-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                                    >
+                                        <AlertCircle className="w-4 h-4" /> Revizyon İste
+                                    </button>
+
+                                    <Link
+                                        href={`/admin/salons/${selectedSalon.id}/edit`}
+                                        className="flex items-center gap-3 px-6 py-4 bg-white text-blue-600 border-2 border-blue-100 hover:border-blue-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                                    >
+                                        <PenLine className="w-4 h-4" /> Bilgileri Düzenle
+                                    </Link>
+
                                     <Link
                                         href={`/salon/${selectedSalon.id}`}
                                         target="_blank"
-                                        className="flex items-center gap-3 px-8 py-4 bg-white text-text-main border-2 border-border hover:border-text-main rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
+                                        className="flex items-center gap-3 px-6 py-4 bg-white text-text-main border-2 border-border hover:border-text-main rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <ExternalLink className="w-5 h-5 text-text-muted" /> Canlı Önizleme
+                                        <ExternalLink className="w-4 h-4 text-text-muted" /> Önizleme
                                     </Link>
 
-                                    {(selectedSalon.status === 'SUBMITTED' || selectedSalon.status === 'REJECTED') && (
+                                    {(selectedSalon.status === 'SUBMITTED' || selectedSalon.status === 'REJECTED' || selectedSalon.status === 'REVISION_REQUESTED') && (
                                         <button
                                             onClick={() => handleApprove(selectedSalon.id)}
-                                            className="flex items-center gap-3 px-12 py-4 bg-green-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-green-600/20 hover:scale-[1.02] active:scale-95 transition-all"
+                                            className="flex items-center gap-3 px-10 py-4 bg-green-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-600/20 hover:scale-[1.02] active:scale-95 transition-all"
                                         >
-                                            <CheckCircle className="w-5 h-5" /> Salonu Onayla
+                                            <CheckCircle className="w-4 h-4" /> Onayla
                                         </button>
                                     )}
                                 </div>
@@ -417,6 +465,7 @@ function StatusBadge({ status, reason }: { status: any, reason?: string }) {
     const statusMap: Record<string, any> = {
         DRAFT: { label: 'TASLAK', icon: MoreVertical, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' },
         SUBMITTED: { label: 'ONAY BEKLİYOR', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
+        REVISION_REQUESTED: { label: 'REVİZYON İSTENDİ', icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
         APPROVED: { label: 'ONAYLANDI', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
         REJECTED: { label: 'REDDEDİLDİ', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
         SUSPENDED: { label: 'ASKIDA', icon: AlertCircle, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' }
@@ -429,9 +478,22 @@ function StatusBadge({ status, reason }: { status: any, reason?: string }) {
                 <s.icon className="w-3.5 h-3.5" />
                 {s.label}
             </span>
-            {status === 'REJECTED' && reason && (
-                <span className="text-[10px] text-red-500 font-bold max-w-[150px] italic pl-2">"{reason}"</span>
+            {(status === 'REJECTED' || status === 'REVISION_REQUESTED') && reason && (
+                <span className="text-[10px] text-red-500 font-bold max-w-[150px] leading-tight mt-1 opacity-80 pl-2">"{reason}"</span>
             )}
+        </div>
+    );
+}
+
+function CheckListItem({ label, checked }: { label: string, checked: boolean }) {
+    return (
+        <div className="flex items-center gap-2">
+            {checked ? (
+                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+                <XCircle className="w-3.5 h-3.5 text-red-400" />
+            )}
+            <span className={`text-[11px] font-bold ${checked ? 'text-text-main' : 'text-text-muted'}`}>{label}</span>
         </div>
     );
 }

@@ -15,15 +15,15 @@ const StatCard = ({ title, value, icon, color }: { title: string, value: string,
     </div>
 );
 
-import { supabase } from '@/lib/supabase';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DashboardService } from '@/services/db';
 
 export default function Dashboard() {
     const [stats, setStats] = React.useState([
         { title: 'Toplam Salon', value: '0', icon: 'store', color: 'bg-blue-500' },
-        { title: 'Toplam Hizmet', value: '0', icon: 'cut', color: 'bg-green-500' },
-        { title: 'Aktif Randevu', value: '0', icon: 'calendar_month', color: 'bg-yellow-500' },
-        { title: 'Toplam Müşteri', value: '0', icon: 'group', color: 'bg-purple-500' },
+        { title: 'Bugünkü Randevu', value: '0', icon: 'calendar_today', color: 'bg-green-500' },
+        { title: 'Toplam Ciro', value: '0 TL', icon: 'payments', color: 'bg-yellow-500' },
+        { title: 'Aktif Personel', value: '0', icon: 'group', color: 'bg-purple-500' },
     ]);
     const [chartData, setChartData] = React.useState<any[]>([]);
     const [activities, setActivities] = React.useState<any[]>([]);
@@ -32,48 +32,31 @@ export default function Dashboard() {
     React.useEffect(() => {
         async function fetchDashboardData() {
             try {
-                // Fast initial render with estimates
-                setLoading(false);
-
-                // Then fetch real counts in background (non-blocking)
-                const [
-                    { count: salonCount },
-                    { count: appointmentCount },
-                    { count: customerCount },
-                    { count: serviceCount }
-                ] = await Promise.all([
-                    supabase.from('salons').select('*', { count: 'exact', head: true }),
-                    supabase.from('appointments').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'CONFIRMED']),
-                    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'CUSTOMER'),
-                    supabase.from('salon_services').select('*', { count: 'exact', head: true })
-                ]);
+                const data = await DashboardService.getPlatformStats();
 
                 setStats([
-                    { title: 'Toplam Salon', value: salonCount?.toString() || '0', icon: 'store', color: 'bg-blue-500' },
-                    { title: 'Toplam Hizmet', value: serviceCount?.toString() || '0', icon: 'cut', color: 'bg-green-500' },
-                    { title: 'Aktif Randevu', value: appointmentCount?.toString() || '0', icon: 'calendar_month', color: 'bg-yellow-500' },
-                    { title: 'Toplam Müşteri', value: customerCount?.toString() || '0', icon: 'group', color: 'bg-purple-500' },
+                    { title: 'Toplam Salon', value: data.totalSalons.toString(), icon: 'store', color: 'bg-blue-500' },
+                    { title: 'Bugünkü Randevu', value: data.todayAppointments.toString(), icon: 'calendar_today', color: 'bg-green-500' },
+                    { title: 'Toplam Ciro', value: `${data.totalRevenue.toLocaleString('tr-TR')} TL`, icon: 'payments', color: 'bg-yellow-500' },
+                    { title: 'Aktif Personel', value: data.activeStaff.toString(), icon: 'group', color: 'bg-purple-500' },
                 ]);
 
-                // 2. Fetch Chart Data (Last 7 Days) - simplified
+                // 2. Fetch Chart Data (Last 7 Days)
                 const today = new Date();
                 const last7Days = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date();
                     d.setDate(today.getDate() - (6 - i));
                     return {
                         name: d.toLocaleDateString('tr-TR', { weekday: 'short' }),
-                        randevu: Math.floor(Math.random() * 10) + 5, // Demo data
+                        randevu: Math.floor(Math.random() * 10) + 5, // Demo data for now
                         date: d.toISOString().split('T')[0]
                     };
                 });
 
                 setChartData(last7Days);
-
-                // 3. Skip activities for now (too slow)
-                setActivities([]);
-
+                setLoading(false);
             } catch (error) {
-                console.error('Error fetching dashboard data:', error);
+                console.error('Error fetching admin stats:', error);
                 setLoading(false);
             }
         }

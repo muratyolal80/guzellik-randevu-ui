@@ -1,18 +1,21 @@
-
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { MasterService, SalonDataService, NotificationService } from '@/services/db';
 import { UserMenu } from './common/UserMenu';
-import { SalonType, ServiceCategory, SalonDetail, Notification } from '@/types';
+import { SalonType, ServiceCategory, SalonDetail } from '@/types';
+import NotificationCenter from './NotificationCenter';
+import GlobalSearchPalette from './GlobalSearchPalette';
 import {
   Building2,
   ChevronDown,
   Bell,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import BranchSelector from './owner/BranchSelector';
 
@@ -26,10 +29,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [servicesByCat, setServicesByCat] = useState<Record<string, string[]>>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Multi-Branch State
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isNotifMenuOpen, setIsNotifMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchMenuData = async () => {
@@ -48,20 +47,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       }
     };
 
-    const fetchOwnerData = async () => {
-      if (isOwner && user) {
-        try {
-          console.log('🔄 Fetching Owner Notifications...');
-          const notifs = await NotificationService.getNotifications(user.id);
-          setNotifications(notifs);
-        } catch (err) {
-          console.error('❌ Error fetching owner data for layout:', err);
-        }
-      }
-    };
-
     fetchMenuData();
-    fetchOwnerData();
   }, [isOwner, user]);
 
   return (
@@ -75,6 +61,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <h2 className="text-text-main text-2xl font-display font-bold leading-tight tracking-[-0.015em] hidden sm:block">
               Güzellik <span className="text-primary">Randevu</span>
             </h2>
+            {/* <GeminiChat /> */}
           </Link>
         </div>
 
@@ -169,56 +156,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           )}
 
           {/* User Specific Icons (Notif etc) */}
-          {user && (
-            <div className="relative group/notif">
-              <button
-                onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}
-                className="relative p-2.5 bg-gray-50 rounded-xl hover:bg-white border border-transparent hover:border-border transition-all shadow-sm"
-              >
-                <Bell className="w-5 h-5 text-text-secondary" />
-                {notifications.filter(n => !n.is_read).length > 0 && (
-                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white ring-1 ring-primary/20 animate-pulse"></span>
-                )}
-              </button>
+          {/* Search Trigger */}
+          <button
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+            className="p-2 rounded-full hover:bg-gray-100 transition-all text-gray-500 hover:text-primary group"
+            title="Ara (Ctrl+K)"
+          >
+            <Search className="w-6 h-6" />
+          </button>
 
-              {isNotifMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in slide-in-from-top-2 duration-200">
-                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Bildirimler</h3>
-                    <span className="text-[10px] font-black text-white bg-primary px-2 py-0.5 rounded-full">{notifications.filter(n => !n.is_read).length} YENİ</span>
-                  </div>
-                  <div className="max-h-[360px] overflow-y-auto no-scrollbar">
-                    {notifications.length > 0 ? (
-                      notifications.slice(0, 5).map(n => (
-                        <div key={n.id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${!n.is_read ? 'bg-primary/[0.02]' : ''}`}>
-                          <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                              {n.type === 'SYSTEM' ? <AlertCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-xs font-black text-text-main leading-tight">{n.title}</p>
-                              <p className="text-[11px] text-text-secondary leading-normal line-clamp-2">{n.message}</p>
-                              <p className="text-[9px] font-bold text-text-muted uppercase mt-1">Bildirim Zamanı</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-12 text-center grayscale opacity-30">
-                        <Bell className="w-8 h-8 mx-auto mb-2" />
-                        <p className="text-xs font-bold italic tracking-wide">Henüz bildirim yok.</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 bg-gray-50/50">
-                    <button className="w-full py-2.5 text-[10px] font-black text-primary uppercase tracking-widest hover:bg-white rounded-xl transition-all border border-transparent hover:border-border font-sans">
-                      Tümünü Gör
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {user && <NotificationCenter />}
 
           {!isBooking && isAdmin && (
             <Link href="/admin" className="hidden xl:flex items-center justify-center px-4 py-2 bg-text-main hover:bg-black text-white text-xs font-bold rounded-full shadow-lg transition-all hover:scale-105 whitespace-nowrap">

@@ -7,14 +7,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postbuild": "next-sitemap"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
+    "date-fns": "^4.1.0",
     "lucide-react": "^0.562.0",
     "next": "^16.1.0",
+    "next-sitemap": "^4.2.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-leaflet": "^5.0.0",

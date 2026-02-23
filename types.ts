@@ -1,4 +1,5 @@
-export type UserRole = 'CUSTOMER' | 'STAFF' | 'SALON_OWNER' | 'SUPER_ADMIN';
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'SUPER_ADMIN';
+export type SalonPlan = 'FREE' | 'PRO' | 'ENTERPRISE';
 
 export type Permission =
   | 'CAN_MANAGE_SALON'
@@ -37,20 +38,22 @@ export interface Notification {
   id: string;
   user_id: string;
   title: string;
-  message: string;
-  type: 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
+  content: string; // Renamed from message to content to match my service logic
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'APPOINTMENT' | 'REVIEW' | 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
   is_read: boolean;
-  action_url?: string;
+  link?: string; // Renamed from action_url to link
   created_at: string;
 }
 
 export interface SupportTicket {
   id: string;
   user_id: string;
+  salon_id?: string;
   subject: string;
   message: string; // The initial message
-  category?: string; // e.g., 'PAYMENT', 'BOOKING', 'ACCOUNT', 'OTHER'
+  category: 'PAYMENT' | 'BOOKING' | 'ACCOUNT' | 'SALON' | 'OTHER' | 'GENEL';
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   created_at: string;
   updated_at: string;
   messages?: TicketMessage[]; // Optional thread
@@ -144,6 +147,8 @@ export interface Salon {
   owner_id?: string;
   status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejected_reason?: string;
+  plan?: SalonPlan;
+  slug: string;
   type_ids?: string[]; // For multi-type support
   primary_type_id?: string;
 
@@ -203,6 +208,7 @@ export interface Staff {
   image?: string;       // Alias for photo
   role?: string;        // Job title/role
   rating?: number;      // Staff rating
+  review_count?: number; // Total number of reviews
   isOnline?: boolean;   // Online status
 }
 
@@ -269,6 +275,30 @@ export interface Review {
   is_verified?: boolean;
   service_name?: string;
   service_date?: string;
+  images?: ReviewImage[]; // Added images to review
+}
+
+export interface ReviewImage {
+  id: string;
+  review_id: string;
+  image_url: string;
+  created_at?: string;
+}
+
+export interface StaffReview {
+  id: string;
+  staff_id: string;
+  salon_id: string;
+  user_id?: string;
+  appointment_id?: string;
+  user_name: string;
+  user_avatar?: string;
+  rating: number; // 1 to 5
+  comment?: string;
+  is_verified?: boolean;
+  staff_name?: string;
+  staff_photo?: string;
+  created_at?: string;
 }
 
 export interface IYSLog {
@@ -353,6 +383,16 @@ export interface Invite {
   created_at: string;
   accepted_at?: string;
   salon?: { name: string }; // Optional joined data
+}
+
+export interface SalonGallery {
+  id: string;
+  salon_id: string;
+  image_url: string;
+  display_order: number;
+  is_cover: boolean;
+  caption?: string;
+  created_at: string;
 }
 
 export { };

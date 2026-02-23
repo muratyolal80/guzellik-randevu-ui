@@ -9,7 +9,7 @@ import type {
   Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
   WorkingHours, SalonWorkingHours, Appointment, Review, IYSLog,
   SupportTicket, TicketMessage, Favorite, Notification,
-  Invite
+  Invite, StaffReview, SalonGallery, ReviewImage
 } from '@/types';
 
 // Helper to check if we have a real connection
@@ -358,6 +358,20 @@ export const SalonDataService = {
   },
 
   /**
+   * Get salon by slug (for subdomain routing)
+   */
+  async getSalonBySlug(slug: string): Promise<SalonDetail | null> {
+    const { data, error } = await supabase
+      .from('salon_details')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
    * Search salons by filters
    */
   async searchSalons(filters: {
@@ -622,6 +636,18 @@ export const SalonDataService = {
   },
 
   /**
+   * Update salon plan
+   */
+  async updateSalonPlan(id: string, plan: 'FREE' | 'PRO' | 'ENTERPRISE'): Promise<void> {
+    const { error } = await supabase
+      .from('salons')
+      .update({ plan })
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
    * Delete salon
    */
   async deleteSalon(id: string): Promise<void> {
@@ -753,6 +779,32 @@ export const SalonDataService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Initialize default working hours if missing
+   */
+  async initializeDefaultWorkingHours(salonId: string): Promise<SalonWorkingHours[]> {
+    const existing = await this.getSalonWorkingHours(salonId);
+    if (existing && existing.length > 0) return existing;
+
+    const defaultHours = [
+      { salon_id: salonId, day_of_week: 1, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 2, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 3, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 4, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 5, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 6, start_time: '09:00', end_time: '20:00', is_closed: false },
+      { salon_id: salonId, day_of_week: 0, start_time: '00:00', end_time: '00:00', is_closed: true },
+    ];
+
+    const { data, error } = await supabase
+      .from('salon_working_hours')
+      .insert(defaultHours)
+      .select();
+
+    if (error) throw error;
+    return data || [];
+  }
 };
 
 // ==============================================
@@ -800,6 +852,8 @@ export const StaffService = {
       .from('staff')
       .insert({
         name: staffData.name,
+        email: staffData.email,
+        specialty: staffData.specialty,
         role: staffData.role,
         phone: staffData.phone,
         photo: staffData.photo || staffData.image, // Support both aliases
@@ -842,6 +896,22 @@ export const StaffService = {
     }
 
     await supabase.from('working_hours').insert(hoursToInsert);
+
+    // 3. Auto-link to profile if email matches
+    if (staffData.email && !staffData.user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', staffData.email)
+        .single();
+
+      if (profile) {
+        await supabase.from('staff').update({ user_id: profile.id }).eq('id', data.id);
+        // Optionally update user role to STAFF
+        await supabase.from('profiles').update({ role: 'STAFF' }).eq('id', profile.id);
+      }
+    }
+
     return data;
   },
 
@@ -1296,8 +1366,38 @@ export const ReviewService = {
         .limit(limit);
 
       if (fallbackError) throw fallbackError;
+
+      // Fetch images for these reviews
+      const reviewIds = fallbackData?.map(r => r.id) || [];
+      if (reviewIds.length > 0) {
+        const { data: imageData } = await supabase
+          .from('review_images')
+          .select('*')
+          .in('review_id', reviewIds);
+
+        return (fallbackData || []).map(review => ({
+          ...review,
+          images: imageData?.filter(img => img.review_id === review.id) || []
+        }));
+      }
+
       return fallbackData || [];
     }
+
+    // Fetch images for these reviews (from view)
+    const reviewIds = data?.map(r => r.id) || [];
+    if (reviewIds.length > 0) {
+      const { data: imageData } = await supabase
+        .from('review_images')
+        .select('*')
+        .in('review_id', reviewIds);
+
+      return (data || []).map(review => ({
+        ...review,
+        images: imageData?.filter(img => img.review_id === review.id) || []
+      }));
+    }
+
     return data || [];
   },
 
@@ -1373,6 +1473,105 @@ export const ReviewService = {
 // ==============================================
 // SUPPORT SERVICE (Tickets & Messages)
 // ==============================================
+
+export const StaffReviewService = {
+  /**
+   * Get reviews for a staff member
+   */
+  async getReviewsByStaff(staffId: string, limit = 50): Promise<StaffReview[]> {
+    const { data, error } = await supabase
+      .from('staff_reviews')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get reviews for all staff in a salon (detailed view)
+   */
+  async getReviewsBySalon(salonId: string, limit = 50): Promise<StaffReview[]> {
+    const { data, error } = await supabase
+      .from('staff_reviews_detailed')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Create a new staff review
+   */
+  async createStaffReview(review: Omit<StaffReview, 'id' | 'created_at'>): Promise<StaffReview> {
+    const { data, error } = await supabase
+      .from('staff_reviews')
+      .insert(review)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Check if user already reviewed this staff for an appointment
+   */
+  async hasReviewed(userId: string, staffId: string, appointmentId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('staff_reviews')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('staff_id', staffId)
+      .eq('appointment_id', appointmentId)
+      .maybeSingle();
+
+    return !!data;
+  },
+
+  /**
+   * Get appointments eligible for staff review
+   */
+  async getReviewableAppointmentsForStaff(userId: string, staffId: string): Promise<Appointment[]> {
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('customer_id', userId)
+      .eq('staff_id', staffId)
+      .eq('status', 'COMPLETED')
+      .order('end_time', { ascending: false });
+
+    if (error) throw error;
+    if (!appointments || appointments.length === 0) return [];
+
+    const { data: existing } = await supabase
+      .from('staff_reviews')
+      .select('appointment_id')
+      .eq('user_id', userId)
+      .eq('staff_id', staffId)
+      .not('appointment_id', 'is', null);
+
+    const reviewed = new Set(existing?.map(r => r.appointment_id) || []);
+    return appointments.filter(a => !reviewed.has(a.id));
+  },
+
+  /**
+   * Delete review
+   */
+  async deleteReview(reviewId: string): Promise<void> {
+    const { error } = await supabase
+      .from('staff_reviews')
+      .delete()
+      .eq('id', reviewId);
+
+    if (error) throw error;
+  }
+};
 
 export const SupportService = {
   /**
@@ -1524,6 +1723,130 @@ export const SupportService = {
 };
 
 // ==============================================
+// GALLERY SERVICE (Salon & Review Media)
+// ==============================================
+
+export const GalleryService = {
+  /**
+   * Get all images for a salon gallery
+   */
+  async getSalonGallery(salonId: string): Promise<SalonGallery[]> {
+    const { data, error } = await supabase
+      .from('salon_gallery')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Add image to salon gallery
+   */
+  async addGalleryImage(image: Omit<SalonGallery, 'id' | 'created_at'>): Promise<SalonGallery> {
+    const { data, error } = await supabase
+      .from('salon_gallery')
+      .insert(image)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update gallery image (order, caption, cover status)
+   */
+  async updateGalleryImage(id: string, updates: Partial<SalonGallery>): Promise<SalonGallery> {
+    const { data, error } = await supabase
+      .from('salon_gallery')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete gallery image
+   */
+  async deleteGalleryImage(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('salon_gallery')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Set cover image for a salon
+   */
+  async setCoverImage(salonId: string, imageId: string): Promise<void> {
+    // 1. Unset all cover images for this salon
+    const { error: unsetErr } = await supabase
+      .from('salon_gallery')
+      .update({ is_cover: false })
+      .eq('salon_id', salonId);
+
+    if (unsetErr) throw unsetErr;
+
+    // 2. Set the new cover image
+    const { error: setErr } = await supabase
+      .from('salon_gallery')
+      .update({ is_cover: true })
+      .eq('id', imageId);
+
+    if (setErr) throw setErr;
+
+    // 3. Update the main salons table image cache
+    const { data: imgData } = await supabase
+      .from('salon_gallery')
+      .select('image_url')
+      .eq('id', imageId)
+      .single();
+
+    if (imgData) {
+      const { error: salonErr } = await supabase
+        .from('salons')
+        .update({ image: imgData.image_url })
+        .eq('id', salonId);
+      if (salonErr) console.error("Could not update salon cover cache:", salonErr);
+    }
+  },
+
+  /**
+   * Get images for a specific review
+   */
+  async getReviewImages(reviewId: string): Promise<ReviewImage[]> {
+    const { data, error } = await supabase
+      .from('review_images')
+      .select('*')
+      .eq('review_id', reviewId);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Add image to a review
+   */
+  async addReviewImage(image: Omit<ReviewImage, 'id' | 'created_at'>): Promise<ReviewImage> {
+    const { data, error } = await supabase
+      .from('review_images')
+      .insert(image)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// ==============================================
 // DASHBOARD SERVICE (Customer Insights)
 // ==============================================
 
@@ -1580,31 +1903,101 @@ export const DashboardService = {
       .eq('status', 'CONFIRMED')
       .eq('customer_id', userId)
       .order('start_time', { ascending: true })
-      .limit(1);
+      .limit(1)
+      .maybeSingle();
 
-    const [
-      { count: upcomingCount },
-      { count: reviewCount },
-      { data: spendingData },
-      { data: appointments }
-    ] = await Promise.all([
+    const [upcoming, reviews, spending, nextAppt] = await Promise.all([
       upcomingQuery,
       reviewQuery,
       spendingQuery,
       nextAppointmentQuery
     ]);
 
-    const totalSpent = spendingData?.reduce((sum, item: any) => {
-      return sum + (item.salon_service?.price || 0);
-    }, 0) || 0;
+    const totalSpending = spending.data?.reduce((acc, curr: any) => acc + (curr.salon_service?.price || 0), 0) || 0;
 
     return {
-      stats: {
-        upcomingCount: upcomingCount || 0,
-        totalSpent,
-        reviewCount: reviewCount || 0
-      },
-      nextAppointment: appointments && appointments.length > 0 ? appointments[0] : null
+      upcomingCount: upcoming.count || 0,
+      reviewCount: reviews.count || 0,
+      monthlySpending: totalSpending,
+      nextAppointment: nextAppt.data
+    };
+  },
+
+  /**
+   * Get advanced analytics for salon owners
+   */
+  async getOwnerDashboardData(salonId: string) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
+
+    // 1. Income & Appointments over time
+    const { data: appts, error } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        start_time,
+        status,
+        service:salon_services (price, name)
+      `)
+      .eq('salon_id', salonId)
+      .gte('start_time', thirtyDaysAgoStr)
+      .in('status', ['CONFIRMED', 'COMPLETED']);
+
+    if (error) throw error;
+
+    // Process daily stats for charts
+    const dailyStats: Record<string, { date: string, income: number, appointments: number }> = {};
+    appts?.forEach(a => {
+      const day = a.start_time.split('T')[0];
+      if (!dailyStats[day]) {
+        dailyStats[day] = { date: day, income: 0, appointments: 0 };
+      }
+      dailyStats[day].income += (a.service as any)?.price || 0;
+      dailyStats[day].appointments += 1;
+    });
+
+    const chartData = Object.values(dailyStats).sort((a, b) => a.date.localeCompare(b.date));
+
+    // 2. Staff Performance
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select(`
+        id,
+        name,
+        appointments:appointments(id, status)
+      `)
+      .eq('salon_id', salonId);
+
+    const staffPerformance = staffData?.map(s => ({
+      name: s.name,
+      appointments: (s.appointments as any[])?.filter(a => a.status !== 'CANCELLED').length || 0
+    })).sort((a, b) => b.appointments - a.appointments) || [];
+
+    // 3. Service Popularity
+    const serviceCounts: Record<string, number> = {};
+    appts?.forEach(a => {
+      const name = (a.service as any)?.name || 'Diğer';
+      serviceCounts[name] = (serviceCounts[name] || 0) + 1;
+    });
+
+    const serviceStats = Object.entries(serviceCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // 4. Summaries
+    const totalIncome = appts?.reduce((acc, curr) => acc + ((curr.service as any)?.price || 0), 0) || 0;
+
+    return {
+      chartData,
+      staffPerformance,
+      serviceStats,
+      summary: {
+        totalIncome,
+        totalAppointments: appts?.length || 0,
+        activeCustomers: new Set(appts?.map(a => (a as any).customer_id)).size
+      }
     };
   },
 
@@ -1622,6 +2015,27 @@ export const DashboardService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Get platform-wide statistics for SUPER_ADMIN
+   */
+  async getPlatformStats() {
+    const today = new Date().toISOString().split('T')[0];
+    const [salons, appointments, staff] = await Promise.all([
+      supabase.from('salons').select('*', { count: 'exact', head: true }),
+      supabase.from('appointments').select('*', { count: 'exact', head: true }).gte('start_time', `${today}T00:00:00Z`),
+      supabase.from('staff').select('*', { count: 'exact', head: true }).eq('is_active', true)
+    ]);
+    const { data: revenueData } = await supabase.from('appointments').select('service:salon_services(price)').eq('status', 'COMPLETED');
+    const totalRevenue = (revenueData as any[])?.reduce((acc, curr) => acc + (curr.service?.price || 0), 0) || 0;
+
+    return {
+      totalSalons: salons.count || 0,
+      todayAppointments: appointments.count || 0,
+      totalRevenue,
+      activeStaff: staff.count || 0
+    };
   }
 };
 
@@ -1631,11 +2045,20 @@ export const DashboardService = {
 
 export const FavoriteService = {
   /**
+   * Get user favorites (Current user)
+   */
+  async getUserFavorites(): Promise<Favorite[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    return this.getFavorites(user.id);
+  },
+
+  /**
    * Get all favorites for a user
    */
   async getFavorites(userId: string): Promise<Favorite[]> {
     const { data, error } = await supabase
-      .from('favorites')
+      .from('salon_favorites')
       .select(`
         *,
         salon:salon_details(*)
@@ -1652,7 +2075,7 @@ export const FavoriteService = {
    */
   async isFavorite(userId: string, salonId: string): Promise<boolean> {
     const { data, error } = await supabase
-      .from('favorites')
+      .from('salon_favorites')
       .select('id')
       .eq('user_id', userId)
       .eq('salon_id', salonId)
@@ -1670,7 +2093,7 @@ export const FavoriteService = {
 
     if (isFav) {
       const { error } = await supabase
-        .from('favorites')
+        .from('salon_favorites')
         .delete()
         .eq('user_id', userId)
         .eq('salon_id', salonId);
@@ -1678,7 +2101,7 @@ export const FavoriteService = {
       return false;
     } else {
       const { error } = await supabase
-        .from('favorites')
+        .from('salon_favorites')
         .insert({ user_id: userId, salon_id: salonId });
       if (error) throw error;
       return true;
@@ -1893,75 +2316,6 @@ export const StaffAnalyticsService = {
 
 
 // ==============================================
-// FAVORITE SERVICE
-// ==============================================
-
-export const FavoriteService = {
-  /**
-   * Get user favorites
-   */
-  async getUserFavorites(): Promise<Favorite[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    const { data, error } = await supabase
-      .from('salon_favorites')
-      .select('*, salon:salons(*)')
-      .eq('user_id', user.id);
-
-    if (error) throw error;
-    return data || [];
-  },
-
-  /**
-   * Check if salon is favorited
-   */
-  async isFavorited(salonId: string): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    const { data, error } = await supabase
-      .from('salon_favorites')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('salon_id', salonId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error;
-    return !!data;
-  },
-
-  /**
-   * Toggle favorite
-   */
-  async toggleFavorite(salonId: string): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Yalnızca giriş yapmış kullanıcılar favori ekleyebilir.');
-
-    const isFav = await this.isFavorited(salonId);
-
-    if (isFav) {
-      const { error } = await supabase
-        .from('salon_favorites')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('salon_id', salonId);
-      if (error) throw error;
-      return false;
-    } else {
-      const { error } = await supabase
-        .from('salon_favorites')
-        .insert({
-          user_id: user.id,
-          salon_id: salonId
-        });
-      if (error) throw error;
-      return true;
-    }
-  }
-};
-
-// ==============================================
 // NOTIFICATION SERVICE
 // ==============================================
 
@@ -2008,7 +2362,20 @@ export const NotificationService = {
 
     if (error) throw error;
     return data;
-  }
+  },
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  async markAllAsRead(userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+  },
 };
 
 
@@ -2088,11 +2455,44 @@ export const InviteService = {
 };
 
 // ==============================================
+// GLOBAL SEARCH SERVICE
+// ==============================================
+
+export const GlobalSearchService = {
+  /**
+   * Search across salons, services and cities
+   */
+  async search(query: string) {
+    if (!query || query.length < 2) return { salons: [], services: [] };
+
+    const [salonsResp, servicesResp] = await Promise.all([
+      supabase
+        .from('salons')
+        .select('id, name, image, slug, city:cities(name)')
+        .ilike('name', `%${query}%`)
+        .eq('status', 'APPROVED')
+        .limit(5),
+      supabase
+        .from('global_services')
+        .select('id, name, slug, category:service_categories(name)')
+        .ilike('name', `%${query}%`)
+        .limit(5)
+    ]);
+
+    return {
+      salons: salonsResp.data || [],
+      services: servicesResp.data || []
+    };
+  }
+};
+
+// ==============================================
 // LEGACY COMPATIBILITY (for existing components)
 // ==============================================
 
 // Re-export new services with old names for backward compatibility
 export const MasterService = MasterDataService;
+
 
 // Export all services
 export default {
@@ -2103,11 +2503,15 @@ export default {
   ServiceService,
   AppointmentService,
   ReviewService,
+  StaffReviewService,
   DashboardService,
   SupportService,
   IYSService,
   NotificationService,
   InviteService,
   FavoriteService,
+  GalleryService,
 };
+
+
 
