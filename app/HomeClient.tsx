@@ -94,20 +94,9 @@ export default function HomeClient() {
     const modeParam = searchParams.get('mode');
     const isSearchMode = !!(typeParam || searchParam || cityParam);
 
-    useEffect(() => {
-        if (!authLoading && isAuthenticated && user) {
-            if (!isSearchMode) {
-                const role = user.role?.toUpperCase();
-                if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-                    router.push('/admin');
-                } else if (role === 'SALON_OWNER' || role === 'OWNER') {
-                    router.push('/owner/dashboard');
-                } else if (role === 'STAFF') {
-                    router.push('/staff/dashboard');
-                }
-            }
-        }
-    }, [authLoading, isAuthenticated, user, router, isSearchMode]);
+    // --- REDIRECTION REMOVED PER USER REQUEST ---
+    // Previously redirected admins/owners away from homepage. 
+    // Now they can browse the landing page normally.
 
     useEffect(() => {
         const errorParam = searchParams.get('error');
@@ -154,6 +143,20 @@ export default function HomeClient() {
         }
     };
 
+    // Click-away listener for search suggestions
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target as Node)) {
+                setShowSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -167,11 +170,16 @@ export default function HomeClient() {
 
                 const mappedData = (salonsData || []).map((salon: any) => ({
                     ...salon,
-                    city: salon.city_name || salon.cities?.name || salon.city?.name || 'Belirtilmemiş',
-                    district: salon.district_name || salon.districts?.name || salon.district?.name || '',
+                    // Defensive mapping to handle unexpected object structures (potential cause of [object Object])
+                    city: typeof (salon.city_name || salon.cities?.name || salon.city?.name) === 'object'
+                        ? (salon.city_name?.name || 'Belirtilmemiş')
+                        : (salon.city_name || salon.cities?.name || salon.city?.name || 'Belirtilmemiş'),
+                    district: typeof (salon.district_name || salon.districts?.name || salon.district?.name) === 'object'
+                        ? (salon.district_name?.name || '')
+                        : (salon.district_name || salon.districts?.name || salon.district?.name || ''),
                     rating: salon.average_rating || 0,
-                    tags: salon.assigned_types && salon.assigned_types.length > 0
-                        ? salon.assigned_types.map((t: any) => t.name)
+                    tags: Array.isArray(salon.assigned_types)
+                        ? salon.assigned_types.map((t: any) => typeof t === 'string' ? t : t.name)
                         : (salon.type_name ? [salon.type_name] : []),
                     startPrice: salon.min_price || 100,
                     coordinates: {
@@ -303,27 +311,31 @@ export default function HomeClient() {
 
     const handleSearchChange = (val: string) => {
         setLocalSearch(val);
-        if (val.length < 2) {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            return;
-        }
-
         const term = normalize(val);
         const newSuggestions: typeof suggestions = [];
+
         if (activeTab === 'salon') {
-            salons.forEach(s => { if (normalize(s.name).includes(term)) newSuggestions.push({ type: 'salon', text: s.name, id: s.id }); });
+            salons.forEach(s => {
+                if (!term || normalize(s.name).includes(term)) {
+                    newSuggestions.push({ type: 'salon', text: s.name, id: s.id });
+                }
+            });
         } else if (activeTab === 'type') {
-            salonTypes.forEach(t => { if (normalize(t.name).includes(term)) newSuggestions.push({ type: 'category', text: t.name, id: t.slug }); });
+            salonTypes.forEach(t => {
+                if (!term || normalize(t.name).includes(term)) {
+                    newSuggestions.push({ type: 'category', text: t.name, id: t.slug });
+                }
+            });
         } else if (activeTab === 'service') {
             const matchedServices = Array.from(new Set([
-                ...globalServices.map(s => s.name).filter(s => normalize(s).includes(term)),
-                ...Object.values(salonServicesMap).flat().filter(s => normalize(s).includes(term))
-            ])).slice(0, 10);
+                ...globalServices.map(s => s.name).filter(s => !term || normalize(s).includes(term)),
+                ...Object.values(salonServicesMap).flat().filter(s => !term || normalize(s).includes(term))
+            ])).slice(0, 15);
             matchedServices.forEach(s => newSuggestions.push({ type: 'service', text: s }));
         }
+
         setSuggestions(newSuggestions);
-        setShowSuggestions(true);
+        setShowSuggestions(newSuggestions.length > 0);
     };
 
     const handleSuggestionSelect = (item: typeof suggestions[0]) => {
@@ -370,20 +382,23 @@ export default function HomeClient() {
                                     type="text"
                                     value={localSearch}
                                     onChange={(e) => handleSearchChange(e.target.value)}
+                                    onFocus={() => handleSearchChange(localSearch)}
                                     placeholder="Salon, hizmet veya bölge ara..."
                                     className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                     onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
                                 />
                                 {showSuggestions && suggestions.length > 0 && (
-                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-2xl z-[9999] max-h-80 overflow-y-auto overflow-x-hidden">
                                         {suggestions.map((item, idx) => (
                                             <div
                                                 key={idx}
                                                 onClick={() => handleSuggestionSelect(item)}
                                                 className="px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-0 flex items-center gap-3"
                                             >
-                                                {item.type === 'salon' ? <Store className="w-4 h-4 text-primary" /> : <Sparkles className="w-4 h-4 text-primary" />}
-                                                <span>{item.text}</span>
+                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                                    {item.type === 'salon' ? <Store className="w-3 h-3 text-primary" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                                </div>
+                                                <span className="font-medium text-text-main">{item.text}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -502,101 +517,142 @@ export default function HomeClient() {
                 </div>
             ) : (
                 <div className="flex flex-col">
-                    {/* Hero Section */}
-                    <section className="relative bg-gray-900 min-h-[500px] lg:min-h-[600px] flex items-center justify-center overflow-hidden">
-                        {/* Background Image with Overlay */}
-                        <div className="absolute inset-0 z-0">
+                    {/* Premium Hero Section */}
+                    <section className="relative min-h-[600px] lg:min-h-[700px] flex items-center justify-center">
+                        {/* High-End Background with subtle zoom and parallax feel */}
+                        <div className="absolute inset-0 z-0 overflow-hidden">
                             <img
-                                alt="Luxury Salon"
-                                className="w-full h-full object-cover opacity-50 scale-105 animate-slow-zoom"
-                                src="https://images.unsplash.com/photo-1633681926022-2292608933c0?q=80&w=2000&auto=format&fit=crop"
+                                alt="Luxury Hair & Beauty Salon"
+                                className="w-full h-full object-cover animate-slow-zoom scale-110"
+                                src="/hero-bg.jpg"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background"></div>
+                            {/* Multilayered Overlay for depth - Darkened for better readability */}
+                            <div className="absolute inset-0 bg-black/60"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
                         </div>
 
-                        <div className="relative z-10 w-full max-w-4xl mx-auto px-4 text-center">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
-                                <Sparkles className="w-3 h-3" /> Türkiye'nin En İyi Salonlarını Keşfedin
+                        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 text-center">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white text-[11px] font-bold uppercase tracking-[0.2em] mb-8 backdrop-blur-md shadow-xl animate-fade-in-up">
+                                <Sparkles className="w-3.5 h-3.5 text-primary" /> Türkiye'nin En Seçkin Salon Deneyimi
                             </div>
-                            <h1 className="text-4xl lg:text-6xl font-black text-white mb-6 leading-tight">
-                                Güzelliğin <span className="text-primary italic">Yeni Adresi</span>
+
+                            <h1 className="text-5xl lg:text-7xl font-display font-black text-white mb-8 leading-[1.1] drop-shadow-[0_8px_30px_rgb(0,0,0,0.8)] animate-fade-in-up delay-100">
+                                Güzelliğin <span className="text-primary italic relative">
+                                    Yeni Adresi
+                                    <svg className="absolute -bottom-2 left-0 w-full h-3 text-primary/40 -z-10" viewBox="0 0 100 20" preserveAspectRatio="none">
+                                        <path d="M0 15 Q 50 5 100 15" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round" />
+                                    </svg>
+                                </span>
                             </h1>
-                            <p className="text-lg text-gray-300 mb-10 max-w-2xl mx-auto font-medium">
-                                En yakın kuaför, berber ve güzellik merkezlerini keşfedin, fiyatları karşılaştırın ve anında randevu alın.
+
+                            <p className="text-xl lg:text-2xl text-gray-100 mb-12 max-w-3xl mx-auto font-medium leading-relaxed drop-shadow-[0_4px_12px_rgb(0,0,0,0.8)] animate-fade-in-up delay-200">
+                                Sizin için küratize edilmiş en seçkin kuaför ve güzellik merkezlerini keşfedin.
+                                <span className="block mt-2 text-white font-bold drop-shadow-md">Beklemeden, yorulmadan, anında randevu.</span>
                             </p>
 
-                            <div className="bg-white rounded-2xl p-2 shadow-2xl relative z-50">
-                                {/* Search Tabs */}
-                                <div className="flex border-b border-gray-100 mb-2">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] p-3 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] relative z-50 animate-fade-in-up delay-300 border border-white/50 max-w-4xl mx-auto">
+                                {/* Search Tabs with Premium Styling */}
+                                <div className="flex justify-center md:justify-start gap-1 p-1 bg-gray-100/50 rounded-2xl mb-3 w-fit mx-auto md:mx-4">
                                     {(['service', 'type', 'salon'] as SearchTab[]).map(tab => (
                                         <button
                                             key={tab}
-                                            onClick={() => setActiveTab(tab)}
-                                            className={`px-6 py-3 text-sm font-bold transition-all relative ${activeTab === tab ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                                            onClick={() => {
+                                                setActiveTab(tab);
+                                                handleSearchChange(localSearch);
+                                            }}
+                                            className={`px-8 py-2.5 text-xs font-black rounded-xl transition-all uppercase tracking-wider ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
-                                            {tab === 'service' ? 'Hizmet' : tab === 'type' ? 'Salon Türü' : 'Salon Adı'}
-                                            {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                                            {tab === 'service' ? 'Hizmet' : tab === 'type' ? 'Kategori' : 'Salon'}
                                         </button>
                                     ))}
                                 </div>
 
-                                <div className="flex flex-col md:flex-row gap-2">
+                                <div className="flex flex-col md:flex-row gap-2 relative">
                                     <div className="flex-1 relative" ref={searchWrapperRef}>
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-primary group-focus-within:scale-110 transition-transform">
+                                            {activeTab === 'service' ? <Sparkles className="w-5 h-5" /> : activeTab === 'type' ? <LayoutGrid className="w-5 h-5" /> : <Store className="w-5 h-5" />}
+                                        </div>
                                         <input
                                             type="text"
                                             value={localSearch}
                                             onChange={(e) => handleSearchChange(e.target.value)}
-                                            onFocus={() => localSearch.length >= 2 && setShowSuggestions(true)}
-                                            placeholder={activeTab === 'service' ? "Hizmet ara (örn. Saç Kesimi)..." : activeTab === 'type' ? "Salon türü seçin..." : "İşletme adı yazın..."}
-                                            className="w-full border border-gray-200 p-3 pl-10 rounded-xl outline-none focus:border-primary transition-all text-sm font-medium"
+                                            onFocus={() => handleSearchChange(localSearch)}
+                                            placeholder={activeTab === 'service' ? "Ne hayal ediyorsunuz?" : activeTab === 'type' ? "Hangi konsept?" : "Salon ismi..."}
+                                            className="w-full border-none bg-transparent p-5 pl-12 rounded-[1.8rem] outline-none text-base font-bold text-text-main placeholder:text-gray-400 focus:ring-0"
                                             onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
                                         />
 
                                         {showSuggestions && suggestions.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-xl shadow-xl z-[100] max-h-80 overflow-y-auto overflow-x-hidden">
+                                            <div className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white border border-gray-200 rounded-[2rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] z-[9999] max-h-96 overflow-y-auto overflow-x-hidden p-2 animate-in fade-in slide-in-from-top-4 duration-300">
                                                 {suggestions.map((item, idx) => (
                                                     <div
                                                         key={idx}
                                                         onClick={() => handleSuggestionSelect(item)}
-                                                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors"
+                                                        className="group px-6 py-4 hover:bg-gray-50 cursor-pointer rounded-2xl flex items-center gap-4 transition-all"
                                                     >
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${item.type === 'salon' ? 'bg-blue-50 text-blue-600' : item.type === 'service' ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                            {item.type === 'salon' ? <Store className="w-4 h-4" /> : item.type === 'service' ? <Sparkles className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-110 ${item.type === 'salon' ? 'bg-blue-50 text-blue-600' : item.type === 'service' ? 'bg-primary/10 text-primary' : 'bg-orange-50 text-orange-600'}`}>
+                                                            {item.type === 'salon' ? <Store className="w-5 h-5" /> : item.type === 'service' ? <Sparkles className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
                                                         </div>
                                                         <div className="flex flex-col text-left">
-                                                            <span className="text-sm font-bold text-text-main">{item.text}</span>
-                                                            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">
-                                                                {item.type === 'salon' ? 'Salon' : item.type === 'service' ? 'Hizmet' : 'Kategori'}
+                                                            <span className="text-base font-black text-text-main group-hover:text-primary transition-colors">{item.text}</span>
+                                                            <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-0.5">
+                                                                {item.type === 'salon' ? 'Prestijli Salon' : item.type === 'service' ? 'Hizmet Seçeneği' : 'Kategori'}
                                                             </span>
                                                         </div>
-                                                        <ArrowRight className="ml-auto w-4 h-4 text-gray-300" />
+                                                        <ArrowRight className="ml-auto w-5 h-5 text-gray-200 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="w-full md:w-48 relative">
-                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <select
-                                            value={selectedCity}
-                                            onChange={(e) => setSelectedCity(e.target.value)}
-                                            className="w-full border border-gray-200 p-3 pl-10 rounded-xl outline-none appearance-none cursor-pointer bg-white text-sm font-medium"
-                                        >
-                                            <option value="Tümü">Tüm Şehirler</option>
-                                            {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    <div className={`w-full ${selectedCity !== 'Tümü' ? 'md:w-80' : 'md:w-56'} flex gap-1 relative group bg-gray-50/80 rounded-[1.8rem] border border-transparent focus-within:border-primary/20 transition-all p-1`}>
+                                        <div className={`relative ${selectedCity !== 'Tümü' ? 'w-1/2' : 'w-full'}`}>
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-primary/60">
+                                                <MapPin className="w-4 h-4" />
+                                            </div>
+                                            <select
+                                                value={selectedCity}
+                                                onChange={(e) => setSelectedCity(e.target.value)}
+                                                className="w-full border-none bg-transparent py-4 pl-9 pr-8 outline-none appearance-none cursor-pointer text-xs font-black text-text-main truncate"
+                                            >
+                                                <option value="Tümü">İl</option>
+                                                {cities.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                                        </div>
+
+                                        {selectedCity !== 'Tümü' && (
+                                            <div className="relative w-1/2 border-l border-gray-200 animate-in slide-in-from-left-2 duration-300">
+                                                <select
+                                                    value={selectedDistrict}
+                                                    onChange={(e) => setSelectedDistrict(e.target.value)}
+                                                    className="w-full border-none bg-transparent py-4 pl-4 pr-8 outline-none appearance-none cursor-pointer text-xs font-black text-text-main truncate"
+                                                >
+                                                    <option value="Tümü">İlçe</option>
+                                                    {districts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                                </select>
+                                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <button
                                         onClick={executeSearch}
-                                        className="bg-primary hover:bg-primary-hover text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-primary/20"
+                                        className="bg-primary hover:bg-black text-white px-10 py-5 rounded-[1.8rem] font-black text-base transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-primary/20 hover:shadow-black/20 group"
                                     >
-                                        Ara
+                                        <span>Keşfetmeye Başla</span>
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Trust Badges */}
+                            <div className="mt-12 flex flex-wrap justify-center gap-8 text-white/60 text-[11px] font-bold uppercase tracking-[0.2em] animate-fade-in-up delay-400">
+                                <span className="flex items-center gap-2"><Info className="w-4 h-4 text-primary" /> %100 Doğrulanmış Salonlar</span>
+                                <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> 7/24 Anında Rezervasyon</span>
+                                <span className="flex items-center gap-2"><Star className="w-4 h-4 text-primary" /> En İyi Fiyat Garantisi</span>
                             </div>
                         </div>
                     </section>
