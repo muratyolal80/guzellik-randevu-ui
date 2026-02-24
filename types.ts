@@ -184,6 +184,12 @@ export interface SalonDetail extends Salon {
   review_count: number;
   average_rating: number;
   assigned_types?: { id: string, name: string, slug: string, is_primary: boolean }[];
+  working_hours?: {
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_closed: boolean;
+  }[];
 
 
   // Legacy/compatibility properties (for existing code)

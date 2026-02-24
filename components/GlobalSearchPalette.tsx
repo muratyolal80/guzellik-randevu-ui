@@ -61,7 +61,7 @@ export default function GlobalSearchPalette() {
     const handleSelect = (item: any, type: 'salon' | 'service') => {
         setIsOpen(false);
         if (type === 'salon') {
-            router.push(`/salons/${item.slug}`);
+            router.push(`/salon/${item.id}`);
         } else {
             router.push(`/?search=${encodeURIComponent(item.name)}`);
         }
@@ -142,7 +142,7 @@ export default function GlobalSearchPalette() {
                                                 </div>
                                                 <div className="flex-1 overflow-hidden">
                                                     <p className="font-bold text-text-main leading-tight truncate">{salon.name}</p>
-                                                    <p className="text-xs font-medium text-text-secondary truncate">{salon.city?.name}</p>
+                                                    <p className="text-xs font-medium text-text-secondary truncate">{salon.city_name}</p>
                                                 </div>
                                             </button>
                                         ))}
@@ -165,7 +165,7 @@ export default function GlobalSearchPalette() {
                                                 </div>
                                                 <div className="flex-1 overflow-hidden">
                                                     <p className="font-bold text-text-main leading-tight truncate">{service.name}</p>
-                                                    <p className="text-xs font-medium text-text-secondary truncate">{service.category?.name}</p>
+                                                    <p className="text-xs font-medium text-text-secondary truncate">{service.category_name}</p>
                                                 </div>
                                             </button>
                                         ))}

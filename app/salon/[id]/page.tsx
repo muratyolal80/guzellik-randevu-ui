@@ -84,7 +84,12 @@ export default function SalonDetailPage() {
         try {
             setLoadingStaffReviews(true);
             const data = await StaffReviewService.getReviewsBySalon(id);
-            setStaffReviews(data);
+            setStaffReviews((data || []).map((r: any) => ({
+                ...r,
+                user_name: String(r.user_name || 'Misafir'),
+                comment: typeof r.comment === 'object' ? JSON.stringify(r.comment) : String(r.comment || ''),
+                staff_name: typeof r.staff_name === 'object' ? (r.staff_name as any)?.name : String(r.staff_name || '')
+            })));
         } catch (error) {
             console.error('Error fetching staff reviews:', error);
         } finally {
@@ -111,53 +116,59 @@ export default function SalonDetailPage() {
         const fetchData = async () => {
             if (!id) return;
             setLoading(true);
-            // Fetch salon, reviews, services, and working hours in parallel
-            const [salonData, reviewsData, servicesData, hoursData, galleryData] = await Promise.all([
-                SalonDataService.getSalonById(id),
-                ReviewService.getReviewsBySalon(id),
-                ServiceService.getServicesBySalon(id),
-                SalonDataService.getSalonWorkingHours(id),
-                GalleryService.getSalonGallery(id)
-            ]);
+            try {
+                // Fetch salon first — this is critical
+                const salonData = await SalonDataService.getSalonById(id);
 
-            if (salonData) {
-                // Defensive mapping to prevent [object Object] rendering
-                const mappedSalon = {
-                    ...salonData,
-                    city_name: typeof salonData.city_name === 'object' ? (salonData.city_name as any)?.name : (salonData.city_name || 'Belirtilmemiş'),
-                    district_name: typeof salonData.district_name === 'object' ? (salonData.district_name as any)?.name : (salonData.district_name || ''),
-                    features: Array.isArray(salonData.features)
-                        ? salonData.features.map((f: any) => typeof f === 'string' ? f : (f.name || JSON.stringify(f)))
-                        : [],
-                    tags: Array.isArray((salonData as any).assigned_types)
-                        ? (salonData as any).assigned_types.map((t: any) => typeof t === 'string' ? t : t.name)
-                        : (salonData.type_name ? [salonData.type_name] : [])
-                };
+                // Fetch secondary data in parallel using allSettled so one failure doesn't break the page
+                const [reviewsResult, servicesResult, hoursResult, galleryResult] = await Promise.allSettled([
+                    ReviewService.getReviewsBySalon(id),
+                    ServiceService.getServicesBySalon(id),
+                    SalonDataService.getSalonWorkingHours(id),
+                    GalleryService.getSalonGallery(id)
+                ]);
 
-                setSalon(mappedSalon);
-                setBookingSalon(mappedSalon); // Store in booking context
+                if (salonData) {
+                    setSalon(salonData);
+                    setBookingSalon(salonData); // Store in booking context
 
-                // Fetch favorite status if user logged in
-                if (user) {
-                    const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
-                    setIsFavorite(favStatus);
-
-                    try {
-                        const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
-                        setEligibleAppointments(appointments);
-                        if (appointments.length > 0) {
-                            setSelectedAppointmentId(appointments[0].id);
+                    // Fetch favorite status if user logged in
+                    if (user) {
+                        try {
+                            const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
+                            setIsFavorite(favStatus);
+                        } catch (err) {
+                            console.error('Failed to fetch favorite status', err);
                         }
-                    } catch (err) {
-                        console.error('Failed to fetch eligible appointments', err);
+
+                        try {
+                            const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
+                            setEligibleAppointments(appointments);
+                            if (appointments.length > 0) {
+                                setSelectedAppointmentId(appointments[0].id);
+                            }
+                        } catch (err) {
+                            console.error('Failed to fetch eligible appointments', err);
+                        }
                     }
                 }
+
+                // Safely extract data from settled promises
+                setReviews(reviewsResult.status === 'fulfilled' ? (reviewsResult.value || []) : []);
+                setServices(servicesResult.status === 'fulfilled' ? (servicesResult.value || []) : []);
+                setWorkingHours(hoursResult.status === 'fulfilled' ? (hoursResult.value || []) : []);
+                setGallery(galleryResult.status === 'fulfilled' ? (galleryResult.value || []) : []);
+
+                // Log any errors for debugging
+                if (reviewsResult.status === 'rejected') console.error('Reviews fetch failed:', reviewsResult.reason);
+                if (servicesResult.status === 'rejected') console.error('Services fetch failed:', servicesResult.reason);
+                if (hoursResult.status === 'rejected') console.error('Working hours fetch failed:', hoursResult.reason);
+                if (galleryResult.status === 'rejected') console.error('Gallery fetch failed:', galleryResult.reason);
+            } catch (error) {
+                console.error('Salon detay verisi yüklenirken hata:', error);
+            } finally {
+                setLoading(false);
             }
-            setReviews(reviewsData);
-            setServices(servicesData);
-            setWorkingHours(hoursData);
-            setGallery(galleryData);
-            setLoading(false);
         };
         fetchData();
     }, [id, setBookingSalon, user]);
