@@ -305,6 +305,48 @@ export const MasterDataService = {
 
 export const SalonDataService = {
   /**
+   * Helper: Normalize salon data to prevent [object Object] errors
+   */
+  mapSalonDetail(salon: any): SalonDetail {
+    if (!salon) return salon;
+    return {
+      ...salon,
+      name: String(salon.name || ''),
+      description: typeof salon.description === 'object' ? JSON.stringify(salon.description) : (salon.description || ''),
+      city_name: typeof salon.city_name === 'object' ? (salon.city_name as any)?.name : String(salon.city_name || 'Belirtilmemiş'),
+      district_name: typeof salon.district_name === 'object' ? (salon.district_name as any)?.name : String(salon.district_name || ''),
+      neighborhood: typeof salon.neighborhood === 'object' ? String((salon.neighborhood as any)?.name || '') : String(salon.neighborhood || ''),
+      avenue: typeof salon.avenue === 'object' ? String((salon.avenue as any)?.name || '') : String(salon.avenue || ''),
+      street: typeof salon.street === 'object' ? String((salon.street as any)?.name || '') : String(salon.street || ''),
+      building_no: typeof salon.building_no === 'object' ? String((salon.building_no as any)?.name || '') : String(salon.building_no || ''),
+      apartment_no: typeof salon.apartment_no === 'object' ? String((salon.apartment_no as any)?.name || '') : String(salon.apartment_no || ''),
+      address: typeof salon.address === 'object' ? JSON.stringify(salon.address) : (salon.address || ''),
+      geo_latitude: Number(salon.geo_latitude || 0),
+      geo_longitude: Number(salon.geo_longitude || 0),
+      average_rating: Number(salon.average_rating || 0),
+      rating: Number(salon.rating || salon.average_rating || 0),
+      features: Array.isArray(salon.features)
+        ? salon.features.map((f: any) => typeof f === 'string' ? f : (f.name || JSON.stringify(f)))
+        : [],
+      tags: Array.isArray(salon.assigned_types)
+        ? salon.assigned_types.map((t: any) => typeof t === 'string' ? t : (t.name || String(t)))
+        : (salon.type_name ? [String(salon.type_name)] : []),
+      coordinates: {
+        lat: Number(salon.geo_latitude || 0),
+        lng: Number(salon.geo_longitude || 0)
+      },
+      working_hours: Array.isArray(salon.working_hours)
+        ? salon.working_hours.map((wh: any) => ({
+          day_of_week: Number(wh.day_of_week),
+          start_time: String(wh.start_time || '09:00:00'),
+          end_time: String(wh.end_time || '20:00:00'),
+          is_closed: Boolean(wh.is_closed)
+        }))
+        : []
+    };
+  },
+
+  /**
    * Get all salons with detailed information (using view)
    */
   async getSalons(): Promise<SalonDetail[]> {
@@ -316,7 +358,7 @@ export const SalonDataService = {
       .order('average_rating', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -341,7 +383,7 @@ export const SalonDataService = {
       .in('id', salonIds);
 
     if (salonError) throw salonError;
-    return salons || [];
+    return (salons || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -355,7 +397,7 @@ export const SalonDataService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data ? this.mapSalonDetail(data) : null;
   },
 
   /**
@@ -369,7 +411,7 @@ export const SalonDataService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data ? this.mapSalonDetail(data) : null;
   },
 
   /**
@@ -440,7 +482,7 @@ export const SalonDataService = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    return (data || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -462,7 +504,7 @@ export const SalonDataService = {
       .order('is_sponsored', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -677,7 +719,7 @@ export const SalonDataService = {
       .in('id', salonIds.map(s => s.id));
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -698,7 +740,7 @@ export const SalonDataService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map(s => this.mapSalonDetail(s));
   },
 
   /**
@@ -1392,25 +1434,18 @@ export const ReviewService = {
 
       if (fallbackError) throw fallbackError;
 
-      // Fetch images for these reviews
-      const reviewIds = fallbackData?.map(r => r.id) || [];
-      if (reviewIds.length > 0) {
-        const { data: imageData } = await supabase
-          .from('review_images')
-          .select('*')
-          .in('review_id', reviewIds);
+      const finalData = (error ? fallbackData : data) || [];
 
-        return (fallbackData || []).map(review => ({
-          ...review,
-          images: imageData?.filter(img => img.review_id === review.id) || []
-        }));
-      }
-
-      return fallbackData || [];
+      return finalData.map((r: any) => ({
+        ...r,
+        user_name: String(r.user_name || 'Misafir'),
+        comment: typeof r.comment === 'object' ? JSON.stringify(r.comment) : String(r.comment || ''),
+        service_name: typeof r.service_name === 'object' ? (r.service_name as any)?.name : String(r.service_name || '')
+      }));
     }
 
     // Fetch images for these reviews (from view)
-    const reviewIds = data?.map(r => r.id) || [];
+    const reviewIds = (data || []).map(r => r.id);
     if (reviewIds.length > 0) {
       const { data: imageData } = await supabase
         .from('review_images')
@@ -1419,11 +1454,19 @@ export const ReviewService = {
 
       return (data || []).map(review => ({
         ...review,
+        user_name: String(review.user_name || 'Misafir'),
+        comment: typeof review.comment === 'object' ? JSON.stringify(review.comment) : String(review.comment || ''),
+        service_name: typeof review.service_name === 'object' ? (review.service_name as any)?.name : String(review.service_name || ''),
         images: imageData?.filter(img => img.review_id === review.id) || []
       }));
     }
 
-    return data || [];
+    return (data || []).map(review => ({
+      ...review,
+      user_name: String(review.user_name || 'Misafir'),
+      comment: typeof review.comment === 'object' ? JSON.stringify(review.comment) : String(review.comment || ''),
+      service_name: typeof review.service_name === 'object' ? (review.service_name as any)?.name : String(review.service_name || '')
+    }));
   },
 
   /**
@@ -2609,10 +2652,19 @@ export const GlobalSearchService = {
         .limit(5)
     ]);
 
-    return {
-      salons: salonsResp.data || [],
-      services: servicesResp.data || []
-    };
+    const salons = (salonsResp.data || []).map((s: any) => ({
+      ...s,
+      name: String(s.name || ''),
+      city_name: typeof s.city === 'object' ? String(s.city?.name || 'Belirtilmemiş') : String(s.city || 'Belirtilmemiş')
+    }));
+
+    const services = (servicesResp.data || []).map((s: any) => ({
+      ...s,
+      name: String(s.name || ''),
+      category_name: typeof s.category === 'object' ? String(s.category?.name || 'Diğer') : String(s.category || 'Diğer')
+    }));
+
+    return { salons, services };
   }
 };
 

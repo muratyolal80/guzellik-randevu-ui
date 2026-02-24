@@ -168,24 +168,12 @@ export default function HomeClient() {
                     MasterDataService.getCities()
                 ]);
 
+                // getSalons() already normalizes via mapSalonDetail — only add UI aliases
                 const mappedData = (salonsData || []).map((salon: any) => ({
                     ...salon,
-                    // Defensive mapping to handle unexpected object structures (potential cause of [object Object])
-                    city: typeof (salon.city_name || salon.cities?.name || salon.city?.name) === 'object'
-                        ? (salon.city_name?.name || 'Belirtilmemiş')
-                        : (salon.city_name || salon.cities?.name || salon.city?.name || 'Belirtilmemiş'),
-                    district: typeof (salon.district_name || salon.districts?.name || salon.district?.name) === 'object'
-                        ? (salon.district_name?.name || '')
-                        : (salon.district_name || salon.districts?.name || salon.district?.name || ''),
-                    rating: salon.average_rating || 0,
-                    tags: Array.isArray(salon.assigned_types)
-                        ? salon.assigned_types.map((t: any) => typeof t === 'string' ? t : t.name)
-                        : (salon.type_name ? [salon.type_name] : []),
-                    startPrice: salon.min_price || 100,
-                    coordinates: {
-                        lat: salon.geo_latitude || 0,
-                        lng: salon.geo_longitude || 0
-                    }
+                    city: salon.city_name || 'Belirtilmemiş',
+                    district: salon.district_name || '',
+                    startPrice: salon.min_price ? Number(salon.min_price) : 100,
                 }));
 
                 setSalons(mappedData);
@@ -294,6 +282,24 @@ export default function HomeClient() {
 
         if (onlyAvailableToday) {
             if (salon.is_closed) return false;
+
+            // Real-time Availability Check
+            const now = new Date();
+            const currentDay = now.getDay(); // 0: Sunday, 1: Monday, ...
+            const currentDayMapped = currentDay === 0 ? 7 : currentDay; // 1: Monday, ..., 7: Sunday
+            const currentTime = now.getHours() * 60 + now.getMinutes();
+
+            const todayHours = salon.working_hours?.find(wh => wh.day_of_week === currentDayMapped);
+
+            if (!todayHours || todayHours.is_closed) return false;
+
+            const [startH, startM] = todayHours.start_time.split(':').map(Number);
+            const [endH, endM] = todayHours.end_time.split(':').map(Number);
+
+            const startTotal = startH * 60 + startM;
+            const endTotal = endH * 60 + endM;
+
+            if (currentTime < startTotal || currentTime >= endTotal) return false;
         }
 
         return true;
@@ -475,12 +481,48 @@ export default function HomeClient() {
                                                         <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                                                         <span className="text-[10px] font-black">{salon.rating || 0}</span>
                                                     </div>
-                                                    {!salon.is_closed && (
-                                                        <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
-                                                            <Clock className="w-3 h-3" />
-                                                            <span className="text-[10px] font-black">Açık</span>
-                                                        </div>
-                                                    )}
+                                                    {(() => {
+                                                        const isClosedFlag = salon.is_closed;
+                                                        if (isClosedFlag) return (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+
+                                                        const now = new Date();
+                                                        const currentDay = now.getDay();
+                                                        const currentDayMapped = currentDay === 0 ? 7 : currentDay;
+                                                        const currentTime = now.getHours() * 60 + now.getMinutes();
+
+                                                        const todayHours = salon.working_hours?.find(wh => wh.day_of_week === currentDayMapped);
+
+                                                        if (!todayHours || todayHours.is_closed) return (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+
+                                                        const [startH, startM] = todayHours.start_time.split(':').map(Number);
+                                                        const [endH, endM] = todayHours.end_time.split(':').map(Number);
+                                                        const startTotal = startH * 60 + startM;
+                                                        const endTotal = endH * 60 + endM;
+
+                                                        const isOpen = currentTime >= startTotal && currentTime < endTotal;
+
+                                                        return isOpen ? (
+                                                            <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Açık</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className="space-y-1">

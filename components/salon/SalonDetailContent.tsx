@@ -127,10 +127,10 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                     }
                 }
             }
-            setReviews(reviewsData);
-            setServices(servicesData);
-            setWorkingHours(hoursData);
-            setGallery(galleryData);
+            setReviews(reviewsData || []);
+            setServices(servicesData || []);
+            setWorkingHours(hoursData || []);
+            setGallery(galleryData || []);
         } catch (err) {
             console.error('Salon verileri yüklenirken hata oluştu:', err);
         } finally {
