@@ -161,12 +161,24 @@ export default function HomeClient() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [salonsData, typesData, servicesData, citiesData] = await Promise.all([
+                const results = await Promise.allSettled([
                     SalonDataService.getSalons(),
                     MasterDataService.getSalonTypes(),
                     MasterDataService.getAllGlobalServices(),
                     MasterDataService.getCities()
                 ]);
+
+                const salonsData = results[0].status === 'fulfilled' ? results[0].value : [];
+                if (results[0].status === 'rejected') console.error('Error fetching salons:', results[0].reason);
+
+                const typesData = results[1].status === 'fulfilled' ? results[1].value : [];
+                if (results[1].status === 'rejected') console.error('Error fetching salon types:', results[1].reason);
+
+                const servicesData = results[2].status === 'fulfilled' ? results[2].value : [];
+                if (results[2].status === 'rejected') console.error('Error fetching global services:', results[2].reason);
+
+                const citiesData = results[3].status === 'fulfilled' ? results[3].value : [];
+                if (results[3].status === 'rejected') console.error('Error fetching cities:', results[3].reason);
 
                 // getSalons() already normalizes via mapSalonDetail — only add UI aliases
                 const mappedData = (salonsData || []).map((salon: any) => ({
@@ -205,8 +217,10 @@ export default function HomeClient() {
                 }
                 setSalonServicesMap(servicesMap);
 
-            } catch (err: unknown) {
-                console.error('Error fetching initial data:', err);
+            } catch (err: any) {
+                console.error('Error fetching initial data (main block):', err?.message || err);
+                if (err?.code) console.error('Error code:', err.code);
+                if (err?.details) console.error('Error details:', err.details);
             } finally {
                 setLoading(false);
             }
