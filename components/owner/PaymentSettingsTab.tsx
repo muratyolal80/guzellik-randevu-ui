@@ -10,8 +10,14 @@ import {
     Save,
     Info,
     ExternalLink,
-    Shield
+    Shield,
+    User,
+    Mail,
+    Phone,
+    MapPin
 } from 'lucide-react';
+import { SalonDataService, ProfileService } from '@/services/db';
+import { supabase } from '@/lib/supabase';
 
 interface PaymentSettingsTabProps {
     salonId: string;
@@ -21,6 +27,8 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [registration, setRegistration] = useState<any>(null);
+    const [salon, setSalon] = useState<any>(null);
+    const [profile, setProfile] = useState<any>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Form States
@@ -29,9 +37,47 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
     const [accountOwner, setAccountOwner] = useState('');
     const [subMerchantType, setSubMerchantType] = useState('PERSONAL');
 
+    // Missing Info States (to ensure iyzico has what it needs)
+    const [contactEmail, setContactEmail] = useState('');
+    const [contactPhone, setContactPhone] = useState('');
+    const [address, setAddress] = useState('');
+
     useEffect(() => {
-        fetchRegistration();
+        fetchInitialData();
     }, [salonId]);
+
+    const fetchInitialData = async () => {
+        setLoading(true);
+        await Promise.all([
+            fetchRegistration(),
+            fetchSalonAndProfile()
+        ]);
+        setLoading(false);
+    };
+
+    const fetchSalonAndProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const [salonData, profileData] = await Promise.all([
+                SalonDataService.getSalonById(salonId),
+                ProfileService.getProfile(user.id)
+            ]);
+
+            if (salonData) {
+                setSalon(salonData);
+                setAddress(salonData.address || '');
+            }
+            if (profileData) {
+                setProfile(profileData);
+                setContactEmail(profileData.email || '');
+                setContactPhone(profileData.phone || '');
+            }
+        } catch (err) {
+            console.error('Error fetching salon/profile:', err);
+        }
+    };
 
     const fetchRegistration = async () => {
         try {
@@ -56,17 +102,44 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
         setSaving(true);
         setMessage(null);
         try {
-            await SubmerchantService.saveRegistration(salonId, {
-                bank_name: bankName,
+            // 1. Prepare subMerchantData for iyzico
+            const names = accountOwner.trim().split(' ');
+            const firstName = names[0] || 'Bilinmiyor';
+            const lastName = names.length > 1 ? names.slice(1).join(' ') : firstName;
+
+            const subMerchantData = {
+                subMerchantExternalId: salonId,
+                subMerchantType: subMerchantType,
+                address: address || salon?.address || 'Adres belirtilmemiş',
+                taxOffice: 'Bilinmiyor',
+                taxNumber: '11111111111',
+                contactName: firstName,
+                contactSurname: lastName,
+                email: contactEmail || profile?.email || '',
+                gsmNumber: contactPhone || profile?.phone || '',
+                name: salon?.name || accountOwner,
                 iban: iban.replace(/\s/g, ''),
-                account_owner: accountOwner,
-                sub_merchant_type: subMerchantType,
-                status: registration?.status || 'PENDING'
+                currency: 'TRY'
+            };
+
+            // 2. Call our API for automated creation & DB update
+            const response = await fetch('/api/iyzico/sub-merchant/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ salonId, subMerchantData })
             });
-            setMessage({ type: 'success', text: 'Ödeme bilgileriniz kaydedildi. Aktifleşme için inceleme yapılacaktır.' });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Başvuru iyzico tarafından kabul edilmedi. Lütfen bilgileri kontrol edin.');
+            }
+
+            setMessage({ type: 'success', text: 'Ödeme bilgileriniz onaylandı! Artık randevu ödemelerini iyzico üzerinden alabilirsiniz.' });
             fetchRegistration();
-        } catch (err) {
-            setMessage({ type: 'error', text: 'Bilgiler kaydedilemedi. Lütfen tüm alanları kontrol edin.' });
+        } catch (err: any) {
+            console.error('Save error:', err);
+            setMessage({ type: 'error', text: err.message || 'Bilgiler kaydedilemedi. Lütfen tüm alanları doldurduğunuzdan emin olun.' });
         } finally {
             setSaving(false);
         }
@@ -83,8 +156,8 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
             {/* Status Banner */}
             {registration && (
                 <div className={`p-6 rounded-3xl border flex items-center gap-4 ${isActive ? 'bg-emerald-50 border-emerald-100 text-emerald-800' :
-                        isRejected ? 'bg-red-50 border-red-100 text-red-800' :
-                            'bg-amber-50 border-amber-100 text-amber-800'
+                    isRejected ? 'bg-red-50 border-red-100 text-red-800' :
+                        'bg-amber-50 border-amber-100 text-amber-800'
                     }`}>
                     {isActive ? <CheckCircle2 className="w-8 h-8" /> : isRejected ? <AlertCircle className="w-8 h-8" /> : <Shield className="w-8 h-8" />}
                     <div>
@@ -168,6 +241,49 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
                                 />
                             </div>
                             <p className="text-[10px] text-text-muted font-bold ml-1 uppercase tracking-tighter">Lütfen TR ile başlayan 26 haneli IBAN numaranızı giriniz.</p>
+                        </div>
+
+                        {/* Extra fields if missing from profile/salon */}
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black text-text-muted uppercase tracking-widest ml-1">E-Posta (iyzico İletişim)</label>
+                            <div className="relative">
+                                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                <input
+                                    value={contactEmail}
+                                    onChange={(e) => setContactEmail(e.target.value)}
+                                    className="w-full pl-16 pr-6 py-4 bg-surface-alt border border-border rounded-2xl text-base font-bold text-text-main focus:border-primary outline-none transition-all"
+                                    placeholder="eposta@adresiniz.com"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black text-text-muted uppercase tracking-widest ml-1">Telefon (Gsm)</label>
+                            <div className="relative">
+                                <Phone className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                <input
+                                    value={contactPhone}
+                                    onChange={(e) => setContactPhone(e.target.value)}
+                                    className="w-full pl-16 pr-6 py-4 bg-surface-alt border border-border rounded-2xl text-base font-bold text-text-main focus:border-primary outline-none transition-all"
+                                    placeholder="+90 5xx xxx xx xx"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-2 space-y-2">
+                            <label className="text-[11px] font-black text-text-muted uppercase tracking-widest ml-1">İşletme Adresi (Fatura/Kontrat)</label>
+                            <div className="relative">
+                                <MapPin className="absolute left-6 top-6 w-5 h-5 text-text-muted" />
+                                <textarea
+                                    value={address}
+                                    onChange={(e) => setAddress(e.target.value)}
+                                    className="w-full pl-16 pr-6 py-4 bg-surface-alt border border-border rounded-2xl text-base font-bold text-text-main focus:border-primary outline-none transition-all min-h-[100px]"
+                                    placeholder="iyzico sözleşmesi için tam adresiniz"
+                                    required
+                                />
+                            </div>
                         </div>
                     </div>
 

@@ -483,4 +483,32 @@ export interface AppointmentCoupon {
   created_at: string;
 }
 
+export interface SalonUsageStats {
+  salon_id: string;
+  salon_name: string;
+  plan_name: string;
+  plan_display_name: string;
+  current_staff: number;
+  limit_staff: number;
+  current_branches: number;
+  limit_branches: number;
+  current_gallery_photos: number;
+  limit_gallery_photos: number;
+  has_advanced_reports: boolean;
+  has_campaigns: boolean;
+  has_sponsored: boolean;
+  subscription_status: string;
+  subscription_expires_at: string;
+}
+
+export interface IyzicoWebhook {
+  id: string;
+  iyzi_event_type: string;
+  payload: any;
+  status: 'RECEIVED' | 'PROCESSED' | 'ERROR';
+  error_message?: string;
+  processed_at?: string;
+  created_at: string;
+}
+
 export { };

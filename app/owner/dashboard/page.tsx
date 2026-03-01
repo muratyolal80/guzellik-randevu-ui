@@ -27,6 +27,7 @@ import { useRouter } from 'next/navigation';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import OwnerAnalyticsCharts from '@/components/owner/OwnerAnalyticsCharts';
 import PlanGuard from '@/components/PlanGuard';
+import PlanUsageWidget from '@/components/owner/PlanUsageWidget';
 
 export default function OwnerDashboard() {
     const router = useRouter();
@@ -283,6 +284,8 @@ export default function OwnerDashboard() {
                             <button className="w-full mt-4 py-3.5 bg-primary text-white rounded-2xl font-bold text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">Kupon Tanımla</button>
                         </div>
                     </div>
+
+                    <PlanUsageWidget salonId={activeBranch.id} />
 
                     <div className="bg-white rounded-[40px] p-8 border border-border shadow-card">
                         <h4 className="text-xs font-black text-text-main uppercase tracking-[0.2em] mb-6">SİSTEM MESAJLARI</h4>

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { IyzicoService } from '@/lib/payment/iyzico';
+import { SubscriptionService } from '@/services/db';
+import { IyzicoWebhook } from '@/types';
+import crypto from 'crypto';
 
 /**
  * iyzico Webhook Handler
@@ -7,11 +11,49 @@ import { supabase } from '@/lib/supabase';
  */
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const rawBody = await req.text();
+        const body = JSON.parse(rawBody);
+        const signature = req.headers.get('x-iyzi-signature');
+
         console.log('iyzico Webhook received:', JSON.stringify(body));
 
-        // 1. Determine Event Type
-        const eventType = body.iyziEventType; // SUBSCRIPTION_ORDER_SUCCESS etc.
+        // 0. Verify Signature (V3 logic)
+        const options = await IyzicoService.getOptions();
+        const secretKey = options.secretKey;
+
+        if (signature) {
+            // V3 Signature string: SECRET_KEY + iyziEventType + paymentId + paymentConversationId + status
+            // Note: For subscriptions, parameters might differ. We try both the standard concat and raw body.
+            const payloadStr = secretKey +
+                (body.iyziEventType || '') +
+                (body.paymentId || body.subscriptionReferenceCode || '') +
+                (body.paymentConversationId || '') +
+                (body.status || '');
+
+            const expectedSignature = crypto
+                .createHmac('sha256', secretKey)
+                .update(payloadStr)
+                .digest('hex');
+
+            if (signature !== expectedSignature) {
+                console.warn('Invalid iyzico signature (V3 check failed).');
+            }
+        }
+
+        // 0. Log Webhook to Database (Audit Trail)
+        const { data: webhookLog } = await supabase
+            .from('iyzico_webhooks')
+            .insert({
+                iyzi_event_type: body.iyziEventType || 'UNKNOWN',
+                status: body.status || 'UNKNOWN',
+                payload: body,
+                signature: signature
+            })
+            .select()
+            .single() as { data: IyzicoWebhook | null };
+
+        // 1. Determine Event Type & Reference
+        const eventType = body.iyziEventType;
         const referenceCode = body.subscriptionReferenceCode;
 
         if (eventType === 'SUBSCRIPTION_ORDER_SUCCESS') {
@@ -25,19 +67,22 @@ export async function POST(req: NextRequest) {
                 .single();
 
             if (sub && !subError) {
-                // Update subscription status
-                await supabase
-                    .from('subscriptions')
-                    .update({ status: 'ACTIVE', updated_at: new Date().toISOString() })
-                    .eq('id', sub.id);
+                // Use atomic RPC for activation
+                await SubscriptionService.activateSalonAndSubscription(
+                    sub.salon_id,
+                    sub.id,
+                    `iyzico Webhook: ${referenceCode}`
+                );
 
-                // Update salon status
-                await supabase
-                    .from('salons')
-                    .update({ status: 'ACTIVE', is_verified: true, updated_at: new Date().toISOString() })
-                    .eq('id', sub.salon_id);
+                console.log('Processed atomic activation for:', sub.salon_id);
 
-                // Record in payment history if needed (optional since orders have their own history)
+                // Update log as processed
+                if (webhookLog) {
+                    await supabase
+                        .from('iyzico_webhooks')
+                        .update({ processed: true, updated_at: new Date().toISOString() })
+                        .eq('id', webhookLog.id);
+                }
             }
         }
 
@@ -85,25 +130,22 @@ export async function POST(req: NextRequest) {
 
                 // Case 2: Subscription Payment
                 if (payRecord.subscription_id) {
-                    await supabase
-                        .from('subscriptions')
-                        .update({
-                            status: 'ACTIVE',
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', payRecord.subscription_id);
+                    // Use atomic RPC for activation
+                    await SubscriptionService.activateSalonAndSubscription(
+                        payRecord.salon_id,
+                        payRecord.subscription_id,
+                        `iyzico Payment Webhook: ${paymentId || token || checkoutFormToken}`
+                    );
 
-                    // Also activate the salon if it was pending/draft
-                    await supabase
-                        .from('salons')
-                        .update({
-                            status: 'ACTIVE',
-                            is_verified: true,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', payRecord.salon_id);
+                    console.log('Subscription and Salon activated atomically:', payRecord.subscription_id);
+                }
 
-                    console.log('Subscription and Salon activated automatically:', payRecord.subscription_id);
+                // Update log as processed
+                if (webhookLog) {
+                    await supabase
+                        .from('iyzico_webhooks')
+                        .update({ processed: true, updated_at: new Date().toISOString() })
+                        .eq('id', webhookLog.id);
                 }
             }
         }

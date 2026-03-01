@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IyzicoService } from '@/lib/payment/iyzico';
-import { SalonDataService } from '@/services/db';
+import { SalonDataService, SubmerchantService } from '@/services/db';
 
 /**
  * API route to create a sub-merchant on iyzico
@@ -17,8 +17,17 @@ export async function POST(req: NextRequest) {
         const result = await IyzicoService.createSubMerchant(subMerchantData);
 
         if (result.status === 'success') {
-            // Save subMerchantKey to our database
-            // This will be handled by a service method later
+            // Save subMerchantKey and update status in our database
+            await SubmerchantService.saveRegistration(salonId, {
+                sub_merchant_key: result.subMerchantKey,
+                status: 'ACTIVE',
+                // Keep existing data if any
+                bank_name: subMerchantData.bankName,
+                iban: subMerchantData.iban,
+                account_owner: subMerchantData.contactName, // Assuming contactName is owner
+                sub_merchant_type: subMerchantData.subMerchantType
+            });
+
             return NextResponse.json(result);
         } else {
             return NextResponse.json({
