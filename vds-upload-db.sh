@@ -16,14 +16,13 @@ VDS_SSH_HOST="45.81.113.82"
 # VDS Veritabanı Ayarları (VDS'teki PostgreSQL bilgileri)
 VDS_DB_NAME="postgres"
 
-# Kullanılacak Yedek Dosyası (Eğer parametre verilmezse hata verir)
+# Kullanılacak Yedek Dosyası (Eğer parametre verilmezse varsayılanı kullanır)
 if [ -z "$1" ]; then
-    echo "Kullanım: ./vds-upload-db.sh [yedek_dosyasi.sql]"
-    echo "Örnek: ./vds-upload-db.sh db_backups/db_backup_20240315_120000.sql"
-    exit 1
+    DUMP_FILE="db_backups/db_backup_20260301_230606.sql"
+    echo "⚠️ Yüklenecek dosya belirtilmediği için varsayılan kullanılıyor: $DUMP_FILE"
+else
+    DUMP_FILE="$1"
 fi
-
-DUMP_FILE="$1"
 # Gönderilecek dosyanın VDS üzerindeki adı
 REMOTE_TEMP_FILE="/tmp/$(basename "$DUMP_FILE")"
 
