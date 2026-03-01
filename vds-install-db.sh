@@ -24,4 +24,4 @@ echo "4) 04-Seed-Data.sql çalıştırılıyor (Başlangıç Verileri)..."
 docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME < initdb/04-Seed-Data.sql
 
 echo ""
-echo "✅ VDS Kurulumu Başarıyla Tamamlandı! "
+echo "✅ VDS Kurulumu Başarıyla Tamamlandı!"
