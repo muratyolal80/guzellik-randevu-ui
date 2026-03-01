@@ -472,7 +472,7 @@ export default function SalonDetailPage() {
                                                             <div className="flex items-center gap-6">
                                                                 <span className="text-lg font-black text-text-main">₺{service.price}</span>
                                                                 <Link
-                                                                    href={`/booking/staff?salonId=${salon.id}&serviceId=${service.id}`}
+                                                                    href={`/booking/${salon.id}/staff?serviceId=${service.id}`}
                                                                     onClick={() => setSelectedServices([service])}
                                                                     className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                                                                 >
@@ -496,6 +496,26 @@ export default function SalonDetailPage() {
                                         <span className="p-2 bg-amber-500/10 rounded-lg text-amber-600"><span className="material-symbols-outlined text-xl">reviews</span></span>
                                         Uzman Yorumları
                                     </h3>
+                                    {user && (
+                                        <button
+                                            onClick={() => {
+                                                // We can reuse the existing review form or create a specific one
+                                                // For simplicity, scrolling to the common review section is also an option,
+                                                // but letting them stay in the staff tab and showing a modal would be better.
+                                                // For now, let's enable showing the review form if they have eligible appointments.
+                                                if (eligibleAppointments.length > 0) {
+                                                    setShowReviewForm(true);
+                                                    const reviewsSection = document.getElementById('reviews');
+                                                    if (reviewsSection) reviewsSection.scrollIntoView({ behavior: 'smooth' });
+                                                } else {
+                                                    alert("Uzmanları değerlendirmek için tamamlanmış bir randevunuz olmalıdır.");
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">edit</span> Uzmanı Değerlendir
+                                        </button>
+                                    )}
                                 </div>
 
                                 {loadingStaffReviews ? (

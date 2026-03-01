@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { sendAppointmentSMS } from '@/lib/sms';
+import { sendAppointmentSMS } from '@/lib/messaging/sms';
+import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
 
 export async function POST(request: NextRequest) {
   const supabase = createServerClient(
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     // 3. Get Service Info
     const { data: service } = await supabaseAdmin
       .from('salon_services')
-      .select('duration_min, price')
+      .select('duration_min, price, global_services(name)')
       .eq('id', serviceId)
       .single();
 
@@ -221,9 +222,84 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.rpc('increment_coupon_usage', { p_coupon_id: validCoupon.id });
     }
 
+    // 7. Marketplace Payment Link (Link API with Split Payment)
+    let paymentUrl = null;
+    try {
+      // Check if salon has sub-merchant registration
+      const { data: subMerchant } = await supabaseAdmin
+        .from('salon_sub_merchants')
+        .select('iyzico_sub_merchant_key, status')
+        .eq('salon_id', salonId)
+        .eq('status', 'ACTIVE')
+        .maybeSingle();
+
+      if (subMerchant?.iyzico_sub_merchant_key) {
+        // Get platform commission rate
+        const { data: commissionSetting } = await supabaseAdmin
+          .from('platform_settings')
+          .select('value')
+          .eq('key', 'platform_commission_rate')
+          .single();
+
+        const commissionRate = (commissionSetting?.value as any)?.rate || 0;
+        const totalPriceTL = service.price - (discountAmount || 0);
+        const commission = Math.round((totalPriceTL * commissionRate) / 100);
+        const subMerchantPriceTL = totalPriceTL - commission;
+
+        console.log(`Generating payment link for appointment ${appointment.id}. Total: ${totalPriceTL}, Salon share: ${subMerchantPriceTL}`);
+
+        const serviceName = (service as any).global_services?.name || 'Hizmet';
+
+        const linkResult = await IyzicoLinkService.createLink({
+          name: `${serviceName} Randevusu`,
+          description: `${customerName} - ${startTime}`,
+          price: totalPriceTL, // Link API uses unit (TRY)
+          subMerchantKey: subMerchant.iyzico_sub_merchant_key,
+          subMerchantPrice: subMerchantPriceTL
+        });
+
+        if (linkResult.status === 'success' && linkResult.url) {
+          paymentUrl = linkResult.url;
+
+          // Record in payment history
+          await supabaseAdmin.from('payment_history').insert({
+            salon_id: salonId,
+            appointment_id: appointment.id,
+            payment_type: 'APPOINTMENT',
+            payment_method: 'IYZICO_LINK',
+            amount: Math.round(totalPriceTL * 100), // Kuruş
+            status: 'PENDING',
+            iyzico_link_id: linkResult.token, // Link token
+            metadata: {
+              payment_url: paymentUrl,
+              commission_rate: commissionRate,
+              commission_amount_tl: commission,
+              salon_share_tl: subMerchantPriceTL
+            }
+          });
+        }
+      }
+    } catch (payErr) {
+      console.error('Failed to generate marketplace payment link:', payErr);
+      // Don't fail the whole booking if payment link fail, just log it
+    }
+
+    // 8. Send SMS Notification
+    try {
+      const smsMessage = paymentUrl
+        ? `Sayin ${customerName}, randevunuz olusturuldu. Odemenizi tamamlamak icin: ${paymentUrl}`
+        : `Sayin ${customerName}, ${startTime} tarihindeki randevunuz basariyla olusturuldu.`;
+
+      const cleanPhone = user.phone?.replace('+90', '') || '';
+      await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
+    } catch (smsErr) {
+      console.error('SMS Notification failed:', smsErr);
+    }
+
     return NextResponse.json({
       success: true,
       appointmentId: appointment.id,
+      paymentUrl,
       message: 'Randevu başarıyla oluşturuldu!',
     });
 

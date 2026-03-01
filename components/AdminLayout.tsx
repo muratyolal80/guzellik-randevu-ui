@@ -15,6 +15,7 @@ const AdminSidebar: React.FC = () => {
         { name: 'Hizmetler', path: '/admin/services', icon: 'cut' },
         { name: 'Hizmet Kategorileri', path: '/admin/service-types', icon: 'format_list_bulleted' },
         { name: 'IYS Logları', path: '/admin/iys-logs', icon: 'history' },
+        { name: 'Finans Yönetimi', path: '/admin/finance', icon: 'payments' },
         { name: 'Ayarlar', path: '/admin/settings', icon: 'settings' },
     ];
 
@@ -26,8 +27,8 @@ const AdminSidebar: React.FC = () => {
                         key={item.path}
                         href={item.path}
                         className={`flex items-center gap-3 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${pathname === item.path
-                                ? 'bg-primary text-white'
-                                : 'text-text-secondary hover:bg-gray-100'
+                            ? 'bg-primary text-white'
+                            : 'text-text-secondary hover:bg-gray-100'
                             }`}
                     >
                         <span className="material-symbols-outlined">{item.icon}</span>

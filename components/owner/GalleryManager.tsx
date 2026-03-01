@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GalleryService } from '@/services/db';
+import { GalleryService, SubscriptionService } from '@/services/db';
 import { SalonGallery } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { LimitEnforcer } from '@/lib/utils/limits';
 import {
     Image as ImageIcon,
     X,
@@ -48,6 +49,17 @@ export default function GalleryManager({ salonId, onCoverChange }: GalleryManage
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
+
+        try {
+            await LimitEnforcer.ensureLimit(salonId, 'gallery_photo');
+        } catch (err: any) {
+            if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+                setError('Galeri fotoğraf limitine ulaştınız. Daha fazla fotoğraf eklemek için lütfen paketinizi yükseltin.');
+            } else {
+                setError('Limit kontrolü sırasında bir hata oluştu.');
+            }
+            return;
+        }
 
         setUploading(true);
         setError(null);
