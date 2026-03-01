@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
     const host = request.headers.get('host') || '';
 
     // Define main domains (Update this with production domain)
-    const mainDomains = ['localhost:3000', '127.0.0.1:3000', 'guzellikrandevu.com', 'www.guzellikrandevu.com'];
+    const mainDomains = ['localhost:3000', '127.0.0.1:3000', '45.81.113.82:3000', '45.81.113.82', 'guzellikrandevu.com', 'www.guzellikrandevu.com'];
     const isMainDomain = mainDomains.includes(host);
 
     // 3. Subdomain Routing Logic
