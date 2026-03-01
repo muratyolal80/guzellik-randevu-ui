@@ -39,8 +39,11 @@ mkdir -p "$BACKUP_DIR"
 echo "🔄 Docker üzerinde çalışan veritabanından ($DB_NAME) yedek alınıyor..."
 
 # Docker içinden pg_dump çalıştırarak yedeği al (Supabase yapısında veritabanı Docker içindedir)
-# --clean --if-exists --no-owner --no-privileges parametreleri ile temiz ve yetkilerden arındırılmış bir yedek alıyoruz
-docker exec -i -e PGPASSWORD="$DB_PASSWORD" $DOCKER_CONTAINER_NAME pg_dump -U "$DB_USER" -h "127.0.0.1" -p 5432 -d "$DB_NAME" -F p --clean --if-exists --no-owner --no-privileges > "$DUMP_FILE"
+# Sadece kendi oluşturduğumuz public şemasını (ve isterseniz auth/storage yedeklerini) alacak şekilde güncellendi.
+# Supabase'in tamamen kendine ait dahili sistem şemaları (-N parametreleri ile) aktarımdan çıkarıldı.
+docker exec -i -e PGPASSWORD="$DB_PASSWORD" $DOCKER_CONTAINER_NAME pg_dump -U "$DB_USER" -h "127.0.0.1" -p 5432 -d "$DB_NAME" -F p --clean --if-exists --no-owner --no-privileges \
+  -N realtime -N _realtime -N pgbouncer -N vault -N extensions -N graphql -N graphql_public -N net -N _analytics -N supabase_functions -N supabase_migrations \
+  > "$DUMP_FILE"
 
 # Komutun başarı durumunu kontrol et
 if [ $? -ne 0 ]; then
