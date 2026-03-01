@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     }
 
     // --- 6. Send SMS ---
-    sendAppointmentSMS(cleanedPhone, 'Randevunuz alındı!', salonId).catch(() => { });
+    sendAppointmentSMS(salonId, cleanedPhone, 'Randevunuz alındı!').catch(() => { });
 
     // --- 7. Return Success ---
     const finalResponse = NextResponse.json({
