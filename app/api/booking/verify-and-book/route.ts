@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { verifyOTP, cleanPhone } from '@/lib/otp';
+import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { sendAppointmentSMS } from '@/lib/sms';
+import { sendAppointmentSMS } from '@/lib/messaging/sms';
 
 export async function POST(request: NextRequest) {
   // 1. Initialize Cookie Store
