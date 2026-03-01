@@ -200,8 +200,12 @@ export default function HomeClient() {
                 });
 
                 if (user) {
-                    const favs = await FavoriteService.getUserFavorites();
-                    setUserFavorites(favs.map(f => f.salon_id));
+                    try {
+                        const favs = await FavoriteService.getUserFavorites();
+                        setUserFavorites(favs.map((f: any) => f.salon_id));
+                    } catch (favErr) {
+                        console.error('Kullanıcı favorileri alınamadı:', favErr);
+                    }
                 }
 
                 // Fetch all salon services in a single batch query instead of N+1
@@ -239,8 +243,13 @@ export default function HomeClient() {
             if (selectedCity && selectedCity !== 'Tümü') {
                 const selectedCityData = cities.find(c => c.name === selectedCity);
                 if (selectedCityData) {
-                    const districtsData = await MasterDataService.getDistrictsByCity(selectedCityData.id);
-                    setDistricts(districtsData);
+                    try {
+                        const districtsData = await MasterDataService.getDistrictsByCity(selectedCityData.id);
+                        setDistricts(districtsData);
+                    } catch (distErr) {
+                        console.error('İlçeler alınamadı:', distErr);
+                        setDistricts([]);
+                    }
                 }
             } else {
                 setDistricts([]);
