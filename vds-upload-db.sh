@@ -11,7 +11,7 @@
 # BU DEĞERLERİ KENDİ SİSTEMİNİZE GÖRE DÜZENLEYİN
 VDS_SSH_USER="root"
 # Örnek IP: 192.168.1.10
-VDS_SSH_HOST="vds_ip_adresiniz"
+VDS_SSH_HOST="45.81.113.82"
 
 # VDS Veritabanı Ayarları (VDS'teki PostgreSQL bilgileri)
 VDS_DB_NAME="postgres"
@@ -44,15 +44,14 @@ fi
 echo "✅ Yedek sunucuya aktarıldı."
 
 echo "📥 2. VDS üzerindeki PostgreSQL'e aktarım başlatılıyor..."
-# VDS'e SSH ile bağlanıp alınan yedeği import ediyoruz.
-# VDS de veritabanı Docker üzerinde mi yoksa yalın kurulum mu çalıştığına göre bu komutu değiştirebilirsiniz.
-# Bu script standart bir yerel veritabanı (sudo -u postgres psql) kurulumu içindir. Eğer VDS de Docker kullanıyorsanız 
-# aşağıdaki "sudo -u postgres psql" kısmını "docker exec -i supabase-db psql -U postgres" ile değiştirebilirsiniz.
+# VDS'deki veritabanı Docker (Supabase) üzerinde çalıştığı için "docker exec" ile import yapıyoruz.
+# NOT: Şifre soruluyorsa VDS_DB_PASSWORD env vb kullanılabilir ancak local postgres bağlantılarında genelde peer auth aktiftir.
 ssh "$VDS_SSH_USER@$VDS_SSH_HOST" << EOF
   echo "Sunucuya bağlanıldı. Veriler içeri aktarılıyor..."
   
-  # Veritabanını geri yükle
-  sudo -u postgres psql -d "$VDS_DB_NAME" -f "$REMOTE_TEMP_FILE"
+  # Veritabanını geri yükle (VDS'teki supabase-db konteynerine aktarım yapılıyor)
+  # Not: Konteyner adı VDS üzerinde "supabase-db" olarak varsayılmıştır. Eğer ac52b5da61c5_supabase-db gibiyse lütfen aşağıdan güncelleyin.
+  docker exec -i supabase-db psql -U postgres -d postgres < "$REMOTE_TEMP_FILE"
   
   # Yükleme bitince tmp içindeki dosyayı temizle
   rm "$REMOTE_TEMP_FILE"
