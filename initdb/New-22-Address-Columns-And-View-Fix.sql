@@ -34,7 +34,7 @@ COMMENT ON COLUMN public.salons.plan          IS 'SaaS plan: FREE, PRO, ENTERPRI
 -- -----------------------------------------------
 CREATE TABLE IF NOT EXISTS public.salon_assigned_types (
     id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id    uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id    bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     type_id     uuid NOT NULL REFERENCES public.salon_types(id) ON DELETE CASCADE,
     is_primary  BOOLEAN DEFAULT false,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),

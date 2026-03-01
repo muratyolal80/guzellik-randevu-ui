@@ -59,11 +59,9 @@ END $$;
 ALTER TABLE public.global_services ADD COLUMN IF NOT EXISTS avg_duration_min integer DEFAULT 30;
 ALTER TABLE public.global_services ADD COLUMN IF NOT EXISTS avg_price numeric(10,2) DEFAULT 0;
 
--- ============================================
--- 4. APPOINTMENTS EKSİK KOLONLAR
--- ============================================
+-- appointments
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS staff_id uuid;
-ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS salon_service_id uuid;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS salon_service_id bigint;
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS customer_phone text;
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes text;
 ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS first_name text;
@@ -276,7 +274,7 @@ SELECT
 FROM public.reviews r
 LEFT JOIN public.profiles p ON p.id = r.user_id
 LEFT JOIN public.appointments a ON a.id = r.appointment_id
-LEFT JOIN public.salon_service_details gs ON gs.id = a.salon_service_id;
+LEFT JOIN public.salon_service_details gs ON gs.id = COALESCE(a.salon_service_id, a.service_id);
 
 -- E. STAFF_REVIEWS_DETAILED (if table exists)
 DO $$

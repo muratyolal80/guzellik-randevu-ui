@@ -30,20 +30,19 @@ SELECT
     ss.id,
     ss.salon_id,
     ss.price,
-    ss.duration_min,
-    ss.is_active,
-    gs.name AS service_name,
+    COALESCE(ss.duration_min, ss.duration_minutes) as duration_min, 
+    COALESCE(ss.is_active, true) as is_active,
+    COALESCE(ss.name, gs.name) AS service_name, 
     sc.name AS category_name,
-    sc.icon AS category_icon,
+    sc.icon AS category_icon, 
     sc.slug AS category_slug,
     s.name AS salon_name
 FROM public.salon_services ss
-JOIN public.global_services gs ON gs.id = ss.global_service_id
-JOIN public.service_categories sc ON sc.id = gs.category_id
+LEFT JOIN public.global_services gs ON gs.id = ss.global_service_id
+LEFT JOIN public.service_categories sc ON sc.id = gs.category_id
 JOIN public.salons s ON s.id = ss.salon_id;
 
 -- B. VERIFIED_REVIEWS_VIEW (Yorumlar için)
--- Not: r.is_verified bazen tabloda olmayabiliyor, bu yüzden dinamik hesaplanıyor.
 CREATE VIEW public.verified_reviews_view AS
 SELECT 
     r.id,
@@ -61,7 +60,7 @@ SELECT
 FROM public.reviews r
 LEFT JOIN public.profiles p ON p.id = r.user_id
 LEFT JOIN public.appointments a ON a.id = r.appointment_id
-LEFT JOIN public.salon_service_details gs ON gs.id = a.salon_service_id;
+LEFT JOIN public.salon_service_details gs ON gs.id = COALESCE(a.salon_service_id, a.service_id);
 
 -- C. STAFF_REVIEWS_DETAILED (Çalışan yorumları için)
 CREATE VIEW public.staff_reviews_detailed AS
