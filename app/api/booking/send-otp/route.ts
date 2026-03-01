@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/auth/otp';
-import { sendOTPSMS } from '@/lib/sms';
+import { sendOTPSMS } from '@/lib/messaging/sms';
 
 // Rate limiting icin basit bir in-memory store
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();

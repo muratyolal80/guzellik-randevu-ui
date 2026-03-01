@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase-admin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const DEMO_OTP_CODE = '111111';
 const OTP_EXPIRY_MINUTES = 5;
