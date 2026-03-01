@@ -4,6 +4,17 @@
 -- Tüm ifadeler idempotent: IF NOT EXISTS, DROP...IF EXISTS
 -- =============================================
 
+-- Ensure roles exist for Supabase-like environment
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+        CREATE ROLE anon;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated;
+    END IF;
+END $$;
+
 -- ============================================
 -- 1. SALONS TABLOSUNA TÜM EKSİK KOLONLAR
 -- ============================================
@@ -66,7 +77,7 @@ ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS email text;
 -- salon_working_hours
 CREATE TABLE IF NOT EXISTS public.salon_working_hours (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     day_of_week integer NOT NULL,
     start_time time without time zone NOT NULL DEFAULT '09:00:00',
     end_time time without time zone NOT NULL DEFAULT '19:00:00',
@@ -78,7 +89,7 @@ CREATE TABLE IF NOT EXISTS public.salon_working_hours (
 -- salon_assigned_types
 CREATE TABLE IF NOT EXISTS public.salon_assigned_types (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     type_id uuid NOT NULL REFERENCES public.salon_types(id) ON DELETE CASCADE,
     is_primary boolean DEFAULT false,
     created_at timestamp with time zone DEFAULT now(),
@@ -88,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.salon_assigned_types (
 -- staff
 CREATE TABLE IF NOT EXISTS public.staff (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     name text NOT NULL,
     role text,
     phone text,
@@ -103,8 +114,8 @@ CREATE TABLE IF NOT EXISTS public.staff (
 CREATE TABLE IF NOT EXISTS public.staff_services (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
-    salon_service_id uuid NOT NULL REFERENCES public.salon_services(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_service_id bigint NOT NULL REFERENCES public.salon_services(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     UNIQUE(staff_id, salon_service_id)
 );
@@ -124,9 +135,9 @@ CREATE TABLE IF NOT EXISTS public.working_hours (
 -- reviews
 CREATE TABLE IF NOT EXISTS public.reviews (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     user_id uuid REFERENCES public.profiles(id),
-    appointment_id uuid REFERENCES public.appointments(id),
+    appointment_id bigint REFERENCES public.appointments(id),
     user_name text NOT NULL,
     user_avatar text,
     rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
@@ -138,7 +149,7 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 -- salon_memberships
 CREATE TABLE IF NOT EXISTS public.salon_memberships (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     role text DEFAULT 'STAFF',
     is_active boolean DEFAULT true,
@@ -146,8 +157,8 @@ CREATE TABLE IF NOT EXISTS public.salon_memberships (
     UNIQUE(salon_id, user_id)
 );
 
--- favorites
-CREATE TABLE IF NOT EXISTS public.favorites (
+-- salon_favorites (Renamed from favorites for align)
+CREATE TABLE IF NOT EXISTS public.salon_favorites (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
@@ -167,7 +178,7 @@ CREATE TABLE IF NOT EXISTS public.salon_type_categories (
 -- salon_gallery
 CREATE TABLE IF NOT EXISTS public.salon_gallery (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    salon_id uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    salon_id bigint NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
     image_url text NOT NULL,
     caption text,
     display_order integer DEFAULT 0,
@@ -238,13 +249,19 @@ FROM public.salon_details sd;
 -- C. SALON_SERVICE_DETAILS
 CREATE OR REPLACE VIEW public.salon_service_details AS
 SELECT
-    ss.id, ss.salon_id, ss.price, ss.duration_min, ss.is_active,
-    gs.name AS service_name, sc.name AS category_name,
-    sc.icon AS category_icon, sc.slug AS category_slug,
+    ss.id, 
+    ss.salon_id, 
+    ss.price, 
+    COALESCE(ss.duration_min, ss.duration_minutes) as duration_min, 
+    COALESCE(ss.is_active, true) as is_active,
+    COALESCE(ss.name, gs.name) AS service_name, 
+    sc.name AS category_name,
+    sc.icon AS category_icon, 
+    sc.slug AS category_slug,
     s.name AS salon_name
 FROM public.salon_services ss
-JOIN public.global_services gs ON gs.id = ss.global_service_id
-JOIN public.service_categories sc ON sc.id = gs.category_id
+LEFT JOIN public.global_services gs ON gs.id = ss.global_service_id
+LEFT JOIN public.service_categories sc ON sc.id = gs.category_id
 JOIN public.salons s ON s.id = ss.salon_id;
 
 -- D. VERIFIED_REVIEWS_VIEW
@@ -353,12 +370,12 @@ DROP POLICY IF EXISTS "Admins manage all memberships" ON public.salon_membership
 CREATE POLICY "Admins manage all memberships" ON public.salon_memberships FOR ALL
     USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
 
--- favorites
-ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users manage own favorites" ON public.favorites;
-CREATE POLICY "Users manage own favorites" ON public.favorites FOR ALL USING (auth.uid() = user_id);
-DROP POLICY IF EXISTS "Public read favorites" ON public.favorites;
-CREATE POLICY "Public read favorites" ON public.favorites FOR SELECT USING (true);
+-- salon_favorites
+ALTER TABLE public.salon_favorites ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own favorites" ON public.salon_favorites;
+CREATE POLICY "Users manage own favorites" ON public.salon_favorites FOR ALL USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Public read favorites" ON public.salon_favorites;
+CREATE POLICY "Public read favorites" ON public.salon_favorites FOR SELECT USING (true);
 
 -- salon_type_categories
 ALTER TABLE public.salon_type_categories ENABLE ROW LEVEL SECURITY;
