@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { SalonDataService, MasterDataService, StaffService, ServiceService } from '@/services/db';
+import { SalonDataService, MasterDataService, StaffService, ServiceService, PlatformService } from '@/services/db';
 import { City, District, SalonType } from '@/types';
 import {
     Store, MapPin, Clock, Copy, Users,
@@ -10,26 +10,38 @@ import {
     Camera, Phone, Info, Star, Save, ShieldCheck
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { GeocodingService } from '@/lib/geocoding';
+import { GeocodingService } from '@/lib/geocoding/geocoding';
 
 // Dynamic Map Component (Disabled SSR)
 import dynamic from 'next/dynamic';
+import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
+import { SubscriptionService } from '@/services/db';
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
 const STEPS = [
-    { id: 1, title: 'Temel Bilgiler', icon: Store, desc: 'Salon adı ve iletişim' },
-    { id: 2, title: 'Konum & Harita', icon: MapPin, desc: 'Adres ve harita pini' },
-    { id: 3, title: 'Çalışma Saatleri', icon: Clock, desc: 'Mesai başlangıç/bitiş' },
-    { id: 4, title: 'Hizmetler', icon: Star, desc: 'Saç, Sakal vb. servisler' },
-    { id: 5, title: 'Personel', icon: Users, desc: 'Çalışan ekibi kurun' },
-    { id: 6, title: 'Önizleme', icon: ShieldCheck, desc: 'Kontrol ve onay' }
+    { id: 1, title: 'Paket Seçimi', icon: ShieldCheck, desc: 'Abonelik planınızı belirleyin' },
+    { id: 2, title: 'Temel Bilgiler', icon: Store, desc: 'Salon adı ve iletişim' },
+    { id: 3, title: 'Konum & Harita', icon: MapPin, desc: 'Adres ve harita pini' },
+    { id: 4, title: 'Çalışma Saatleri', icon: Clock, desc: 'Mesai başlangıç/bitiş' },
+    { id: 5, title: 'Hizmetler', icon: Star, desc: 'Saç, Sakal vb. servisler' },
+    { id: 6, title: 'Personel', icon: Users, desc: 'Çalışan ekibi kurun' },
+    { id: 7, title: 'Önizleme', icon: ShieldCheck, desc: 'Kontrol ve onay' }
 ];
+
+
 
 export default function OnboardingWizard() {
     const { user } = useAuth();
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [plans, setPlans] = useState<any[]>([]);
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<'CREDIT_CARD' | 'BANK_TRANSFER' | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<'IDLE' | 'PENDING_APPROVAL' | 'SUCCESS'>('IDLE');
+    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+
     const [cities, setCities] = useState<City[]>([]);
     const [districts, setDistricts] = useState<District[]>([]);
     const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
@@ -155,16 +167,24 @@ export default function OnboardingWizard() {
 
     useEffect(() => {
         const fetchMasterData = async () => {
-            const [c, t, cats, gs] = await Promise.all([
-                MasterDataService.getCities(),
-                MasterDataService.getSalonTypes(),
-                MasterDataService.getServiceCategories(),
-                MasterDataService.getAllGlobalServices()
-            ]);
-            setCities(c);
-            setSalonTypes(t);
-            setCategories(cats);
-            setGlobalServices(gs);
+            try {
+                const [c, t, cats, gs, p, bankConfigs] = await Promise.all([
+                    MasterDataService.getCities(),
+                    MasterDataService.getSalonTypes(),
+                    MasterDataService.getServiceCategories(),
+                    MasterDataService.getAllGlobalServices(),
+                    SubscriptionService.getPlans(),
+                    PlatformService.getSetting('bank_accounts')
+                ]);
+                setCities(c);
+                setSalonTypes(t);
+                setCategories(cats);
+                setGlobalServices(gs);
+                setPlans(p || []);
+                setBankAccounts(bankConfigs || []);
+            } catch (error) {
+                console.error("Master data fetch error:", error);
+            }
         };
         fetchMasterData();
     }, []);
@@ -294,8 +314,32 @@ export default function OnboardingWizard() {
         return () => clearTimeout(timer);
     }, [salonData.city_id, salonData.district_id, salonData.neighborhood, salonData.avenue, salonData.street, salonData.building_no, cities, districts]);
 
-    const handleNext = () => {
-        if (currentStep < 6) setCurrentStep(prev => prev + 1);
+    const handleNext = async () => {
+        // Step 1: Subscription Validation
+        if (currentStep === 1) {
+            if (!selectedPlanId) {
+                alert('Lütfen bir paket seçin.');
+                return;
+            }
+            const plan = plans.find(p => p.id === selectedPlanId);
+            if (plan && plan.price_monthly > 0 && !paymentMethod) {
+                alert('Lütfen ödeme yöntemi seçin.');
+                return;
+            }
+
+            if (plan.price_monthly > 0 && paymentMethod === 'BANK_TRANSFER' && paymentStatus !== 'PENDING_APPROVAL') {
+                setLoading(true);
+                try {
+                    // Create a dummy salon ID for now or just wait for payment notification
+                    setPaymentStatus('PENDING_APPROVAL');
+                } finally {
+                    setLoading(false);
+                }
+                return;
+            }
+        }
+
+        if (currentStep < 7) setCurrentStep(prev => prev + 1);
         else handleComplete();
     };
 
@@ -312,11 +356,6 @@ export default function OnboardingWizard() {
             if (salonData.id) {
                 salon = await SalonDataService.updateSalon(salonData.id, salonData);
             } else {
-                // Ensure we pass type_id for backward compatibility if needed by the service type definition, 
-                // but the service should handle the new fields.
-                // We'll map type_ids to the expected format for the creation service
-
-                // Explicitly map services to the expected backend format
                 const formattedServices = selectedServices.map(s => ({
                     global_service_id: s.global_service_id,
                     price: s.price,
@@ -325,25 +364,15 @@ export default function OnboardingWizard() {
 
                 salon = await SalonDataService.createSalon({
                     ...salonData,
-                    // Map primary_type_id to type_id for schema compatibility if the service expects it
-                    // The service implementation of createSalon needs to handle type_ids and primary_type_id
                     type_id: salonData.primary_type_id,
                     owner_id: user?.id
                 }, workingHours, formattedServices);
             }
 
-            console.log('Onboarding step 2: Submitting for approval...');
-            // 2. Submit for Approval
-            await SalonDataService.submitForApproval(salon.id);
-
-            // 3. Clear active salon cache for this user to force refresh
-            // 3. Clear active salon cache for this user to force refresh
-            // 3. Create Staff Members & Link Services
+            // 2. Create Staff Members & Link Services (Moved up so it's done before redirect)
             if (staffMembers.length > 0) {
-                console.log('Onboarding step 3: Creating staff and linking services...');
+                console.log('Onboarding step 2: Creating staff and linking services...');
 
-                // Fetch created salon services to get their DB ids
-                // We match by name because global_service_id might not be in salon_services table
                 const dbServices = await ServiceService.getServicesBySalon(salon.id);
                 const serviceMapping: Record<string, string> = {};
                 dbServices.forEach(s => {
@@ -361,7 +390,6 @@ export default function OnboardingWizard() {
                     });
 
                     if (createdStaff && staff.service_ids?.length > 0) {
-                        // Map global_service_ids to database salon_service_ids via name
                         const dbServiceIds = staff.service_ids.map(gsId => {
                             const gsName = selectedServices.find(s => s.global_service_id === gsId)?.name;
                             return gsName ? serviceMapping[gsName] : null;
@@ -375,14 +403,39 @@ export default function OnboardingWizard() {
                 }));
             }
 
-            console.log('Onboarding step 4: Success, redirecting...');
+            console.log('Onboarding step 3: Recording Subscription...');
+            // 3. Subscription & Payment Redirect
+            if (selectedPlanId) {
+                const subResult = await SubscriptionService.subscribe(
+                    salon.id,
+                    selectedPlanId,
+                    paymentMethod || 'BANK_TRANSFER',
+                    billingCycle
+                );
 
-            // 4. Clear active salon cache for this user to force refresh
+                // If Credit Card, we get a paymentUrl
+                if (subResult.paymentUrl) {
+                    window.location.href = subResult.paymentUrl;
+                    return; // EXIT and redirect
+                }
+
+                if (paymentMethod === 'BANK_TRANSFER') {
+                    // Logic will be handled by notifyBankTransfer if needed or just use current flow
+                    // The subscribe call above already created the PENDING record for Bank Transfer
+                    // We can explicitly notify if preferred
+                    await SubscriptionService.notifyBankTransfer(subResult.id, salon.id, 0);
+                }
+            }
+
+            console.log('Onboarding step 4: Submitting for approval...');
+            // 2. Submit for Approval
+            await SalonDataService.submitForApproval(salon.id);
+
+            // 4. Success, redirecting...
             if (user?.id) {
                 localStorage.removeItem(`active_branch_${user.id}`);
             }
 
-            // Force hard reload to update ActiveBranchContext with new salon
             window.location.href = '/owner/dashboard?onboarding=success';
         } catch (err) {
             console.error('Onboarding complete error:', err);
@@ -395,6 +448,90 @@ export default function OnboardingWizard() {
     const renderStepContent = () => {
         switch (currentStep) {
             case 1:
+                const selectedPlan = plans.find(p => p.id === selectedPlanId);
+                const isPaid = selectedPlan && selectedPlan.price_monthly > 0;
+
+                if (paymentStatus === 'PENDING_APPROVAL') {
+                    return (
+                        <div className="space-y-8 animate-in zoom-in duration-500 text-center py-10">
+                            <div className="w-24 h-24 bg-amber-50 rounded-[40px] flex items-center justify-center text-amber-500 mx-auto shadow-inner border border-amber-100">
+                                <Clock className="w-12 h-12 animate-pulse" />
+                            </div>
+                            <div className="space-y-3">
+                                <h2 className="text-3xl font-black text-text-main uppercase tracking-tight">Ödeme Onayı Bekleniyor</h2>
+                                <p className="text-text-secondary font-medium max-w-lg mx-auto leading-relaxed">
+                                    Banka havalesi bildiriminiz alınmıştır. Admin onayından sonra kurulum sürecine devam edebileceksiniz. Genellikle 1 saat içinde onaylanır.
+                                </p>
+                            </div>
+                            <div className="max-w-md mx-auto p-6 bg-white rounded-3xl border-2 border-dashed border-border text-left space-y-4">
+                                <h4 className="text-[10px] font-black text-text-muted uppercase tracking-widest">Seçilen Plan: {selectedPlan?.display_name}</h4>
+                                {bankAccounts.map((acc: any, i: number) => (
+                                    <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-border">
+                                        <p className="text-[9px] font-black text-primary uppercase mb-1">{acc.bank}</p>
+                                        <p className="text-sm font-bold text-text-main">{acc.owner}</p>
+                                        <p className="text-xs font-mono text-text-secondary mt-1">{acc.iban}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="pt-6">
+                                <button
+                                    onClick={() => setPaymentStatus('IDLE')}
+                                    className="text-xs font-black text-primary hover:underline uppercase tracking-widest"
+                                >
+                                    Fikrimi Değiştir / Ödeme Yöntemi Değiştir
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                        <div className="text-center space-y-2">
+                            <p className="text-sm text-text-secondary font-medium italic">Size en uygun planı seçerek hemen başlayın.</p>
+                        </div>
+
+                        <SubscriptionPlanSelector
+                            plans={plans}
+                            selectedPlanId={selectedPlanId}
+                            billingCycle={billingCycle}
+                            onSelect={(id) => setSelectedPlanId(id)}
+                            onCycleChange={(cycle) => setBillingCycle(cycle)}
+                        />
+
+                        {isPaid && (
+                            <div className="max-w-2xl mx-auto p-8 bg-surface-alt rounded-[40px] border border-border animate-in slide-in-from-bottom-10 space-y-6">
+                                <h4 className="text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em]">Ödeme Yöntemi Seçin</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => setPaymentMethod('CREDIT_CARD')}
+                                        className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'CREDIT_CARD'
+                                            ? 'border-primary bg-white shadow-xl shadow-primary/5'
+                                            : 'border-border bg-white hover:border-primary/20'
+                                            }`}
+                                    >
+                                        <ShieldCheck className={`w-8 h-8 ${paymentMethod === 'CREDIT_CARD' ? 'text-primary' : 'text-gray-300'}`} />
+                                        <span className="text-xs font-black uppercase tracking-widest">Kredi Kartı</span>
+                                        <p className="text-[10px] text-text-muted font-medium">Anında Aktivasyon (iyzico)</p>
+                                    </button>
+                                    <button
+                                        onClick={() => setPaymentMethod('BANK_TRANSFER')}
+                                        className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'BANK_TRANSFER'
+                                            ? 'border-blue-500 bg-white shadow-xl shadow-blue-500/5'
+                                            : 'border-border bg-white hover:border-blue-500/20'
+                                            }`}
+                                    >
+                                        <Clock className={`w-8 h-8 ${paymentMethod === 'BANK_TRANSFER' ? 'text-blue-500' : 'text-gray-300'}`} />
+                                        <span className="text-xs font-black uppercase tracking-widest">Banka Havalesi</span>
+                                        <p className="text-[10px] text-text-muted font-medium">Manuel Onay (1-2 Saat)</p>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+
+            case 2:
                 return (
                     <div className="space-y-8 animate-in slide-in-from-right duration-300">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
@@ -1024,7 +1161,7 @@ export default function OnboardingWizard() {
                 {/* Progress Bar */}
                 <div className="relative group">
                     <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -translate-y-1/2 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary transition-all duration-700 ease-out shadow-[0_0_10px_rgba(241,114,144,0.5)]" style={{ width: `${(currentStep / 6) * 100}%` }}></div>
+                        <div className="h-full bg-primary transition-all duration-700 ease-out shadow-[0_0_10px_rgba(241,114,144,0.5)]" style={{ width: `${(currentStep / 7) * 100}%` }}></div>
                     </div>
                     <div className="relative flex justify-between">
                         {STEPS.map((step) => (
@@ -1050,7 +1187,7 @@ export default function OnboardingWizard() {
                                 <h2 className="text-2xl font-black text-text-main tracking-tight font-display">{STEPS[currentStep - 1].title}</h2>
                             </div>
                             <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-[11px] font-black text-text-muted border border-border">
-                                {currentStep}/6
+                                {currentStep}/7
                             </div>
                         </div>
 
@@ -1078,9 +1215,9 @@ export default function OnboardingWizard() {
                                     </div>
                                 ) : (
                                     <>
-                                        {currentStep === 6 ? 'Onaya Gönder' : 'Sonraki Adım'}
-                                        <ChevronRight className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 6 ? 'hidden' : ''}`} />
-                                        {currentStep === 6 && <Save className="w-4 h-4" />}
+                                        {currentStep === 7 ? 'Onaya Gönder' : 'Sonraki Adım'}
+                                        <ChevronRight className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 7 ? 'hidden' : ''}`} />
+                                        {currentStep === 7 && <Save className="w-4 h-4" />}
                                     </>
                                 )}
                             </button>

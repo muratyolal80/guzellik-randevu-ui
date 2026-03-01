@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { AdminLayout } from '@/components/AdminLayout';
 import { MasterDataService, SalonDataService } from '@/services/db';
 import { City, District, SalonType, SalonDetail } from '@/types';
-import { GeocodingService } from '@/lib/geocoding';
+import { GeocodingService } from '@/lib/geocoding/geocoding';
 import ImageUpload from '@/components/ImageUpload';
 
 // Dynamically import the custom map component with no SSR to fix build errors

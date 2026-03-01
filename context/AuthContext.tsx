@@ -7,7 +7,9 @@ import { Profile, UserRole } from '@/types';
 const ROLES = {
     CUSTOMER: 'CUSTOMER' as UserRole,
     STAFF: 'STAFF' as UserRole,
+    MANAGER: 'MANAGER' as UserRole,
     SALON_OWNER: 'SALON_OWNER' as UserRole,
+    ADMIN: 'ADMIN' as UserRole,
     SUPER_ADMIN: 'SUPER_ADMIN' as UserRole,
 };
 
@@ -19,6 +21,7 @@ interface AuthContextType {
     signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ user: any; session: any } | undefined>;
     signOut: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    refreshProfile: () => Promise<void>;
     isAdmin: boolean;
     isOwner: boolean;
     isStaff: boolean;
@@ -308,8 +311,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             signUp,
             signOut,
             refreshUser,
-            isAdmin: user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
-            isOwner: user?.role === 'SALON_OWNER' || (user?.role as string) === 'OWNER' || user?.role === 'SUPER_ADMIN' || (user?.role as string) === 'ADMIN',
+            refreshProfile: refreshUser,
+            isAdmin: user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN',
+            isOwner: user?.role === 'SALON_OWNER' || user?.role === 'MANAGER' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN',
             isStaff: user?.role === 'STAFF',
             isAuthenticated: !!user
         }}>

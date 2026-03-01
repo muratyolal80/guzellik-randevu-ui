@@ -14,12 +14,14 @@ export async function GET(request: NextRequest) {
         const salonId = searchParams.get('salon_id');
         const staffId = searchParams.get('staff_id');
         const serviceId = searchParams.get('service_id');
+        const serviceIds = searchParams.get('service_ids')?.split(',').filter(Boolean);
+        const durationMin = searchParams.get('duration_min');
         const dateStr = searchParams.get('date');
 
-        if (!salonId || !serviceId || !dateStr) {
+        if (!salonId || (!serviceId && !serviceIds && !durationMin) || !dateStr) {
             return NextResponse.json({
                 success: false,
-                error: 'Eksik parametreler (salon_id, service_id, date gerekli)'
+                error: 'Eksik parametreler (salon_id, date ve hizmet bilgisi gerekli)'
             }, { status: 400 });
         }
 
@@ -36,7 +38,9 @@ export async function GET(request: NextRequest) {
         // Use SlotService to get available slots
         const availableSlots = await SlotService.getAvailableSlots({
             salonId,
-            serviceId,
+            serviceId: serviceId || undefined,
+            serviceIds: serviceIds || undefined,
+            durationMin: durationMin ? parseInt(durationMin) : undefined,
             date: selectedDate,
             staffId: (staffId && staffId !== 'any') ? staffId : undefined
         });

@@ -16,7 +16,8 @@ import {
     LogOut,
     AlertCircle,
     User,
-    Scissors
+    Scissors,
+    Ticket
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
@@ -29,7 +30,9 @@ const OwnerSidebar: React.FC = () => {
         { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
         { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
         { name: 'Personel Yönetimi', path: '/owner/staff', icon: Users },
+        { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
         { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
+        { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
     ];
 
     return (

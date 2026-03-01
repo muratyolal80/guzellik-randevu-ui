@@ -8,9 +8,11 @@ interface BookingContextType {
   salon: SalonDetail | null;
   setSalon: (salon: SalonDetail | null) => void;
 
-  // Selected service
-  selectedService: SalonServiceDetail | null;
-  setSelectedService: (service: SalonServiceDetail | null) => void;
+  // Selected services (Basket)
+  selectedServices: SalonServiceDetail[];
+  addService: (service: SalonServiceDetail) => void;
+  removeService: (serviceId: string) => void;
+  setSelectedServices: (services: SalonServiceDetail[]) => void;
 
   // Selected staff
   selectedStaff: Staff | null;
@@ -47,7 +49,7 @@ import { SalonDataService } from '@/services/db';
 export function BookingProvider({ children, salonId }: { children: ReactNode; salonId?: string }) {
   const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedService, setSelectedService] = useState<SalonServiceDetail | null>(null);
+  const [selectedServices, setSelectedServices] = useState<SalonServiceDetail[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
         try {
           // Reset previous state when salonId changes
           setSalon(null); // Clear previous salon data
-          setSelectedService(null);
+          setSelectedServices([]);
           setSelectedStaff(null);
           setSelectedDate(null);
           setSelectedTime(null);
@@ -92,7 +94,7 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
   const resetBooking = () => {
     // Keep salon loaded if salonId was provided
     if (!salonId) setSalon(null);
-    setSelectedService(null);
+    setSelectedServices([]);
     setSelectedStaff(null);
     setSelectedDate(null);
     setSelectedTime(null);
@@ -102,13 +104,26 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
     setAppointmentId(null);
   };
 
+  const addService = (service: SalonServiceDetail) => {
+    setSelectedServices(prev => {
+      if (prev.find(s => s.id === service.id)) return prev;
+      return [...prev, service];
+    });
+  };
+
+  const removeService = (serviceId: string) => {
+    setSelectedServices(prev => prev.filter(s => s.id !== serviceId));
+  };
+
   return (
     <BookingContext.Provider
       value={{
         salon,
         setSalon,
-        selectedService,
-        setSelectedService,
+        selectedServices,
+        addService,
+        removeService,
+        setSelectedServices,
         selectedStaff,
         setSelectedStaff,
         selectedDate,

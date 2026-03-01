@@ -12,8 +12,10 @@ import {
     CheckCircle2,
     Info,
     Camera,
-    XCircle
+    XCircle,
+    Wallet
 } from 'lucide-react';
+import { PaymentSettingsTab } from '@/components/owner/PaymentSettingsTab';
 
 export default function OwnerSettings() {
     const { user } = useAuth();
@@ -22,7 +24,7 @@ export default function OwnerSettings() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [activeTab, setActiveTab] = useState<'profile' | 'hours' | 'location'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'hours' | 'location' | 'payment'>('profile');
 
     // Form States
     const [name, setName] = useState('');
@@ -115,7 +117,8 @@ export default function OwnerSettings() {
                     {[
                         { id: 'profile', label: 'Salon Profili', icon: Store },
                         { id: 'hours', label: 'Çalışma Saatleri', icon: Clock },
-                        { id: 'location', label: 'İletişim & Konum', icon: MapPin }
+                        { id: 'location', label: 'İletişim & Konum', icon: MapPin },
+                        { id: 'payment', label: 'Ödeme Ayarları', icon: Wallet }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -271,6 +274,10 @@ export default function OwnerSettings() {
                                 </div>
                             </form>
                         </div>
+                    )}
+
+                    {activeTab === 'payment' && (
+                        <PaymentSettingsTab salonId={salon.id} />
                     )}
                 </div>
             </div>

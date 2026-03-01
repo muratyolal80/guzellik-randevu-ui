@@ -43,7 +43,11 @@ export default function DashboardPage() {
                     DashboardService.getRecommendedSalons(3)
                 ]);
 
-                setStats(dashData.stats);
+                setStats({
+                    upcomingCount: dashData.upcomingCount,
+                    totalSpent: dashData.monthlySpending,
+                    reviewCount: dashData.reviewCount
+                });
                 setNextAppointment(dashData.nextAppointment);
                 setRecommendations(recommendedData);
 

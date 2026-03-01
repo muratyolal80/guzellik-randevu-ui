@@ -7,7 +7,9 @@ import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { useBooking } from '@/context/BookingContext';
 import { useAuth } from '@/context/AuthContext';
-import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
+import { CampaignService } from '@/services/db';
+import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
+import { Ticket, Tag, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function BookingUserInfoPage() {
   const params = useParams();
@@ -18,7 +20,7 @@ export default function BookingUserInfoPage() {
 
   const {
     salon,
-    selectedService,
+    selectedServices,
     selectedStaff,
     selectedDate,
     selectedTime,
@@ -61,6 +63,13 @@ export default function BookingUserInfoPage() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [consentGiven, setConsentGiven] = useState(true);
 
+  // Coupon & Discount states
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+
   // Countdown timer for OTP expiry
   useEffect(() => {
     if (countdown > 0) {
@@ -71,10 +80,10 @@ export default function BookingUserInfoPage() {
 
   // Redirect if required data is missing
   useEffect(() => {
-    if (!salon || !selectedService || !selectedStaff || !selectedDate || !selectedTime) {
+    if (!salon || selectedServices.length === 0 || !selectedStaff || !selectedDate || !selectedTime) {
       router.push(`/booking/${id}/time`);
     }
-  }, [salon, selectedService, selectedStaff, selectedDate, selectedTime, id, router]);
+  }, [salon, selectedServices, selectedStaff, selectedDate, selectedTime, id, router]);
 
   // Auto-fill user data and skip OTP if logged in
   useEffect(() => {
@@ -191,6 +200,54 @@ export default function BookingUserInfoPage() {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    setCouponError('');
+    setCouponLoading(true);
+
+    try {
+      if (!couponCode.trim()) {
+        setCouponError('Lütfen bir kampanya kodu girin');
+        return;
+      }
+
+      const totalPriceValue = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0);
+      const coupon = await CampaignService.validateCoupon(couponCode, salon?.id as string, totalPriceValue);
+
+      if (coupon) {
+        setAppliedCoupon(coupon);
+        let discount = 0;
+        if (coupon.discount_type === 'PERCENTAGE') {
+          discount = (totalPriceValue * coupon.discount_value) / 100;
+          if (coupon.max_discount_amount && discount > coupon.max_discount_amount) {
+            discount = coupon.max_discount_amount;
+          }
+        } else {
+          discount = coupon.discount_value;
+        }
+
+        setDiscountAmount(discount);
+        setCouponError('');
+      } else {
+        setCouponError('Geçersiz veya süresi dolmuş kod');
+        setAppliedCoupon(null);
+        setDiscountAmount(0);
+      }
+    } catch (err: any) {
+      setCouponError(err.message || 'Kupon uygulanırken hata oluştu');
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setCouponCode('');
+    setCouponError('');
+  };
+
   const handleCreateBooking = async () => {
     setError('');
 
@@ -213,8 +270,9 @@ export default function BookingUserInfoPage() {
           notes,
           salonId: salon!.id,
           staffId: selectedStaff!.id,
-          serviceId: selectedService!.id,
+          serviceId: selectedServices[0].id,
           startTime: startDateTime.toISOString(),
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         }),
       });
 
@@ -226,8 +284,12 @@ export default function BookingUserInfoPage() {
         setCustomerPhone(phone);
         setCustomerNotes(notes);
 
-        router.refresh();
-        router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+        } else {
+          router.refresh();
+          router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+        }
       } else {
         if (response.status === 409 || data.error?.includes('dolu')) {
           alert('Seçtiğiniz saat dilimi doldu. Lütfen başka bir saat seçin.');
@@ -250,12 +312,12 @@ export default function BookingUserInfoPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!salon || !selectedService || !selectedStaff) {
+  if (!salon || selectedServices.length === 0 || !selectedStaff) {
     return null; // Will redirect via useEffect
   }
 
-  const totalPrice = selectedService.price || 0;
-  const totalDuration = `${selectedService.duration_min} dakika`;
+  const totalPrice = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0);
+  const totalDuration = `${selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.duration_min || 0), 0)} dakika`;
 
   return (
     <Layout>
@@ -277,12 +339,19 @@ export default function BookingUserInfoPage() {
             <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-24 order-2 lg:order-1">
               <BookingSummary
                 salon={salon}
-                services={[selectedService]}
+                services={selectedServices}
                 staff={selectedStaff}
-                totalPrice={totalPrice}
+                totalPrice={totalPrice - discountAmount}
                 totalDuration={totalDuration}
                 step={3}
               />
+              {discountAmount > 0 && (
+                <div className="mt-2 text-center">
+                  <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                    İndirim Uygulandı: -{discountAmount} TL
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Main Content */}
@@ -488,6 +557,61 @@ export default function BookingUserInfoPage() {
                         rows={3}
                         className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                       />
+                    </div>
+
+                    {/* Coupon Entry Section */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-border mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Tag className="w-4 h-4 text-primary" />
+                        <h4 className="text-sm font-bold text-text-main uppercase tracking-wider">Kampanya Kodu</h4>
+                      </div>
+
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-green-200 shadow-sm animate-fade-in">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-green-100 p-2 rounded-lg text-green-600">
+                              <Ticket className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-text-main">{appliedCoupon.code}</p>
+                              <p className="text-[10px] text-green-600 font-bold">-{discountAmount} TL İndirim Uygulandı</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={removeCoupon}
+                            className="text-[10px] font-bold text-text-muted hover:text-red-500 underline transition-colors"
+                          >
+                            Kaldır
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <input
+                                type="text"
+                                value={couponCode}
+                                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                placeholder="KUPON10"
+                                className="w-full pl-4 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm font-mono uppercase tracking-widest bg-white"
+                              />
+                            </div>
+                            <button
+                              onClick={handleApplyCoupon}
+                              disabled={couponLoading || !couponCode}
+                              className="px-4 py-2 bg-white border border-border text-text-main font-bold rounded-lg hover:border-primary hover:text-primary transition-all text-xs disabled:opacity-50"
+                            >
+                              {couponLoading ? '...' : 'Uygula'}
+                            </button>
+                          </div>
+                          {couponError && (
+                            <p className="text-[10px] font-bold text-red-500 flex items-center gap-1">
+                              <XCircle className="w-3 h-3" />
+                              {couponError}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <button

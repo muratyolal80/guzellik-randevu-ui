@@ -94,7 +94,7 @@ export default function NotificationsPage() {
                                     {new Date(notif.created_at).toLocaleDateString()}
                                 </span>
                             </div>
-                            <p className="text-gray-600 mt-1 text-sm leading-relaxed">{notif.message}</p>
+                            <p className="text-gray-600 mt-1 text-sm leading-relaxed">{notif.content}</p>
                         </div>
 
                         <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

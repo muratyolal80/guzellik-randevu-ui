@@ -39,9 +39,29 @@ CREATE POLICY "Public read salon_types" ON public.salon_types FOR SELECT USING (
 DROP POLICY IF EXISTS "Public read service_categories" ON public.service_categories;
 CREATE POLICY "Public read service_categories" ON public.service_categories FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins manage service_categories" ON public.service_categories;
+CREATE POLICY "Admins manage service_categories" ON public.service_categories FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
+
 -- Global Services
 DROP POLICY IF EXISTS "Public read global_services" ON public.global_services;
 CREATE POLICY "Public read global_services" ON public.global_services FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins manage global_services" ON public.global_services;
+CREATE POLICY "Admins manage global_services" ON public.global_services FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
 
 -- 3. PROFILES
 DROP POLICY IF EXISTS "Public profiles are viewable" ON public.profiles;
@@ -53,6 +73,20 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 -- 4. SALONS & ASSIGNED TYPES
 DROP POLICY IF EXISTS "Public read salons" ON public.salons;
 CREATE POLICY "Public read salons" ON public.salons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Owners manage own salons" ON public.salons;
+CREATE POLICY "Owners manage own salons" ON public.salons
+    FOR ALL USING (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS "Admins manage all salons" ON public.salons;
+CREATE POLICY "Admins manage all salons" ON public.salons FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
 
 DROP POLICY IF EXISTS "Public Read Access" ON public.salon_assigned_types;
 CREATE POLICY "Public Read Access" ON public.salon_assigned_types FOR SELECT USING (true);
@@ -70,6 +104,10 @@ DROP POLICY IF EXISTS "Owners manage own salon services" ON public.salon_service
 CREATE POLICY "Owners manage own salon services" ON public.salon_services 
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins manage all salon services" ON public.salon_services;
+CREATE POLICY "Admins manage all salon services" ON public.salon_services FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
+
 -- 6. STAFF & WORKING HOURS
 DROP POLICY IF EXISTS "Public view staff" ON public.staff;
 CREATE POLICY "Public view staff" ON public.staff FOR SELECT USING (true);
@@ -78,6 +116,10 @@ DROP POLICY IF EXISTS "Owners manage staff" ON public.staff;
 CREATE POLICY "Owners manage staff" ON public.staff 
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins manage all staff" ON public.staff;
+CREATE POLICY "Admins manage all staff" ON public.staff FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
+
 DROP POLICY IF EXISTS "Public view working hours" ON public.working_hours;
 CREATE POLICY "Public view working hours" ON public.working_hours FOR SELECT USING (true);
 
@@ -85,12 +127,20 @@ DROP POLICY IF EXISTS "Owners manage working hours" ON public.working_hours;
 CREATE POLICY "Owners manage working hours" ON public.working_hours 
     FOR ALL USING (staff_id IN (SELECT id FROM public.staff WHERE salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid())));
 
+DROP POLICY IF EXISTS "Admins manage all working hours" ON public.working_hours;
+CREATE POLICY "Admins manage all working hours" ON public.working_hours FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
+
 DROP POLICY IF EXISTS "Public view staff services" ON public.staff_services;
 CREATE POLICY "Public view staff services" ON public.staff_services FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Owners manage staff services" ON public.staff_services;
 CREATE POLICY "Owners manage staff services" ON public.staff_services 
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Admins manage all staff services" ON public.staff_services;
+CREATE POLICY "Admins manage all staff services" ON public.staff_services FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
 
 -- 7. APPOINTMENTS (Müşteri & Salon Sahibi Erişimi)
 DROP POLICY IF EXISTS "Customers view own appointments" ON public.appointments;
@@ -109,6 +159,16 @@ DROP POLICY IF EXISTS "Users view own notifications" ON public.notifications;
 CREATE POLICY "Users view own notifications" ON public.notifications FOR SELECT 
     USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins manage all notifications" ON public.notifications;
+CREATE POLICY "Admins manage all notifications" ON public.notifications FOR ALL 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND role = 'SUPER_ADMIN'
+        )
+    );
+
 -- 9. INVITES
 DROP POLICY IF EXISTS "Invite access" ON public.invites;
 CREATE POLICY "Invite access" ON public.invites FOR SELECT USING (true);
@@ -122,6 +182,10 @@ DROP POLICY IF EXISTS "Owners manage memberships" ON public.salon_memberships;
 CREATE POLICY "Owners manage memberships" ON public.salon_memberships
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
 
+DROP POLICY IF EXISTS "Admins manage all memberships" ON public.salon_memberships;
+CREATE POLICY "Admins manage all memberships" ON public.salon_memberships FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
+
 -- 11. SALON WORKING HOURS
 DROP POLICY IF EXISTS "Public read salon working hours" ON public.salon_working_hours;
 CREATE POLICY "Public read salon working hours" ON public.salon_working_hours FOR SELECT USING (true);
@@ -129,6 +193,10 @@ CREATE POLICY "Public read salon working hours" ON public.salon_working_hours FO
 DROP POLICY IF EXISTS "Owners manage salon working hours" ON public.salon_working_hours;
 CREATE POLICY "Owners manage salon working hours" ON public.salon_working_hours 
     FOR ALL USING (salon_id IN (SELECT id FROM public.salons WHERE owner_id = auth.uid()));
+
+DROP POLICY IF EXISTS "Admins manage all salon working hours" ON public.salon_working_hours;
+CREATE POLICY "Admins manage all salon working hours" ON public.salon_working_hours FOR ALL
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN'));
 
 -- 12. REVIEWS
 DROP POLICY IF EXISTS "Public read reviews" ON public.reviews;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { verifyOTP, cleanPhone } from '@/lib/otp';
+import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {

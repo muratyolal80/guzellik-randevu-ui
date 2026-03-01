@@ -1,4 +1,5 @@
-export type UserRole = 'CUSTOMER' | 'STAFF' | 'SALON_OWNER' | 'SUPER_ADMIN';
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
+export type SalonPlan = 'FREE' | 'PRO' | 'ENTERPRISE';
 
 export type Permission =
   | 'CAN_MANAGE_SALON'
@@ -23,6 +24,13 @@ export interface Profile {
   created_at?: string;
   updated_at?: string;
   bio?: string;
+  // Account & Security Updates (Faz 1)
+  is_active?: boolean;
+  deleted_at?: string;
+  kvkk_accepted_at?: string;
+  marketing_opt_in?: boolean;
+  language_preference?: string;
+  default_city_id?: string;
 }
 
 export interface Favorite {
@@ -37,20 +45,22 @@ export interface Notification {
   id: string;
   user_id: string;
   title: string;
-  message: string;
-  type: 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
+  content: string; // Renamed from message to content to match my service logic
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'APPOINTMENT' | 'REVIEW' | 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
   is_read: boolean;
-  action_url?: string;
+  link?: string; // Renamed from action_url to link
   created_at: string;
 }
 
 export interface SupportTicket {
   id: string;
   user_id: string;
+  salon_id?: string;
   subject: string;
   message: string; // The initial message
-  category?: string; // e.g., 'PAYMENT', 'BOOKING', 'ACCOUNT', 'OTHER'
+  category: 'PAYMENT' | 'BOOKING' | 'ACCOUNT' | 'SALON' | 'OTHER' | 'GENEL';
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   created_at: string;
   updated_at: string;
   messages?: TicketMessage[]; // Optional thread
@@ -110,6 +120,8 @@ export interface GlobalService {
   id: string;
   category_id: string;
   name: string;
+  avg_duration_min?: number;
+  avg_price?: number;
   created_at?: string;
 }
 
@@ -140,8 +152,10 @@ export interface Salon {
   created_at?: string;
   updated_at?: string;
   owner_id?: string;
-  status?: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejected_reason?: string;
+  plan?: SalonPlan;
+  slug: string;
   type_ids?: string[]; // For multi-type support
   primary_type_id?: string;
 
@@ -170,6 +184,12 @@ export interface SalonDetail extends Salon {
   review_count: number;
   average_rating: number;
   assigned_types?: { id: string, name: string, slug: string, is_primary: boolean }[];
+  working_hours?: {
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    is_closed: boolean;
+  }[];
 
 
   // Legacy/compatibility properties (for existing code)
@@ -182,6 +202,7 @@ export interface SalonDetail extends Salon {
   startPrice?: number;  // Minimum service price
   description?: string;
   features?: string[];
+  is_closed?: boolean;
 }
 
 export interface Staff {
@@ -201,6 +222,7 @@ export interface Staff {
   image?: string;       // Alias for photo
   role?: string;        // Job title/role
   rating?: number;      // Staff rating
+  review_count?: number; // Total number of reviews
   isOnline?: boolean;   // Online status
 }
 
@@ -248,6 +270,8 @@ export interface Appointment {
   end_time: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   notes?: string;
+  coupon_code?: string;
+  discount_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -267,6 +291,30 @@ export interface Review {
   is_verified?: boolean;
   service_name?: string;
   service_date?: string;
+  images?: ReviewImage[]; // Added images to review
+}
+
+export interface ReviewImage {
+  id: string;
+  review_id: string;
+  image_url: string;
+  created_at?: string;
+}
+
+export interface StaffReview {
+  id: string;
+  staff_id: string;
+  salon_id: string;
+  user_id?: string;
+  appointment_id?: string;
+  user_name: string;
+  user_avatar?: string;
+  rating: number; // 1 to 5
+  comment?: string;
+  is_verified?: boolean;
+  staff_name?: string;
+  staff_photo?: string;
+  created_at?: string;
 }
 
 export interface IYSLog {
@@ -325,6 +373,8 @@ export interface BookingDisplay {
   staff: {
     name: string;
   };
+  coupon_code?: string;
+  discount_amount?: number;
 }
 
 export interface SalonWorkingHours {
@@ -351,6 +401,114 @@ export interface Invite {
   created_at: string;
   accepted_at?: string;
   salon?: { name: string }; // Optional joined data
+}
+
+export interface SalonGallery {
+  id: string;
+  salon_id: string;
+  image_url: string;
+  display_order: number;
+  is_cover: boolean;
+  caption?: string;
+  created_at: string;
+}
+
+// ==============================================
+// FINANCE & CAMPAIGN TYPES (Faz 3)
+// ==============================================
+
+export type DiscountType = 'PERCENTAGE' | 'FIXED';
+export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'WALLET' | 'OTHER';
+export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'FAILED';
+
+export interface Coupon {
+  id: string;
+  salon_id?: string; // Null if global
+  code: string;
+  description?: string;
+  discount_type: DiscountType;
+  discount_value: number;
+  min_purchase_amount?: number;
+  max_discount_amount?: number;
+  expires_at?: string;
+  usage_limit?: number;
+  used_count?: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface Package {
+  id: string;
+  salon_id: string;
+  name: string;
+  description?: string;
+  price: number;
+  is_active: boolean;
+  expires_at?: string;
+  created_at?: string;
+  services?: PackageService[];
+}
+
+export interface PackageService {
+  id: string;
+  package_id: string;
+  salon_service_id: string;
+  quantity: number;
+  created_at?: string;
+  service?: SalonServiceDetail; // Joined data
+}
+
+export interface Transaction {
+  id: string;
+  salon_id: string;
+  customer_id?: string;
+  appointment_id?: string;
+  amount: number;
+  currency: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  provider_transaction_id?: string;
+  commission_amount?: number;
+  notes?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentCoupon {
+  id: string;
+  appointment_id: string;
+  coupon_id: string;
+  discount_amount: number;
+  created_at: string;
+}
+
+export interface SalonUsageStats {
+  salon_id: string;
+  salon_name: string;
+  plan_name: string;
+  plan_display_name: string;
+  current_staff: number;
+  limit_staff: number;
+  current_branches: number;
+  limit_branches: number;
+  current_gallery_photos: number;
+  limit_gallery_photos: number;
+  has_advanced_reports: boolean;
+  has_campaigns: boolean;
+  has_sponsored: boolean;
+  subscription_status: string;
+  subscription_expires_at: string;
+}
+
+export interface IyzicoWebhook {
+  id: string;
+  iyzi_event_type: string;
+  payload: any;
+  status: 'RECEIVED' | 'PROCESSED' | 'ERROR';
+  error_message?: string;
+  processed_at?: string;
+  created_at: string;
 }
 
 export { };

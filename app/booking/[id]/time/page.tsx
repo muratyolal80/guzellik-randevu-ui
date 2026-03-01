@@ -19,7 +19,7 @@ export default function TimeSelection() {
   const {
     salon: bookingSalon,
     setSalon: setBookingSalon,
-    selectedService,
+    selectedServices,
     selectedStaff: bookingStaff,
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
@@ -28,7 +28,7 @@ export default function TimeSelection() {
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
-  const [services, setServices] = useState<SalonServiceDetail[]>(selectedService ? [selectedService] : []);
+  const [services, setServices] = useState<SalonServiceDetail[]>(selectedServices);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -40,13 +40,14 @@ export default function TimeSelection() {
   // Fetch available slots when date or staff changes
   useEffect(() => {
     const fetchAvailableSlots = async () => {
-      if (!id || !selectedService?.id) return;
+      if (!id || selectedServices.length === 0) return;
 
       setLoadingSlots(true);
       try {
         const dateStr = selectedDate.toISOString().split('T')[0];
 
-        let url = `/api/booking/available-slots?salon_id=${id}&service_id=${selectedService.id}&date=${dateStr}`;
+        const serviceIds = selectedServices.map(s => s.id).join(',');
+        let url = `/api/booking/available-slots?salon_id=${id}&service_ids=${serviceIds}&date=${dateStr}`;
         if (staff?.id && staff.id !== 'any') {
           url += `&staff_id=${staff.id}`;
         }
@@ -71,7 +72,7 @@ export default function TimeSelection() {
     };
 
     fetchAvailableSlots();
-  }, [selectedDate, staff?.id, id, selectedService?.id]);
+  }, [selectedDate, staff?.id, id, selectedServices]);
 
   // Fetch data
   useEffect(() => {
@@ -87,12 +88,12 @@ export default function TimeSelection() {
           if (salonData) setBookingSalon(salonData);
         }
 
-        // If we have selected service from context, use it
-        if (selectedService) {
-          setServices([selectedService]);
+        // If we have selected services from context, use them
+        if (selectedServices.length > 0) {
+          setServices(selectedServices);
         } else {
-          // No service selected, should probably redirect back or show error
-          console.warn('⚠️ No service selected in context');
+          // No service selected
+          console.warn('⚠️ No services selected in context');
           setServices([]);
         }
 
@@ -132,7 +133,7 @@ export default function TimeSelection() {
       }
     };
     fetchData();
-  }, [id, staffId, bookingSalon, bookingStaff, selectedService, setBookingSalon]);
+  }, [id, staffId, bookingSalon, bookingStaff, selectedServices, setBookingSalon]);
 
   // Generate dynamic dates array starting from today
   const generateDates = () => {
