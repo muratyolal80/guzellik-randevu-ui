@@ -4,6 +4,7 @@
  */
 
 import { supabase, supabaseUrl } from '@/lib/supabase';
+import { LimitEnforcer } from '@/lib/utils/limits';
 import type {
   City, District, SalonType, ServiceCategory, GlobalService,
   Salon, SalonDetail, Staff, SalonService, SalonServiceDetail,
@@ -518,6 +519,18 @@ export const SalonDataService = {
     customHours?: { day_of_week: number, start_time: string, end_time: string, is_closed: boolean }[],
     initialServices?: { global_service_id: string, price: number, duration_min: number }[]
   ): Promise<Salon> {
+    // Enforcement: Check branch limit for the owner
+    // If owner already has a salon, check its plan's branch limit
+    const { data: existingSalons } = await supabase
+      .from('salons')
+      .select('id')
+      .eq('owner_id', salon.owner_id)
+      .limit(1);
+
+    if (existingSalons && existingSalons.length > 0) {
+      await LimitEnforcer.ensureLimit(existingSalons[0].id, 'branch');
+    }
+
     const { type_ids, primary_type_id, ...salonData } = salon;
 
     // Use primary_type_id as fallback for type_id for backward compatibility
@@ -891,6 +904,11 @@ export const StaffService = {
     staffData: Partial<Staff>,
     customWorkingHours?: Omit<WorkingHours, 'id' | 'staff_id' | 'created_at'>[]
   ): Promise<Staff> {
+    // Enforcement: Check subscription limit for staff
+    if (staffData.salon_id) {
+      await LimitEnforcer.ensureLimit(staffData.salon_id, 'staff');
+    }
+
     const { data, error } = await supabase
       .from('staff')
       .insert({
@@ -1177,6 +1195,11 @@ export const WorkingHoursService = {
    * Create a new staff member with default working hours
    */
   async createStaff(staffData: Partial<Staff>): Promise<Staff> {
+    // Enforcement: Check subscription limit for staff
+    if (staffData.salon_id) {
+      await LimitEnforcer.ensureLimit(staffData.salon_id, 'staff');
+    }
+
     const { data, error } = await supabase
       .from('staff')
       .insert({
@@ -1469,47 +1492,59 @@ export const ReviewService = {
     }));
   },
 
-  /**
-   * Create new review
-   */
   async createReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review> {
+    // Force is_verified to true if appointment_id is present
+    const reviewData = {
+      ...review,
+      is_verified: !!review.appointment_id
+    };
+
     const { data, error } = await supabase
       .from('reviews')
-      .insert(review)
+      .insert(reviewData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating review:', error);
+      throw error;
+    }
     return data;
   },
 
   /**
    * Get eligible appointments for review (Completed appointments not yet reviewed)
    */
-  async getReviewableAppointments(userId: string, salonId: string): Promise<Appointment[]> {
-    // 1. Get all completed appointments for this user at this salon
-    const { data: appointments, error: apptError } = await supabase
+  async getReviewableAppointments(userId: string, salonId?: string): Promise<Appointment[]> {
+    // 1. Get all completed appointments for this user
+    let query = supabase
       .from('appointments')
-      .select('*')
+      .select('*, salon:salons(name, logo_url)')
       .eq('customer_id', userId)
-      .eq('salon_id', salonId)
       .eq('status', 'COMPLETED')
       .order('end_time', { ascending: false });
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data: appointments, error: apptError } = await query;
 
     if (apptError) throw apptError;
     if (!appointments || appointments.length === 0) return [];
 
-    // 2. Get existing reviews by this user for this salon
-    // Note: Ideally we check by appointment_id, but current schema might have old reviews without appointment_id
-    // For strictly verified reviews, we only care if an appointment ID is already used.
-
-    // Check which appointments are already reviewed
-    const { data: reviews, error: reviewError } = await supabase
+    // 2. Get appointments that already have reviews
+    let reviewQuery = supabase
       .from('reviews')
       .select('appointment_id')
       .eq('user_id', userId)
-      .eq('salon_id', salonId)
       .not('appointment_id', 'is', null);
+
+    if (salonId) {
+      reviewQuery = reviewQuery.eq('salon_id', salonId);
+    }
+
+    const { data: reviews, error: reviewError } = await reviewQuery;
 
     if (reviewError) throw reviewError;
 
@@ -1573,17 +1608,23 @@ export const StaffReviewService = {
     return data || [];
   },
 
-  /**
-   * Create a new staff review
-   */
   async createStaffReview(review: Omit<StaffReview, 'id' | 'created_at'>): Promise<StaffReview> {
+    // Force is_verified to true if appointment_id is present
+    const reviewData = {
+      ...review,
+      is_verified: !!review.appointment_id
+    };
+
     const { data, error } = await supabase
       .from('staff_reviews')
-      .insert(review)
+      .insert(reviewData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating staff review:', error);
+      throw error;
+    }
     return data;
   },
 
@@ -1813,6 +1854,11 @@ export const GalleryService = {
    * Add image to salon gallery
    */
   async addGalleryImage(image: Omit<SalonGallery, 'id' | 'created_at'>): Promise<SalonGallery> {
+    // Enforcement: Check subscription limit for gallery photos
+    if (image.salon_id) {
+      await LimitEnforcer.ensureLimit(image.salon_id, 'gallery_photo');
+    }
+
     const { data, error } = await supabase
       .from('salon_gallery')
       .insert(image)
@@ -2894,6 +2940,366 @@ export const PaymentService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Record a payment in payment_history (New unified table)
+   */
+  async recordPayment(payment: any) {
+    const { data, error } = await supabase
+      .from('payment_history')
+      .insert(payment)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get payment history for a salon
+   */
+  async getSalonPaymentHistory(salonId: string) {
+    const { data, error } = await supabase
+      .from('payment_history')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// ==============================================
+// SUBSCRIPTION SERVICE (Salon Plans & Limits)
+// ==============================================
+
+export const SubscriptionService = {
+  /**
+   * Get all available plans
+   */
+  async getPlans() {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get current subscription of a salon
+   */
+  async getSalonSubscription(salonId: string) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*, subscription_plans(*)')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Check if a salon can add more resources based on their plan
+   * @param salonId Salon ID
+   * @param resourceType 'staff' | 'branch' | 'gallery_photo'
+   */
+  async checkLimit(salonId: string, resourceType: 'staff' | 'branch' | 'gallery_photo'): Promise<{ allowed: boolean, current: number, limit: number }> {
+    const sub = await this.getSalonSubscription(salonId);
+    if (!sub || !sub.subscription_plans) {
+      // Default to STARTER limits if no sub found (should not happen with mandatory plans)
+      return { allowed: false, current: 0, limit: 0 };
+    }
+
+    const plan = sub.subscription_plans;
+    let current = 0;
+    let limit = 0;
+
+    if (resourceType === 'staff') {
+      const { count } = await supabase.from('staff').select('*', { count: 'exact', head: true }).eq('salon_id', salonId);
+      current = count || 0;
+      limit = plan.max_staff;
+    } else if (resourceType === 'branch') {
+      // Count total salons for the same owner
+      const { data: currentSalon } = await supabase.from('salons').select('owner_id').eq('id', salonId).maybeSingle();
+      if (currentSalon?.owner_id) {
+        const { count } = await supabase.from('salons').select('*', { count: 'exact', head: true }).eq('owner_id', currentSalon.owner_id);
+        current = count || 0;
+      } else {
+        current = 1;
+      }
+      limit = plan.max_branches;
+    } else if (resourceType === 'gallery_photo') {
+      const { count } = await supabase.from('salon_gallery').select('*', { count: 'exact', head: true }).eq('salon_id', salonId);
+      current = count || 0;
+      limit = plan.max_gallery_photos;
+    }
+
+    return {
+      allowed: limit === -1 || current < limit,
+      current,
+      limit
+    };
+  },
+
+  /**
+   * Start a subscription process.
+   * If Credit Card, it calls the server API for iyzico processing.
+   */
+  async subscribe(
+    salonId: string,
+    planId: string,
+    paymentMethod: 'CREDIT_CARD' | 'BANK_TRANSFER',
+    billingCycle: 'MONTHLY' | 'YEARLY' = 'MONTHLY'
+  ) {
+    if (paymentMethod === 'CREDIT_CARD') {
+      const response = await fetch('/api/subscription/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ salonId, planId, billingCycle })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Ödeme başlatılamadı');
+      return data;
+    }
+
+    // Default: Just create the pending record for Bank Transfer
+    return this.createSubscriptionRequest(salonId, planId, paymentMethod, billingCycle);
+  },
+
+  /**
+   * Create a new subscription record (usually PENDING status)
+   */
+  async createSubscriptionRequest(
+    salonId: string,
+    planId: string,
+    paymentMethod: 'CREDIT_CARD' | 'BANK_TRANSFER',
+    billingCycle: 'MONTHLY' | 'YEARLY' = 'MONTHLY'
+  ) {
+    const days = billingCycle === 'YEARLY' ? 365 : 30;
+
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .upsert({
+        salon_id: salonId,
+        plan_id: planId,
+        status: 'PENDING',
+        payment_method: paymentMethod,
+        billing_cycle: billingCycle,
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Notify platform about a bank transfer payment
+   */
+  async notifyBankTransfer(subscriptionId: string, salonId: string, amount: number) {
+    const { data, error } = await supabase
+      .from('payment_history')
+      .insert({
+        salon_id: salonId,
+        subscription_id: subscriptionId,
+        amount: amount,
+        payment_method: 'BANK_TRANSFER',
+        payment_type: 'SUBSCRIPTION',
+        status: 'PENDING', // Admin confirmation needed
+        bank_transfer_notified_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update a subscription plan (Admin only)
+   */
+  async updatePlan(planId: string, updates: any) {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .update(updates)
+      .eq('id', planId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Check if a specific feature is enabled in salon's plan
+   */
+  async checkFeatureAccess(salonId: string, feature: 'has_advanced_reports' | 'has_campaigns' | 'has_sponsored'): Promise<boolean> {
+    const sub = await this.getSalonSubscription(salonId);
+    return sub?.subscription_plans?.[feature] === true;
+  }
+};
+
+// ==============================================
+// PLATFORM SERVICE (Global Settings & Admin)
+// ==============================================
+
+export const PlatformService = {
+  /**
+   * Get platform settings by key
+   */
+  async getSetting(key: string) {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.value;
+  },
+
+  /**
+   * Update platform setting
+   */
+  async updateSetting(key: string, value: any) {
+    const { error } = await supabase
+      .from('platform_settings')
+      .upsert({ key, value, updated_at: new Date().toISOString() });
+
+    if (error) throw error;
+  }
+};
+
+// ==============================================
+// SUB-MERCHANT SERVICE (Marketplace)
+// ==============================================
+
+export const SubmerchantService = {
+  /**
+   * Get salon's sub-merchant registration info
+   */
+  async getBySalonId(salonId: string) {
+    const { data, error } = await supabase
+      .from('salon_sub_merchants')
+      .select('*')
+      .eq('salon_id', salonId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Upsert sub-merchant registration (Application)
+   */
+  async saveRegistration(salonId: string, registrationData: any) {
+    const { data, error } = await supabase
+      .from('salon_sub_merchants')
+      .upsert({
+        salon_id: salonId,
+        ...registrationData,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// ==============================================
+// FINANCE & REPORTING SERVICE
+// ==============================================
+
+export const FinanceService = {
+  /**
+   * Get pending bank transfer payments for Admin
+   */
+  async getPendingPayments() {
+    const { data, error } = await supabase
+      .from('payment_history')
+      .select('*, salons(name, owner_id)')
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Approve or reject a payment (Bank Transfer)
+   */
+  async updatePaymentStatus(paymentId: string, status: 'SUCCESS' | 'FAILED', adminNote?: string) {
+    const { data: payment, error: pError } = await supabase
+      .from('payment_history')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (pError) throw pError;
+
+    const { error } = await supabase
+      .from('payment_history')
+      .update({
+        status,
+        metadata: { ...payment.metadata, admin_note: adminNote, updated_by_admin_at: new Date().toISOString() }
+      })
+      .eq('id', paymentId);
+
+    if (error) throw error;
+
+    // If it was a subscription payment, activate the subscription and the salon
+    if (status === 'SUCCESS' && payment.payment_type === 'SUBSCRIPTION' && payment.subscription_id) {
+      // Activate subscription
+      await supabase
+        .from('subscriptions')
+        .update({ status: 'ACTIVE' })
+        .eq('id', payment.subscription_id);
+
+      // Activate salon (Set to APPROVED)
+      await supabase
+        .from('salons')
+        .update({ status: 'APPROVED', is_verified: true })
+        .eq('id', payment.salon_id);
+    }
+  },
+
+  /**
+   * Get financial reports (Overview)
+   */
+  async getFinancialReports(filter: { salonId?: string, startDate?: string, endDate?: string } = {}) {
+    let query = supabase.from('payment_history').select('*');
+
+    if (filter.salonId) query = query.eq('salon_id', filter.salonId);
+    if (filter.startDate) query = query.gte('created_at', filter.startDate);
+    if (filter.endDate) query = query.lte('created_at', filter.endDate);
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) throw error;
+
+    // Simple aggregation
+    const totalRevenue = data.reduce((acc, curr) => curr.status === 'SUCCESS' ? acc + curr.amount : acc, 0);
+    const successCount = data.filter(p => p.status === 'SUCCESS').length;
+
+    return {
+      transactions: data,
+      stats: {
+        totalRevenue,
+        successCount,
+        failedCount: data.filter(p => p.status === 'FAILED').length,
+        pendingCount: data.filter(p => p.status === 'PENDING').length
+      }
+    };
   }
 };
 
@@ -2914,10 +3320,13 @@ export default {
   FavoriteService,
   GalleryService,
   ProfileService,
-  AuditLogService,
   CampaignService,
   PaymentService,
+  SubscriptionService,
+  PlatformService,
   GlobalSearchService,
+  SubmerchantService,
+  FinanceService,
 };
 
 

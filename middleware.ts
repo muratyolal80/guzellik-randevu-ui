@@ -111,7 +111,38 @@ export async function middleware(request: NextRequest) {
             }
         }
 
-        // D. Cross-panel redirection for customers trying to access customer dashboard
+        // D. Salon Owner Specific Status Checks
+        if (userRole === 'SALON_OWNER' && !pathname.startsWith('/owner/onboarding')) {
+            const { data: salon } = await supabase
+                .from('salons')
+                .select('id, status')
+                .eq('owner_id', user.id)
+                .maybeSingle();
+
+            if (!salon) {
+                // If no salon found, force onboarding
+                return NextResponse.redirect(new URL('/owner/onboarding', request.url));
+            }
+
+            // check subscription status
+            const { data: subscription } = await supabase
+                .from('subscriptions')
+                .select('status')
+                .eq('salon_id', salon.id)
+                .maybeSingle();
+
+            if (salon.status === 'PENDING_APPROVAL' || (subscription && subscription.status === 'PENDING_APPROVAL')) {
+                // Show a generic "Waiting for Approval" notification/page if they attempt to access restricted owner areas
+                // For now, redirecting to onboarding might show the PENDING UI we built, 
+                // but a dedicated /owner/waiting-approval page is better.
+                if (pathname !== '/owner/dashboard') { // Allow dashboard maybe? Or just a specific block
+                    // url.pathname = '/owner/waiting-approval';
+                    // return NextResponse.rewrite(url);
+                }
+            }
+        }
+
+        // E. Cross-panel redirection for customers trying to access customer dashboard
         const customerPaths = ['/customer', '/profile', '/appointments', '/favorites'];
         if (customerPaths.some(path => pathname.startsWith(path))) {
             if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { AdminLayout } from '@/components/AdminLayout';
 import { SalonDataService, MasterDataService } from '@/services/db';
-import { GeocodingService } from '@/lib/geocoding';
+import { GeocodingService } from '@/lib/geocoding/geocoding';
 import { City, SalonDetail, SalonType, District } from '@/types';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/ImageUpload';

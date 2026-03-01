@@ -284,8 +284,12 @@ export default function BookingUserInfoPage() {
         setCustomerPhone(phone);
         setCustomerNotes(notes);
 
-        router.refresh();
-        router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+        } else {
+          router.refresh();
+          router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+        }
       } else {
         if (response.status === 409 || data.error?.includes('dolu')) {
           alert('Seçtiğiniz saat dilimi doldu. Lütfen başka bir saat seçin.');

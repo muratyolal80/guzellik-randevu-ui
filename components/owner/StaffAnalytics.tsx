@@ -174,26 +174,27 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
                 </div>
 
                 {/* Weekly Chart */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-border shadow-card relative overflow-hidden group hover:shadow-2xl hover:shadow-black/[0.02] transition-all duration-500">
-                    {/* Background Detail */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gray-50 rounded-full blur-[80px] -mr-32 -mt-32 opacity-50" />
+                <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-border shadow-card relative overflow-hidden group hover:shadow-2xl hover:shadow-primary/5 transition-all duration-700">
+                    {/* Background Detail - Gradient Orb */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32 opacity-50 group-hover:bg-primary/10 transition-colors duration-700" />
+                    <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-blue-500/5 rounded-full blur-[100px] opacity-30" />
 
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 relative z-10">
                         <div>
                             <h3 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2 mb-1.5">
-                                <TrendingUp className="w-4 h-4 text-primary" /> HAFTALIK DOLULUK ANALİZİ
+                                <TrendingUp className="w-4 h-4 text-primary animate-pulse" /> HAFTALIK DOLULUK ANALİZİ
                             </h3>
-                            <p className="text-xs font-bold text-text-secondary opacity-60">Son 7 günlük performans grafiği</p>
+                            <p className="text-sm font-bold text-text-main">Personel Verimlilik Trendi</p>
                         </div>
-                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest bg-gray-50/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-gray-100">
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400/20"></span> <span className="text-text-muted">Düşük</span>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest bg-gray-50/50 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center gap-1.5 group/legend">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400/20 border border-blue-400/30"></span> <span className="text-text-muted group-hover:text-blue-500 transition-colors">Yatay</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span> <span className="text-text-muted">Orta</span>
+                            <div className="flex items-center gap-1.5 group/legend">
+                                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-400 to-orange-400"></span> <span className="text-text-muted group-hover:text-amber-600 transition-colors">Normal</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> <span className="text-text-muted">Yoğun</span>
+                            <div className="flex items-center gap-1.5 group/legend">
+                                <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-rose-500 to-pink-600"></span> <span className="text-text-muted group-hover:text-rose-600 transition-colors">Zirve</span>
                             </div>
                         </div>
                     </div>
@@ -201,41 +202,67 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
                     <div className="h-[200px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="barGradientBlue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="#2563eb" stopOpacity={0.1} />
+                                    </linearGradient>
+                                    <linearGradient id="barGradientAmber" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.2} />
+                                    </linearGradient>
+                                    <linearGradient id="barGradientRose" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.8} />
+                                        <stop offset="100%" stopColor="#e11d48" stopOpacity={0.2} />
+                                    </linearGradient>
+                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis
                                     dataKey="date"
                                     tickFormatter={(val) => new Date(val).toLocaleDateString('tr-TR', { weekday: 'short' })}
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                                    tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
                                     dy={10}
                                 />
                                 <YAxis
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                                    tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
                                 />
                                 <Tooltip
-                                    cursor={{ fill: '#f8fafc' }}
+                                    cursor={{ fill: 'rgba(241, 245, 249, 0.5)', radius: 8 }}
                                     content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
                                             return (
-                                                <div className="bg-white p-3 rounded-xl border border-border shadow-xl text-xs">
-                                                    <p className="font-black text-text-main mb-1">
-                                                        {new Date(data.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
+                                                <div className="bg-white/90 backdrop-blur-xl p-4 rounded-2xl border border-white shadow-2xl text-xs min-w-[160px] animate-in fade-in zoom-in duration-200">
+                                                    <p className="font-black text-text-main mb-2 border-b border-gray-100 pb-2">
+                                                        {new Date(data.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}
                                                     </p>
-                                                    <p className="text-primary font-bold">%{data.occupancyPercent} Doluluk</p>
-                                                    <p className="text-text-muted mt-1">{data.bookedSlots} / {data.totalSlots} Slot Dolu</p>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-text-muted font-bold">Verimlilik:</span>
+                                                        <span className={`font-black ${data.occupancyPercent > 80 ? 'text-rose-600' : data.occupancyPercent > 50 ? 'text-amber-600' : 'text-primary'}`}>
+                                                            %{data.occupancyPercent}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-text-muted font-bold">Doluluk:</span>
+                                                        <span className="text-text-main font-black">{data.bookedSlots} / {data.totalSlots}</span>
+                                                    </div>
                                                 </div>
                                             );
                                         }
                                         return null;
                                     }}
                                 />
-                                <Bar dataKey="occupancyPercent" radius={[6, 6, 6, 6]} barSize={32}>
+                                <Bar dataKey="occupancyPercent" radius={[10, 10, 4, 4]} barSize={36}>
                                     {weeklyData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.occupancyPercent > 80 ? '#ef4444' : entry.occupancyPercent > 50 ? '#f59e0b' : '#3b82f6'} />
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.occupancyPercent > 80 ? 'url(#barGradientRose)' : entry.occupancyPercent > 50 ? 'url(#barGradientAmber)' : 'url(#barGradientBlue)'}
+                                            className="transition-all duration-500 hover:opacity-100 opacity-90 cursor-pointer"
+                                        />
                                     ))}
                                 </Bar>
                             </BarChart>

@@ -32,6 +32,7 @@ const OwnerSidebar: React.FC = () => {
         { name: 'Personel Yönetimi', path: '/owner/staff', icon: Users },
         { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
         { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
+        { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
     ];
 
     return (

@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/otp';
+import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/auth/otp';
 import { sendOTPSMS } from '@/lib/sms';
 
 // Rate limiting icin basit bir in-memory store

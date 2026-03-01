@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { StaffService, SalonDataService, ServiceService } from '@/services/db';
+import { StaffService, SalonDataService, ServiceService, SubscriptionService } from '@/services/db';
+import { LimitEnforcer } from '@/lib/utils/limits';
 const DEFAULT_HOURS = [
     { day_of_week: 1, start_time: '09:00', end_time: '19:00', is_day_off: false },
     { day_of_week: 2, start_time: '09:00', end_time: '19:00', is_day_off: false },
@@ -170,7 +171,22 @@ export default function StaffManagementTab({ salonId }: StaffManagementTabProps)
                     <p className="text-xs text-text-secondary mt-1">{staff.length} çalışanınız bulunuyor.</p>
                 </div>
                 <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={async () => {
+                        try {
+                            setLoading(true);
+                            await LimitEnforcer.ensureLimit(salonId, 'staff');
+                            setShowAddModal(true);
+                        } catch (err: any) {
+                            if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+                                alert('Personel limitine ulaştınız. Daha fazla personel eklemek için lütfen paketinizi yükseltin.');
+                            } else {
+                                console.error('Limit check error:', err);
+                                alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+                            }
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
                     className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                 >
                     <UserPlus className="w-5 h-5" /> Personel Ekle
