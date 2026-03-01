@@ -860,6 +860,20 @@ export const SalonDataService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Get salon usage statistics against plan limits
+   */
+  async getUsageStats(salonId: string) {
+    const { data, error } = await supabase
+      .from('salon_usage_stats')
+      .select('*')
+      .eq('salon_id', salonId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
   }
 };
 
@@ -3145,6 +3159,19 @@ export const SubscriptionService = {
   async checkFeatureAccess(salonId: string, feature: 'has_advanced_reports' | 'has_campaigns' | 'has_sponsored'): Promise<boolean> {
     const sub = await this.getSalonSubscription(salonId);
     return sub?.subscription_plans?.[feature] === true;
+  },
+
+  /**
+   * Atomic RPC to activate salon and subscription
+   */
+  async activateSalonAndSubscription(salonId: string, subscriptionId: string, adminNote?: string) {
+    const { error } = await supabase.rpc('activate_salon_and_subscription', {
+      p_salon_id: salonId,
+      p_subscription_id: subscriptionId,
+      p_admin_note: adminNote
+    });
+
+    if (error) throw error;
   }
 };
 
