@@ -8,7 +8,7 @@ ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO public.districts (id, city_id, name) VALUES 
 ('c8bcc880-52f4-4381-9c81-1a1e8f912894', 'db32470f-626d-4dae-88a6-056690867bc2', 'Kadıköy'),
-('b1d2e3f4-g5h6-i7j8-k9l0-m1n2o3p4q5r6', 'db32470f-626d-4dae-88a6-056690867bc2', 'Beşiktaş'),
+('11111111-2222-3333-4444-555555555555', 'db32470f-626d-4dae-88a6-056690867bc2', 'Beşiktaş'),
 ('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', '7e8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d', 'Konak')
 ON CONFLICT (city_id, name) DO NOTHING;
 
