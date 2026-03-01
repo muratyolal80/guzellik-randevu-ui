@@ -19,7 +19,9 @@ export interface TimeSlot {
 
 export interface SlotQuery {
     salonId: string;
-    serviceId: string;
+    serviceId?: string;
+    serviceIds?: string[];
+    durationMin?: number;
     date: Date;
     staffId?: string;
 }
@@ -29,20 +31,37 @@ export const SlotService = {
      * Get available time slots for a service on a given date
      */
     async getAvailableSlots(query: SlotQuery): Promise<TimeSlot[]> {
-        const { salonId, serviceId, date, staffId } = query;
+        const { salonId, serviceId, serviceIds, durationMin, date, staffId } = query;
 
-        // 1. Get service details (duration is critical)
-        const { data: service, error: serviceError } = await supabase
-            .from('salon_services')
-            .select('duration_min, global_service_id')
-            .eq('id', serviceId)
-            .single();
+        let serviceDuration = durationMin || 0;
 
-        if (serviceError || !service) {
-            throw new Error('Service not found');
+        // 1. Calculate duration if not provided
+        if (!serviceDuration) {
+            if (serviceIds && serviceIds.length > 0) {
+                const { data: services, error: servicesError } = await supabase
+                    .from('salon_services')
+                    .select('duration_min')
+                    .in('id', serviceIds);
+
+                if (!servicesError && services) {
+                    serviceDuration = services.reduce((acc, s) => acc + (s.duration_min || 0), 0);
+                }
+            } else if (serviceId) {
+                const { data: service, error: serviceError } = await supabase
+                    .from('salon_services')
+                    .select('duration_min')
+                    .eq('id', serviceId)
+                    .single();
+
+                if (!serviceError && service) {
+                    serviceDuration = service.duration_min;
+                }
+            }
         }
 
-        const serviceDuration = service.duration_min;
+        if (!serviceDuration) {
+            throw new Error('Service duration could not be determined');
+        }
 
         // 2. Get staff who can perform this service
         let staffQuery = supabase

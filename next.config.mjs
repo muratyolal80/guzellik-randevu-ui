@@ -9,6 +9,7 @@ const nextConfig = {
     // Enable the new proxy configuration for Next.js 16
     authInterrupts: true,
   },
+  serverExternalPackages: ['iyzipay'],
 };
 
 export default nextConfig;

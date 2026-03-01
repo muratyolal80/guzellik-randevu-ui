@@ -19,7 +19,7 @@ export default function Confirmation() {
 
     const {
         salon: bookingSalon,
-        selectedService: bookingService,
+        selectedServices,
         selectedStaff: bookingStaff,
         selectedDate,
         selectedTime,
@@ -33,7 +33,7 @@ export default function Confirmation() {
     const [appointment, setAppointment] = useState<Appointment | null>(null);
     const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
     const [staff, setStaff] = useState<Staff | null>(bookingStaff);
-    const [service, setService] = useState<SalonServiceDetail | null>(bookingService);
+    const [services, setServices] = useState<SalonServiceDetail[]>(selectedServices);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -78,8 +78,9 @@ export default function Confirmation() {
                 setLoading(true);
 
                 // Context'te zaten tüm bilgiler varsa API'ye gerek yok
-                if (bookingSalon && bookingService && bookingStaff && selectedDate && selectedTime) {
+                if (bookingSalon && selectedServices.length > 0 && bookingStaff && selectedDate && selectedTime) {
                     console.log('Using context data - no API call needed');
+                    setServices(selectedServices);
                     setLoading(false);
                     return;
                 }
@@ -106,9 +107,9 @@ export default function Confirmation() {
                         setStaff(staffData);
                     }
 
-                    if (!bookingService) {
+                    if (selectedServices.length === 0) {
                         const serviceData = await ServiceService.getServiceById(appointmentData.salon_service_id);
-                        setService(serviceData);
+                        if (serviceData) setServices([serviceData]);
                     }
                 } else {
                     setError('Randevu bilgileri eksik');
@@ -125,7 +126,7 @@ export default function Confirmation() {
         };
 
         fetchBookingData();
-    }, [appointmentId, bookingSalon, bookingService, bookingStaff, selectedDate, selectedTime]);
+    }, [appointmentId, bookingSalon, selectedServices, bookingStaff, selectedDate, selectedTime]);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -209,7 +210,7 @@ export default function Confirmation() {
                             </div>
                         </div>
 
-                        {salon && staff && service && (
+                        {salon && staff && services.length > 0 && (
                             <div className="mt-8 text-left bg-gray-50 p-6 rounded-lg border border-border space-y-4">
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
@@ -219,12 +220,17 @@ export default function Confirmation() {
                                     <span className="font-bold text-text-main">{salon.name}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center pb-3 border-b border-gray-200">
+                                <div className="space-y-3 pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
                                         <span className="material-symbols-outlined text-primary">content_cut</span>
-                                        Hizmet
+                                        Hizmetler
                                     </span>
-                                    <span className="font-bold text-text-main">{service.service_name}</span>
+                                    {services.map((svc) => (
+                                        <div key={svc.id} className="flex justify-between items-center pl-7">
+                                            <span className="text-text-main">{svc.service_name}</span>
+                                            <span className="font-bold text-text-main">{svc.price} TL</span>
+                                        </div>
+                                    ))}
                                 </div>
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
@@ -241,7 +247,7 @@ export default function Confirmation() {
                                         Tarih
                                     </span>
                                     <span className="font-bold text-text-main">
-                                        {appointment ? formatDate(appointment.start_time) : selectedDate}
+                                        {appointment ? formatDate(appointment.start_time) : (selectedDate || '')}
                                     </span>
                                 </div>
 
@@ -251,24 +257,47 @@ export default function Confirmation() {
                                         Saat
                                     </span>
                                     <span className="font-bold text-text-main">
-                                        {appointment ? formatTime(appointment.start_time) : selectedTime}
+                                        {appointment ? formatTime(appointment.start_time) : (selectedTime || '')}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
                                         <span className="material-symbols-outlined text-primary">timer</span>
-                                        Sure
+                                        Toplam Süre
                                     </span>
-                                    <span className="font-bold text-text-main">{service.duration_min} dakika</span>
+                                    <span className="font-bold text-text-main">
+                                        {services.reduce((acc, s) => acc + (s.duration_min || 0), 0)} dakika
+                                    </span>
                                 </div>
 
                                 <div className="flex justify-between items-center">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
                                         <span className="material-symbols-outlined text-primary">payments</span>
-                                        Ucret
+                                        Toplam Ücret
                                     </span>
-                                    <span className="font-bold text-primary text-xl">{service.price} TL</span>
+                                    <div className="text-right">
+                                        {(appointment?.discount_amount && appointment.discount_amount > 0) ? (
+                                            <>
+                                                <div className="text-sm text-text-muted line-through">
+                                                    {services.reduce((acc, s) => acc + (s.price || 0), 0)} TL
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-bold text-primary text-xl">
+                                                        {services.reduce((acc, s) => acc + (s.price || 0), 0) - (appointment.discount_amount || 0)} TL
+                                                    </span>
+                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
+                                                        <span className="material-symbols-outlined text-xs">sell</span>
+                                                        {appointment.coupon_code} Uygulandı
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <span className="font-bold text-primary text-xl">
+                                                {services.reduce((acc, s) => acc + (s.price || 0), 0)} TL
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}

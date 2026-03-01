@@ -65,9 +65,6 @@ type initdb\New-08-Storage.sql | docker exec -i kuafor-pazaryeri_db psql -U post
 echo Running New-09-Auth-Users.sql...
 type initdb\New-09-Auth-Users.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
 
-echo Running New-10-Separate-Avenue-Street.sql...
-type initdb\New-10-Separate-Avenue-Street.sql | docker exec -i kuafor-pazaryeri_db psql -U postgres -d postgres
-
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Migration failed
     pause

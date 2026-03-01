@@ -23,7 +23,7 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
 };
 
 // Updates map center when city changes or salon is hovered
-const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonId: string | null, salons: SalonDetail[] }> = ({ center, hoveredSalonId, salons }) => {
+const MapUpdater: React.FC<{ center: { lat: number; lng: number }, hoveredSalonId?: string | null, salons: SalonDetail[] }> = ({ center, hoveredSalonId, salons }) => {
     const map = useMap();
 
     // Fix: Invalidate size on mount/updates to prevent grey areas
@@ -109,8 +109,8 @@ const createCustomIcon = (isHovered: boolean) => {
 interface SalonMapProps {
     center: { lat: number; lng: number };
     salons: SalonDetail[];
-    hoveredSalonId: string | null;
-    onSalonHover: (id: string | null) => void;
+    hoveredSalonId?: string | null;
+    onSalonHover?: (id: string | null) => void;
 }
 
 interface SalonMarkerProps {
@@ -182,7 +182,7 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
                         <h3 className="font-display font-bold text-lg text-gray-900 truncate mb-1 leading-tight">{salon.name}</h3>
                         <p className="text-xs text-gray-500 truncate mb-4 flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
-                            {salon.district}, {salon.city_name}
+                            {typeof salon.district === 'object' ? '' : String(salon.district || salon.district_name || '')}{(salon.district || salon.district_name) ? ', ' : ''}{typeof salon.city_name === 'object' ? '' : String(salon.city_name || '')}
                         </p>
                         <div className="flex justify-between items-center border-t border-gray-100 pt-3 mt-1">
                             <div className="flex flex-col">
@@ -223,7 +223,7 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
                     key={salon.id}
                     salon={salon}
                     isHovered={hoveredSalonId === salon.id}
-                    onHover={onSalonHover}
+                    onHover={onSalonHover || ((_id: string | null) => { })}
                     onClick={() => router.push(`/salon/${salon.id}`)}
                 />
             ))}

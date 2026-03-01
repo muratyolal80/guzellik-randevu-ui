@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
 import { SalonDataService, MasterDataService } from '@/services/db';
-import { GeocodingService } from '@/lib/geocoding';
+import { GeocodingService } from '@/lib/geocoding/geocoding';
 import { City, SalonDetail, SalonType, District } from '@/types';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/ImageUpload';
@@ -20,9 +20,11 @@ import {
     AlertCircle,
     XCircle,
     ChevronLeft,
-    Layout
+    Layout,
+    CheckCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import GalleryManager from '@/components/owner/GalleryManager';
 
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
@@ -307,6 +309,7 @@ export default function EditSalonPage() {
 
     const tabs = [
         { id: 'profile', label: 'Profil & Konum', icon: Store },
+        { id: 'gallery', label: 'Galeri', icon: ImageIcon },
         { id: 'hours', label: 'Çalışma Saatleri', icon: Clock },
         { id: 'services', label: 'Hizmetler', icon: Scissors },
         { id: 'staff', label: 'Personel', icon: Users },
@@ -731,6 +734,12 @@ export default function EditSalonPage() {
                 )}
 
                 {/* Other Tabs */}
+                {activeTab === 'gallery' && (
+                    <GalleryManager
+                        salonId={salonId}
+                        onCoverChange={(url: string) => setFormData(prev => ({ ...prev, image: url }))}
+                    />
+                )}
                 {activeTab === 'hours' && <WorkingHoursTab salonId={salonId} />}
                 {activeTab === 'staff' && <StaffManagementTab salonId={salonId} />}
                 {activeTab === 'services' && <ServicesTab salonId={salonId} />}

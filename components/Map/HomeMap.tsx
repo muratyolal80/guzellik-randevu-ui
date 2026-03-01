@@ -14,17 +14,17 @@ const iconRetinaUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2
 const shadowUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png';
 
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl,
-  iconUrl,
-  shadowUrl,
+    iconRetinaUrl,
+    iconUrl,
+    shadowUrl,
 });
 
 interface HomeMapProps {
-  center: { lat: number; lng: number };
-  salons: SalonDetail[];
-  hoveredSalonId: string | null;
-  setHoveredSalonId: (id: string | null) => void;
-  onMarkerClick: (id: string) => void;
+    center: { lat: number; lng: number };
+    salons: SalonDetail[];
+    hoveredSalonId: string | null;
+    setHoveredSalonId: (id: string | null) => void;
+    onMarkerClick: (id: string) => void;
 }
 
 // --- Helper: Strict Coordinate Validation ---
@@ -86,8 +86,8 @@ const createCustomIcon = (isHovered: boolean) => {
 
 const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHoveredSalonId, onMarkerClick }) => {
     // Ensure the center passed to MapContainer is valid
-    const safeCenter = isValidLatLng(center.lat, center.lng) 
-        ? [center.lat, center.lng] as [number, number] 
+    const safeCenter = isValidLatLng(center.lat, center.lng)
+        ? [center.lat, center.lng] as [number, number]
         : [41.0082, 28.9784] as [number, number];
 
     return (
@@ -97,7 +97,7 @@ const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHo
                 url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
             <MapUpdater center={center} />
-            
+
             {salons.map(salon => {
                 // Strict Coordinate Validation per Marker
                 if (!salon.coordinates || !isValidLatLng(salon.coordinates.lat, salon.coordinates.lng)) {
@@ -107,8 +107,8 @@ const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHo
                 const salonLng = Number(salon.coordinates.lng);
 
                 return (
-                    <Marker 
-                        key={salon.id} 
+                    <Marker
+                        key={salon.id}
                         position={[salonLat, salonLng]}
                         icon={createCustomIcon(hoveredSalonId === salon.id)}
                         eventHandlers={{
@@ -125,8 +125,8 @@ const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHo
                                     </div>
                                 </div>
                                 <div className="p-3 bg-white">
-                                    <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{salon.name}</h3>
-                                    <p className="text-[10px] text-gray-500 truncate mb-2">{salon.district}</p>
+                                    <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{String(salon.name || '')}</h3>
+                                    <p className="text-[10px] text-gray-500 truncate mb-2">{typeof salon.district === 'object' ? '' : String(salon.district || '')}</p>
                                     <div className="flex justify-between items-center border-t border-gray-100 pt-2">
                                         <span className="text-[#C59F59] font-bold text-sm">{salon.startPrice} ₺</span>
                                         <span className="text-[10px] text-gray-400">başlayan</span>

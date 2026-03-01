@@ -60,12 +60,16 @@ export default function ServiceManager() {
             if (editingService.id) {
                 await MasterDataService.updateGlobalService(editingService.id, {
                     name: editingService.name,
-                    category_id: editingService.category_id
+                    category_id: editingService.category_id,
+                    avg_duration_min: editingService.avg_duration_min,
+                    avg_price: editingService.avg_price
                 });
             } else {
                 await MasterDataService.createGlobalService({
                     name: editingService.name,
-                    category_id: editingService.category_id
+                    category_id: editingService.category_id,
+                    avg_duration_min: editingService.avg_duration_min,
+                    avg_price: editingService.avg_price
                 });
             }
 
@@ -139,8 +143,8 @@ export default function ServiceManager() {
                                     <td className="p-4">
                                         <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary font-medium">{category?.name || 'N/A'}</span>
                                     </td>
-                                    <td className="p-4 text-sm text-text-secondary">N/A</td>
-                                    <td className="p-4 text-sm font-bold text-text-main">N/A</td>
+                                    <td className="p-4 text-sm text-text-secondary">{service.avg_duration_min ? `${service.avg_duration_min} dk` : '-'}</td>
+                                    <td className="p-4 text-sm font-bold text-text-main">{service.avg_price ? `${service.avg_price} ₺` : '-'}</td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
                                             <button onClick={() => handleEdit(service)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
@@ -184,7 +188,38 @@ export default function ServiceManager() {
                                 </select>
                             </div>
 
-                            {/* Duration & price are not part of global_services; they belong to salon_services per salon. */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Ort. Süre (Dk)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            className="w-full h-11 pl-4 pr-10 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none"
+                                            value={editingService.avg_duration_min || ''}
+                                            onChange={e => setEditingService({ ...editingService, avg_duration_min: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm font-medium">dk</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-text-main mb-2">Ort. Fiyat (TL)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="w-full h-11 pl-4 pr-10 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none"
+                                            value={editingService.avg_price || ''}
+                                            onChange={e => setEditingService({ ...editingService, avg_price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm font-medium">₺</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-xs text-text-secondary italic bg-blue-50 p-2 rounded border border-blue-100">
+                                <span className="font-bold">Not:</span> Bu değerler salonlar için referans amaçlıdır. Her salon kendi fiyatını ve süresini belirleyebilir.
+                            </p>
 
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 rounded-lg border border-border text-text-secondary font-bold">İptal</button>
