@@ -15,7 +15,7 @@ services:
       - caddy_network
 
   nextjs:
-    image: ghcr.io/${GITHUB_REPOSITORY}:main
+    image: ghcr.io/muratyolal80/guzellik-randevu-ui:main
     container_name: nextjs-app
     restart: unless-stopped
     env_file:
