@@ -1,0 +1,32 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - caddy_network
+
+  nextjs:
+    image: ghcr.io/${GITHUB_REPOSITORY}:main
+    container_name: nextjs-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - caddy_network
+
+networks:
+  caddy_network:
+    external: true # This allows Supabase to also connect to Caddy later if needed
+
+volumes:
+  caddy_data:
+  caddy_config:
