@@ -7,7 +7,8 @@ if (!supabaseServiceKey) {
   console.warn('SUPABASE_SERVICE_ROLE_KEY is not set');
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+// Delay initialization to runtime if the key isn't provided during build
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || 'dummy_key_for_build', {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
