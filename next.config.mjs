@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   images: {
     // Keep it simple during migration; we can tighten later.
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
