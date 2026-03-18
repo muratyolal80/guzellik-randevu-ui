@@ -109,5 +109,39 @@ export const IyzicoService = {
                 else resolve(result);
             });
         });
+    },
+
+    /**
+     * Güvenli Iyzico Checkout Formunu (Ödeme Sayfası veya Iframe) Başlatır.
+     * Pazaryeri (Marketplace) ödemelerinde veya normal Kredi Kartı ödemelerinde idealdir.
+     */
+    async initializeCheckoutForm(data: any): Promise<any> {
+        const iyzico = await getIyzicoInstance();
+        return new Promise((resolve, reject) => {
+            iyzico.checkoutFormInitialize.create(data, (err: any, result: any) => {
+                if (err) reject(err);
+                else resolve(result);
+            });
+        });
+    },
+
+    /**
+     * Güvenli Iyzico Abonelik (SaaS Paketi) Checkout Formunu Başlatır.
+     * Firmaların paket satın almaları için kullanılır.
+     */
+    async initializeSubscriptionCheckoutForm(data: any): Promise<any> {
+        const iyzico = await getIyzicoInstance();
+        return new Promise((resolve, reject) => {
+            // @ts-ignore - iyzipay SDK Version type checks
+            if (iyzico.subscriptionCheckoutForm) {
+                // @ts-ignore
+                iyzico.subscriptionCheckoutForm.initialize(data, (err: any, result: any) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            } else {
+                reject(new Error("iyzico.subscriptionCheckoutForm API is not supported in the current SDK version."));
+            }
+        });
     }
 };
