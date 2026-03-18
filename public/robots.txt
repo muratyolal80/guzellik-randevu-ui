@@ -3,8 +3,8 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://guzellikrandevu.com
+Host: https://kuaforara.com.tr
 
 # Sitemaps
-Sitemap: https://guzellikrandevu.com/sitemap.xml
-Sitemap: https://guzellikrandevu.com/server-sitemap.xml
+Sitemap: https://kuaforara.com.tr/sitemap.xml
+Sitemap: https://kuaforara.com.tr/server-sitemap.xml
