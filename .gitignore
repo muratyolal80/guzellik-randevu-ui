@@ -31,3 +31,6 @@ supabase-project
 *.sw?
 .next/
 /.next/
+
+# Backups
+db_backups/
