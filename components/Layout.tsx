@@ -200,48 +200,48 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
         {/* Mobile Menu Overlay/Drawer */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-[100] lg:hidden">
+          <div className="fixed top-0 left-0 right-0 bottom-0 z-[100] lg:hidden" style={{ width: '100vw', height: '100vh' }}>
             {/* Backdrop */}
             <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+              className="absolute top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm animate-fade-in-overlay"
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
             {/* Drawer */}
-            <div className="absolute right-0 top-0 h-full w-full max-w-[300px] bg-surface shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-              <div className="p-6 border-b border-border flex justify-between items-center">
+            <div className="absolute top-0 right-0 h-full w-[85vw] max-w-[320px] bg-surface shadow-2xl flex flex-col animate-slide-in-right">
+              <div className="p-5 border-b border-border flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="size-8 bg-primary rounded-full flex items-center justify-center text-white font-display font-bold">G</div>
                   <span className="font-display font-bold text-lg text-text-main">Menü</span>
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-text-secondary hover:text-text-main p-2"
+                  className="text-text-secondary hover:text-text-main p-2 rounded-full hover:bg-surface-alt transition-colors"
                 >
                   <span className="material-symbols-outlined">close</span>
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar overscroll-contain">
                 {/* Dashboards for logged in users */}
                 {(isAdmin || isOwner || user?.role === 'STAFF') && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <p className="text-xs font-black text-text-muted uppercase tracking-wider">Panellerim</p>
                     <div className="flex flex-col gap-2">
                       {isAdmin && (
-                        <Link href="/admin" className="flex items-center gap-3 p-3 rounded-xl bg-text-main text-white font-bold transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/admin" className="flex items-center gap-3 p-3 rounded-xl bg-text-main text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
                           <span className="material-symbols-outlined">admin_panel_settings</span>
                           Yönetim Paneli
                         </Link>
                       )}
                       {isOwner && (
-                        <Link href="/owner/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/owner/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
                           <span className="material-symbols-outlined">storefront</span>
                           İşletme Paneli
                         </Link>
                       )}
                       {user?.role === 'STAFF' && !isOwner && (
-                        <Link href="/staff/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/staff/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
                           <span className="material-symbols-outlined">badge</span>
                           Personel Paneli
                         </Link>
@@ -250,10 +250,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <p className="text-xs font-black text-text-muted uppercase tracking-wider">Kategoriler</p>
                   <div className="flex flex-col gap-1">
-                    <Link href="/?type=all" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt text-text-main font-bold transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link href="/?type=all" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-main font-bold transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                       <span className="material-symbols-outlined text-primary">apps</span>
                       Tüm Salonlar
                     </Link>
@@ -261,7 +261,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       <Link
                         key={type.id}
                         href={`/?type=${type.slug}`}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt text-text-secondary hover:text-primary font-medium transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-secondary hover:text-primary font-medium transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="material-symbols-outlined text-[20px]">chevron_right</span>
@@ -271,14 +271,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <p className="text-xs font-black text-text-muted uppercase tracking-wider">Hizmet Alanları</p>
                   <div className="flex flex-col gap-1">
                     {categories.map(cat => (
                       <Link
                         key={cat.id}
                         href={`/?search=${encodeURIComponent(cat.name)}`}
-                        className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-alt text-text-secondary hover:text-text-main font-medium transition-colors"
+                        className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-secondary hover:text-text-main font-medium transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="flex items-center gap-3">
@@ -295,7 +295,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <div className="pt-6 border-t border-border flex flex-col gap-3">
                     <Link
                       href="/login"
-                      className="w-full py-3 text-center border-2 border-border rounded-xl text-text-main font-black hover:bg-surface-alt transition-colors"
+                      className="w-full py-3 text-center border-2 border-border rounded-xl text-text-main font-black hover:bg-surface-alt transition-colors active:scale-95"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Giriş Yap
