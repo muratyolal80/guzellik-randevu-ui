@@ -46,7 +46,16 @@ export async function middleware(request: NextRequest) {
     const host = request.headers.get('host') || '';
 
     // Define main domains (Update this with production domain)
-    const mainDomains = ['localhost:3000', '127.0.0.1:3000', '45.81.113.82:3000', '45.81.113.82', 'kuaforara.com.tr', 'www.kuaforara.com.tr', 'kuaforara.com.tr:3000'];
+    const mainDomains = [
+        'localhost:3000',
+        '127.0.0.1:3000',
+        '45.81.113.82:3000',
+        '45.81.113.82',
+        'kuaforara.com.tr',
+        'www.kuaforara.com.tr',
+        'kuaforara.com.tr:3000',
+        'api.kuaforara.com.tr'
+    ];
     const isMainDomain = mainDomains.includes(host);
 
     // 3. Subdomain Routing Logic
