@@ -1,0 +1,3 @@
+{
+  "/api/booking/verify-and-book/route": "app/api/booking/verify-and-book/route.js"
+}

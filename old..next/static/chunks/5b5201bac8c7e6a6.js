@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,46114,i=>{"use strict";var e=i.i(43476),o=i.i(31295),t=i.i(18566);function r({children:i}){let r=(0,t.useParams)().id;return(0,e.jsx)(o.BookingProvider,{salonId:r,children:i})}i.s(["default",()=>r])}]);

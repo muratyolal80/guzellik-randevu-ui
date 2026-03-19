@@ -29,6 +29,7 @@ const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), 
 import SalonWorkingHoursForm from '@/components/shared/salon/SalonWorkingHoursForm';
 import SalonStaffManager from '@/components/shared/salon/SalonStaffManager';
 import SalonServicesManager from '@/components/shared/salon/SalonServicesManager';
+import SalonGalleryManager from '@/components/shared/salon/SalonGalleryManager';
 
 interface SalonFormData {
     name: string;
@@ -218,6 +219,7 @@ export default function AdminEditSalonPage() {
 
     const tabs = [
         { id: 'profile', label: 'Profil & Konum', icon: Store },
+        { id: 'gallery', label: 'Galeri', icon: ImageIcon },
         { id: 'hours', label: 'Çalışma Saatleri', icon: Clock },
         { id: 'services', label: 'Hizmetler', icon: Scissors },
         { id: 'staff', label: 'Personel', icon: Users },
@@ -348,6 +350,14 @@ export default function AdminEditSalonPage() {
                         </div>
                     )}
 
+                    {activeTab === 'gallery' && (
+                        <div className="bg-white p-8 rounded-3xl border border-border shadow-sm">
+                            <SalonGalleryManager 
+                                salonId={salonId} 
+                                onCoverChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
+                            />
+                        </div>
+                    )}
                     {activeTab === 'hours' && <SalonWorkingHoursForm salonId={salonId} />}
                     {activeTab === 'staff' && <SalonStaffManager salonId={salonId} />}
                     {activeTab === 'services' && <SalonServicesManager salonId={salonId} />}

@@ -1,0 +1,3 @@
+{
+  "/api/booking/get-busy-slots/route": "app/api/booking/get-busy-slots/route.js"
+}

@@ -15,6 +15,7 @@ import ImageUpload from '@/components/ImageUpload';
 import Skeleton from '@/components/Skeleton';
 import Lightbox from '@/components/common/Lightbox';
 import { UserRole } from '@/types';
+import { AlertCircle } from 'lucide-react';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -259,7 +260,7 @@ export default function SalonDetailPage() {
         }
     };
 
-    if (loading || !salon) {
+    if (loading) {
         return (
             <Layout>
                 <div className="bg-background min-h-screen">
@@ -320,6 +321,28 @@ export default function SalonDetailPage() {
                             </div>
                         </div>
                     </div>
+                </div>
+            </Layout>
+        );
+    }
+
+    if (!salon) {
+        return (
+            <Layout>
+                <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-6 border border-red-100 shadow-inner">
+                        <AlertCircle className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-3xl font-black text-text-main mb-4">Salon Bulunamadı</h1>
+                    <p className="text-text-secondary max-w-md mb-8">
+                        Aradığınız salon sistemde bulunamadı veya yayından kaldırılmış olabilir.
+                    </p>
+                    <Link 
+                        href="/"
+                        className="bg-primary text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                    >
+                        Ana Sayfaya Dön
+                    </Link>
                 </div>
             </Layout>
         );

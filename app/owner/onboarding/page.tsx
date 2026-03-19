@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -69,7 +69,8 @@ const STEPS = [
   },
   { id: 5, title: "Hizmetler", icon: Star, desc: "Saç, Sakal vb. servisler" },
   { id: 6, title: "Personel", icon: Users, desc: "Çalışan ekibi kurun" },
-  { id: 7, title: "Önizleme", icon: ShieldCheck, desc: "Kontrol ve onay" },
+  { id: 7, title: "Galeri", icon: Camera, desc: "Salon resimleri ekleyin" },
+  { id: 8, title: "Önizleme", icon: ShieldCheck, desc: "Kontrol ve onay" },
 ];
 
 export default function OnboardingWizard() {
@@ -1361,6 +1362,19 @@ export default function OnboardingWizard() {
         );
       case 7:
         return (
+          <div className="space-y-6 animate-in slide-in-from-right duration-300">
+            {salonData.id ? (
+              <SalonGalleryManager 
+                salonId={salonData.id} 
+                onCoverChange={(url: string) => setSalonData((prev: any) => ({ ...prev, image: url }))}
+              />
+            ) : (
+              <div className="text-center text-text-muted py-10">Salon bilgileri yükleniyor...</div>
+            )}
+          </div>
+        );
+      case 8:
+        return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
             <div className="text-center space-y-3">
               <div className="w-20 h-20 bg-green-50 rounded-[32px] flex items-center justify-center text-green-500 mx-auto shadow-inner border border-green-100">
@@ -1427,7 +1441,7 @@ export default function OnboardingWizard() {
                   <Info className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-bold text-green-800">
-                      Hizmetler, personel ve çalışma saatleri önceki adımlarda kaydedildi.
+                      Hizmetler, personel, görseller ve çalışma saatleri önceki adımlarda kaydedildi.
                     </p>
                     <p className="text-xs text-green-700 mt-1">
                       Değişiklik yapmak isterseniz geri dönüp ilgili adımlardaki bilgileri güncelleyebilirsiniz.
@@ -1464,7 +1478,7 @@ return (
         <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -translate-y-1/2 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary transition-all duration-700 ease-out shadow-[0_0_10px_rgba(241,114,144,0.5)]"
-            style={{ width: `${(currentStep / 7) * 100}%` }}
+            style={{ width: `${(currentStep / 8) * 100}%` }}
           ></div>
         </div>
         <div className="relative flex justify-between">
@@ -1503,7 +1517,7 @@ return (
               </h2>
             </div>
             <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-[11px] font-black text-text-muted border border-border">
-              {currentStep}/7
+              {currentStep}/8
             </div>
           </div>
 
@@ -1531,11 +1545,11 @@ return (
                 </div>
               ) : (
                 <>
-                  {currentStep === 7 ? "Onaya Gönder" : "Sonraki Adım"}
+                  {currentStep === 8 ? "Onaya Gönder" : "Sonraki Adım"}
                   <ChevronRight
-                    className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 7 ? "hidden" : ""}`}
+                    className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 8 ? "hidden" : ""}`}
                   />
-                  {currentStep === 7 && <Save className="w-4 h-4" />}
+                  {currentStep === 8 && <Save className="w-4 h-4" />}
                 </>
               )}
             </button>
