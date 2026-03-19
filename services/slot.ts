@@ -7,7 +7,8 @@
  * - Staff skills/permissions
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase as defaultSupabase } from '@/lib/supabase';
+import { type SupabaseClient } from '@supabase/supabase-js';
 
 export interface TimeSlot {
     startTime: Date;
@@ -30,7 +31,7 @@ export const SlotService = {
     /**
      * Get available time slots for a service on a given date
      */
-    async getAvailableSlots(query: SlotQuery): Promise<TimeSlot[]> {
+    async getAvailableSlots(query: SlotQuery, supabase: SupabaseClient = defaultSupabase): Promise<TimeSlot[]> {
         const { salonId, serviceId, serviceIds, durationMin, date, staffId } = query;
 
         let serviceDuration = durationMin || 0;
@@ -88,7 +89,9 @@ export const SlotService = {
                 staff.id,
                 staff.name,
                 date,
-                serviceDuration
+                serviceDuration,
+                salonId,
+                supabase
             );
             allSlots.push(...slots);
         }
@@ -103,19 +106,41 @@ export const SlotService = {
         staffId: string,
         staffName: string,
         date: Date,
-        serviceDuration: number
+        serviceDuration: number,
+        salonId?: string,
+        supabase: SupabaseClient = defaultSupabase
     ): Promise<TimeSlot[]> {
         // 1. Get staff working hours for this day of week
         const dayOfWeek = date.getDay();
 
-        const { data: workingHours, error: hoursError } = await supabase
+        const { data: staffHours, error: staffHoursError } = await supabase
             .from('working_hours')
             .select('*')
             .eq('staff_id', staffId)
             .eq('day_of_week', dayOfWeek)
-            .single();
+            .maybeSingle(); // Use maybeSingle to avoid 406/error if not found
 
-        if (hoursError || !workingHours || workingHours.is_day_off) {
+        let workingHours: { start_time: string; end_time: string; is_day_off?: boolean; is_closed?: boolean } | null = null;
+
+        if (staffHours && !staffHours.is_day_off) {
+            // Staff has individual working hours
+            workingHours = staffHours;
+        } else if (salonId) {
+            // Fallback: Try salon-level working hours if staff hours missing OR staff is on day off but we want to know if salon is open
+            const { data: salonHours, error: salonHoursError } = await supabase
+                .from('salon_working_hours')
+                .select('*')
+                .eq('salon_id', salonId)
+                .eq('day_of_week', dayOfWeek)
+                .maybeSingle();
+
+            if (salonHours && !salonHours.is_closed) {
+                workingHours = salonHours;
+                console.log(`📋 Using salon-level working hours for staff ${staffName} on day ${dayOfWeek}`);
+            }
+        }
+
+        if (!workingHours) {
             return [];
         }
 
@@ -214,7 +239,8 @@ export const SlotService = {
     async isSlotAvailable(
         staffId: string,
         startTime: Date,
-        endTime: Date
+        endTime: Date,
+        supabase: SupabaseClient = defaultSupabase
     ): Promise<boolean> {
         const { data: conflicts, error } = await supabase
             .from('appointments')

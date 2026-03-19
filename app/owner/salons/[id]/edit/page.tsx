@@ -24,14 +24,14 @@ import {
     CheckCircle
 } from 'lucide-react';
 import Link from 'next/link';
-import GalleryManager from '@/components/owner/GalleryManager';
+import SalonGalleryManager from '@/components/shared/salon/SalonGalleryManager';
 
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
 // Import Tabs
-import WorkingHoursTab from '@/components/owner/WorkingHoursTab';
-import StaffManagementTab from '@/components/owner/StaffManagementTab';
-import ServicesTab from '@/components/owner/ServicesTab';
+import SalonWorkingHoursForm from '@/components/shared/salon/SalonWorkingHoursForm';
+import SalonStaffManager from '@/components/shared/salon/SalonStaffManager';
+import SalonServicesManager from '@/components/shared/salon/SalonServicesManager';
 import StaffAnalytics from '@/components/owner/StaffAnalytics';
 
 
@@ -735,14 +735,14 @@ export default function EditSalonPage() {
 
                 {/* Other Tabs */}
                 {activeTab === 'gallery' && (
-                    <GalleryManager
+                    <SalonGalleryManager
                         salonId={salonId}
                         onCoverChange={(url: string) => setFormData(prev => ({ ...prev, image: url }))}
                     />
                 )}
-                {activeTab === 'hours' && <WorkingHoursTab salonId={salonId} />}
-                {activeTab === 'staff' && <StaffManagementTab salonId={salonId} />}
-                {activeTab === 'services' && <ServicesTab salonId={salonId} />}
+                {activeTab === 'hours' && <SalonWorkingHoursForm salonId={salonId} />}
+                {activeTab === 'staff' && <SalonStaffManager salonId={salonId} />}
+                {activeTab === 'services' && <SalonServicesManager salonId={salonId} />}
                 {activeTab === 'analytics' && <StaffAnalytics salonId={salonId} />}
             </div>
         </div>

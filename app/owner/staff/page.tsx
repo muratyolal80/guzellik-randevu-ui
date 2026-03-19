@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import StaffManagementTab from '@/components/owner/StaffManagementTab';
+import SalonStaffManager from '@/components/shared/salon/SalonStaffManager';
 import { Store } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,7 +35,7 @@ export default function OwnerStaffPage() {
                 </p>
             </div>
 
-            <StaffManagementTab salonId={activeBranch.id} />
+            <SalonStaffManager salonId={activeBranch.id} />
         </div>
     );
 }

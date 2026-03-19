@@ -17,11 +17,11 @@ import {
     AlertCircle
 } from 'lucide-react';
 
-interface ServicesTabProps {
+interface SalonServicesManagerProps {
     salonId: string;
 }
 
-export default function ServicesTab({ salonId }: ServicesTabProps) {
+export default function SalonServicesManager({ salonId }: SalonServicesManagerProps) {
     const [services, setServices] = useState<SalonServiceDetail[]>([]);
     const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [loading, setLoading] = useState(true);
