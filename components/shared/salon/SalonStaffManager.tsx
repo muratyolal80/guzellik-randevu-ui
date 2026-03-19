@@ -14,7 +14,7 @@ const DEFAULT_HOURS = [
 ];
 import { Staff, WorkingHours } from '@/types';
 import ImageUpload from '@/components/ImageUpload';
-import WorkingHoursEditor from '@/components/owner/WorkingHoursEditor';
+import WorkingHoursEditor from './WorkingHoursEditor';
 import {
     Users,
     UserPlus,
@@ -28,11 +28,11 @@ import {
     Briefcase
 } from 'lucide-react';
 
-interface StaffManagementTabProps {
+interface SalonStaffManagerProps {
     salonId: string;
 }
 
-export default function StaffManagementTab({ salonId }: StaffManagementTabProps) {
+export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);

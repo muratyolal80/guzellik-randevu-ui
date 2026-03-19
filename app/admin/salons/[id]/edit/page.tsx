@@ -26,9 +26,9 @@ import Link from 'next/link';
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
 // Import Tabs
-import WorkingHoursTab from '@/components/owner/WorkingHoursTab';
-import StaffManagementTab from '@/components/owner/StaffManagementTab';
-import ServicesTab from '@/components/owner/ServicesTab';
+import SalonWorkingHoursForm from '@/components/shared/salon/SalonWorkingHoursForm';
+import SalonStaffManager from '@/components/shared/salon/SalonStaffManager';
+import SalonServicesManager from '@/components/shared/salon/SalonServicesManager';
 
 interface SalonFormData {
     name: string;
@@ -348,9 +348,9 @@ export default function AdminEditSalonPage() {
                         </div>
                     )}
 
-                    {activeTab === 'hours' && <WorkingHoursTab salonId={salonId} />}
-                    {activeTab === 'staff' && <StaffManagementTab salonId={salonId} />}
-                    {activeTab === 'services' && <ServicesTab salonId={salonId} />}
+                    {activeTab === 'hours' && <SalonWorkingHoursForm salonId={salonId} />}
+                    {activeTab === 'staff' && <SalonStaffManager salonId={salonId} />}
+                    {activeTab === 'services' && <SalonServicesManager salonId={salonId} />}
                 </div>
             </div>
         </AdminLayout>

@@ -16,12 +16,12 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 
-interface GalleryManagerProps {
+interface SalonGalleryManagerProps {
     salonId: string;
     onCoverChange?: (url: string) => void;
 }
 
-export default function GalleryManager({ salonId, onCoverChange }: GalleryManagerProps) {
+export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGalleryManagerProps) {
     const [images, setImages] = useState<SalonGallery[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);

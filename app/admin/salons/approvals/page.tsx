@@ -85,19 +85,24 @@ export default function AdminApprovalsPage() {
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'APPROVED' } : s));
             if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'APPROVED' } : null);
 
-            // Simulation: Send notification to owner
+            // Send notification to owner (non-blocking)
             if (selectedSalon?.owner_id) {
-                await NotificationService.sendNotification({
-                    user_id: selectedSalon.owner_id,
-                    title: 'İşletme Başvurusu Onaylandı!',
-                    content: `${selectedSalon.name} isimli işletmeniz onaylanmıştır. Artık şubeyi yönetmeye başlayabilirsiniz.`,
-                    type: 'SYSTEM',
-                    link: '/owner/dashboard'
-                });
+                try {
+                    await NotificationService.sendNotification({
+                        user_id: selectedSalon.owner_id,
+                        title: 'İşletme Başvurusu Onaylandı!',
+                        content: `${selectedSalon.name} isimli işletmeniz onaylanmıştır. Artık şubeyi yönetmeye başlayabilirsiniz.`,
+                        type: 'SYSTEM',
+                        link: '/owner/dashboard'
+                    });
+                } catch (notifErr) {
+                    console.error('Bildirim gönderilemedi:', notifErr);
+                }
             }
 
             alert('Salon başarıyla onaylandı!');
         } catch (err) {
+            console.error('Salon onaylama hatası:', err);
             alert('Onay işlemi sırasında hata oluştu.');
         }
     };
@@ -110,19 +115,24 @@ export default function AdminApprovalsPage() {
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'REJECTED', rejected_reason: reason } : s));
             if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'REJECTED', rejected_reason: reason } : null);
 
-            // Simulation: Send notification to owner
+            // Send notification to owner (non-blocking)
             if (selectedSalon?.owner_id) {
-                await NotificationService.sendNotification({
-                    user_id: selectedSalon.owner_id,
-                    title: 'İşletme Başvurusu Reddedildi',
-                    content: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}.`,
-                    type: 'SYSTEM',
-                    link: '/owner/onboarding'
-                });
+                try {
+                    await NotificationService.sendNotification({
+                        user_id: selectedSalon.owner_id,
+                        title: 'İşletme Başvurusu Reddedildi',
+                        content: `${selectedSalon.name} başvurusu şu nedenle reddedildi: ${reason}.`,
+                        type: 'SYSTEM',
+                        link: '/owner/onboarding'
+                    });
+                } catch (notifErr) {
+                    console.error('Bildirim gönderilemedi:', notifErr);
+                }
             }
 
             alert('Başvuru reddedildi.');
         } catch (err) {
+            console.error('Red işlemi hatası:', err);
             alert('Red işlemi sırasında hata oluştu.');
         }
     };
@@ -135,19 +145,24 @@ export default function AdminApprovalsPage() {
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'REVISION_REQUESTED', rejected_reason: reason } : s));
             if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'REVISION_REQUESTED', rejected_reason: reason } : null);
 
-            // Send notification to owner
+            // Send notification to owner (non-blocking)
             if (selectedSalon?.owner_id) {
-                await NotificationService.sendNotification({
-                    user_id: selectedSalon.owner_id,
-                    title: 'İşletme İçin Revizyon İstendi',
-                    content: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
-                    type: 'SYSTEM',
-                    link: '/owner/settings'
-                });
+                try {
+                    await NotificationService.sendNotification({
+                        user_id: selectedSalon.owner_id,
+                        title: 'İşletme İçin Revizyon İstendi',
+                        content: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
+                        type: 'SYSTEM',
+                        link: '/owner/settings'
+                    });
+                } catch (notifErr) {
+                    console.error('Bildirim gönderilemedi:', notifErr);
+                }
             }
 
             alert('Revizyon isteği gönderildi.');
         } catch (err) {
+            console.error('Revizyon isteği hatası:', err);
             alert('İşlem sırasında hata oluştu.');
         }
     };

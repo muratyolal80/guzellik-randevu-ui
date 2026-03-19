@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import ServicesTab from '@/components/owner/ServicesTab';
+import SalonServicesManager from '@/components/shared/salon/SalonServicesManager';
 import { Store } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,7 +35,7 @@ export default function OwnerServicesPage() {
                 </p>
             </div>
 
-            <ServicesTab salonId={activeBranch.id} />
+            <SalonServicesManager salonId={activeBranch.id} />
         </div>
     );
 }

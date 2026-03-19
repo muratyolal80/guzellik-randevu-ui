@@ -1,0 +1,403 @@
+1: import { supabase as defaultSupabase, supabaseUrl } from "@/lib/supabase";
+2: import { type SupabaseClient } from "@supabase/supabase-js";
+3: import type {
+4:   City,
+5:   District,
+6:   SalonType,
+7:   ServiceCategory,
+8:   GlobalService,
+9:   Salon,
+10:   SalonDetail,
+11:   Staff,
+12:   SalonService,
+13:   SalonServiceDetail,
+14:   WorkingHours,
+15:   SalonWorkingHours,
+16:   Appointment,
+17:   Review,
+18:   IYSLog,
+19:   SupportTicket,
+20:   TicketMessage,
+21:   Favorite,
+22:   Notification,
+23:   Invite,
+24:   StaffReview,
+25:   SalonGallery,
+26:   ReviewImage,
+27:   Profile,
+28:   Coupon,
+29:   Package,
+30:   Transaction,
+31:   AppointmentCoupon,
+32:   DiscountType,
+33:   PaymentMethod,
+34:   PaymentStatus,
+35: } from "@/types";
+36: 
+37: // Helper to check if we have a real connection
+38: const isSupabaseConfigured = () => {
+39:   return (
+40:     typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+41:   );
+42: };
+43: 
+44: export const SupportService = {
+45:   /**
+46:    * Get all tickets for a user
+47:    */
+48:   async getTickets(
+49:     userId: string,
+50:     supabase: SupabaseClient = defaultSupabase,
+51:   ): Promise<SupportTicket[]> {
+52:     const { data, error } = await supabase
+53:       .from("support_tickets")
+54:       .select("*")
+55:       .eq("user_id", userId)
+56:       .order("created_at", { ascending: false });
+57: 
+58:     if (error) throw error;
+59:     return data || [];
+60:   },
+61: 
+62:   /**
+63:    * Create a new ticket with initial message
+64:    */
+65:   async createTicket(
+66:     userId: string,
+67:     subject: string,
+68:     category: string,
+69:     message: string,
+70:     supabase: SupabaseClient = defaultSupabase,
+71:   ): Promise<SupportTicket> {
+72:     const { data: ticket, error: ticketError } = await supabase
+73:       .from("support_tickets")
+74:       .insert({
+75:         user_id: userId,
+76:         subject,
+77:         category,
+78:         message,
+79:         status: "OPEN",
+80:       })
+81:       .select()
+82:       .single();
+83: 
+84:     if (ticketError) throw ticketError;
+85: 
+86:     // Add initial message to thread
+87:     const { error: msgError } = await supabase.from("ticket_messages").insert({
+88:       ticket_id: ticket.id,
+89:       sender_id: userId,
+90:       sender_role: "CUSTOMER",
+91:       content: message,
+92:     });
+93: 
+94:     if (msgError)
+95:       console.warn("Initial message creation failed:", msgError.message);
+96: 
+97:     return ticket;
+98:   },
+99: 
+100:   /**
+101:    * Get ticket by ID
+102:    */
+103:   async getTicketById(
+104:     ticketId: string,
+105:     supabase: SupabaseClient = defaultSupabase,
+106:   ): Promise<SupportTicket | null> {
+107:     const { data, error } = await supabase
+108:       .from("support_tickets")
+109:       .select("*")
+110:       .eq("id", ticketId)
+111:       .single();
+112: 
+113:     if (error) throw error;
+114:     return data;
+115:   },
+116: 
+117:   /**
+118:    * Get messages for a specific ticket
+119:    */
+120:   async getTicketMessages(
+121:     ticketId: string,
+122:     supabase: SupabaseClient = defaultSupabase,
+123:   ): Promise<TicketMessage[]> {
+124:     const { data, error } = await supabase
+125:       .from("ticket_messages")
+126:       .select("*")
+127:       .eq("ticket_id", ticketId)
+128:       .order("created_at", { ascending: true });
+129: 
+130:     if (error) throw error;
+131:     return data || [];
+132:   },
+133: 
+134:   /**
+135:    * Get all tickets in the system (Admin only)
+136:    */
+137:   async getAllTickets(
+138:     supabase: SupabaseClient = defaultSupabase,
+139:   ): Promise<SupportTicket[]> {
+140:     const { data, error } = await supabase
+141:       .from("support_tickets")
+142:       .select(
+143:         `
+144:         *,
+145:         user:profiles(full_name, email)
+146:       `,
+147:       )
+148:       .order("created_at", { ascending: false });
+149: 
+150:     if (error) throw error;
+151:     return data || [];
+152:   },
+153: 
+154:   async addMessage(
+155:     ticketId: string,
+156:     senderId: string,
+157:     senderRole: string,
+158:     message: string,
+159:     supabase: SupabaseClient = defaultSupabase,
+160:   ): Promise<void> {
+161:     const { error: msgError } = await supabase.from("ticket_messages").insert({
+162:       ticket_id: ticketId,
+163:       sender_id: senderId,
+164:       sender_role: senderRole,
+165:       content: message,
+166:     });
+167: 
+168:     if (msgError) throw msgError;
+169: 
+170:     // Update ticket status mainly if Admin replies or User re-opens
+171:     const newStatus = senderRole.includes("ADMIN") ? "IN_PROGRESS" : "OPEN";
+172: 
+173:     // Only update updated_at always, status conditionally
+174:     // For simplicity, let's bump updated_at
+175:     await supabase
+176:       .from("support_tickets")
+177:       .update({
+178:         updated_at: new Date().toISOString(),
+179:       })
+180:       .eq("id", ticketId);
+181:   },
+182: 
+183:   /**
+184:    * Reply to a ticket as an Admin (Legacy support)
+185:    */
+186:   async replyToTicket(
+187:     ticketId: string,
+188:     adminId: string,
+189:     message: string,
+190:     supabase: SupabaseClient = defaultSupabase,
+191:   ): Promise<void> {
+192:     return this.addMessage(ticketId, adminId, "SUPER_ADMIN", message, supabase);
+193:   },
+194: 
+195:   /**
+196:    * Resolve/Close a ticket
+197:    */
+198:   async resolveTicket(
+199:     ticketId: string,
+200:     supabase: SupabaseClient = defaultSupabase,
+201:   ): Promise<void> {
+202:     // Try to resolve using safe RPC (for customers)
+203:     const { error: rpcError } = await supabase.rpc("resolve_own_ticket", {
+204:       p_ticket_id: ticketId,
+205:     });
+206: 
+207:     if (rpcError) {
+208:       console.warn(
+209:         "RPC resolution failed, falling back to direct update:",
+210:         rpcError,
+211:       );
+212:       // Fallback for Admin or if logic changes
+213:       const { error } = await supabase
+214:         .from("support_tickets")
+215:         .update({ status: "RESOLVED", updated_at: new Date().toISOString() })
+216:         .eq("id", ticketId);
+217: 
+218:       if (error) throw error;
+219:     }
+220:   },
+221: };
+222: 
+223: export const IYSService = {
+224:   /**
+225:    * Log SMS send
+226:    */
+227:   async logSMS(
+228:     log: Omit<IYSLog, "id" | "created_at">,
+229:     supabase: SupabaseClient = defaultSupabase,
+230:   ): Promise<IYSLog> {
+231:     const { data, error } = await supabase
+232:       .from("iys_logs")
+233:       .insert(log)
+234:       .select()
+235:       .single();
+236: 
+237:     if (error) throw error;
+238:     return data;
+239:   },
+240: 
+241:   /**
+242:    * Get SMS logs by phone
+243:    */
+244:   async getLogsByPhone(
+245:     phone: string,
+246:     limit: number = 50,
+247:     supabase: SupabaseClient = defaultSupabase,
+248:   ): Promise<IYSLog[]> {
+249:     const { data, error } = await supabase
+250:       .from("iys_logs")
+251:       .select("*")
+252:       .eq("phone", phone)
+253:       .order("created_at", { ascending: false })
+254:       .limit(limit);
+255: 
+256:     if (error) throw error;
+257:     return data || [];
+258:   },
+259: 
+260:   /**
+261:    * Get all IYS logs (admin)
+262:    */
+263:   async getAllLogs(
+264:     limit: number = 100,
+265:     supabase: SupabaseClient = defaultSupabase,
+266:   ): Promise<IYSLog[]> {
+267:     const { data, error } = await supabase
+268:       .from("iys_logs")
+269:       .select("*")
+270:       .order("created_at", { ascending: false })
+271:       .limit(limit);
+272: 
+273:     if (error) throw error;
+274:     return data || [];
+275:   },
+276: };
+277: 
+278: export const NotificationService = {
+279:   /**
+280:    * Get notifications for a user
+281:    */
+282:   async getNotifications(
+283:     userId: string,
+284:     supabase: SupabaseClient = defaultSupabase,
+285:   ): Promise<Notification[]> {
+286:     const { data, error } = await supabase
+287:       .from("notifications")
+288:       .select("*")
+289:       .eq("user_id", userId)
+290:       .order("created_at", { ascending: false });
+291: 
+292:     if (error) throw error;
+293:     return data || [];
+294:   },
+295: 
+296:   /**
+297:    * Mark notification as read
+298:    */
+299:   async markAsRead(
+300:     id: string,
+301:     supabase: SupabaseClient = defaultSupabase,
+302:   ): Promise<void> {
+303:     const { error } = await supabase
+304:       .from("notifications")
+305:       .update({ is_read: true })
+306:       .eq("id", id);
+307: 
+308:     if (error) throw error;
+309:   },
+310: 
+311:   /**
+312:    * Send notification to user
+313:    */
+314:   async sendNotification(
+315:     notification: Omit<Notification, "id" | "created_at" | "is_read">,
+316:     supabase: SupabaseClient = defaultSupabase,
+317:   ): Promise<Notification> {
+318:     // Map TypeScript field names to actual DB column names
+319:     const { content, link, ...rest } = notification as any;
+320:     const dbPayload: Record<string, unknown> = {
+321:       ...rest,
+322:       message: content ?? (notification as any).message,
+323:       action_url: link ?? (notification as any).action_url,
+324:       is_read: false,
+325:       created_at: new Date().toISOString(),
+326:     };
+327: 
+328:     const { data, error } = await supabase
+329:       .from("notifications")
+330:       .insert(dbPayload)
+331:       .select()
+332:       .single();
+333: 
+334:     if (error) throw error;
+335:     return data;
+336:   },
+337: 
+338:   /**
+339:    * Mark all notifications as read for a user
+340:    */
+341:   async markAllAsRead(
+342:     userId: string,
+343:     supabase: SupabaseClient = defaultSupabase,
+344:   ): Promise<void> {
+345:     const { error } = await supabase
+346:       .from("notifications")
+347:       .update({ is_read: true })
+348:       .eq("user_id", userId)
+349:       .eq("is_read", false);
+350: 
+351:     if (error) throw error;
+352:   },
+353: };
+354: 
+355: export const AuditLogService = {
+356:   /**
+357:    * Create a new audit log entry
+358:    */
+359:   async logAction(log: {
+360:     salon_id: string;
+361:     user_id?: string;
+362:     action: string;
+363:     resource_type: string;
+364:     resource_id?: string;
+365:     changes?: any;
+366:     ip_address?: string;
+367:     user_agent?: string;
+368:     supabase?: SupabaseClient;
+369:   }): Promise<void> {
+370:     const { supabase: passedSupabase, ...logData } = log as any;
+371:     const client = passedSupabase || defaultSupabase;
+372:     const { error } = await client.from("audit_logs").insert(logData);
+373: 
+374:     if (error) {
+375:       console.error("[AuditLogService] Error creating audit log:", error);
+376:     }
+377:   },
+378: 
+379:   /**
+380:    * Get audit logs for a salon
+381:    */
+382:   async getLogsBySalon(
+383:     salonId: string,
+384:     limit: number = 100,
+385:     supabase: SupabaseClient = defaultSupabase,
+386:   ): Promise<any[]> {
+387:     const { data, error } = await supabase
+388:       .from("audit_logs")
+389:       .select(
+390:         `
+391:         *,
+392:         user:profiles(full_name, email)
+393:       `,
+394:       )
+395:       .eq("salon_id", salonId)
+396:       .order("created_at", { ascending: false })
+397:       .limit(limit);
+398: 
+399:     if (error) throw error;
+400:     return data || [];
+401:   },
+402: };
+403: 

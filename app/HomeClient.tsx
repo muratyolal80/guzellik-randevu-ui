@@ -203,8 +203,8 @@ export default function HomeClient() {
                     try {
                         const favs = await FavoriteService.getUserFavorites();
                         setUserFavorites(favs.map((f: any) => f.salon_id));
-                    } catch (favErr) {
-                        console.error('Kullanıcı favorileri alınamadı:', favErr);
+                    } catch (favErr: any) {
+                        console.error('Kullanıcı favorileri alınamadı:', favErr?.message || favErr);
                     }
                 }
 

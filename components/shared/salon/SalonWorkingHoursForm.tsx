@@ -5,11 +5,11 @@ import { SalonDataService } from '@/services/db';
 import { SalonWorkingHours } from '@/types';
 import { Clock, CheckCircle2, XCircle, Plus } from 'lucide-react';
 
-interface WorkingHoursTabProps {
+interface SalonWorkingHoursFormProps {
     salonId: string;
 }
 
-export default function WorkingHoursTab({ salonId }: WorkingHoursTabProps) {
+export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursFormProps) {
     const [hours, setHours] = useState<SalonWorkingHours[]>([]);
     const [loading, setLoading] = useState(true);
 
