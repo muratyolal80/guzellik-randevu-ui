@@ -1,0 +1,11 @@
+{
+  "[project]/components/Admin/AdminSalonMap.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/components/Admin/AdminSalonMap.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/node_modules_34619a67._.js",
+      "static/chunks/components_Admin_AdminSalonMap_tsx_a36720fd._.js",
+      "static/chunks/node_modules_leaflet_dist_leaflet_ef5f0413.css",
+      "static/chunks/components_Admin_AdminSalonMap_tsx_f7621f49._.js"
+    ]
+  }
+}
