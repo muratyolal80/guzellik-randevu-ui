@@ -251,6 +251,45 @@ export const StaffService = {
     const { error } = await supabase.from("staff_services").insert(assignments);
     if (error) throw error;
   },
+
+  /**
+   * Get services linked to a staff member
+   */
+  async getStaffServices(
+    staffId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("staff_services")
+      .select("salon_service_id")
+      .eq("staff_id", staffId);
+
+    if (error) throw error;
+    return data?.map((s) => s.salon_service_id) || [];
+  },
+
+  /**
+   * Sync staff services (Delete old, Insert new)
+   */
+  async updateStaffServices(
+    staffId: string,
+    salonId: string,
+    serviceIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    // 1. Delete existing links
+    const { error: deleteError } = await supabase
+      .from("staff_services")
+      .delete()
+      .eq("staff_id", staffId);
+
+    if (deleteError) throw deleteError;
+
+    // 2. Insert new ones
+    if (serviceIds.length > 0) {
+      await this.linkStaffToServices(staffId, salonId, serviceIds, supabase);
+    }
+  },
 };
 
 export const ServiceService = {

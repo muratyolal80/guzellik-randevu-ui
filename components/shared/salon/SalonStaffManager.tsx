@@ -1,17 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { StaffService, SalonDataService, ServiceService, SubscriptionService } from '@/services/db';
+import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
-const DEFAULT_HOURS = [
-    { day_of_week: 1, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 2, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 3, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 4, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 5, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 6, start_time: '09:00', end_time: '19:00', is_day_off: false },
-    { day_of_week: 0, start_time: '09:00', end_time: '19:00', is_day_off: true },
-];
 import { Staff, WorkingHours } from '@/types';
 import ImageUpload from '@/components/ImageUpload';
 import WorkingHoursEditor from './WorkingHoursEditor';
@@ -22,11 +13,26 @@ import {
     Trash2,
     Clock,
     CheckCircle2,
-    XCircle,
     Save,
     X,
-    Briefcase
+    Briefcase,
+    Mail,
+    Plus,
+    Star,
+    MoreVertical,
+    ChevronRight,
+    Search
 } from 'lucide-react';
+
+const DEFAULT_HOURS = [
+    { day_of_week: 1, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 2, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 3, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 4, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 5, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 6, start_time: '09:00', end_time: '19:00', is_day_off: false },
+    { day_of_week: 0, start_time: '09:00', end_time: '19:00', is_day_off: true },
+];
 
 interface SalonStaffManagerProps {
     salonId: string;
@@ -35,7 +41,10 @@ interface SalonStaffManagerProps {
 export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAddModal, setShowAddModal] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [modalType, setModalType] = useState<'add' | 'edit'>('add');
+    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+    
     const [showShiftModal, setShowShiftModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
     const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
@@ -43,13 +52,15 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
     // Form States
-    const [newStaffName, setNewStaffName] = useState('');
-    const [newStaffEmail, setNewStaffEmail] = useState('');
-    const [newStaffSpecialty, setNewStaffSpecialty] = useState('');
-    const [newStaffPhoto, setNewStaffPhoto] = useState<string>('');
+    const [formName, setFormName] = useState('');
+    const [formEmail, setFormEmail] = useState('');
+    const [formSpecialty, setFormSpecialty] = useState('');
+    const [formPhoto, setFormPhoto] = useState<string>('');
+    const [formWorkingHours, setFormWorkingHours] = useState(DEFAULT_HOURS);
+    
     const [saving, setSaving] = useState(false);
     const [salonName, setSalonName] = useState('');
-    const [newStaffWorkingHours, setNewStaffWorkingHours] = useState(DEFAULT_HOURS);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetchStaff();
@@ -87,35 +98,81 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
-    const handleAddStaff = async (e: React.FormEvent) => {
+    const handleOpenAdd = async () => {
+        try {
+            setLoading(true);
+            await LimitEnforcer.ensureLimit(salonId, 'staff');
+            setModalType('add');
+            setFormName('');
+            setFormEmail('');
+            setFormSpecialty('');
+            setFormPhoto('');
+            setSelectedServiceIds([]);
+            setFormWorkingHours(DEFAULT_HOURS);
+            setShowModal(true);
+        } catch (err: any) {
+            if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+                alert('Personel limitine ulaştınız. Paket yükseltmelisiniz.');
+            } else {
+                console.error(err);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOpenEdit = async (member: Staff) => {
+        setModalType('edit');
+        setEditingStaffId(member.id);
+        setFormName(member.name);
+        setFormEmail(member.email || '');
+        setFormSpecialty(member.role || member.specialty || '');
+        setFormPhoto(member.photo || member.image || '');
+        
+        // Fetch linked services
+        try {
+            const linkedServices = await StaffService.getStaffServices(member.id);
+            setSelectedServiceIds(linkedServices);
+        } catch (err) {
+            console.error('Servisler çekilemedi:', err);
+        }
+        
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
         try {
-            const newMember = await StaffService.createStaff({
-                salon_id: salonId,
-                name: newStaffName,
-                email: newStaffEmail,
-                specialty: newStaffSpecialty,
-                photo: newStaffPhoto,
-                is_active: true
-            }, newStaffWorkingHours);
+            if (modalType === 'add') {
+                const newMember = await StaffService.createStaff({
+                    salon_id: salonId,
+                    name: formName,
+                    email: formEmail,
+                    role: formSpecialty,
+                    photo: formPhoto,
+                    is_active: true
+                }, formWorkingHours);
 
-            // Link services if selected
-            if (newMember && selectedServiceIds.length > 0) {
-                await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+                if (newMember && selectedServiceIds.length > 0) {
+                    await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+                }
+            } else if (editingStaffId) {
+                await StaffService.updateStaff(editingStaffId, {
+                    name: formName,
+                    email: formEmail,
+                    role: formSpecialty,
+                    photo: formPhoto
+                });
+                
+                await StaffService.updateStaffServices(editingStaffId, salonId, selectedServiceIds);
             }
 
-            setShowAddModal(false);
-            setNewStaffName('');
-            setNewStaffEmail('');
-            setNewStaffSpecialty('');
-            setNewStaffPhoto('');
-            setSelectedServiceIds([]);
-            setNewStaffWorkingHours(DEFAULT_HOURS);
+            setShowModal(false);
             fetchStaff();
         } catch (err) {
-            console.error('Personel ekleme hatası:', err);
-            alert('Personel eklenirken bir hata oluştu.');
+            console.error('İşlem hatası:', err);
+            alert('Bir hata oluştu.');
         } finally {
             setSaving(false);
         }
@@ -132,17 +189,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
-    const handleUpdateWorkingHours = async (updatedHours: any[]) => {
-        setWorkingHours(updatedHours);
-        // We might want to save individual entries here or have a 'Save all' button
-        // For now, let's keep the existing logic where they update on change if it was before
-    };
-
     const handleUpdateOneShift = async (hourId: string, updates: Partial<WorkingHours>) => {
         try {
             await StaffService.updateWorkingHours(hourId, updates);
-            // State update is already handled by the editor component calling onChange, 
-            // but we ensure our top-level 'workingHours' state remains in sync
             setWorkingHours(prev => prev.map(h => h.id === hourId ? { ...h, ...updates } : h));
         } catch (err) {
             console.error('Vardiya güncelleme hatası:', err);
@@ -159,242 +208,324 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
+    const filteredStaff = staff.filter(s => 
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.role || s.specialty || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-    if (loading) return <div className="p-10 text-center text-text-muted">Yükleniyor...</div>;
+    if (loading && staff.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+                <Users className="w-12 h-12 text-gray-200 mb-4" />
+                <div className="h-4 w-32 bg-gray-100 rounded-full" />
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center bg-gray-50 p-6 rounded-[32px] border border-border">
-                <div>
-                    <h3 className="text-lg font-black text-text-main">Personel Listesi</h3>
-                    <p className="text-xs text-text-secondary mt-1">{staff.length} çalışanınız bulunuyor.</p>
+        <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Header Section */}
+            <div className="relative overflow-hidden bg-white/50 backdrop-blur-xl p-8 rounded-[40px] border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.05)] flex flex-col md:flex-row items-center justify-between gap-6 group">
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-1000" />
+                
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                            <Users className="w-5 h-5" />
+                        </div>
+                        <h3 className="text-2xl font-black text-text-main tracking-tight">Personel Yönetimi</h3>
+                    </div>
+                    <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi</p>
                 </div>
-                <button
-                    onClick={async () => {
-                        try {
-                            setLoading(true);
-                            await LimitEnforcer.ensureLimit(salonId, 'staff');
-                            setShowAddModal(true);
-                        } catch (err: any) {
-                            if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
-                                alert('Personel limitine ulaştınız. Daha fazla personel eklemek için lütfen paketinizi yükseltin.');
-                            } else {
-                                console.error('Limit check error:', err);
-                                alert('Bir hata oluştu. Lütfen tekrar deneyin.');
-                            }
-                        } finally {
-                            setLoading(false);
-                        }
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
-                >
-                    <UserPlus className="w-5 h-5" /> Personel Ekle
-                </button>
+
+                <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
+                    <div className="relative flex-grow md:w-64">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                        <input 
+                            type="text" 
+                            placeholder="İsim veya uzmanlık ara..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 bg-white border border-border rounded-2xl text-sm font-bold outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                        />
+                    </div>
+                    <button
+                        onClick={handleOpenAdd}
+                        className="flex items-center gap-2.5 px-8 py-4 bg-primary text-white rounded-2xl font-black shadow-[0_10px_20px_rgba(var(--primary-rgb),0.2)] hover:shadow-[0_15px_25px_rgba(var(--primary-rgb),0.3)] hover:-translate-y-0.5 active:translate-y-0 transition-all whitespace-nowrap"
+                    >
+                        <UserPlus className="w-5 h-5" /> Personel Ekle
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {staff.map((member) => (
-                    <div key={member.id} className="bg-white p-6 rounded-[32px] border border-border shadow-card hover:shadow-xl transition-all group">
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gray-100 bg-cover bg-center border border-border"
-                                style={{ backgroundImage: `url(${member.photo || 'https://i.pravatar.cc/150'})` }}
-                            />
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={() => handleOpenShifts(member)}
-                                    className="p-2 hover:bg-primary/10 rounded-xl text-primary transition-colors"
-                                    title="Çalışma Saatleri"
-                                >
-                                    <Clock className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteStaff(member.id)}
-                                    className="p-2 hover:bg-red-50 rounded-xl text-red-500 transition-colors"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+            {/* List Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredStaff.map((member) => (
+                    <div key={member.id} className="group relative bg-white rounded-[32px] border border-border shadow-card hover:shadow-2xl hover:border-primary/20 transition-all duration-500 overflow-hidden flex flex-col">
+                        <div className="p-6 flex-grow">
+                            <div className="flex items-start justify-between mb-6">
+                                <div className="relative">
+                                    <div className="w-20 h-20 rounded-[24px] bg-surface-alt bg-cover bg-center border-2 border-white shadow-xl group-hover:scale-105 transition-transform duration-500 ring-4 ring-gray-50"
+                                        style={{ backgroundImage: `url(${member.photo || member.image || 'https://i.pravatar.cc/150'})` }}
+                                    />
+                                    {member.is_active && (
+                                        <div className="absolute -right-1 -bottom-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                                            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={() => handleOpenEdit(member)}
+                                        className="p-2.5 bg-gray-50 hover:bg-primary/10 rounded-xl text-text-muted hover:text-primary transition-all shadow-sm"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleOpenShifts(member)}
+                                        className="p-2.5 bg-gray-50 hover:bg-amber-50 rounded-xl text-text-muted hover:text-amber-600 transition-all shadow-sm"
+                                    >
+                                        <Clock className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteStaff(member.id)}
+                                        className="p-2.5 bg-gray-50 hover:bg-red-50 rounded-xl text-text-muted hover:text-red-500 transition-all shadow-sm"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black text-text-main tracking-tight group-hover:text-primary transition-colors">{member.name}</h3>
+                                <div className="flex items-center gap-1.5 text-text-muted text-xs font-black uppercase tracking-widest bg-gray-50 w-fit px-2 py-1 rounded-lg">
+                                    <Briefcase className="w-3.5 h-3.5 opacity-60" />
+                                    {member.role || member.specialty || 'Uzman'}
+                                </div>
+                            </div>
+
+                            <div className="mt-4 flex items-center justify-between">
+                                <div className="flex items-center gap-1 text-amber-500">
+                                    <Star className="w-4 h-4 fill-current" />
+                                    <span className="text-sm font-black text-text-main">{member.rating || '5.0'}</span>
+                                    <span className="text-[10px] text-text-muted font-bold">({member.review_count || 0})</span>
+                                </div>
+                                <Mail className={`w-4 h-4 transition-colors ${member.email ? 'text-primary' : 'text-gray-200'}`} />
                             </div>
                         </div>
 
-                        <h3 className="text-lg font-black text-text-main mb-1">{member.name}</h3>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-wider">
-                                <Briefcase className="w-3.5 h-3.5" />
-                                {member.specialty || 'Genel Uzman'}
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-100">
-                                <span className="material-symbols-outlined text-[14px] filled text-yellow-600">star</span>
-                                <span className="text-xs font-black text-yellow-700">{member.rating || 0}</span>
-                                <span className="text-xs text-yellow-600/50">({member.review_count || 0})</span>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-4 border-t border-border">
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 text-green-700 text-[10px] font-black uppercase">
-                                <CheckCircle2 className="w-3 h-3" /> Aktif
-                            </span>
+                        <div className="bg-gray-50/50 p-4 border-t border-border mt-auto flex items-center justify-between group-hover:bg-primary/[0.02] transition-colors">
+                             <span className="text-[10px] font-black uppercase tracking-tighter text-text-muted">Son Randevu: Bugün</span>
+                             <ChevronRight className="w-4 h-4 text-text-muted group-hover:translate-x-1 transition-transform" />
                         </div>
                     </div>
                 ))}
+
+                {filteredStaff.length === 0 && (
+                    <div className="col-span-full py-24 bg-white/50 backdrop-blur-md rounded-[48px] border-2 border-dashed border-border flex flex-col items-center justify-center text-center animate-in zoom-in duration-500">
+                        <div className="w-24 h-24 rounded-[32px] bg-gray-50 flex items-center justify-center mb-6 shadow-inner">
+                            <Users className="w-10 h-10 text-text-muted/20" />
+                        </div>
+                        <h4 className="text-2xl font-black text-text-main mb-3">Hiç personel bulunamadı</h4>
+                        <p className="text-sm text-text-muted font-bold max-w-sm px-6">
+                            Ekip üyelerinizi ekleyerek randevu almaya başlayabilirsiniz veya arama kriterlerini değiştirebilirsiniz.
+                        </p>
+                        <button
+                            onClick={handleOpenAdd}
+                            className="mt-8 flex items-center gap-2.5 px-10 py-4 bg-primary text-white rounded-[24px] font-black shadow-xl shadow-primary/20 hover:scale-105 transition-all"
+                        >
+                            <Plus className="w-5 h-5" /> Hemen Ekle
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Add Staff Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/20 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] md:rounded-[48px] shadow-2xl border border-border animate-scale-up">
-                        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-8 py-6 border-b border-border flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                    <UserPlus className="w-6 h-6 text-primary" />
+            {/* Form Modal (Add/Edit) */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[40px] md:rounded-[56px] shadow-2xl border border-white/20 animate-in zoom-in duration-300">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 px-10 py-8 border-b border-border flex items-center justify-between">
+                            <div className="flex items-center gap-5">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${modalType === 'add' ? 'bg-primary text-white' : 'bg-amber-500 text-white'}`}>
+                                    {modalType === 'add' ? <UserPlus className="w-7 h-7" /> : <Edit2 className="w-7 h-7" />}
                                 </div>
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-black text-text-main">Yeni Personel Ekle</h3>
-                                    <p className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1">
-                                        {salonName ? `${salonName} şubesi için` : 'Ekip Üyesi Oluştur'}
+                                    <h3 className="text-2xl font-black text-text-main tracking-tight">
+                                        {modalType === 'add' ? 'Yeni Personel' : 'Personeli Düzenle'}
+                                    </h3>
+                                    <p className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mt-1 opacity-60">
+                                        {salonName || 'Güzellik Merkezi'} Ekibi
                                     </p>
                                 </div>
                             </div>
                             <button
-                                onClick={() => setShowAddModal(false)}
-                                className="p-3 hover:bg-gray-100 rounded-2xl transition-all group"
+                                onClick={() => setShowModal(false)}
+                                className="p-4 hover:bg-gray-100 rounded-3xl transition-all group"
                             >
-                                <X className="w-6 h-6 text-text-muted group-hover:text-text-main group-hover:rotate-90 transition-all" />
+                                <X className="w-7 h-7 text-text-muted group-hover:text-text-main group-hover:rotate-90 transition-all duration-300" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleAddStaff} className="p-8 md:p-10 space-y-10">
-                            <div className="flex flex-col md:flex-row gap-10">
+                        <form onSubmit={handleSubmit} className="p-10 space-y-12">
+                            <div className="flex flex-col lg:flex-row gap-12">
                                 <div className="flex-shrink-0 flex flex-col items-center">
-                                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl overflow-hidden border-2 border-dashed border-border hover:border-primary transition-all group relative bg-surface-alt">
+                                    <div className="w-40 h-40 md:w-52 md:h-52 rounded-[40px] overflow-hidden border-4 border-dashed border-gray-100 hover:border-primary transition-all group relative bg-surface-alt shadow-inner">
                                         <ImageUpload
                                             bucket="staff-photos"
-                                            currentImage={newStaffPhoto}
-                                            onUpload={setNewStaffPhoto}
-                                            label="Profil"
+                                            currentImage={formPhoto}
+                                            onUpload={setFormPhoto}
+                                            label="Profil Resmi"
                                             className="h-full"
                                         />
                                     </div>
-                                    <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mt-3 text-center">Fotoğraf Yükle</p>
+                                    <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full border border-border">
+                                        <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Profesyonel Görsel Seçin</span>
+                                    </div>
                                 </div>
 
-                                <div className="flex-grow space-y-8">
-                                    <div className="group">
-                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
-                                            Ad Soyad
+                                <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
+                                    <div className="group space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            Tam Ad Soyad
                                         </label>
                                         <input
                                             required
                                             type="text"
-                                            value={newStaffName}
-                                            onChange={(e) => setNewStaffName(e.target.value)}
-                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                                            value={formName}
+                                            onChange={(e) => setFormName(e.target.value)}
+                                            className="w-full px-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-black text-text-main text-lg outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
                                             placeholder="Örn: Ayşe Yılmaz"
                                         />
                                     </div>
 
-                                    <div className="group">
-                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
+                                    <div className="group space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
                                             Uzmanlık Alanı
                                         </label>
                                         <input
                                             required
                                             type="text"
-                                            value={newStaffSpecialty}
-                                            onChange={(e) => setNewStaffSpecialty(e.target.value)}
-                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                                            placeholder="Örn: Saç Tasarımı, Boya Uzmanı"
+                                            value={formSpecialty}
+                                            onChange={(e) => setFormSpecialty(e.target.value)}
+                                            className="w-full px-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-bold text-text-main text-lg outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
+                                            placeholder="Örn: Saç Tasarımı"
                                         />
                                     </div>
-                                    <div className="group">
-                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
-                                            E-Posta (Hesap Eşleştirme İçin)
+
+                                    <div className="group space-y-3 md:col-span-2">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            E-Posta (Eşleştirme İçin)
                                         </label>
-                                        <input
-                                            required
-                                            type="email"
-                                            value={newStaffEmail}
-                                            onChange={(e) => setNewStaffEmail(e.target.value)}
-                                            className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-bold text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
-                                            placeholder="personel@firsat.com"
-                                        />
+                                        <div className="relative">
+                                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                            <input
+                                                required
+                                                type="email"
+                                                value={formEmail}
+                                                onChange={(e) => setFormEmail(e.target.value)}
+                                                className="w-full pl-16 pr-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-bold text-text-main outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
+                                                placeholder="personel@firsat.com"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-text-muted font-bold ml-2">Personel bu e-posta ile giriş yaptığında takvimine erişebilir.</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-8 border-t border-border">
-                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-6 text-primary">
-                                    <Briefcase className="w-4 h-4" /> Verilen Hizmetler
-                                </label>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {salonServices.map((service) => (
-                                        <button
-                                            key={service.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedServiceIds(prev =>
-                                                    prev.includes(service.id)
-                                                        ? prev.filter(id => id !== service.id)
-                                                        : [...prev, service.id]
-                                                );
-                                            }}
-                                            className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${selectedServiceIds.includes(service.id)
-                                                ? 'bg-primary/10 border-primary text-primary shadow-sm ring-2 ring-primary/20'
-                                                : 'bg-surface-alt border-border text-text-muted hover:border-primary/50'
-                                                }`}
-                                        >
-                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${selectedServiceIds.includes(service.id)
-                                                ? 'bg-primary border-primary text-white scale-110'
-                                                : 'border-border bg-white'
-                                                }`}>
-                                                {selectedServiceIds.includes(service.id) && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-black truncate leading-tight">
-                                                    {service.service_name || service.global_service?.name}
-                                                </span>
-                                                <span className="text-[10px] font-bold opacity-60">
-                                                    {service.price} TL • {service.duration_min} dk
-                                                </span>
-                                            </div>
-                                        </button>
-                                    ))}
+                            {/* Service Selection */}
+                            <div className="pt-12 border-t border-border">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div>
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 text-primary">
+                                            <Briefcase className="w-4 h-4" /> Sunduğu Hizmetler
+                                        </label>
+                                        <p className="text-xs text-text-muted font-bold ml-1 mt-1">Bu personelin verebildiği hizmetleri seçin.</p>
+                                    </div>
+                                    <div className="bg-primary/5 px-4 py-2 rounded-2xl border border-primary/20 text-[10px] font-black text-primary uppercase">
+                                        {selectedServiceIds.length} Seçili
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {salonServices.map((service) => {
+                                        const isSelected = selectedServiceIds.includes(service.id);
+                                        return (
+                                            <button
+                                                key={service.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedServiceIds(prev =>
+                                                        isSelected ? prev.filter(id => id !== service.id) : [...prev, service.id]
+                                                    );
+                                                }}
+                                                className={`group flex items-center gap-3 p-4 rounded-2xl border transition-all text-left relative ${isSelected
+                                                    ? 'bg-primary/10 border-primary text-primary shadow-md ring-4 ring-primary/5'
+                                                    : 'bg-surface-alt border-border text-text-muted hover:border-primary/40 hover:bg-white'
+                                                    }`}
+                                            >
+                                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all shrink-0 ${isSelected
+                                                    ? 'bg-primary border-primary text-white scale-110'
+                                                    : 'border-border bg-white group-hover:border-primary/50'
+                                                    }`}>
+                                                    {isSelected && <CheckCircle2 className="w-4 h-4" />}
+                                                </div>
+                                                <div className="flex flex-col min-w-0 pr-2">
+                                                    <span className="text-xs font-black truncate leading-tight">
+                                                        {service.service_name || service.global_service?.name}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold opacity-60">
+                                                        {service.price} TL • {service.duration_min} dk
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                     {salonServices.length === 0 && (
-                                        <div className="col-span-full p-8 rounded-3xl bg-surface-alt border border-dashed border-border text-center">
-                                            <p className="text-xs font-bold text-text-muted">Bu şube için henüz hizmet tanımlanmamış.</p>
+                                        <div className="col-span-full p-12 rounded-[32px] bg-surface-alt border border-dashed border-border text-center">
+                                            <p className="text-sm font-black text-text-muted opacity-40">Önce hizmet tanımlamalısınız kanka.</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="pt-8 border-t border-border">
-                                <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-6">
-                                    <Clock className="w-4 h-4" /> Çalışma Saatleri (Varsayılan)
-                                </label>
-                                <div className="bg-surface-alt/50 rounded-3xl p-6 border border-border/50">
-                                    <WorkingHoursEditor
-                                        hours={newStaffWorkingHours}
-                                        onChange={setNewStaffWorkingHours}
-                                        days={days}
-                                    />
+                            {/* Working Hours Section (Only for Add) */}
+                            {modalType === 'add' && (
+                                <div className="pt-12 border-t border-border animate-in slide-in-from-bottom duration-500">
+                                    <div className="mb-8">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <Clock className="w-4 h-4 text-amber-500" /> İlk Çalışma Takvimi
+                                        </label>
+                                        <p className="text-xs text-text-muted font-bold ml-1 mt-1">Personelin haftalık mesai saatlerini belirleyin.</p>
+                                    </div>
+                                    <div className="bg-surface-alt rounded-[40px] p-8 border border-border shadow-inner">
+                                        <WorkingHoursEditor
+                                            hours={formWorkingHours as any}
+                                            onChange={setFormWorkingHours as any}
+                                            days={days}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="border-t border-border pt-8 flex items-center justify-end gap-4">
+                            <div className="sticky bottom-0 bg-white/80 backdrop-blur-md -mx-10 -mb-10 p-10 mt-12 border-t border-border flex items-center justify-end gap-6 shadow-[0_-20px_50px_rgba(0,0,0,0.03)] selection-none">
                                 <button
                                     type="button"
-                                    onClick={() => setShowAddModal(false)}
-                                    className="px-8 py-4 font-black text-text-muted hover:text-text-main transition-all"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-8 py-5 font-black text-text-muted hover:text-text-main transition-all text-lg"
                                 >
                                     Vazgeç
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="px-10 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-3 disabled:opacity-50"
+                                    className={`px-12 py-5 text-white rounded-[28px] font-black shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 disabled:opacity-50 ${modalType === 'add' ? 'bg-primary shadow-primary/20' : 'bg-amber-500 shadow-amber-500/20'}`}
                                 >
-                                    {saving ? 'Kaydediliyor...' : 'Personeli Kaydet'}
-                                    <Save className="w-5 h-5" />
+                                    {saving ? 'Kaydediliyor...' : (modalType === 'add' ? 'Personeli Kaydet' : 'Değişiklikleri Kaydet')}
+                                    {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                                 </button>
                             </div>
                         </form>
@@ -402,30 +533,30 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             )}
 
-            {/* Shift Modal */}
+            {/* Shift Modal (Existing) */}
             {showShiftModal && selectedStaff && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/20 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[32px] md:rounded-[48px] shadow-2xl border border-border animate-scale-up">
-                        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-8 py-6 border-b border-border flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-primary" />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/20 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[48px] shadow-2xl border border-border animate-in slide-in-from-bottom duration-500">
+                        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-10 py-8 border-b border-border flex items-center justify-between">
+                            <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 shadow-inner">
+                                    <Clock className="w-7 h-7" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl md:text-2xl font-black text-text-main">{selectedStaff.name}</h3>
-                                    <p className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1">Personel Çalışma Planı</p>
+                                    <h3 className="text-2xl font-black text-text-main tracking-tight">{selectedStaff.name}</h3>
+                                    <p className="text-xs font-black text-text-muted uppercase tracking-widest mt-1">Haftalık Mesai Planı</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowShiftModal(false)}
-                                className="p-3 hover:bg-gray-100 rounded-2xl transition-all group"
+                                className="p-4 hover:bg-gray-100 rounded-3xl transition-all group"
                             >
-                                <X className="w-6 h-6 text-text-muted group-hover:text-text-main group-hover:rotate-90 transition-all" />
+                                <X className="w-7 h-7 text-text-muted group-hover:text-text-main group-hover:rotate-90 transition-all duration-300" />
                             </button>
                         </div>
 
-                        <div className="p-8 md:p-10">
-                            <div className="bg-surface-alt/50 rounded-3xl p-6 border border-border/50">
+                        <div className="p-10 space-y-10">
+                            <div className="bg-surface-alt/50 rounded-[40px] p-8 border border-border/50 shadow-inner">
                                 <WorkingHoursEditor
                                     hours={workingHours}
                                     onChange={setWorkingHours}
@@ -435,26 +566,26 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 />
                             </div>
 
-                            <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                                    <Briefcase className="w-5 h-5 text-blue-600" />
+                            <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100/50 flex items-start gap-5 relative overflow-hidden">
+                                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-100/20 rounded-full blur-2xl" />
+                                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 shadow-sm">
+                                    <Briefcase className="w-6 h-6 text-blue-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm font-black text-blue-900">Vardiya İpucu</p>
-                                    <p className="text-xs text-blue-700 mt-1 font-medium leading-relaxed">
-                                        Yaptığınız her değişiklik anında kaydedilir ve randevu takvimine yansır.
-                                        İzin günlerini sağdaki anahtarı kullanarak belirleyebilirsiniz.
+                                <div className="relative z-10">
+                                    <p className="text-lg font-black text-blue-900 leading-none">Vardiya Bilgilendirmesi</p>
+                                    <p className="text-xs text-blue-700/80 mt-2 font-bold leading-relaxed">
+                                        Burada yaptığınız her değişiklik anında takvime yansır. İzin günleri için yanındaki anahtarı kapatmanız yeterlidir.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="sticky bottom-0 bg-white/80 backdrop-blur-md px-8 py-6 border-t border-border flex items-center justify-end">
+                        <div className="px-10 py-8 border-t border-border flex items-center justify-end">
                             <button
                                 onClick={() => setShowShiftModal(false)}
-                                className="px-10 py-4 bg-text-main text-white rounded-2xl font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                className="px-12 py-5 bg-text-main text-white rounded-[28px] font-black shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                             >
-                                Kapat
+                                Değişiklikleri Onayla
                             </button>
                         </div>
                     </div>
@@ -463,3 +594,20 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         </div>
     );
 }
+
+const Loader2 = ({ className }: { className?: string }) => (
+    <svg 
+        className={className} 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="24" 
+        height="24" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round"
+    >
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+);
