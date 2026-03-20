@@ -153,7 +153,10 @@ export const DashboardService = {
         id,
         start_time,
         status,
-        service:salon_services (price, name)
+        service:salon_services (
+          price,
+          global_service:global_services(name)
+        )
       `,
       )
       .eq("salon_id", salonId)
@@ -167,12 +170,12 @@ export const DashboardService = {
       string,
       { date: string; income: number; appointments: number }
     > = {};
-    appts?.forEach((a) => {
+    appts?.forEach((a: any) => {
       const day = a.start_time.split("T")[0];
       if (!dailyStats[day]) {
         dailyStats[day] = { date: day, income: 0, appointments: 0 };
       }
-      dailyStats[day].income += (a.service as any)?.price || 0;
+      dailyStats[day].income += a.service?.price || 0;
       dailyStats[day].appointments += 1;
     });
 
@@ -204,8 +207,8 @@ export const DashboardService = {
 
     // 3. Service Popularity
     const serviceCounts: Record<string, number> = {};
-    appts?.forEach((a) => {
-      const name = (a.service as any)?.name || "Diğer";
+    appts?.forEach((a: any) => {
+      const name = a.service?.global_service?.name || "Diğer";
       serviceCounts[name] = (serviceCounts[name] || 0) + 1;
     });
 
