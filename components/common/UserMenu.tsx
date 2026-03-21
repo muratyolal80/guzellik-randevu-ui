@@ -142,7 +142,7 @@ export const UserMenu: React.FC = () => {
                     </Link>
 
                     <Link
-                        href={isAdmin ? '/admin/settings' : isOwner ? '/owner/settings' : '/customer/settings'}
+                        href={isAdmin ? '/admin/settings' : isOwner ? '/owner/packages' : '/customer/settings'}
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                     >

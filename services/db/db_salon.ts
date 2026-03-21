@@ -554,6 +554,31 @@ export const SalonDataService = {
   },
 
   /**
+   * Suspend a salon (Owner action) and cancel its active subscription
+   */
+  async suspendSalonAndCancelSubscription(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    // 1. Mark salon as SUSPENDED
+    const { error: salonError } = await supabase
+      .from("salons")
+      .update({ status: "SUSPENDED" })
+      .eq("id", id);
+      
+    if (salonError) throw salonError;
+
+    // 2. Cancel active/trial subscriptions for this salon
+    const { error: subError } = await supabase
+      .from("subscriptions")
+      .update({ status: "CANCELLED" })
+      .eq("salon_id", id)
+      .in("status", ["ACTIVE", "TRIAL", "PENDING"]);
+
+    if (subError) throw subError;
+  },
+
+  /**
    * Get salon details by owner user ID (Returns list of all salons owned)
    */
   async getSalonsByOwner(

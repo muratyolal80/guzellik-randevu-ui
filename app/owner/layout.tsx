@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
+import { useTenant } from '@/context/TenantContext';
 import BranchSelector from '@/components/owner/BranchSelector';
+import SubscriptionBanner from '@/components/owner/SubscriptionBanner';
 import {
     LayoutDashboard,
     Calendar,
@@ -20,7 +22,8 @@ import {
     Ticket,
     Briefcase,
     Database,
-    Wallet
+    Wallet,
+    Package
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
@@ -29,6 +32,7 @@ const OwnerSidebar: React.FC = () => {
 
     const menuItems = [
         { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
+        { name: 'Paket ve Abonelik', path: '/owner/packages', icon: Package },
         { name: 'Salonlarım', path: '/owner/salons', icon: Store },
         { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
         { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
@@ -38,7 +42,6 @@ const OwnerSidebar: React.FC = () => {
         { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
         { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
         { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
-        { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
     ];
 
     return (
@@ -96,9 +99,11 @@ const OwnerSidebar: React.FC = () => {
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
     const { user, isOwner, loading } = useAuth();
+    const { subscriptionStatus, loading: tenantLoading } = useTenant();
     const router = useRouter();
+    const pathname = usePathname();
 
-    if (loading) {
+    if (loading || tenantLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -127,12 +132,38 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         );
     }
 
+    const isBillingPage = pathname === '/owner/packages';
+    const isDashboard = pathname === '/owner/dashboard';
+    const isExpired = subscriptionStatus === 'EXPIRED' || subscriptionStatus === 'CANCELLED';
+
+    // Block content if expired, unless they are on the billing page to renew
+    const renderContent = () => {
+        if (isExpired && !isBillingPage && !isDashboard) {
+            return (
+                <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
+                    <div className="w-24 h-24 mb-6 rounded-3xl bg-red-50 flex items-center justify-center border border-red-100">
+                        <Wallet className="w-10 h-10 text-red-500" />
+                    </div>
+                    <h2 className="text-3xl font-black text-text-main tracking-tight mb-2">Aboneliğiniz Sona Erdi</h2>
+                    <p className="text-text-secondary font-medium max-w-md mx-auto mb-8">
+                        Sistemi kullanmaya devam edebilmek için aboneliğinizi yenilemeniz gerekmektedir. Yönetim özellikleri askıya alınmıştır.
+                    </p>
+                    <Link href="/owner/packages" className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                        Hemen Yenile
+                    </Link>
+                </div>
+            );
+        }
+        return children;
+    };
+
     return (
         <Layout>
             <div className="flex bg-gray-50 min-h-[calc(100vh-64px)]">
                 <OwnerSidebar />
                 <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-x-hidden">
-                    {children}
+                    <SubscriptionBanner />
+                    {renderContent()}
                 </main>
             </div>
         </Layout>

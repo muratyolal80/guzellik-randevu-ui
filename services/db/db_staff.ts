@@ -364,6 +364,22 @@ export const StaffService = {
       .eq("salon_id", salonId);
     if (error) throw error;
   },
+
+  /**
+   * Get all branches a staff is assigned to
+   */
+  async getStaffBranches(
+    staffId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("staff_branches")
+      .select("*, salons(*)")
+      .eq("staff_id", staffId);
+
+    if (error) throw error;
+    return data || [];
+  },
 };
 
 export const ServiceService = {

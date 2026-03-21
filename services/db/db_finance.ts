@@ -110,7 +110,7 @@ export const PaymentService = {
   ) {
     const { data, error } = await supabase
       .from("payment_history")
-      .select("*")
+      .select("*, subscriptions(subscription_plans(name, display_name))")
       .eq("salon_id", salonId)
       .order("created_at", { ascending: false });
 
@@ -144,12 +144,77 @@ export const SubscriptionService = {
       .from("subscriptions")
       .select("*, subscription_plans(*)")
       .eq("salon_id", salonId)
+      .in("status", ["ACTIVE", "TRIAL", "PENDING"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Get all subscriptions for a salon (History)
+   */
+  async getSalonSubscriptionHistory(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("salon_id", salonId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Get the active subscription for an owner across all their salons.
+   * Useful when checking global limits like max_branches.
+   */
+  async getOwnerActiveSubscription(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    // Önce sahibin salonlarını bul
+    const { data: salons } = await supabase
+      .from("salons")
+      .select("id")
+      .eq("owner_id", ownerId);
+      
+    if (!salons || salons.length === 0) return null;
+
+    const salonIds = salons.map((s) => s.id);
+
+    // Bu salonlara ait en yüksek yetkili aktif aboneliği bul
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*)")
+      .in("salon_id", salonIds)
+      .in("status", ["ACTIVE", "TRIAL", "PENDING"])
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    
+    if (!data || data.length === 0) return null;
+
+    // Ağırlığa göre sırala ve en yüksek olanı döndür (ELITE > BUSINESS > PRO > STARTER)
+    const planWeights: Record<string, number> = {
+      'STARTER': 0,
+      'PRO': 1,
+      'BUSINESS': 2,
+      'ELITE': 3
+    };
+
+    data.sort((a, b) => {
+      const weightA = planWeights[a.subscription_plans?.name || 'STARTER'] || 0;
+      const weightB = planWeights[b.subscription_plans?.name || 'STARTER'] || 0;
+      return weightB - weightA; // Descending
+    });
+
+    return data[0];
   },
 
   /**
@@ -214,6 +279,21 @@ export const SubscriptionService = {
       limit = plan.max_gallery_photos;
     }
 
+    // Trial Period Check for STARTER
+    if (plan.name === 'STARTER' && sub?.start_date) {
+      const startDate = new Date(sub.start_date);
+      const trialEndDate = sub.end_date ? new Date(sub.end_date) : new Date(startDate.setMonth(startDate.getMonth() + 3));
+      const now = new Date();
+      
+      if (now > trialEndDate) {
+        return {
+          allowed: false,
+          current,
+          limit: -2, // Special code for TRIAL_EXPIRED
+        };
+      }
+    }
+
     return {
       allowed: limit === -1 || current < limit,
       current,
@@ -254,7 +334,7 @@ export const SubscriptionService = {
   },
 
   /**
-   * Create a new subscription record (usually PENDING status)
+   * Create a new subscription record (usually PENDING status, but ACTIVE/TRIAL for Free/Starter)
    */
   async createSubscriptionRequest(
     salonId: string,
@@ -263,25 +343,50 @@ export const SubscriptionService = {
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    const days = billingCycle === "YEARLY" ? 365 : 30;
+    // Önce planın detaylarını alalım
+    const { data: planData } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("id", planId)
+      .single();
+
+    let days = billingCycle === "YEARLY" ? 365 : 30;
+    let initialStatus = "PENDING";
+    let periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    // Starter planı 3 ay (90 gün) ücretsiz deneme
+    if (planData && (planData.name === "STARTER" || planData.price_monthly === 0)) {
+       days = 90;
+       initialStatus = "TRIAL";
+       periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
 
     const { data, error } = await supabase
       .from("subscriptions")
       .upsert({
         salon_id: salonId,
         plan_id: planId,
-        status: "PENDING",
+        status: initialStatus,
         payment_method: paymentMethod,
         billing_cycle: billingCycle,
         current_period_start: new Date().toISOString(),
-        current_period_end: new Date(
-          Date.now() + days * 24 * 60 * 60 * 1000,
-        ).toISOString(),
+        current_period_end: periodEnd,
       })
       .select()
       .single();
 
     if (error) throw error;
+    
+    // Eğer TRIAL ise doğrudan onaya gönderelim
+    if (initialStatus === 'TRIAL') {
+      await SubscriptionService.activateSalonAndSubscription(
+        salonId, 
+        data.id, 
+        'Otomatik TRIAL Aktivasyonu',
+        supabase
+      );
+    }
+    
     return data;
   },
 

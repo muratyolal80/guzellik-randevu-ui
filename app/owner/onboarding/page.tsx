@@ -91,6 +91,9 @@ export default function OnboardingWizard() {
     "MONTHLY",
   );
 
+  const [existingPlan, setExistingPlan] = useState<any>(null);
+  const [canSkipPayment, setCanSkipPayment] = useState(false);
+
   const [cities, setCities] = useState<City[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
@@ -412,6 +415,38 @@ export default function OnboardingWizard() {
     fetchMasterData();
   }, []);
 
+  // Check existing plan for branch limits
+    useEffect(() => {
+    if (!user) return;
+    const checkExistingPlan = async () => {
+      try {
+        const ownerSub = await SubscriptionService.getOwnerActiveSubscription(user.id);
+        if (ownerSub && ownerSub.subscription_plans) {
+          const plan = ownerSub.subscription_plans;
+          
+          // Check branch limit
+          const limitRes = await SubscriptionService.checkLimit(ownerSub.salon_id, 'branch');
+          
+          if (limitRes.allowed) {
+             setExistingPlan(plan);
+             setCanSkipPayment(true);
+             setSelectedPlanId(plan.id);
+          } else {
+             // Limit reached or Trial expired
+             setExistingPlan(null);
+             setCanSkipPayment(false);
+             if (limitRes.limit === -2) {
+                alert("3 Aylık Ücretsiz Deneme süreniz dolmuştur. Devam etmek için lütfen yeni bir paket satın alın.");
+             }
+          }
+        }
+      } catch (e) { 
+        console.error('Mevcut plan kontrolü hatası:', e); 
+      }
+    };
+    checkExistingPlan();
+  }, [user]);
+
   // Auto-load services when salon types change
   useEffect(() => {
     console.log("🔍 useEffect tetiklendi - type_ids:", salonData.type_ids);
@@ -539,6 +574,11 @@ export default function OnboardingWizard() {
   const handleNext = async () => {
     // Step 1: Subscription Validation
     if (currentStep === 1) {
+      if (canSkipPayment) {
+        setCurrentStep(2);
+        return;
+      }
+
       if (!selectedPlanId) {
         alert("Lütfen bir paket seçin.");
         return;
@@ -596,7 +636,18 @@ export default function OnboardingWizard() {
           setSalonData((prev: any) => ({ ...prev, id: salon.id }));
         } catch (err: any) {
           console.error("Salon taslak oluşturulurken hata:", err);
-          alert("Salon kaydedilemedi: " + (err.message || "Bilinmeyen hata"));
+          const rawMessage = err.message || "";
+          let errorMsg = "Salon kaydedilemedi: " + (rawMessage || "Bilinmeyen hata");
+          
+          if (rawMessage.includes("SUBSCRIPTION_LIMIT_REACHED:BRANCH")) {
+            const parts = rawMessage.split(":");
+            const limit = parts.length > 2 ? parts[2] : "1";
+            errorMsg = `Mevcut paketinizin şube limitine (${limit}/${limit}) ulaştınız. Yeni bir şube eklemek için lütfen paketinizi yükseltin.`;
+          } else if (rawMessage.includes("TRIAL_EXPIRED")) {
+             errorMsg = "3 Aylık Ücretsiz Deneme süreniz dolmuştur. Devam etmek için lütfen paketinizi yükseltin.";
+          }
+
+          alert(errorMsg);
           setLoading(false);
           return;
         }
@@ -619,8 +670,8 @@ export default function OnboardingWizard() {
       let salon = salonData; // Salon was already created in Step 3!
 
       console.log("Onboarding step 3: Recording Subscription...");
-      // 3. Subscription & Payment Redirect
-      if (selectedPlanId) {
+      // 3. Subscription & Payment Redirect (Only if not skipping payment)
+      if (selectedPlanId && !canSkipPayment) {
         const subResult = await SubscriptionService.subscribe(
           salon.id,
           selectedPlanId,
@@ -641,6 +692,15 @@ export default function OnboardingWizard() {
             0,
           );
         }
+      } else if (canSkipPayment && existingPlan) {
+        // Mevcut paketin altına bağlıyoruz
+        await SubscriptionService.createSubscriptionRequest(
+            salon.id, 
+            existingPlan.id, 
+            "BANK_TRANSFER", 
+            "MONTHLY"
+        );
+        // Doğrudan aktife çekilebilir çünkü halihazırda ödenmiş ana paketi var. Şimdilik admin onayı için PENDING kalır veya onay sürecini hızlandırabiliriz. 
       }
 
       console.log("Onboarding step 4: Submitting for approval...");
@@ -716,6 +776,23 @@ export default function OnboardingWizard() {
               </div>
             </div>
           );
+        }
+
+        if (canSkipPayment && existingPlan) {
+            return (
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
+                <div className="text-center space-y-4">
+                  <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mx-auto">
+                    <ShieldCheck className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-black text-text-main">Harika Haber!</h2>
+                  <p className="text-text-secondary font-medium">
+                    Sahip olduğunuz <strong>{existingPlan.display_name}</strong> planınız kapsamında ekstra şube hakkınız bulunuyor. 
+                    Yeni bir ödeme yapmadan yeni şubenizi kurabilirsiniz.
+                  </p>
+                </div>
+              </div>
+            );
         }
 
         return (
