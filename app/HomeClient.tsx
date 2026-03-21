@@ -169,16 +169,16 @@ export default function HomeClient() {
                 ]);
 
                 const salonsData = results[0].status === 'fulfilled' ? results[0].value : [];
-                if (results[0].status === 'rejected') console.error('Error fetching salons:', results[0].reason);
+                if (results[0].status === 'rejected') console.error('HomeClient: Error fetching salons:', results[0].reason);
 
                 const typesData = results[1].status === 'fulfilled' ? results[1].value : [];
-                if (results[1].status === 'rejected') console.error('Error fetching salon types:', results[1].reason);
+                if (results[1].status === 'rejected') console.error('HomeClient: Error fetching salon types:', results[1].reason);
 
                 const servicesData = results[2].status === 'fulfilled' ? results[2].value : [];
-                if (results[2].status === 'rejected') console.error('Error fetching global services:', results[2].reason);
+                if (results[2].status === 'rejected') console.error('HomeClient: Error fetching global services:', results[2].reason);
 
                 const citiesData = results[3].status === 'fulfilled' ? results[3].value : [];
-                if (results[3].status === 'rejected') console.error('Error fetching cities:', results[3].reason);
+                if (results[3].status === 'rejected') console.error('HomeClient: Error fetching cities:', results[3].reason);
 
                 // getSalons() already normalizes via mapSalonDetail — only add UI aliases
                 const mappedData = (salonsData || []).map((salon: any) => ({
@@ -199,12 +199,12 @@ export default function HomeClient() {
                     }
                 });
 
-                if (user) {
+                if (user && user.id && user.id !== "") {
                     try {
                         const favs = await FavoriteService.getUserFavorites();
                         setUserFavorites(favs.map((f: any) => f.salon_id));
                     } catch (favErr: any) {
-                        console.error('Kullanıcı favorileri alınamadı:', favErr?.message || favErr);
+                        console.error('HomeClient: Kullanıcı favorileri alınamadı:', favErr?.message || favErr);
                     }
                 }
 

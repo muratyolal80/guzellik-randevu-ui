@@ -38,7 +38,7 @@ import { SubscriptionService } from "./db_finance";
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
   return (
-    typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
   );
 };
 
@@ -91,6 +91,7 @@ export const SalonDataService = {
       geo_longitude: Number(salon.geo_longitude || 0),
       average_rating: Number(salon.average_rating || 0),
       rating: Number(salon.rating || salon.average_rating || 0),
+      deposit_rate: Number(salon.deposit_rate || 0),
       features: Array.isArray(salon.features)
         ? salon.features.map((f: any) =>
           typeof f === "string" ? f : f.name || JSON.stringify(f),
@@ -141,6 +142,8 @@ export const SalonDataService = {
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
     // First, get the salon IDs from memberships
+    if (!userId || userId === "") return [];
+
     const { data: memberships, error: memError } = await supabase
       .from("salon_memberships")
       .select("salon_id")
@@ -168,6 +171,7 @@ export const SalonDataService = {
     id: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail | null> {
+    if (!id || id === "") return null;
     const { data, error } = await supabase
       .from("salon_details")
       .select("*")
@@ -209,7 +213,7 @@ export const SalonDataService = {
   ): Promise<SalonDetail[]> {
     let query = supabase.from("salon_details").select("*");
 
-    if (filters.cityId) {
+    if (filters.cityId && filters.cityId !== "") {
       const { data: cityData } = await supabase
         .from("cities")
         .select("name")
@@ -556,6 +560,7 @@ export const SalonDataService = {
     ownerId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
+    if (!ownerId || ownerId === "") return [];
     const { data: salonIds, error: salonError } = await supabase
       .from("salons")
       .select("id")
@@ -1288,6 +1293,7 @@ export const FavoriteService = {
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Favorite[]> {
+    if (!userId || userId === "") return [];
     const { data, error } = await supabase
       .from("favorites")
       .select(
@@ -1348,4 +1354,95 @@ export const FavoriteService = {
       return true;
     }
   },
+};
+
+export const ReportingService = {
+  /**
+   * Get salon performance report for a specific period
+   */
+  async getSalonReport(
+    salonId: string,
+    reportDays: number = 30,
+    supabase: SupabaseClient = defaultSupabase
+  ) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - reportDays);
+
+    // 1. Fetch completed appointments with service and staff details
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        status,
+        end_time,
+        service_id,
+        staff_id,
+        salon_id,
+        salon_services(
+          price,
+          global_service_id,
+          global_services(name)
+        ),
+        staff(
+          id,
+          name
+        )
+      `)
+      .eq('salon_id', salonId)
+      .eq('status', 'COMPLETED')
+      .gte('end_time', startDate.toISOString());
+
+    if (error) throw error;
+
+    // 2. Aggregate Data
+    const serviceStats: Record<string, { name: string, count: number, revenue: number }> = {};
+    const staffStats: Record<string, { id: string, name: string, count: number, revenue: number }> = {};
+    let totalRevenue = 0;
+
+    appointments?.forEach((appt: any) => {
+      const price = appt.salon_services?.price || 0;
+      totalRevenue += price;
+
+      // Service Stats
+      const serviceName = appt.salon_services?.global_services?.name || 'Diğer';
+      if (!serviceStats[serviceName]) {
+        serviceStats[serviceName] = { name: serviceName, count: 0, revenue: 0 };
+      }
+      serviceStats[serviceName].count++;
+      serviceStats[serviceName].revenue += price;
+
+      // Staff Stats
+      const staffName = appt.staff?.name || 'Belirtilmemiş';
+      const staffId = appt.staff_id;
+      if (!staffStats[staffId]) {
+        staffStats[staffId] = { id: staffId, name: staffName, count: 0, revenue: 0 };
+      }
+      staffStats[staffId].count++;
+      staffStats[staffId].revenue += price;
+    });
+
+    // Previous period comparison (Simplified for a start)
+    const prevStart = new Date(startDate);
+    prevStart.setDate(prevStart.getDate() - reportDays);
+    
+    const { data: prevAppointments } = await supabase
+      .from('appointments')
+      .select('salon_services(price)')
+      .eq('salon_id', salonId)
+      .eq('status', 'COMPLETED')
+      .gte('end_time', prevStart.toISOString())
+      .lt('end_time', startDate.toISOString());
+
+    const prevRevenue = prevAppointments?.reduce((sum, a: any) => sum + (a.salon_services?.price || 0), 0) || 0;
+    const revenueTrend = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+    return {
+      totalRevenue,
+      completedAppts: appointments?.length || 0,
+      avgTicket: appointments && appointments.length > 0 ? totalRevenue / appointments.length : 0,
+      revenueTrend: `${revenueTrend > 0 ? '+' : ''}${revenueTrend.toFixed(1)}%`,
+      serviceStats: Object.values(serviceStats).sort((a, b) => b.revenue - a.revenue),
+      staffStats: Object.values(staffStats).sort((a, b) => b.revenue - a.revenue)
+    };
+  }
 };

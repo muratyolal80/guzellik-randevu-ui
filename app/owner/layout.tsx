@@ -17,7 +17,10 @@ import {
     AlertCircle,
     User,
     Scissors,
-    Ticket
+    Ticket,
+    Briefcase,
+    Database,
+    Wallet
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
@@ -29,8 +32,11 @@ const OwnerSidebar: React.FC = () => {
         { name: 'Salonlarım', path: '/owner/salons', icon: Store },
         { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
         { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
-        { name: 'Personel Yönetimi', path: '/owner/staff', icon: Users },
+        { name: 'Personel Yönetimi', path: '/owner/staff', icon: Briefcase },
+        { name: 'Müşterilerim', path: '/owner/customers', icon: Users },
+        { name: 'Kaynak Yönetimi', path: '/owner/resources', icon: Database },
         { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
+        { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
         { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
         { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
     ];

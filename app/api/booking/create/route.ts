@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode } = body;
+    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId, participantCount = 1, depositAmount = 0 } = body;
 
     if (!customerName || !salonId || !staffId || !serviceId || !startTime) {
       return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     if (!service) return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
 
     // 4. Handle Coupon Validation
+    const basePrice = service.price * participantCount;
     let discountAmount = 0;
     let validCoupon = null;
 
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           // Valid coupon!
           validCoupon = coupon;
           if (coupon.discount_type === 'PERCENTAGE') {
-            discountAmount = (service.price * coupon.discount_value) / 100;
+            discountAmount = (basePrice * coupon.discount_value) / 100;
             if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
               discountAmount = coupon.max_discount_amount;
             }
@@ -100,6 +101,40 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // 5. Handle Automatic Campaign Rule Validation
+    let campaignDiscount = 0;
+    if (campaignRuleId) {
+      const { data: rule } = await supabaseAdmin
+        .from('campaign_rules')
+        .select('*')
+        .eq('id', campaignRuleId)
+        .eq('salon_id', salonId)
+        .eq('is_active', true)
+        .single();
+
+      if (rule) {
+        // Double check time/day
+        const startDate = new Date(startTime);
+        const dayOfWeek = startDate.getDay() || 7;
+        const dbDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+        const appointmentTime = startTime.split('T')[1].substring(0, 5); // "HH:mm"
+
+        const dayMatch = !rule.days_of_week || rule.days_of_week.includes(dbDay);
+        const timeMatch = !rule.start_time || (appointmentTime >= rule.start_time && appointmentTime <= rule.end_time);
+
+        if (dayMatch && timeMatch) {
+          if (rule.discount_type === 'PERCENTAGE') {
+            campaignDiscount = (basePrice * rule.discount_value) / 100;
+          } else {
+            campaignDiscount = rule.discount_value;
+          }
+        }
+      }
+    }
+
+    // Combined Discount
+    const totalDiscount = discountAmount + campaignDiscount;
 
     const startDate = new Date(startTime);
     const endDate = new Date(startDate.getTime() + service.duration_min * 60 * 1000);
@@ -155,6 +190,7 @@ export async function POST(request: NextRequest) {
             end_time: endDate.toISOString(),
             status: 'PENDING',
             notes: (notes || '') + ` [${appointmentId} nolu randevudan planlandı]`,
+            deposit_amount: depositAmount,
           })
           .select()
           .single();
@@ -174,7 +210,10 @@ export async function POST(request: NextRequest) {
             status: 'PENDING', // Reset status to pending approval
             notes: notes || '',
             coupon_code: validCoupon?.code || null,
-            discount_amount: discountAmount,
+            campaign_rule_id: campaignRuleId || null,
+            discount_amount: totalDiscount,
+            participant_count: participantCount,
+            deposit_amount: depositAmount,
             updated_at: new Date().toISOString()
           })
           .eq('id', appointmentId)
@@ -201,7 +240,10 @@ export async function POST(request: NextRequest) {
           status: 'PENDING',
           notes: notes || '',
           coupon_code: validCoupon?.code || null,
-          discount_amount: discountAmount,
+          campaign_rule_id: campaignRuleId || null,
+          discount_amount: totalDiscount,
+          participant_count: participantCount,
+          deposit_amount: depositAmount,
         })
         .select()
         .single();
@@ -242,7 +284,12 @@ export async function POST(request: NextRequest) {
           .single();
 
         const commissionRate = (commissionSetting?.value as any)?.rate || 0;
-        const totalPriceTL = service.price - (discountAmount || 0);
+        const fullPriceTL = basePrice - (totalDiscount || 0);
+        // If depositRate > 0, we only charge for the depositAmount sent from client
+        // Otherwise, if this logic is active, we might charge full price.
+        // We stick to depositAmount if it's > 0, else fullPriceTL.
+        const totalPriceTL = depositAmount > 0 ? depositAmount : fullPriceTL; 
+
         const commission = Math.round((totalPriceTL * commissionRate) / 100);
         const subMerchantPriceTL = totalPriceTL - commission;
 

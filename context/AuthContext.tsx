@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Fetch profile from database
     const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
+        if (!userId || userId === "") return null;
         try {
             const { data, error } = await supabase
                 .from('profiles')

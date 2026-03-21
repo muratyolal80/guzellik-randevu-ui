@@ -9,6 +9,9 @@ interface BookingSummaryProps {
   totalPrice: number;
   totalDuration: string;
   step: number; // 1: Staff, 2: Time, 3: User Info, 4: Confirm
+  participantCount?: number;
+  discountAmount?: number;
+  campaignName?: string;
 }
 
 export const BookingSummary: React.FC<BookingSummaryProps> = ({ 
@@ -17,7 +20,10 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
   services, 
   totalPrice, 
   totalDuration, 
-  step 
+  step,
+  participantCount = 1,
+  discountAmount,
+  campaignName
 }) => {
   return (
     <div className="w-full lg:w-80 shrink-0">
@@ -90,9 +96,25 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
               <span className="text-text-secondary text-sm">Toplam Süre</span>
               <span className="text-text-main text-sm font-medium">{totalDuration}</span>
             </div>
+            
             <div className="flex justify-between items-end mb-4">
-              <span className="text-text-secondary text-sm">Toplam Tutar</span>
-              <span className="text-text-main text-xl font-bold">{totalPrice} TL</span>
+              <span className="text-text-secondary text-sm">Toplam Tutar {participantCount > 1 && `(${participantCount} Kişi)`}</span>
+              <div className="flex flex-col items-end">
+                {discountAmount && discountAmount > 0 ? (
+                  <>
+                    <span className="text-text-muted text-xs line-through">{totalPrice + discountAmount} TL</span>
+                    <span className="text-primary text-xl font-bold">{totalPrice} TL</span>
+                    {campaignName && (
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
+                        <span className="material-symbols-outlined text-[12px]">sell</span>
+                        {campaignName}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-text-main text-xl font-bold">{totalPrice} TL</span>
+                )}
+              </div>
             </div>
             
             {step === 1 && (

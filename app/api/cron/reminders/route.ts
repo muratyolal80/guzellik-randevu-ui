@@ -1,108 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { NotificationService } from '@/services/server-notification';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { sendAppointmentSMS } from '@/lib/messaging/sms';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
 
 /**
- * CRON Job Endpoint
- * Can be called by Vercel Cron, GitHub Actions, or simple curl
- * 
- * GET /api/cron/reminders
+ * CRON JOB ENDPOINT
+ * This should be called every 15-30 minutes by an external service (GitHub Actions, Vercel Cron, or a Linux Crontab)
+ * It finds upcoming appointments that need a reminder and haven't received one yet.
  */
-
-// Init Supabase Admin
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
 export async function GET(request: NextRequest) {
-    // Security Check (simple secret)
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Simple auth check for cron (use a secret header in production)
+  const authHeader = request.headers.get('authorization');
+  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const now = new Date();
+    
+    // 1. Get Salons with reminders enabled
+    const { data: salons } = await supabaseAdmin
+      .from('salons')
+      .select('id, name, reminder_hours_before')
+      .eq('reminder_enabled', true);
+
+    if (!salons || salons.length === 0) {
+      return NextResponse.json({ message: 'No salons with reminders enabled found.' });
     }
 
-    if (!supabaseServiceKey) {
-        return NextResponse.json({ error: 'Creation failed: Service key missing' }, { status: 500 });
-    }
+    let totalSent = 0;
+    const errors = [];
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    for (const salon of salons) {
+      const hoursBefore = salon.reminder_hours_before || 2;
+      
+      // Calculate the window: Appointments starting between (NOW + hoursBefore - 30m) and (NOW + hoursBefore)
+      // We use a small window to avoid sending multiple reminders if cron runs frequently, 
+      // but reminder_sent flag is the primary guard.
+      const windowStart = new Date(now.getTime() + (hoursBefore * 60 * 60 * 1000) - (60 * 60 * 1000)); // 1 hour window to be safe
+      const windowEnd = new Date(now.getTime() + (hoursBefore * 60 * 60 * 1000));
 
-    try {
-        // ---------------------------------------------------------
-        // 1. GENERATE REMINDERS (24 Hours Before)
-        // ---------------------------------------------------------
+      const { data: appointments } = await supabaseAdmin
+        .from('appointments')
+        .select('*')
+        .eq('salon_id', salon.id)
+        .eq('status', 'CONFIRMED')
+        .eq('reminder_sent', false)
+        .gte('start_time', windowStart.toISOString())
+        .lte('start_time', windowEnd.toISOString());
 
-        // Find appointments tomorrow (between 24h and 25h from now)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const startRange = new Date(tomorrow.getTime()); // +24h
-        startRange.setMinutes(0, 0, 0);
-        const endRange = new Date(tomorrow.getTime() + 60 * 60000); // +25h
-
-        const { data: upcomingAppts, error: fetchError } = await supabase
-            .from('appointments')
-            .select(`
-        id, start_time, customer_phone, customer_name,
-        salon:salons(name)
-      `)
-            .eq('status', 'CONFIRMED')
-            .gte('start_time', startRange.toISOString())
-            .lt('start_time', endRange.toISOString());
-
-        let queuedCount = 0;
-
-        if (upcomingAppts && upcomingAppts.length > 0) {
-            // Get template
-            const { data: tmpl } = await supabase
-                .from('notification_templates')
-                .select('content')
-                .eq('slug', 'reminder_24h')
-                .single();
-
-            const templateText = tmpl?.content || 'Randevu Hatırlatma: Yarın {{time}} saatinde randevunuz var.';
-
-            for (const apt of upcomingAppts) {
-                // Check if already queued to prevent dupes (optional optimization)
-
-                // Format content
-                const timeStr = new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-                // Supabase join can return array or object depending on relationship type
-                const salondata: any = apt.salon;
-                const salonName = Array.isArray(salondata) ? salondata[0]?.name : salondata?.name;
-
-                const msg = templateText
-                    .replace('{{customer_name}}', apt.customer_name || 'Sayın Müşteri')
-                    .replace('{{salon_name}}', salonName || 'Güzellik Merkezi')
-                    .replace('{{time}}', timeStr);
-
-                // Queue it
-                await supabase.rpc('queue_notification', {
-                    p_channel: 'SMS',
-                    p_recipient: apt.customer_phone,
-                    p_content: msg,
-                    p_related_id: apt.id,
-                    p_related_table: 'appointments'
-                });
-
-                queuedCount++;
+      if (appointments && appointments.length > 0) {
+        for (const appt of appointments) {
+          try {
+            const appointmentDate = new Date(appt.start_time);
+            const timeStr = format(appointmentDate, 'HH:mm', { locale: tr });
+            const dateStr = format(appointmentDate, 'd MMMM', { locale: tr });
+            
+            const message = `Hatirlatma: Sayin ${appt.customer_name}, ${salon.name} salonundaki randevunuz bugun saat ${timeStr}'dedir. Sizi bekliyoruz.`;
+            
+            const cleanPhone = appt.customer_phone?.replace(/\D/g, '') || '';
+            if (cleanPhone) {
+              await sendAppointmentSMS(salon.id, cleanPhone, message);
+              
+              // Mark as sent
+              await supabaseAdmin
+                .from('appointments')
+                .update({ reminder_sent: true })
+                .eq('id', appt.id);
+                
+              totalSent++;
             }
+          } catch (err: any) {
+            console.error(`Error sending reminder for appointment ${appt.id}:`, err);
+            errors.push({ id: appt.id, error: err.message });
+          }
         }
-
-        // ---------------------------------------------------------
-        // 2. PROCESS QUEUE (Send the SMS)
-        // ---------------------------------------------------------
-
-        const result = await NotificationService.processQueue(50); // Process up to 50 items
-
-        return NextResponse.json({
-            success: true,
-            generated_reminders: queuedCount,
-            queue_processed: result.processed,
-            queue_failed: result.failed
-        });
-
-    } catch (err: any) {
-        console.error('Cron Error:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+      }
     }
+
+    return NextResponse.json({
+      success: true,
+      totalSent,
+      errors: errors.length > 0 ? errors : undefined,
+      timestamp: now.toISOString()
+    });
+
+  } catch (err: any) {
+    console.error('Reminder Cron Error:', err);
+    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
+  }
 }

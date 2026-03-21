@@ -14,7 +14,9 @@ import {
     Save,
     X,
     TrendingUp,
-    AlertCircle
+    AlertCircle,
+    Users,
+    Database
 } from 'lucide-react';
 
 interface SalonServicesManagerProps {
@@ -33,6 +35,8 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
     const [newServiceId, setNewServiceId] = useState('');
     const [newPrice, setNewPrice] = useState(100);
     const [newDuration, setNewDuration] = useState(30);
+    const [newMaxParticipants, setNewMaxParticipants] = useState(1);
+    const [newRequiresResource, setNewRequiresResource] = useState(false);
 
     // Smart Defaults: Update price/duration when global service is selected
     useEffect(() => {
@@ -69,6 +73,8 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
         setNewServiceId(service.global_service_id);
         setNewPrice(service.price);
         setNewDuration(service.duration_min);
+        setNewMaxParticipants(service.max_participants || 1);
+        setNewRequiresResource(service.requires_resource || false);
         setShowAdd(true);
     };
 
@@ -80,7 +86,9 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                 // Update existing
                 await ServiceService.updateService(editingService.id, {
                     price: newPrice,
-                    duration_min: newDuration
+                    duration_min: newDuration,
+                    max_participants: newMaxParticipants,
+                    requires_resource: newRequiresResource
                 }, salonId);
             } else {
                 // Create new
@@ -88,15 +96,19 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                     salon_id: salonId,
                     global_service_id: newServiceId,
                     price: newPrice,
-                    duration_min: newDuration
+                    duration_min: newDuration,
+                    max_participants: newMaxParticipants,
+                    requires_resource: newRequiresResource
                 });
             }
 
             setShowAdd(false);
             setEditingService(null);
             setNewServiceId('');
-            setNewPrice(100); // Reset to default or keep last used? Resetting is safer.
+            setNewPrice(100);
             setNewDuration(30);
+            setNewMaxParticipants(1);
+            setNewRequiresResource(false);
             fetchData();
         } catch (err: any) {
             console.error('Hizmet kaydetme hatası:', err);
@@ -219,12 +231,42 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                                     </select>
                                 </div>
 
+                                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-surface-alt rounded-[24px] border border-border">
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <Users className="w-3.5 h-3.5" /> Maks. Katılımcı (Grup)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={newMaxParticipants}
+                                            onChange={(e) => setNewMaxParticipants(parseInt(e.target.value))}
+                                            className="w-full px-6 py-4.5 bg-white border border-border rounded-xl font-black text-text-main outline-none focus:border-primary transition-all"
+                                        />
+                                        <p className="text-[10px] text-text-muted font-bold ml-1">Aynı anda kaç kişi randevu alabilir?</p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            <Database className="w-3.5 h-3.5" /> Kaynak Kullanımı
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewRequiresResource(!newRequiresResource)}
+                                            className={`w-full px-6 py-4.5 border-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${newRequiresResource ? 'bg-primary/5 border-primary text-primary' : 'bg-white border-border text-text-muted'}`}
+                                        >
+                                            {newRequiresResource ? 'Koltuk/Oda Gerekli' : 'Kaynak Gerekli Değil'}
+                                        </button>
+                                        <p className="text-[10px] text-text-muted font-bold ml-1">Fiziksel bir kaynak (koltuk vb.) işgal eder mi?</p>
+                                    </div>
+                                </div>
+
                                 <div className="md:col-span-2 space-y-3">
                                     <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
                                         <AlertCircle className="w-3.5 h-3.5" /> Notlar (İsteğe Bağlı)
                                     </label>
                                     <textarea
-                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-medium text-text-secondary outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all min-h-[140px] resize-none leading-relaxed"
+                                        className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-medium text-text-secondary outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all min-h-[100px] resize-none leading-relaxed"
                                         placeholder="Hizmetle ilgili özel notlar veya ekipman detayları..."
                                     />
                                 </div>
@@ -267,6 +309,16 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                                     <span className="flex items-center gap-1.5 text-xs font-bold text-text-muted bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
                                         <CreditCard className="w-3.5 h-3.5" /> {service.price} ₺
                                     </span>
+                                    {service.max_participants && service.max_participants > 1 && (
+                                        <span className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/5 px-3 py-1 rounded-lg border border-primary/10">
+                                            <Users className="w-3.5 h-3.5" /> Grup ({service.max_participants})
+                                        </span>
+                                    )}
+                                    {service.requires_resource && (
+                                        <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-lg border border-amber-100">
+                                            <Database className="w-3.5 h-3.5" /> Kaynaklı
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>

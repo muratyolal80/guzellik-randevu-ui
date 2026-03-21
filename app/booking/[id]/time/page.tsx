@@ -23,7 +23,10 @@ export default function TimeSelection() {
     selectedStaff: bookingStaff,
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
-    appointmentId
+    appointmentId,
+    totalPrice: contextTotalPrice,
+    discountAmount: contextDiscountAmount,
+    activeCampaign
   } = useBooking();
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
@@ -260,7 +263,9 @@ export default function TimeSelection() {
                 salon={salon}
                 services={services as any}
                 staff={staff}
-                totalPrice={totalPrice}
+                totalPrice={contextTotalPrice}
+                discountAmount={contextDiscountAmount}
+                campaignName={activeCampaign?.name}
                 totalDuration={totalDurationStr}
                 step={2}
               />

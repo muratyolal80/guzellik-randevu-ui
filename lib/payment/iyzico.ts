@@ -143,5 +143,15 @@ export const IyzicoService = {
                 reject(new Error("iyzico.subscriptionCheckoutForm API is not supported in the current SDK version."));
             }
         });
+    },
+
+    async refund(data: any): Promise<any> {
+        const iyzico = await getIyzicoInstance();
+        return new Promise((resolve, reject) => {
+            iyzico.refund.create(data, (err: any, result: any) => {
+                if (err) reject(err);
+                else resolve(result);
+            });
+        });
     }
 };

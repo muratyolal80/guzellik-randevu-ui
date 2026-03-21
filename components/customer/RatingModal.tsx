@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ReviewService } from '@/services/db';
 
 interface RatingModalProps {
     isOpen: boolean;
@@ -22,26 +23,30 @@ export function RatingModal({ isOpen, onClose, appointment, salonId, onSubmit }:
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
+        if (rating === 0) {
+            alert('Lütfen bir puan seçiniz.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const { error } = await supabase
-                .from('reviews')
-                .insert({
-                    salon_id: salonId,
-                    user_id: appointment.customer_id || null,
-                    user_name: appointment.customer_name,
-                    rating,
-                    comment: comment || null
-                });
-
-            if (error) throw error;
+            await ReviewService.createReview({
+                salon_id: salonId,
+                user_id: appointment.customer_id ?? undefined,
+                user_name: appointment.customer_name || 'Misafir',
+                user_avatar: appointment.customer_avatar ?? undefined,
+                rating,
+                comment: comment || undefined,
+                appointment_id: appointment.id,
+                is_verified: true
+            });
 
             alert('Değerlendirmeniz için teşekkürler!');
             onSubmit?.();
             onClose();
         } catch (err) {
             console.error('Review submission failed:', err);
-            alert('Değerlendirme gönderilemedi.');
+            alert('Değerlendirme gönderilemedi. Lütfen tekrar deneyin.');
         } finally {
             setIsSubmitting(false);
         }

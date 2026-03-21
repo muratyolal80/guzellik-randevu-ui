@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
+import type { SalonDetail, Staff, SalonServiceDetail, CampaignRule } from '@/types';
 
 interface BookingContextType {
   // Salon info
@@ -31,10 +31,18 @@ interface BookingContextType {
   setCustomerPhone: (phone: string) => void;
   customerNotes: string;
   setCustomerNotes: (notes: string) => void;
+  participantCount: number;
+  setParticipantCount: (count: number) => void;
 
   // Rescheduling info
   appointmentId: string | null;
   setAppointmentId: (id: string | null) => void;
+
+  // Campaigns & Discounts
+  campaignRules: CampaignRule[];
+  activeCampaign: CampaignRule | null;
+  discountAmount: number;
+  totalPrice: number;
 
   // Reset booking
   resetBooking: () => void;
@@ -56,7 +64,68 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
+  const [participantCount, setParticipantCount] = useState(1);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
+
+  // Campaigns
+  const [campaignRules, setCampaignRules] = useState<CampaignRule[]>([]);
+  const [activeCampaign, setActiveCampaign] = useState<CampaignRule | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+
+  const basePrice = selectedServices.reduce((acc, s) => acc + (s.price || 0), 0);
+
+  // Fetch campaigns for the salon
+  React.useEffect(() => {
+    if (salon?.id) {
+      const fetchRules = async () => {
+        const { CampaignService } = await import('@/services/db');
+        const rules = await CampaignService.getSalonCampaignRules(salon.id);
+        setCampaignRules(rules.filter(r => r.is_active));
+      };
+      fetchRules();
+    }
+  }, [salon?.id]);
+
+  // Calculate discount based on selected date/time
+  React.useEffect(() => {
+    if (!selectedDate || !selectedTime || campaignRules.length === 0) {
+      setActiveCampaign(null);
+      setDiscountAmount(0);
+      return;
+    }
+
+    const dayOfWeek = new Date(selectedDate).getDay() || 7; // Sunday is 0 in JS, 7 in our DB if ISO-like
+    // Note: JS Date.getDay() 0 (Paz), 1 (Pzt)... 6 (Cmt). Bizim DB [1, 2...7] olabilir.
+    // Düzeltme: JS 0: Pazar. Bizim DB'de 7: Pazar yapalım (SQL'de Check kısıtı 1-7).
+    const dbDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+    const matchingRule = campaignRules.find(rule => {
+      // Day check
+      if (rule.days_of_week && !rule.days_of_week.includes(dbDay)) return false;
+
+      // Time check
+      if (rule.start_time && rule.end_time) {
+        const current = selectedTime; // "HH:mm"
+        return current >= rule.start_time && current <= rule.end_time;
+      }
+
+      return true;
+    });
+
+    if (matchingRule) {
+      setActiveCampaign(matchingRule);
+      let disc = 0;
+      if (matchingRule.discount_type === 'PERCENTAGE') {
+        disc = (basePrice * matchingRule.discount_value) / 100;
+      } else {
+        disc = matchingRule.discount_value;
+      }
+      setDiscountAmount(disc);
+    } else {
+      setActiveCampaign(null);
+      setDiscountAmount(0);
+    }
+  }, [selectedDate, selectedTime, campaignRules, basePrice]);
 
   // Auto-fetch salon if salonId is provided
   React.useEffect(() => {
@@ -91,6 +160,9 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
     }
   }, [salonId]);
 
+  // Calculate final price
+  const totalPrice = Math.max(0, basePrice - discountAmount);
+
   const resetBooking = () => {
     // Keep salon loaded if salonId was provided
     if (!salonId) setSalon(null);
@@ -101,7 +173,11 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
     setCustomerName('');
     setCustomerPhone('');
     setCustomerNotes('');
+    setParticipantCount(1);
     setAppointmentId(null);
+    setCampaignRules([]);
+    setActiveCampaign(null);
+    setDiscountAmount(0);
   };
 
   const addService = (service: SalonServiceDetail) => {
@@ -136,8 +212,14 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
         setCustomerPhone,
         customerNotes,
         setCustomerNotes,
+        participantCount,
+        setParticipantCount,
         appointmentId,
         setAppointmentId,
+        campaignRules,
+        activeCampaign,
+        discountAmount,
+        totalPrice,
         resetBooking,
       }}
     >

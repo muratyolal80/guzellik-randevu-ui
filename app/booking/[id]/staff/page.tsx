@@ -74,7 +74,13 @@ export default function StaffSelection() {
           isOnline: s.is_active
         }));
 
-        setStaff(mappedStaff);
+        // Filter based on Faz 4 rules: 
+        // Verified (Email or Phone) OR KVKK Consent for unverified
+        const visibleStaff = mappedStaff.filter((s: Staff) => 
+          s.is_email_verified || s.is_phone_verified || s.kvkk_consent
+        );
+
+        setStaff(visibleStaff);
 
         // Handle Staff Pre-selection
         if (rescheduleStaffId && (!bookingStaff || bookingStaff.id !== rescheduleStaffId)) {

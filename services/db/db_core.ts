@@ -37,7 +37,7 @@ import type {
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
   return (
-    typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
   );
 };
 
@@ -243,6 +243,10 @@ export const MasterDataService = {
   ): Promise<ServiceCategory[]> {
     if (!typeIds || typeIds.length === 0) return [];
 
+    // Filter out invalid IDs
+    const validIds = typeIds.filter((id) => id && id !== "");
+    if (validIds.length === 0) return [];
+
     const { data, error } = await supabase
       .from("salon_type_categories")
       .select(
@@ -250,7 +254,7 @@ export const MasterDataService = {
         category:service_categories(*)
       `,
       )
-      .in("salon_type_id", typeIds);
+      .in("salon_type_id", validIds);
 
     if (error) {
       console.error("Error fetching categories for salon types:", error);

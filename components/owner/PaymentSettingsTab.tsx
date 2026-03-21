@@ -41,6 +41,8 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
     const [address, setAddress] = useState('');
+    const [depositRate, setDepositRate] = useState(0);
+    const [cancellationDeadline, setCancellationDeadline] = useState(24);
 
     useEffect(() => {
         fetchInitialData();
@@ -68,6 +70,8 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
             if (salonData) {
                 setSalon(salonData);
                 setAddress(salonData.address || '');
+                setDepositRate(salonData.deposit_rate || 0);
+                setCancellationDeadline(salonData.cancellation_deadline_hours || 24);
             }
             if (profileData) {
                 setProfile(profileData);
@@ -94,6 +98,23 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
             console.error('Registration fetch error:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateDepositRate = async () => {
+        setSaving(true);
+        setMessage(null);
+        try {
+            await SalonDataService.updateSalon(salonId, {
+                deposit_rate: depositRate,
+                cancellation_deadline_hours: cancellationDeadline,
+                updated_at: new Date().toISOString()
+            });
+            setMessage({ type: 'success', text: 'Ödeme ve iptal politikası başarıyla güncellendi.' });
+        } catch (err: any) {
+            setMessage({ type: 'error', text: 'Kapora oranı güncellenemedi.' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -182,6 +203,63 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
                         <p className="text-xs font-medium text-text-secondary mt-1">Randevu ödemelerini alabilmeniz için iyzico alt üye işyeri başvurunuzu buradan yapın.</p>
                     </div>
                     <CreditCard className="w-10 h-10 text-primary opacity-20" />
+                </div>
+
+                {/* Faz 7: Online Kapora Ayarları Section */}
+                <div className="p-10 border-b border-border bg-amber-50/20">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">Randevu Kapora Oranı</h4>
+                            <p className="text-xs font-medium text-amber-800 opacity-80">Randevu anında müşteriden alınacak ön ödeme yüzdesi (%0 = Kapora yok)</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="relative w-32">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={depositRate}
+                                    onChange={(e) => setDepositRate(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                                    className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-center font-black text-amber-900 focus:border-amber-500 outline-none"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-amber-400">%</span>
+                            </div>
+                            <button
+                                onClick={handleUpdateDepositRate}
+                                disabled={saving}
+                                className="px-6 py-3 bg-amber-500 text-white rounded-xl font-black text-xs shadow-lg shadow-amber-200 hover:bg-amber-600 transition-all disabled:opacity-50"
+                            >
+                                Ayarları Kaydet
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 pt-8 border-t border-amber-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">İptal Politikası (Refund)</h4>
+                            <p className="text-xs font-medium text-amber-800 opacity-80">Randevuya kaç saat kala iptal edilirse kapora iade edilsin?</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="relative w-32">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="168"
+                                    value={cancellationDeadline}
+                                    onChange={(e) => setCancellationDeadline(Math.max(0, parseInt(e.target.value) || 0))}
+                                    className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-center font-black text-amber-900 focus:border-amber-500 outline-none"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-amber-400">Saat</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex items-start gap-3 bg-white/50 p-4 rounded-2xl border border-amber-100">
+                        <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-medium text-amber-800 leading-relaxed">
+                            Örn: %20 olarak ayarlandığında, 500 TL'lik bir randevu için müşteriden rezervasyon anında 100 TL tahsil edilir. Kalan tutar salonda ödenir. %100 seçilirse tam ödeme alınır.
+                        </p>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSave} className="p-10 space-y-8">

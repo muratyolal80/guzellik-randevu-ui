@@ -363,7 +363,15 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                                                     {review.user_name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <h5 className="font-bold text-sm text-text-main">{review.user_name}</h5>
+                                                    <h5 className="font-bold text-sm text-text-main flex items-center gap-1.5">
+                                                        {review.user_name}
+                                                        {review.is_verified && (
+                                                            <span className="flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-100 font-bold uppercase tracking-tighter shrink-0">
+                                                                <span className="material-symbols-outlined text-[12px] filled text-green-600">verified</span>
+                                                                Hizmet Aldı
+                                                            </span>
+                                                        )}
+                                                    </h5>
                                                     <div className="flex text-yellow-400">
                                                         {[...Array(5)].map((_, i) => (
                                                             <span key={i} className={`material-symbols-outlined text-xs ${i < review.rating ? 'filled' : ''}`}>star</span>
