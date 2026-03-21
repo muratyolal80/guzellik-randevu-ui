@@ -132,12 +132,17 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const handleAssignStaff = async (staffMember: Staff) => {
         try {
             setSaving(true);
+            await LimitEnforcer.ensureLimit(salonId, 'staff');
             await StaffService.assignStaffToBranch(staffMember.id, salonId);
             setShowAssignModal(false);
             fetchStaff();
-        } catch (err) {
-            console.error('Atama hatası:', err);
-            alert('Atama sırasında bir hata oluştu.');
+        } catch (err: any) {
+             if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+                alert('Personel limitine ulaştınız. Atama yapabilmek için paketinizi yükseltmelisiniz.');
+            } else {
+                console.error('Atama hatası:', err);
+                alert('Atama sırasında bir hata oluştu.');
+            }
         } finally {
             setSaving(false);
         }
