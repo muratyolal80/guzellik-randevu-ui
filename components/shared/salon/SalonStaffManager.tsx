@@ -21,7 +21,10 @@ import {
     Star,
     MoreVertical,
     ChevronRight,
-    Search
+    Search,
+    Phone,
+    ShieldCheck,
+    ShieldAlert
 } from 'lucide-react';
 
 const DEFAULT_HOURS = [
@@ -56,6 +59,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [formEmail, setFormEmail] = useState('');
     const [formSpecialty, setFormSpecialty] = useState('');
     const [formPhoto, setFormPhoto] = useState<string>('');
+    const [formPhone, setFormPhone] = useState('');
+    const [formTcNo, setFormTcNo] = useState('');
+    const [formKvkkConsent, setFormKvkkConsent] = useState(false);
     const [formWorkingHours, setFormWorkingHours] = useState(DEFAULT_HOURS);
     
     const [saving, setSaving] = useState(false);
@@ -98,6 +104,45 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [allOwnerStaff, setAllOwnerStaff] = useState<Staff[]>([]);
+    const [assigningLoading, setAssigningLoading] = useState(false);
+
+    const handleOpenAssignExisting = async () => {
+        try {
+            setAssigningLoading(true);
+            const ownerSalons = await SalonDataService.getSalonsByOwner((await SalonDataService.getSalonById(salonId))?.owner_id || '');
+            const staffList = await StaffService.getStaffByOwner((await SalonDataService.getSalonById(salonId))?.owner_id || '');
+            
+            // Current salon's staff IDs
+            const currentStaffIds = staff.map(s => s.id);
+            
+            // Filter staff not in current salon
+            const otherStaff = staffList.filter(s => !currentStaffIds.includes(s.id));
+            
+            setAllOwnerStaff(otherStaff);
+            setShowAssignModal(true);
+        } catch (err) {
+            console.error('Personeller çekilemedi:', err);
+        } finally {
+            setAssigningLoading(false);
+        }
+    };
+
+    const handleAssignStaff = async (staffMember: Staff) => {
+        try {
+            setSaving(true);
+            await StaffService.assignStaffToBranch(staffMember.id, salonId);
+            setShowAssignModal(false);
+            fetchStaff();
+        } catch (err) {
+            console.error('Atama hatası:', err);
+            alert('Atama sırasında bir hata oluştu.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleOpenAdd = async () => {
         try {
             setLoading(true);
@@ -107,6 +152,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setFormEmail('');
             setFormSpecialty('');
             setFormPhoto('');
+            setFormPhone('');
+            setFormTcNo('');
+            setFormKvkkConsent(false);
             setSelectedServiceIds([]);
             setFormWorkingHours(DEFAULT_HOURS);
             setShowModal(true);
@@ -128,6 +176,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         setFormEmail(member.email || '');
         setFormSpecialty(member.role || member.specialty || '');
         setFormPhoto(member.photo || member.image || '');
+        setFormPhone(member.phone || '');
+        setFormTcNo(member.tc_no || '');
+        setFormKvkkConsent(member.kvkk_consent || false);
         
         // Fetch linked services
         try {
@@ -151,6 +202,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     email: formEmail,
                     role: formSpecialty,
                     photo: formPhoto,
+                    phone: formPhone,
+                    tc_no: formTcNo,
+                    kvkk_consent: formKvkkConsent,
                     is_active: true
                 }, formWorkingHours);
 
@@ -162,7 +216,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     name: formName,
                     email: formEmail,
                     role: formSpecialty,
-                    photo: formPhoto
+                    photo: formPhoto,
+                    phone: formPhone,
+                    tc_no: formTcNo,
+                    kvkk_consent: formKvkkConsent
                 });
                 
                 await StaffService.updateStaffServices(editingStaffId, salonId, selectedServiceIds);
@@ -252,6 +309,14 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         />
                     </div>
                     <button
+                        onClick={handleOpenAssignExisting}
+                        disabled={assigningLoading}
+                        className="flex items-center gap-2.5 px-6 py-4 bg-white border border-border text-text-main rounded-2xl font-black shadow-sm hover:bg-gray-50 transition-all whitespace-nowrap disabled:opacity-50"
+                    >
+                        <Users className="w-5 h-5 text-primary" /> 
+                        {assigningLoading ? 'Yükleniyor...' : 'Mevcut Personeli Ata'}
+                    </button>
+                    <button
                         onClick={handleOpenAdd}
                         className="flex items-center gap-2.5 px-8 py-4 bg-primary text-white rounded-2xl font-black shadow-[0_10px_20px_rgba(var(--primary-rgb),0.2)] hover:shadow-[0_15px_25px_rgba(var(--primary-rgb),0.3)] hover:-translate-y-0.5 active:translate-y-0 transition-all whitespace-nowrap"
                     >
@@ -313,7 +378,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     <span className="text-sm font-black text-text-main">{member.rating || '5.0'}</span>
                                     <span className="text-[10px] text-text-muted font-bold">({member.review_count || 0})</span>
                                 </div>
-                                <Mail className={`w-4 h-4 transition-colors ${member.email ? 'text-primary' : 'text-gray-200'}`} />
+                                <div className="flex items-center gap-2">
+                                    {member.is_email_verified && <ShieldCheck className="w-4 h-4 text-green-500" />}
+                                    <Mail className={`w-4 h-4 transition-colors ${member.email ? 'text-primary' : 'text-gray-200'}`} />
+                                </div>
                             </div>
                         </div>
 
@@ -432,6 +500,53 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                             />
                                         </div>
                                         <p className="text-[10px] text-text-muted font-bold ml-2">Personel bu e-posta ile giriş yaptığında takvimine erişebilir.</p>
+                                    </div>
+
+                                    <div className="group space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            TC Kimlik No
+                                        </label>
+                                        <input
+                                            type="text"
+                                            maxLength={11}
+                                            value={formTcNo}
+                                            onChange={(e) => setFormTcNo(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full px-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-bold text-text-main outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
+                                            placeholder="11 Haneli TC No"
+                                        />
+                                    </div>
+
+                                    <div className="group space-y-3">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            Telefon Numarası
+                                        </label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                            <input
+                                                type="tel"
+                                                value={formPhone}
+                                                onChange={(e) => setFormPhone(e.target.value)}
+                                                className="w-full pl-16 pr-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-bold text-text-main outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
+                                                placeholder="05XX XXX XX XX"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="group space-y-3 md:col-span-2 bg-amber-50/50 p-6 rounded-[32px] border border-amber-100">
+                                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={formKvkkConsent}
+                                                onChange={(e) => setFormKvkkConsent(e.target.checked)}
+                                                className="w-6 h-6 rounded-lg border-2 border-amber-300 text-amber-600 focus:ring-amber-500"
+                                            />
+                                            <div className="flex-1">
+                                                <span className="text-xs font-black text-amber-900 uppercase tracking-tight block">KVKK Görünürlük Onayı</span>
+                                                <span className="text-[10px] text-amber-700 font-bold leading-tight">
+                                                    Personelin iletişim bilgileri henüz doğrulanmamış olsa bile, salon detay sayfasında listelenmesine izin veriyorum.
+                                                </span>
+                                            </div>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -587,6 +702,67 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                             >
                                 Değişiklikleri Onayla
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Assign Existing Staff Modal */}
+            {showAssignModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-[40px] shadow-2xl border border-white/20 animate-in zoom-in duration-300">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 px-10 py-8 border-b border-border flex items-center justify-between">
+                            <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg">
+                                    <Users className="w-7 h-7" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-black text-text-main tracking-tight">Mevcut Personeli Ata</h3>
+                                    <p className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mt-1 opacity-60">
+                                        Diğer şubelerinizdeki personeller
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowAssignModal(false)}
+                                className="p-4 hover:bg-gray-100 rounded-3xl transition-all group"
+                            >
+                                <X className="w-7 h-7 text-text-muted group-hover:text-text-main transition-all" />
+                            </button>
+                        </div>
+
+                        <div className="p-10 space-y-4">
+                            {allOwnerStaff.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {allOwnerStaff.map((member) => (
+                                        <div key={member.id} className="flex items-center justify-between p-6 bg-surface-alt rounded-[32px] border border-border group hover:border-primary/30 transition-all">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-16 h-16 rounded-[20px] bg-cover bg-center border-2 border-white shadow-md"
+                                                    style={{ backgroundImage: `url(${member.photo || member.image || 'https://i.pravatar.cc/150'})` }}
+                                                />
+                                                <div>
+                                                    <h4 className="text-lg font-black text-text-main">{member.name}</h4>
+                                                    <p className="text-xs font-bold text-text-muted uppercase tracking-widest">{member.role || 'Uzman'}</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleAssignStaff(member)}
+                                                disabled={saving}
+                                                className="px-6 py-3 bg-white text-primary border border-primary/20 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm"
+                                            >
+                                                {saving ? 'Atanıyor...' : 'Şubeye Ata'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="py-20 text-center">
+                                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Users className="w-10 h-10 text-text-muted/20" />
+                                    </div>
+                                    <h4 className="text-xl font-black text-text-main">Atanacak Personel Kalmadı</h4>
+                                    <p className="text-sm text-text-muted font-bold mt-2">Tüm personelleriniz zaten bu şubede görevli kanka.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

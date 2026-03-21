@@ -25,11 +25,14 @@ export function ActiveBranchProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (user) {
             loadBranches();
+        } else {
+            // If user is null (not logged in), we stop loading
+            setLoading(false);
         }
     }, [user]);
 
     const loadBranches = async () => {
-        if (!user?.id) return;
+        if (!user?.id || user.id === "") return;
 
         try {
             setLoading(true);

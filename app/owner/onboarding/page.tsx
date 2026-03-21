@@ -565,8 +565,22 @@ export default function OnboardingWizard() {
       }
     }
 
+    // Step 2: Basic Info Validation
+    if (currentStep === 2) {
+      if (!salonData.name || !salonData.primary_type_id) {
+        alert("Lütfen salon adını ve ana işletme tipini seçin.");
+        return;
+      }
+    }
+
     // CREATE SALON AT STEP 3 TO ALLOW MASTER COMPONENTS TO LIVE-SAVE DATA
     if (currentStep === 3) {
+      // Step 3 Validation
+      if (!salonData.city_id || !salonData.district_id) {
+        alert("Lütfen şehir ve ilçe seçimini yapın.");
+        return;
+      }
+
       if (!salonData.id) {
         setLoading(true);
         try {

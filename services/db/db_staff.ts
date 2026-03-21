@@ -38,7 +38,7 @@ import { SubscriptionService } from "./db_finance";
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
   return (
-    typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
   );
 };
 
@@ -50,12 +50,50 @@ export const StaffService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Staff[]> {
-    const { data, error } = await supabase
+    // 1. Get staff whose home branch is salonId
+    const { data: homeStaff, error: homeError } = await supabase
       .from("staff")
       .select("*")
       .eq("salon_id", salonId)
-      .eq("is_active", true)
-      .order("name");
+      .eq("is_active", true);
+
+    if (homeError) throw homeError;
+
+    // 2. Get staff assigned via staff_branches
+    const { data: assignedStaffMap, error: assignedError } = await supabase
+      .from("staff_branches")
+      .select("staff(*)")
+      .eq("salon_id", salonId);
+
+    if (assignedError) throw assignedError;
+
+    // Merge and Deduplicate
+    const allStaff = [...(homeStaff || [])];
+    const assigned = (assignedStaffMap || [])
+      .map((item: any) => item.staff)
+      .filter((s) => s && s.is_active);
+
+    assigned.forEach((s) => {
+      if (!allStaff.find((existing) => existing.id === s.id)) {
+        allStaff.push(s);
+      }
+    });
+
+    return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  },
+
+  /**
+   * Get all staff across all salons for an owner
+   */
+  async getStaffByOwner(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Staff[]> {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("*, salon:salons!inner(owner_id)")
+      .eq("salons.owner_id", ownerId)
+      .eq("is_active", true);
 
     if (error) throw error;
     return data || [];
@@ -110,6 +148,11 @@ export const StaffService = {
         salon_id: staffData.salon_id,
         user_id: staffData.user_id,
         created_at: new Date().toISOString(),
+        // Faz 4 Fields
+        tc_no: staffData.tc_no,
+        is_email_verified: staffData.is_email_verified || false,
+        is_phone_verified: staffData.is_phone_verified || false,
+        kvkk_consent: staffData.kvkk_consent || false,
       })
       .select()
       .single();
@@ -290,6 +333,37 @@ export const StaffService = {
       await this.linkStaffToServices(staffId, salonId, serviceIds, supabase);
     }
   },
+
+  /**
+   * Assign staff to a specific branch
+   */
+  async assignStaffToBranch(
+    staffId: string,
+    salonId: string,
+    isPrimary: boolean = false,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("staff_branches")
+      .upsert({ staff_id: staffId, salon_id: salonId, is_primary: isPrimary });
+    if (error) throw error;
+  },
+
+  /**
+   * Remove staff from a specific branch
+   */
+  async removeStaffFromBranch(
+    staffId: string,
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("staff_branches")
+      .delete()
+      .eq("staff_id", staffId)
+      .eq("salon_id", salonId);
+    if (error) throw error;
+  },
 };
 
 export const ServiceService = {
@@ -369,6 +443,8 @@ export const ServiceService = {
       global_service_id: string;
       price: number;
       duration_min: number;
+      max_participants?: number;
+      requires_resource?: boolean;
     },
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<any> {
@@ -387,7 +463,13 @@ export const ServiceService = {
    */
   async updateService(
     id: string,
-    updates: { price?: number; duration_min?: number; is_active?: boolean },
+    updates: { 
+      price?: number; 
+      duration_min?: number; 
+      is_active?: boolean;
+      max_participants?: number;
+      requires_resource?: boolean;
+    },
     salonId?: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<any> {

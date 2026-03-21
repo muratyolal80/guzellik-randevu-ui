@@ -37,7 +37,7 @@ import type {
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
   return (
-    typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
   );
 };
 

@@ -5,3 +5,5 @@ export * from "./db/db_appointments";
 export * from "./db/db_finance";
 export * from "./db/db_support";
 export * from "./db/db_user";
+export * from "./db/db_customer";
+export * from "./db/db_resource";

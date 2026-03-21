@@ -88,59 +88,76 @@ export async function middleware(request: NextRequest) {
 
         // Fetch user role ONLY for protected routes
         let userRole = '';
-        try {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', user.id)
-                .single();
-            userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
-        } catch (err) {
+        if (user.id && user.id !== "") {
+            try {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
+            } catch (err) {
+                console.error('Middleware: Error fetching profile:', err);
+                userRole = 'CUSTOMER';
+            }
+        } else {
             userRole = 'CUSTOMER';
         }
 
         // A. Admin Routes
         if (pathname.startsWith('/admin')) {
-            if (userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
+            if (userRole !== 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/?error=unauthorized_admin', request.url));
             }
         }
 
         // B. Owner Routes
         if (pathname.startsWith('/owner')) {
-            if (userRole !== 'SALON_OWNER' && userRole !== 'MANAGER' && userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
+            if (userRole !== 'SALON_OWNER' && userRole !== 'MANAGER' && userRole !== 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/?error=unauthorized_owner', request.url));
             }
         }
 
         // C. Staff Routes
         if (pathname.startsWith('/staff')) {
-            if (userRole !== 'STAFF' && userRole !== 'SALON_OWNER' && userRole !== 'SUPER_ADMIN' && userRole !== 'ADMIN') {
+            if (userRole !== 'STAFF' && userRole !== 'SALON_OWNER' && userRole !== 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/?error=unauthorized_staff', request.url));
             }
         }
 
         // D. Salon Owner Specific Status Checks
-        if (userRole === 'SALON_OWNER' && !pathname.startsWith('/owner/onboarding')) {
-            const { data: salon } = await supabase
-                .from('salons')
-                .select('id, status')
-                .eq('owner_id', user.id)
-                .maybeSingle();
+        if (userRole === 'SALON_OWNER' && !pathname.startsWith('/owner/onboarding') && user.id && user.id !== "") {
+            let salon: any = null;
+            let subscription: any = null;
 
-            if (!salon) {
-                // If no salon found, force onboarding
-                return NextResponse.redirect(new URL('/owner/onboarding', request.url));
+            try {
+                const { data: salonData } = await supabase
+                    .from('salons')
+                    .select('id, status')
+                    .eq('owner_id', user.id)
+                    .maybeSingle();
+
+                salon = salonData;
+
+                if (!salon) {
+                    // If no salon found, force onboarding
+                    return NextResponse.redirect(new URL('/owner/onboarding', request.url));
+                }
+
+                // check subscription status
+                const { data: subData } = await supabase
+                    .from('subscriptions')
+                    .select('status')
+                    .eq('salon_id', salon.id)
+                    .maybeSingle();
+
+                subscription = subData;
+            } catch (err) {
+                console.error('Middleware: Error fetching salon/subscription:', err);
             }
 
-            // check subscription status
-            const { data: subscription } = await supabase
-                .from('subscriptions')
-                .select('status')
-                .eq('salon_id', salon.id)
-                .maybeSingle();
-
-            if (salon.status === 'PENDING_APPROVAL' || (subscription && subscription.status === 'PENDING_APPROVAL')) {
+            if (salon && (salon.status === 'PENDING_APPROVAL' || (subscription && subscription.status === 'PENDING_APPROVAL'))) {
+                // Show a generic "Waiting for Approval" notification/page if they attempt to access restricted owner areas
                 // Show a generic "Waiting for Approval" notification/page if they attempt to access restricted owner areas
                 // For now, redirecting to onboarding might show the PENDING UI we built, 
                 // but a dedicated /owner/waiting-approval page is better.
@@ -154,7 +171,7 @@ export async function middleware(request: NextRequest) {
         // E. Cross-panel redirection for customers trying to access customer dashboard
         const customerPaths = ['/customer', '/profile', '/appointments', '/favorites'];
         if (customerPaths.some(path => pathname.startsWith(path))) {
-            if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') {
+            if (userRole === 'SUPER_ADMIN') {
                 return NextResponse.redirect(new URL('/admin', request.url));
             }
             if (userRole === 'SALON_OWNER' || userRole === 'MANAGER') {

@@ -27,6 +27,7 @@ import type {
   Profile,
   Coupon,
   Package,
+  CampaignRule,
   Transaction,
   AppointmentCoupon,
   DiscountType,
@@ -34,11 +35,13 @@ import type {
   PaymentStatus,
 } from "@/types";
 import { AuditLogService } from "./db_support";
+import { ServiceService } from "./db_staff";
+import { ResourceService } from "./db_resource";
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
   return (
-    typeof supabaseUrl === "string" && supabaseUrl.includes("localhost:8000")
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
   );
 };
 
@@ -141,14 +144,81 @@ export const AppointmentService = {
     appointment: Omit<Appointment, "id" | "created_at" | "updated_at">,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Appointment> {
-    const { data, error } = await supabase
-      .from("appointments")
-      .insert(appointment)
-      .select()
-      .single();
+    // Phase 6: Advanced Logic
+    try {
+      // 1. Fetch service details to check constraints
+      const service = await ServiceService.getServiceById(appointment.salon_service_id, appointment.salon_id, supabase);
+      if (!service) throw new Error("Hizmet bulunamadı.");
 
-    if (error) throw error;
-    return data;
+      let resourceId = appointment.resource_id;
+
+      // 2. Capacity Check for Group Services
+      if (service.max_participants && service.max_participants > 1) {
+        // Find existing appointments for the same slot, staff and service
+        const { data: existingAppts } = await supabase
+          .from("appointments")
+          .select("participant_count")
+          .eq("salon_id", appointment.salon_id)
+          .eq("staff_id", appointment.staff_id)
+          .eq("salon_service_id", appointment.salon_service_id)
+          .eq("start_time", appointment.start_time)
+          .neq("status", "CANCELLED");
+
+        const currentTotal = existingAppts?.reduce((sum, a) => sum + (a.participant_count || 1), 0) || 0;
+        const newTotal = currentTotal + (appointment.participant_count || 1);
+
+        if (newTotal > service.max_participants) {
+          throw new Error(`Kapasite dolu. Bu saatte en fazla ${service.max_participants} kişi randevu alabilir. Mevcut: ${currentTotal}`);
+        }
+      }
+
+      // 3. Resource Allocation (Optional/Background)
+      if (service.requires_resource && !resourceId) {
+        const resources = await ResourceService.getResourcesBySalon(appointment.salon_id, supabase);
+        const activeResources = resources.filter(r => r.is_active);
+
+        if (activeResources.length === 0) {
+          throw new Error("Bu işlem için gerekli fiziksel kaynak (koltuk/oda) bulunamadı.");
+        }
+
+        // Find which resources are busy at this EXACT time
+        const { data: busyResources } = await supabase
+          .from("appointments")
+          .select("resource_id")
+          .eq("salon_id", appointment.salon_id)
+          .eq("start_time", appointment.start_time)
+          .not("resource_id", "is", null)
+          .neq("status", "CANCELLED");
+
+        const busyIds = new Set(busyResources?.map(r => r.resource_id) || []);
+        
+        // Pick first available resource
+        const availableResource = activeResources.find(r => !busyIds.has(r.id));
+        
+        if (!availableResource) {
+          throw new Error("Bu saat için uygun koltuk/oda kalmadı.");
+        }
+        
+        resourceId = availableResource.id;
+      }
+
+      // 4. Save Appointment
+      const { data, error } = await supabase
+        .from("appointments")
+        .insert({
+          ...appointment,
+          resource_id: resourceId,
+          participant_count: appointment.participant_count || 1
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error("Appointment creation failed:", err);
+      throw err;
+    }
   },
 
   /**
@@ -455,6 +525,55 @@ export const CampaignService = {
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<void> {
     const { error } = await supabase.from("packages").delete().eq("id", id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Get all active campaign rules for a salon
+   */
+  async getSalonCampaignRules(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<CampaignRule[]> {
+    const { data, error } = await supabase
+      .from("campaign_rules")
+      .select("*")
+      .eq("salon_id", salonId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data as any) || [];
+  },
+
+  /**
+   * Create a new campaign rule
+   */
+  async createCampaignRule(
+    rule: Omit<CampaignRule, "id" | "created_at" | "updated_at">,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<CampaignRule> {
+    const { data, error } = await supabase
+      .from("campaign_rules")
+      .insert(rule)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete a campaign rule
+   */
+  async deleteCampaignRule(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("campaign_rules")
+      .delete()
+      .eq("id", id);
 
     if (error) throw error;
   },

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import { AppointmentService, SalonDataService, StaffService } from '@/services/db';
+import { AppointmentService, SalonDataService, StaffService, ReportingService } from '@/services/db';
 import {
     TrendingUp,
     DollarSign,
@@ -23,69 +23,22 @@ export default function OwnerReports() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
     const [loading, setLoading] = useState(true);
-    const [appointments, setAppointments] = useState<any[]>([]);
-    const [reportData, setReportData] = useState({
-        totalRevenue: 0,
-        completedAppts: 0,
-        avgTicket: 0,
-        revenueTrend: '+12.5%',
-        serviceStats: [] as any[],
-        staffStats: [] as any[]
-    });
+    const [reportDays, setReportDays] = useState(30);
+    const [reportData, setReportData] = useState<any>(null);
 
     useEffect(() => {
         if (user && activeBranch) {
             fetchReportData();
         }
-    }, [user, activeBranch]);
+    }, [user, activeBranch, reportDays]);
 
     const fetchReportData = async () => {
         if (!activeBranch) return;
 
         try {
             setLoading(true);
-
-            // Son 30 günlük veriyi getir
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-            const appts = await AppointmentService.getAppointmentsBySalon(
-                activeBranch.id,
-                thirtyDaysAgo.toISOString()
-            );
-
-            setAppointments(appts);
-
-            // Hesaplamalar (Tip uyuşmazlığı için any kullanımı)
-            const completed = appts.filter(a => a.status === 'COMPLETED');
-            const totalRev = completed.reduce((sum, a: any) => sum + (a.service?.price || 0), 0);
-
-            // Servis bazlı dağılım
-            const serviceMap: Record<string, any> = {};
-            completed.forEach((a: any) => {
-                const name = a.service?.global_service?.name || 'Diğer';
-                if (!serviceMap[name]) serviceMap[name] = { name, count: 0, revenue: 0 };
-                serviceMap[name].count++;
-                serviceMap[name].revenue += (a.service?.price || 0);
-            });
-
-            // Personel bazlı dağılım
-            const staffMap: Record<string, any> = {};
-            completed.forEach((a: any) => {
-                const name = a.staff_id;
-                if (!staffMap[name]) staffMap[name] = { id: name, count: 0, revenue: 0 };
-                staffMap[name].count++;
-                staffMap[name].revenue += (a.service?.price || 0);
-            });
-
-            setReportData({
-                totalRevenue: totalRev,
-                completedAppts: completed.length,
-                avgTicket: completed.length > 0 ? Math.round(totalRev / completed.length) : 0,
-                revenueTrend: '+12.5%',
-                serviceStats: Object.values(serviceMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5),
-                staffStats: Object.values(staffMap).sort((a, b) => b.revenue - a.revenue)
-            });
+            const data = await ReportingService.getSalonReport(activeBranch.id, reportDays);
+            setReportData(data);
         } catch (err) {
             console.error('Rapor hatası:', err);
         } finally {
@@ -183,7 +136,7 @@ export default function OwnerReports() {
                     </div>
                 </div>
 
-                {/* Personel Performansı */}
+                 {/* Personel Performansı */}
                 <div className="bg-white rounded-[40px] border border-border shadow-card overflow-hidden">
                     <div className="p-8 border-b border-border flex items-center justify-between bg-gray-50/30">
                         <h3 className="text-xl font-black text-text-main flex items-center gap-3">
@@ -191,20 +144,22 @@ export default function OwnerReports() {
                         </h3>
                     </div>
                     <div className="p-6">
-                        {reportData.staffStats.length > 0 ? (
+                        {reportData?.staffStats?.length > 0 ? (
                             <div className="space-y-4">
-                                {reportData.staffStats.map((stat, idx) => (
+                                {reportData.staffStats.map((stat: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-6 p-4 rounded-[24px] hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                                         <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center font-black text-primary border border-border">
                                             {idx + 1}
                                         </div>
                                         <div className="flex-1 overflow-hidden">
-                                            <p className="text-sm font-black text-text-main truncate">Personel #{stat.id.split('-')[0]}</p>
+                                            <p className="text-sm font-black text-text-main truncate">{stat.name}</p>
                                             <p className="text-[10px] font-bold text-text-muted uppercase tracking-tight">{stat.count} Randevu Tamamladı</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-sm font-black text-text-main">₺{stat.revenue.toLocaleString('tr-TR')}</p>
-                                            <p className="text-[10px] font-bold text-green-600 uppercase">+%8.2</p>
+                                            <p className="text-[10px] font-bold text-green-600 uppercase">
+                                                {((stat.revenue / reportData.totalRevenue) * 100).toFixed(1)}% Pay
+                                            </p>
                                         </div>
                                         <ArrowRight className="w-4 h-4 text-gray-300 ml-2" />
                                     </div>
@@ -224,7 +179,12 @@ export default function OwnerReports() {
                 </div>
                 <div className="space-y-2 flex-1">
                     <h4 className="text-xl font-black text-primary tracking-tight">Akıllı Gelir Analizi</h4>
-                    <p className="text-sm text-primary/80 leading-relaxed font-medium">Bu ayki geliriniz geçen aya göre <span className="font-black text-primary underline underline-offset-4">%12.5 arttı.</span> En karlı hizmetiniz olan <span className="font-black">Saç Kesim</span> işlemlerinde sabah seanslarına daha fazla personel atayarak verimi %15 daha artırabilirsiniz.</p>
+                    <p className="text-sm text-primary/80 leading-relaxed font-medium">
+                        Bu dönem geliriniz önceki döneme göre <span className="font-black text-primary underline underline-offset-4 tracking-tighter">{reportData?.revenueTrend || '0%'} {reportData?.revenueTrend?.startsWith('+') ? 'arttı' : 'değişti'}.</span> 
+                        {reportData?.serviceStats?.[0] && (
+                            <> En karlı hizmetiniz olan <span className="font-black">{reportData.serviceStats[0].name}</span> işlemlerinde sabah seanslarına daha fazla personel atayarak verimi %15 daha artırabilirsiniz.</>
+                        )}
+                    </p>
                 </div>
                 <button className="px-8 py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:-translate-y-1 transition-transform whitespace-nowrap">Stratejiyi Uygula</button>
             </div>

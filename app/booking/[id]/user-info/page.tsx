@@ -9,7 +9,7 @@ import { useBooking } from '@/context/BookingContext';
 import { useAuth } from '@/context/AuthContext';
 import { CampaignService } from '@/services/db';
 import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
-import { Ticket, Tag, CheckCircle2, XCircle } from 'lucide-react';
+import { Ticket, Tag, CheckCircle2, XCircle, Users, AlertCircle } from 'lucide-react';
 
 export default function BookingUserInfoPage() {
   const params = useParams();
@@ -30,8 +30,12 @@ export default function BookingUserInfoPage() {
     setCustomerPhone,
     customerNotes,
     setCustomerNotes,
+    participantCount,
+    setParticipantCount,
     appointmentId,
-    setAppointmentId
+    setAppointmentId,
+    activeCampaign,
+    discountAmount: autoDiscountAmount,
   } = useBooking();
 
   // If appointmentId is in URL but not context, set it (recover state on refresh)
@@ -210,14 +214,14 @@ export default function BookingUserInfoPage() {
         return;
       }
 
-      const totalPriceValue = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0);
-      const coupon = await CampaignService.validateCoupon(couponCode, salon?.id as string, totalPriceValue);
+      const basePrice = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0) * participantCount;
+      const coupon = await CampaignService.validateCoupon(couponCode, salon?.id as string, basePrice);
 
       if (coupon) {
         setAppliedCoupon(coupon);
         let discount = 0;
         if (coupon.discount_type === 'PERCENTAGE') {
-          discount = (totalPriceValue * coupon.discount_value) / 100;
+          discount = (basePrice * coupon.discount_value) / 100;
           if (coupon.max_discount_amount && discount > coupon.max_discount_amount) {
             discount = coupon.max_discount_amount;
           }
@@ -273,6 +277,9 @@ export default function BookingUserInfoPage() {
           serviceId: selectedServices[0].id,
           startTime: startDateTime.toISOString(),
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+          campaignRuleId: activeCampaign?.id,
+          participantCount,
+          depositAmount: depositAmount > 0 ? depositAmount : undefined,
         }),
       });
 
@@ -316,8 +323,13 @@ export default function BookingUserInfoPage() {
     return null; // Will redirect via useEffect
   }
 
-  const totalPrice = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0);
+  const basePrice = selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.price || 0), 0) * participantCount;
+  const totalPrice = basePrice - (discountAmount + autoDiscountAmount);
+  const depositAmount = Math.round((totalPrice * (salon?.deposit_rate || 0)) / 100);
   const totalDuration = `${selectedServices.reduce((acc: number, s: SalonServiceDetail) => acc + (s.duration_min || 0), 0)} dakika`;
+
+  const isGroupService = selectedServices.some(s => s.max_participants && s.max_participants > 1);
+  const maxCapacity = selectedServices[0]?.max_participants || 1;
 
   return (
     <Layout>
@@ -341,14 +353,17 @@ export default function BookingUserInfoPage() {
                 salon={salon}
                 services={selectedServices}
                 staff={selectedStaff}
-                totalPrice={totalPrice - discountAmount}
+                totalPrice={basePrice - (discountAmount + autoDiscountAmount)}
+                discountAmount={discountAmount + autoDiscountAmount}
+                campaignName={activeCampaign?.name || (appliedCoupon ? 'Kupon İndirimi' : undefined)}
                 totalDuration={totalDuration}
+                participantCount={participantCount}
                 step={3}
               />
-              {discountAmount > 0 && (
+              {(discountAmount > 0 || autoDiscountAmount > 0) && (
                 <div className="mt-2 text-center">
                   <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                    İndirim Uygulandı: -{discountAmount} TL
+                    Toplam İndirim: -{discountAmount + autoDiscountAmount} TL
                   </span>
                 </div>
               )}
@@ -546,6 +561,42 @@ export default function BookingUserInfoPage() {
                       />
                     </div>
 
+                    {isGroupService && (
+                      <div className="bg-primary/5 border border-primary/10 p-5 rounded-xl mb-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                              <Users className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-text-main text-left">Katılımcı Sayısı</h4>
+                              <p className="text-[10px] text-text-secondary font-medium text-left">Bu hizmet grup katılımına uygundur.</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => setParticipantCount(Math.max(1, participantCount - 1))}
+                              className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center text-xl font-bold hover:border-primary hover:text-primary transition-all"
+                            >
+                              -
+                            </button>
+                            <span className="text-lg font-black text-text-main min-w-[20px] text-center">{participantCount}</span>
+                            <button 
+                              onClick={() => setParticipantCount(Math.min(maxCapacity, participantCount + 1))}
+                              className="w-10 h-10 rounded-lg bg-white border border-border flex items-center justify-center text-xl font-bold hover:border-primary hover:text-primary transition-all"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        {participantCount === maxCapacity && (
+                          <p className="text-[10px] text-amber-600 font-bold mt-3 bg-amber-50 p-2 rounded border border-amber-100 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Maksimum grup kapasitesine ulaşıldı.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-text-main text-sm font-bold mb-2">
                         Notlar (Opsiyonel)
@@ -614,6 +665,19 @@ export default function BookingUserInfoPage() {
                       )}
                     </div>
 
+                     {depositAmount > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6 animate-pulse">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-black text-amber-900 uppercase tracking-tight">Ön Ödeme (Kapora)</h4>
+                          <span className="text-lg font-black text-amber-900">{depositAmount} TL</span>
+                        </div>
+                        <p className="text-[11px] font-medium text-amber-800 leading-relaxed">
+                          Randevunuzun kesinleşmesi için <span className="font-black">%{salon?.deposit_rate}</span> oranında ön ödeme yapmanız gerekmektedir. 
+                          Onayla butonuna bastığınızda güvenli ödeme sayfasına (iyzico) yönlendirileceksiniz.
+                        </p>
+                      </div>
+                    )}
+
                     <button
                       onClick={handleCreateBooking}
                       disabled={loading}
@@ -626,8 +690,8 @@ export default function BookingUserInfoPage() {
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined">{appointmentId ? 'edit_calendar' : 'event_available'}</span>
-                          {appointmentId ? 'Randevuyu Güncelle' : 'Randevuyu Onayla'}
+                          <span className="material-symbols-outlined">{depositAmount > 0 ? 'payments' : (appointmentId ? 'edit_calendar' : 'event_available')}</span>
+                          {depositAmount > 0 ? 'Ödeme Yap ve Onayla' : (appointmentId ? 'Randevuyu Güncelle' : 'Randevuyu Onayla')}
                         </>
                       )}
                     </button>

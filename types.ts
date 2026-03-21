@@ -1,5 +1,5 @@
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
-export type SalonPlan = 'FREE' | 'PRO' | 'ENTERPRISE';
+export type SalonPlan = 'STARTER' | 'PRO' | 'BUSINESS' | 'ELITE';
 
 export type Permission =
   | 'CAN_MANAGE_SALON'
@@ -155,6 +155,8 @@ export interface Salon {
   status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejected_reason?: string;
   plan?: SalonPlan;
+  deposit_rate?: number;
+  cancellation_deadline_hours?: number;
   slug: string;
   type_ids?: string[]; // For multi-type support
   primary_type_id?: string;
@@ -205,6 +207,39 @@ export interface SalonDetail extends Salon {
   is_closed?: boolean;
 }
 
+export interface SubscriptionPlan {
+  id: string;
+  name: SalonPlan;
+  display_name: string;
+  description?: string;
+  price_monthly: number;
+  price_yearly: number;
+  sort_order: number;
+  max_branches: number;
+  max_staff: number;
+  max_gallery_photos: number;
+  max_sms_monthly: number;
+  has_advanced_reports: boolean;
+  has_campaigns: boolean;
+  has_sponsored: boolean;
+  support_level: string;
+}
+
+export interface Subscription {
+  id: string;
+  salon_id: string;
+  plan_id: string;
+  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED';
+  current_period_start: string;
+  current_period_end: string;
+  billing_cycle: 'MONTHLY' | 'YEARLY';
+  payment_method: 'CREDIT_CARD' | 'BANK_TRANSFER' | 'MANUAL';
+  trial_ends_at?: string;
+  created_at: string;
+  updated_at: string;
+  subscription_plans?: SubscriptionPlan; // joined plan data
+}
+
 export interface Staff {
   id: string;
   salon_id?: string;
@@ -217,6 +252,13 @@ export interface Staff {
   is_active?: boolean;
   bio?: string;
   created_at?: string;
+
+  // Verification & KVKK (Faz 4)
+  tc_no?: string;
+  is_email_verified?: boolean;
+  is_phone_verified?: boolean;
+  kvkk_consent?: boolean;
+  verified_at?: string;
 
   // Display/compatibility properties
   image?: string;       // Alias for photo
@@ -232,6 +274,8 @@ export interface SalonService {
   global_service_id: string;
   duration_min: number;
   price: number;
+  max_participants?: number; // Group support (Faz 6)
+  requires_resource?: boolean; // Resource constraint (Faz 6)
   created_at: string;
 }
 
@@ -266,12 +310,18 @@ export interface Appointment {
   salon_id: string;
   staff_id: string;
   salon_service_id: string;
+  resource_id?: string; // Resource assigned (Faz 6)
+  participant_count?: number; // Number of people for this appointment (Faz 6)
   start_time: string;
   end_time: string;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   notes?: string;
   coupon_code?: string;
   discount_amount?: number;
+  deposit_amount?: number;
+  iyzico_payment_id?: string;
+  refund_status?: 'NONE' | 'PENDING' | 'COMPLETED' | 'FAILED';
+  refund_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -418,7 +468,7 @@ export interface SalonGallery {
 // ==============================================
 
 export type DiscountType = 'PERCENTAGE' | 'FIXED';
-export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'WALLET' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'WALLET' | 'OTHER';
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'REFUNDED' | 'FAILED';
 
 export interface Coupon {
@@ -476,11 +526,26 @@ export interface Transaction {
 }
 
 export interface AppointmentCoupon {
-  id: string;
-  appointment_id: string;
-  coupon_id: string;
-  discount_amount: number;
-  created_at: string;
+    id: string;
+    appointment_id: string;
+    coupon_id: string;
+    discount_amount: number;
+    created_at: string;
+}
+
+export interface CampaignRule {
+    id: string;
+    salon_id: string;
+    name: string;
+    description?: string;
+    discount_type: DiscountType;
+    discount_value: number;
+    start_time?: string;
+    end_time?: string;
+    days_of_week?: number[];
+    is_active: boolean;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface SalonUsageStats {
@@ -509,6 +574,48 @@ export interface IyzicoWebhook {
   error_message?: string;
   processed_at?: string;
   created_at: string;
+}
+
+// Faz 5: CRM & Loyalty
+export interface SalonCustomer {
+  id: string;
+  salon_id: string;
+  customer_id: string;
+  loyalty_points?: number;
+  is_blocked?: boolean;
+  total_appointments?: number;
+  total_spent?: number;
+  last_visit?: string;
+  created_at?: string;
+  updated_at?: string;
+
+  // Joined fields
+  profile?: Profile;
+}
+
+export interface CustomerNote {
+  id: string;
+  salon_id: string;
+  customer_id: string;
+  staff_id?: string;
+  note: string;
+  created_at?: string;
+  updated_at?: string;
+
+  // Joined fields
+  staff_name?: string;
+}
+
+// Faz 6: Advanced Resources
+export interface SalonResource {
+  id: string;
+  salon_id: string;
+  name: string;
+  description?: string;
+  capacity: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export { };

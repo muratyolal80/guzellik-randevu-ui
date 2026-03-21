@@ -4,22 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { CampaignService } from '@/services/db';
-import { Coupon, Package } from '@/types';
-import { Ticket, Package as PackageIcon, Plus, Trash2, Edit, CheckCircle2, XCircle, Search, Filter, Percent, Banknote } from 'lucide-react';
+import { Coupon, Package, CampaignRule } from '@/types';
+import { Ticket, Package as PackageIcon, Plus, Trash2, Edit, CheckCircle2, XCircle, Search, Filter, Percent, Banknote, Sparkles, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import AddCouponModal from '@/components/owner/AddCouponModal';
 import AddPackageModal from '@/components/owner/AddPackageModal';
+import AddCampaignRuleModal from '@/components/owner/AddCampaignRuleModal';
 
 export default function OwnerCampaignsPage() {
     const { user } = useAuth();
     const { activeBranch } = useActiveBranch();
-    const [activeTab, setActiveTab] = useState<'coupons' | 'packages'>('coupons');
+    const [activeTab, setActiveTab] = useState<'coupons' | 'packages' | 'rules'>('coupons');
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
+    const [rules, setRules] = useState<CampaignRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
     const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+    const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
 
     useEffect(() => {
         if (activeBranch) {
@@ -34,9 +37,12 @@ export default function OwnerCampaignsPage() {
             if (activeTab === 'coupons') {
                 const data = await CampaignService.getSalonCoupons(activeBranch.id);
                 setCoupons(data);
-            } else {
+            } else if (activeTab === 'packages') {
                 const data = await CampaignService.getSalonPackages(activeBranch.id);
                 setPackages(data);
+            } else {
+                const data = await CampaignService.getSalonCampaignRules(activeBranch.id);
+                setRules(data);
             }
         } catch (error) {
             console.error('Veri yüklenirken hata:', error);
@@ -67,6 +73,17 @@ export default function OwnerCampaignsPage() {
         }
     };
 
+    const handleDeleteRule = async (id: string) => {
+        if (!confirm('Bu kampanyayı silmek istediğinize emin misiniz?')) return;
+        try {
+            await CampaignService.deleteCampaignRule(id);
+            setRules(rules.filter(r => r.id !== id));
+        } catch (error) {
+            console.error('Kampanya silinirken hata:', error);
+            alert('Silme işlemi başarısız oldu.');
+        }
+    };
+
     if (!activeBranch) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-white rounded-[40px] border border-border">
@@ -83,19 +100,23 @@ export default function OwnerCampaignsPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-8 rounded-[40px] border border-border shadow-sm">
                 <div className="space-y-1">
                     <h1 className="text-3xl font-black text-text-main tracking-tight">Kampanya & Sadakat</h1>
-                    <p className="text-text-secondary font-medium">Müşterilerinizi ödüllendirmek için kupon ve paketler oluşturun.</p>
+                    <p className="text-text-secondary font-medium">Müşterilerinizi ödüllendirmek için kupon, paket ve süreli kampanyalar oluşturun.</p>
                 </div>
                 <button
-                    onClick={() => activeTab === 'coupons' ? setIsCouponModalOpen(true) : setIsPackageModalOpen(true)}
+                    onClick={() => {
+                        if (activeTab === 'coupons') setIsCouponModalOpen(true);
+                        else if (activeTab === 'packages') setIsPackageModalOpen(true);
+                        else setIsRuleModalOpen(true);
+                    }}
                     className="flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:bg-primary-hover hover:scale-105 transition-all"
                 >
                     <Plus className="w-5 h-5" />
-                    {activeTab === 'coupons' ? 'Yeni Kupon Oluştur' : 'Yeni Paket Oluştur'}
+                    {activeTab === 'coupons' ? 'Yeni Kupon' : activeTab === 'packages' ? 'Yeni Paket' : 'Yeni Süreli Kampanya'}
                 </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 p-1.5 bg-white border border-border rounded-2xl w-fit shadow-sm">
+            <div className="flex flex-wrap gap-2 p-1.5 bg-white border border-border rounded-2xl w-fit shadow-sm">
                 <button
                     onClick={() => setActiveTab('coupons')}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'coupons' ? 'bg-primary text-white shadow-lg' : 'text-text-secondary hover:bg-gray-50'}`}
@@ -110,10 +131,73 @@ export default function OwnerCampaignsPage() {
                     <PackageIcon className="w-4 h-4" />
                     Paketler
                 </button>
+                <button
+                    onClick={() => setActiveTab('rules')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition-all ${activeTab === 'rules' ? 'bg-primary text-white shadow-lg' : 'text-text-secondary hover:bg-gray-50'}`}
+                >
+                    <Sparkles className="w-4 h-4" />
+                    Süreli Kampanyalar
+                </button>
             </div>
 
             {/* Content Area */}
-            {activeTab === 'coupons' ? (
+            {activeTab === 'rules' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {loading ? (
+                        Array(3).fill(0).map((_, i) => <div key={i} className="h-48 bg-white border border-border rounded-[32px] animate-pulse" />)
+                    ) : rules.length === 0 ? (
+                        <div className="col-span-full py-12 text-center bg-white border-2 border-dashed border-border rounded-[40px]">
+                            <Sparkles className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-20" />
+                            <p className="text-text-secondary font-bold">Henüz hiç süreli kampanya oluşturmadınız.</p>
+                        </div>
+                    ) : rules.map(rule => (
+                        <div key={rule.id} className="bg-white border border-border rounded-[32px] p-6 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all group relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                <Sparkles className="w-32 h-32 rotate-12" />
+                            </div>
+
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={`p-3 rounded-2xl ${rule.is_active ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                    <Clock className="w-6 h-6" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button className="p-2 hover:bg-gray-100 rounded-xl text-text-secondary transition-colors"><Edit className="w-4 h-4" /></button>
+                                    <button
+                                        onClick={() => handleDeleteRule(rule.id)}
+                                        className="p-2 hover:bg-red-50 rounded-xl text-red-400 transition-colors"
+                                    ><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-black text-text-main group-hover:text-indigo-600 transition-colors uppercase leading-tight">{rule.name}</h3>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {(rule.days_of_week || []).map(day => (
+                                        <span key={day} className="text-[9px] font-black bg-gray-50 px-2 py-0.5 rounded-md text-text-muted border border-border">
+                                            {['', 'PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT', 'PAZ'][day]}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex items-end justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">İNDİRİM</p>
+                                    <p className="text-2xl font-black text-indigo-600">
+                                        {rule.discount_type === 'PERCENTAGE' ? `%${rule.discount_value}` : `₺${rule.discount_value}`}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-text-muted uppercase mb-1">SAAT ARALIĞI</p>
+                                    <div className="flex items-center gap-2 justify-end font-black text-xs text-text-main">
+                                        {rule.start_time?.substring(0, 5)} - {rule.end_time?.substring(0, 5)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : activeTab === 'coupons' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {loading ? (
                         Array(3).fill(0).map((_, i) => <div key={i} className="h-48 bg-white border border-border rounded-[32px] animate-pulse" />)
@@ -225,6 +309,13 @@ export default function OwnerCampaignsPage() {
                 isOpen={isPackageModalOpen}
                 onClose={() => setIsPackageModalOpen(false)}
                 onSuccess={(newPkg) => setPackages([newPkg, ...packages])}
+                salonId={activeBranch.id}
+            />
+
+            <AddCampaignRuleModal
+                isOpen={isRuleModalOpen}
+                onClose={() => setIsRuleModalOpen(false)}
+                onSuccess={(newRule) => setRules([newRule, ...rules])}
                 salonId={activeBranch.id}
             />
         </div>
