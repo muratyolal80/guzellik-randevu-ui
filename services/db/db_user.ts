@@ -466,7 +466,11 @@ export const ProfileService = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    // Map is_active from profiles (ensure it's typed properly if possible)
+    return (data || []).map(u => ({
+      ...u,
+      is_active: u.is_active ?? true
+    }));
   },
 
   /**
@@ -489,26 +493,33 @@ export const ProfileService = {
   },
 
   /**
-   * Admin: Delete profile (Auth delete is complex via RPC, usually we soft delete or revoke access)
+   * Admin: Hard Delete user and all associated data (Cascade)
    */
-  async adminDeleteProfile(
+  async adminHardDelete(
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    // 1. Mark as deleted in profiles (Soft delete)
-    const { error: profileError } = await supabase
+    // Call the RPC for cascading delete
+    const { error: rpcError } = await supabase.rpc("admin_delete_user_cascade", { 
+        target_user_id: userId 
+    });
+    
+    if (rpcError) throw rpcError;
+  },
+
+  /**
+   * Admin: Toggle user active/passive status
+   */
+  async adminToggleActive(
+    userId: string,
+    isActive: boolean,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { error } = await supabase
       .from("profiles")
-      .update({ 
-        full_name: 'DELETED USER',
-        email: `deleted_${userId}@system.local`,
-        phone: null,
-        role: 'CUSTOMER' // Reset role
-      })
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
       .eq("id", userId);
 
-    if (profileError) throw profileError;
-
-    // 2. Revoke sessions
-    await supabase.from("user_sessions").update({ is_revoked: true }).eq("user_id", userId);
+    if (error) throw error;
   }
 };

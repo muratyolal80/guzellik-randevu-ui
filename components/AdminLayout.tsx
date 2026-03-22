@@ -115,4 +115,4 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         </Layout>
     );
 };
-
+export default AdminLayout;
