@@ -20,11 +20,15 @@ Bu iş akışı, veritabanı güvenliğinin (RLS) doğru yapılandırıldığın
     `New-06` dosyasındaki politikaları incele. Eğer bir politika kendi tablosunu `SELECT` ediyorsa (örn: `users` tablosunda `users` select etmek), sonsuz döngü riski vardır.
     *   *Çözüm:* `auth.uid()`, `auth.jwt()` veya başka bir tablo (`profiles` -> `auth.users`) üzerinden kontrol yapın.
 
-4.  **Admin Yetkileri:**
-    `SUPER_ADMIN` rolünün tüm master verileri (`global_services`, `categories` vb.) yönetebildiğinden emin olun.
-    *   Genellikle `FOR ALL` politikası ve `role = 'SUPER_ADMIN'` kontrolü gerekir.
+4. **Admin Yetkileri:**
+    - `SUPER_ADMIN` rolünün her zaman tüm tablolarda `FOR ALL` yetkisine sahip olduğundan emin olun.
+    - SQL: `EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'SUPER_ADMIN')`
 
-5.  **Test:**
+5. **Loop ve Performance Kontrolü:**
+    - Bir politika kontrolü yapılırken, aynı tablodan SELECT yapılmamalıdır.
+    - Örn: `salons` tablosu için `exists (select 1 from salons ...)` yerine `owner_id = auth.uid()` kullanılmalı.
+
+6.  **Test:**
     Şüpheli durumlarda, `auth.uid()` simülasyonu ile sorgu denemesi yapın:
     ```sql
     -- Örnek Test

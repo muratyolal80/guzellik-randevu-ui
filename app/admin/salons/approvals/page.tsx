@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { SalonDataService, ServiceService, NotificationService, MasterDataService } from '@/services/db';
 import { SalonDetail, SalonServiceDetail } from '@/types';
+import { useToast } from '@/components/ui/Toast';
+import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import {
     Eye,
     Store,
@@ -29,7 +31,8 @@ import {
     Camera,
     PenLine,
     Trash2,
-    PowerOff
+    PowerOff,
+    ShoppingCart
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -39,6 +42,7 @@ import dynamic from 'next/dynamic';
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
 export default function AdminApprovalsPage() {
+    const { showToast } = useToast();
     const router = useRouter();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
@@ -146,10 +150,10 @@ export default function AdminApprovalsPage() {
                 }
             }
 
-            alert('Salon başarıyla onaylandı!');
+            showToast('Salon başarıyla onaylandı!', 'success');
         } catch (err) {
             console.error('Salon onaylama hatası:', err);
-            alert('Onay işlemi sırasında hata oluştu.');
+            showToast('Onay işlemi sırasında hata oluştu.', 'error');
         }
     };
 
@@ -176,10 +180,10 @@ export default function AdminApprovalsPage() {
                 }
             }
 
-            alert('Başvuru reddedildi.');
+            showToast('Başvuru reddedildi.', 'success');
         } catch (err) {
             console.error('Red işlemi hatası:', err);
-            alert('Red işlemi sırasında hata oluştu.');
+            showToast('Red işlemi sırasında hata oluştu.', 'error');
         }
     };
 
@@ -221,10 +225,10 @@ export default function AdminApprovalsPage() {
                 }
             }
 
-            alert('Revizyon isteği gönderildi.');
+            showToast('Revizyon isteği gönderildi.', 'success');
         } catch (err) {
             console.error('Revizyon isteği hatası:', err);
-            alert('İşlem sırasında hata oluştu.');
+            showToast('İşlem sırasında hata oluştu.', 'error');
         }
     };
 
@@ -234,10 +238,10 @@ export default function AdminApprovalsPage() {
             await SalonDataService.deactivateSalon(id);
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'PASSIVE' } : s));
             if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'PASSIVE' } : null);
-            alert('Salon pasif duruma getirildi.');
+            showToast('Salon pasif duruma getirildi.', 'success');
         } catch (err) {
             console.error('Pasife alma hatası:', err);
-            alert('Hata oluştu.');
+            showToast('Hata oluştu.', 'error');
         }
     };
 
@@ -247,10 +251,10 @@ export default function AdminApprovalsPage() {
             await SalonDataService.softDeleteSalon(id);
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'DELETED' } : s));
             if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'DELETED' } : null);
-            alert('Salon silindi (Durumu DELETED olarak güncellendi).');
+            showToast('Salon silindi (Durumu DELETED olarak güncellendi).', 'success');
         } catch (err) {
             console.error('Silme hatası:', err);
-            alert('Hata oluştu.');
+            showToast('Hata oluştu.', 'error');
         }
     };
 
@@ -303,7 +307,8 @@ export default function AdminApprovalsPage() {
 
     return (
         <AdminLayout>
-            <div className="space-y-8 pb-20 relative min-h-screen">
+            <div className="space-y-8 pb-20 relative min-h-screen p-8 max-w-[1600px] mx-auto">
+                <Breadcrumbs items={[{ label: 'Salon Onayları' }]} />
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
@@ -675,7 +680,6 @@ export default function AdminApprovalsPage() {
                                     >
                                         <XCircle className="w-4 h-4" /> Reddet
                                     </button>
-                                    
                                     {selectedSalon.status !== 'DELETED' && (
                                         <button
                                             onClick={() => handleDelete(selectedSalon.id)}
@@ -685,6 +689,13 @@ export default function AdminApprovalsPage() {
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     )}
+
+                                    <Link
+                                        href={`/admin/finance/purchase`}
+                                        className="flex items-center gap-3 px-6 py-4 bg-white text-emerald-600 border-2 border-emerald-100 hover:border-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                                    >
+                                        <ShoppingCart className="w-4 h-4" /> Paket Satın Al
+                                    </Link>
                                 </div>
 
                                 <div className="flex flex-wrap gap-4">

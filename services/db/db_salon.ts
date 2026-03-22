@@ -318,9 +318,11 @@ export const SalonDataService = {
       duration_min: number;
     }[],
     supabase: SupabaseClient = defaultSupabase,
+    bypassLimitCheck: boolean = false,
   ): Promise<Salon> {
     // Enforcement: Check branch limit for the owner
     // If owner already has a salon, check its plan's branch limit
+    // Admin can bypass this check by passing bypassLimitCheck: true
     const { data: existingSalons } = await supabase
       .from("salons")
       .select("id, status")
@@ -328,7 +330,7 @@ export const SalonDataService = {
 
     let hijackedSalonId: string | null = null;
 
-    if (existingSalons && existingSalons.length > 0) {
+    if (!bypassLimitCheck && existingSalons && existingSalons.length > 0) {
       const limitResult = await SubscriptionService.checkLimit(
         existingSalons[0].id,
         "branch",

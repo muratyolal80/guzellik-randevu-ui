@@ -19,9 +19,13 @@ import {
     XCircle,
     ArrowLeft
 } from 'lucide-react';
+import { AdminLayout } from '@/components/AdminLayout';
+import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
+import { useToast } from '@/components/ui/Toast';
 
 export default function AdminSupportManagement() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState<any>(null);
@@ -43,6 +47,7 @@ export default function AdminSupportManagement() {
             setTickets(data);
         } catch (err) {
             console.error('Biletler çekilemedi:', err);
+            showToast('Biletler yüklenirken hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -70,8 +75,10 @@ export default function AdminSupportManagement() {
             const ticketMsgs = await SupportService.getTicketMessages(selectedTicket.id);
             setMessages(ticketMsgs);
             fetchTickets();
+            showToast('Yanıt gönderildi.', 'success');
         } catch (err) {
             console.error('Yanıt gönderilemedi:', err);
+            showToast('Mesaj gönderilemedi.', 'error');
         } finally {
             setSending(false);
         }
@@ -83,8 +90,10 @@ export default function AdminSupportManagement() {
             await SupportService.resolveTicket(selectedTicket.id);
             setSelectedTicket((prev: any) => ({ ...prev, status: 'RESOLVED' }));
             fetchTickets();
+            showToast('Talep çözüldü.', 'success');
         } catch (err) {
             console.error('Çözümleme hatası:', err);
+            showToast('İşlem hatası.', 'error');
         }
     };
 
@@ -101,9 +110,11 @@ export default function AdminSupportManagement() {
     }
 
     return (
-        <div className="h-[calc(100vh-160px)] flex flex-col gap-8 animate-fade-in relative">
-            {/* Header */}
-            <div className="bg-white p-8 rounded-[40px] border border-border shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <AdminLayout>
+            <Breadcrumbs items={[{ label: 'Destek Talepleri' }]} />
+            <div className="flex flex-col gap-8 animate-fade-in relative mt-6 h-[calc(100vh-220px)]">
+                {/* Header */}
+                <div className="bg-white p-8 rounded-[40px] border border-border shadow-card flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <h1 className="text-3xl font-black text-text-main tracking-tight flex items-center gap-3 italic">
                         <MessageSquare className="w-8 h-8 text-primary" /> Destek Merkezi
@@ -264,5 +275,6 @@ export default function AdminSupportManagement() {
                 </div>
             </div>
         </div>
+        </AdminLayout>
     );
 }
