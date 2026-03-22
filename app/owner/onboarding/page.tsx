@@ -9,6 +9,7 @@ import {
   ServiceService,
   PlatformService,
 } from "@/services/db";
+import { supabase } from "@/lib/supabase";
 import { City, District, SalonType } from "@/types";
 import {
   Store,
@@ -43,34 +44,15 @@ const AdminSalonMap = dynamic(
 );
 
 const STEPS = [
-  {
-    id: 1,
-    title: "Paket Seçimi",
-    icon: ShieldCheck,
-    desc: "Abonelik planınızı belirleyin",
-  },
-  {
-    id: 2,
-    title: "Temel Bilgiler",
-    icon: Store,
-    desc: "Salon adı ve iletişim",
-  },
-  {
-    id: 3,
-    title: "Konum & Harita",
-    icon: MapPin,
-    desc: "Adres ve harita pini",
-  },
-  {
-    id: 4,
-    title: "Çalışma Saatleri",
-    icon: Clock,
-    desc: "Mesai başlangıç/bitiş",
-  },
-  { id: 5, title: "Hizmetler", icon: Star, desc: "Saç, Sakal vb. servisler" },
-  { id: 6, title: "Personel", icon: Users, desc: "Çalışan ekibi kurun" },
-  { id: 7, title: "Galeri", icon: Camera, desc: "Salon resimleri ekleyin" },
-  { id: 8, title: "Önizleme", icon: ShieldCheck, desc: "Kontrol ve onay" },
+  { id: 1, title: "Paket Seçimi", icon: ShieldCheck, desc: "Abonelik planınızı belirleyin" },
+  { id: 2, title: "Ödeme", icon: Clock, desc: "Abonelik ödemenizi tamamlayın" },
+  { id: 3, title: "Temel Bilgiler", icon: Store, desc: "Salon adı ve iletişim" },
+  { id: 4, title: "Konum & Harita", icon: MapPin, desc: "Adres ve harita pini" },
+  { id: 5, title: "Çalışma Saatleri", icon: Clock, desc: "Mesai başlangıç/bitiş" },
+  { id: 6, title: "Hizmetler", icon: Star, desc: "Saç, Sakal vb. servisler" },
+  { id: 7, title: "Personel", icon: Users, desc: "Çalışan ekibi kurun" },
+  { id: 8, title: "Galeri", icon: Camera, desc: "Salon resimleri ekleyin" },
+  { id: 9, title: "Önizleme", icon: ShieldCheck, desc: "Kontrol ve onay" },
 ];
 
 export default function OnboardingWizard() {
@@ -415,11 +397,38 @@ export default function OnboardingWizard() {
     fetchMasterData();
   }, []);
 
-  // Check existing plan for branch limits
-    useEffect(() => {
+  // Check existing plan for branch limits AND draft salons
+  useEffect(() => {
     if (!user) return;
-    const checkExistingPlan = async () => {
+    const loadState = async () => {
       try {
+        // Resume from draft salon if one exists
+        const { data: draftSalon } = await supabase
+          .from("salons")
+          .select("*")
+          .eq("owner_id", user.id)
+          .in("status", ["DRAFT", "PENDING"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (draftSalon) {
+          setSalonData((prev: any) => ({
+            ...prev,
+            id: draftSalon.id,
+            name: draftSalon.name !== "Yeni Salon İşlemi" ? draftSalon.name : prev.name,
+          }));
+
+          const sub = await SubscriptionService.getSalonSubscription(draftSalon.id);
+          if (sub && sub.status === "PENDING") {
+             setPaymentStatus("PENDING_APPROVAL");
+             setSelectedPlanId(sub.plan_id);
+             setPaymentMethod(sub.payment_method as any);
+             setCurrentStep(2);
+             return; // Stop here, wait for admin
+          }
+        }
+
         const ownerSub = await SubscriptionService.getOwnerActiveSubscription(user.id);
         if (ownerSub && ownerSub.subscription_plans) {
           const plan = ownerSub.subscription_plans;
@@ -444,7 +453,7 @@ export default function OnboardingWizard() {
         console.error('Mevcut plan kontrolü hatası:', e); 
       }
     };
-    checkExistingPlan();
+    loadState();
   }, [user]);
 
   // Auto-load services when salon types change
@@ -575,7 +584,7 @@ export default function OnboardingWizard() {
     // Step 1: Subscription Validation
     if (currentStep === 1) {
       if (canSkipPayment) {
-        setCurrentStep(2);
+        setCurrentStep(3); // Skip payment step
         return;
       }
 
@@ -583,45 +592,94 @@ export default function OnboardingWizard() {
         alert("Lütfen bir paket seçin.");
         return;
       }
+      
       const plan = plans.find((p) => p.id === selectedPlanId);
-      if (plan && plan.price_monthly > 0 && !paymentMethod) {
+      if (plan && plan.price_monthly === 0) {
+        // Free plan, skip payment
+        setCurrentStep(3);
+        return;
+      }
+
+      setCurrentStep(2); // Move to Payment Methods
+      return;
+    }
+
+    if (currentStep === 2) {
+      const plan = plans.find((p) => p.id === selectedPlanId);
+      if (!paymentMethod) {
         alert("Lütfen ödeme yöntemi seçin.");
         return;
       }
 
-      if (
-        plan.price_monthly > 0 &&
-        paymentMethod === "BANK_TRANSFER" &&
-        paymentStatus !== "PENDING_APPROVAL"
-      ) {
+      if (paymentMethod === "CREDIT_CARD") {
+         alert("Kredi kartı entegrasyonu yakında eklenecektir. Lütfen banka havalesi seçin.");
+         return;
+      }
+
+      if (paymentMethod === "BANK_TRANSFER" && paymentStatus !== "PENDING_APPROVAL") {
         setLoading(true);
         try {
-          // Create a dummy salon ID for now or just wait for payment notification
+          // 1. Create a dummy salon to hold the subscription
+          let newSalonId = salonData.id;
+          if (!newSalonId) {
+             const { data: dbSalon, error: salonErr } = await supabase.from("salons").insert({
+               name: "Yeni Salon İşlemi",
+               owner_id: user?.id,
+               status: 'DRAFT'
+             }).select().single();
+             if (salonErr) throw salonErr;
+             newSalonId = dbSalon.id;
+             setSalonData((prev: any) => ({ ...prev, id: newSalonId }));
+          }
+
+          // 2. Create subscription
+          const subResult = await SubscriptionService.createSubscriptionRequest(
+            newSalonId,
+            selectedPlanId!,
+            paymentMethod,
+            billingCycle
+          );
+
+          // 3. Register payment
+          await SubscriptionService.notifyBankTransfer(
+            subResult.id,
+            newSalonId,
+            billingCycle === "YEARLY" ? plan.price_yearly : plan.price_monthly
+          );
+
           setPaymentStatus("PENDING_APPROVAL");
+        } catch(e) {
+          console.error("Ödeme onay gönderimi hatası:", e);
+          alert("İşlem sırasında hata oluştu. Lütfen tekrar deneyin.");
         } finally {
           setLoading(false);
         }
         return;
       }
-    }
 
-    // Step 2: Basic Info Validation
-    if (currentStep === 2) {
-      if (!salonData.name || !salonData.primary_type_id) {
-        alert("Lütfen salon adını ve ana işletme tipini seçin.");
+      if (paymentStatus === "PENDING_APPROVAL") {
+        alert("Admin onayı bekleniyor. Lütfen daha sonra tekrar kontrol edin.");
         return;
       }
     }
 
-    // CREATE SALON AT STEP 3 TO ALLOW MASTER COMPONENTS TO LIVE-SAVE DATA
+    // Step 3: Basic Info Validation
     if (currentStep === 3) {
-      // Step 3 Validation
+      if (!salonData.name || salonData.name === "Yeni Salon İşlemi" || !salonData.primary_type_id) {
+        alert("Lütfen geçerli bir salon adı ve ana işletme tipi seçin.");
+        return;
+      }
+    }
+
+    // CREATE SALON AT STEP 4 TO ALLOW MASTER COMPONENTS TO LIVE-SAVE DATA
+    if (currentStep === 4) {
+      // Step 4 Validation
       if (!salonData.city_id || !salonData.district_id) {
         alert("Lütfen şehir ve ilçe seçimini yapın.");
         return;
       }
 
-      if (!salonData.id) {
+      if (!salonData.id || salonData.name === "Yeni Salon İşlemi") {
         setLoading(true);
         try {
           const salon = await SalonDataService.createSalon(
@@ -635,7 +693,7 @@ export default function OnboardingWizard() {
           );
           setSalonData((prev: any) => ({ ...prev, id: salon.id }));
         } catch (err: any) {
-          console.error("Salon taslak oluşturulurken hata:", err);
+          console.error("Salon taslak oluşturulurken/güncellenirken hata:", err);
           const rawMessage = err.message || "";
           let errorMsg = "Salon kaydedilemedi: " + (rawMessage || "Bilinmeyen hata");
           
@@ -652,14 +710,31 @@ export default function OnboardingWizard() {
           return;
         }
         setLoading(false);
+      } else {
+        // If we already had an ID, update the dummy details
+        await SalonDataService.updateSalon(salonData.id, {
+          name: salonData.name,
+          phone: salonData.phone,
+          primary_type_id: salonData.primary_type_id,
+          city_id: salonData.city_id,
+          district_id: salonData.district_id
+        });
       }
     }
 
-    if (currentStep < 7) setCurrentStep((prev) => prev + 1);
+    if (currentStep < 9) setCurrentStep((prev) => prev + 1);
     else handleComplete();
   };
 
   const handleBack = () => {
+    if (currentStep === 3 && canSkipPayment) {
+      setCurrentStep(1);
+      return;
+    }
+    if (currentStep === 3 && plans.find(p => p.id === selectedPlanId)?.price_monthly === 0) {
+      setCurrentStep(1);
+      return;
+    }
     if (currentStep > 1) setCurrentStep((prev) => prev - 1);
   };
 
@@ -667,32 +742,12 @@ export default function OnboardingWizard() {
     setLoading(true);
     try {
       console.log("Onboarding step final: Processing subscription...");
-      let salon = salonData; // Salon was already created in Step 3!
+      let salon = salonData;
 
       console.log("Onboarding step 3: Recording Subscription...");
-      // 3. Subscription & Payment Redirect (Only if not skipping payment)
-      if (selectedPlanId && !canSkipPayment) {
-        const subResult = await SubscriptionService.subscribe(
-          salon.id,
-          selectedPlanId,
-          paymentMethod || "BANK_TRANSFER",
-          billingCycle,
-        );
-
-        // If Credit Card, we get a paymentUrl
-        if (subResult.paymentUrl) {
-          window.location.href = subResult.paymentUrl;
-          return; // EXIT and redirect
-        }
-
-        if (paymentMethod === "BANK_TRANSFER") {
-          await SubscriptionService.notifyBankTransfer(
-            subResult.id,
-            salon.id,
-            0,
-          );
-        }
-      } else if (canSkipPayment && existingPlan) {
+      
+      // If payment was skipped and owner has an existing plan, bind this branch
+      if (canSkipPayment && existingPlan && !salon.plan_id) {
         // Mevcut paketin altına bağlıyoruz
         await SubscriptionService.createSubscriptionRequest(
             salon.id, 
@@ -700,7 +755,6 @@ export default function OnboardingWizard() {
             "BANK_TRANSFER", 
             "MONTHLY"
         );
-        // Doğrudan aktife çekilebilir çünkü halihazırda ödenmiş ana paketi var. Şimdilik admin onayı için PENDING kalır veya onay sürecini hızlandırabiliriz. 
       }
 
       console.log("Onboarding step 4: Submitting for approval...");
@@ -726,75 +780,6 @@ export default function OnboardingWizard() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        const selectedPlan = plans.find((p) => p.id === selectedPlanId);
-        const isPaid = selectedPlan && selectedPlan.price_monthly > 0;
-
-        if (paymentStatus === "PENDING_APPROVAL") {
-          return (
-            <div className="space-y-8 animate-in zoom-in duration-500 text-center py-10">
-              <div className="w-24 h-24 bg-amber-50 rounded-[40px] flex items-center justify-center text-amber-500 mx-auto shadow-inner border border-amber-100">
-                <Clock className="w-12 h-12 animate-pulse" />
-              </div>
-              <div className="space-y-3">
-                <h2 className="text-3xl font-black text-text-main uppercase tracking-tight">
-                  Ödeme Onayı Bekleniyor
-                </h2>
-                <p className="text-text-secondary font-medium max-w-lg mx-auto leading-relaxed">
-                  Banka havalesi bildiriminiz alınmıştır. Admin onayından sonra
-                  kurulum sürecine devam edebileceksiniz. Genellikle 1 saat
-                  içinde onaylanır.
-                </p>
-              </div>
-              <div className="max-w-md mx-auto p-6 bg-white rounded-3xl border-2 border-dashed border-border text-left space-y-4">
-                <h4 className="text-[10px] font-black text-text-muted uppercase tracking-widest">
-                  Seçilen Plan: {selectedPlan?.display_name}
-                </h4>
-                {bankAccounts.map((acc: any, i: number) => (
-                  <div
-                    key={i}
-                    className="p-4 bg-gray-50 rounded-2xl border border-border"
-                  >
-                    <p className="text-[9px] font-black text-primary uppercase mb-1">
-                      {acc.bank}
-                    </p>
-                    <p className="text-sm font-bold text-text-main">
-                      {acc.owner}
-                    </p>
-                    <p className="text-xs font-mono text-text-secondary mt-1">
-                      {acc.iban}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-6">
-                <button
-                  onClick={() => setPaymentStatus("IDLE")}
-                  className="text-xs font-black text-primary hover:underline uppercase tracking-widest"
-                >
-                  Fikrimi Değiştir / Ödeme Yöntemi Değiştir
-                </button>
-              </div>
-            </div>
-          );
-        }
-
-        if (canSkipPayment && existingPlan) {
-            return (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
-                <div className="text-center space-y-4">
-                  <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mx-auto">
-                    <ShieldCheck className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-2xl font-black text-text-main">Harika Haber!</h2>
-                  <p className="text-text-secondary font-medium">
-                    Sahip olduğunuz <strong>{existingPlan.display_name}</strong> planınız kapsamında ekstra şube hakkınız bulunuyor. 
-                    Yeni bir ödeme yapmadan yeni şubenizi kurabilirsiniz.
-                  </p>
-                </div>
-              </div>
-            );
-        }
-
         return (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
             <div className="text-center space-y-2">
@@ -810,54 +795,105 @@ export default function OnboardingWizard() {
               onSelect={(id) => setSelectedPlanId(id)}
               onCycleChange={(cycle) => setBillingCycle(cycle)}
             />
-
-            {isPaid && (
-              <div className="max-w-2xl mx-auto p-8 bg-surface-alt rounded-[40px] border border-border animate-in slide-in-from-bottom-10 space-y-6">
-                <h4 className="text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em]">
-                  Ödeme Yöntemi Seçin
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setPaymentMethod("CREDIT_CARD")}
-                    className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === "CREDIT_CARD"
-                      ? "border-primary bg-white shadow-xl shadow-primary/5"
-                      : "border-border bg-white hover:border-primary/20"
-                      }`}
-                  >
-                    <ShieldCheck
-                      className={`w-8 h-8 ${paymentMethod === "CREDIT_CARD" ? "text-primary" : "text-gray-300"}`}
-                    />
-                    <span className="text-xs font-black uppercase tracking-widest">
-                      Kredi Kartı
-                    </span>
-                    <p className="text-[10px] text-text-muted font-medium">
-                      Anında Aktivasyon (iyzico)
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod("BANK_TRANSFER")}
-                    className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === "BANK_TRANSFER"
-                      ? "border-blue-500 bg-white shadow-xl shadow-blue-500/5"
-                      : "border-border bg-white hover:border-blue-500/20"
-                      }`}
-                  >
-                    <Clock
-                      className={`w-8 h-8 ${paymentMethod === "BANK_TRANSFER" ? "text-blue-500" : "text-gray-300"}`}
-                    />
-                    <span className="text-xs font-black uppercase tracking-widest">
-                      Banka Havalesi
-                    </span>
-                    <p className="text-[10px] text-text-muted font-medium">
-                      Manuel Onay (1-2 Saat)
-                    </p>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         );
 
       case 2:
+        const selectedPlan2 = plans.find((p) => p.id === selectedPlanId);
+
+        if (paymentStatus === "PENDING_APPROVAL") {
+          return (
+            <div className="space-y-8 animate-in zoom-in duration-500 text-center py-10">
+              <div className="w-24 h-24 bg-amber-50 rounded-[40px] flex items-center justify-center text-amber-500 mx-auto shadow-inner border border-amber-100">
+                <Clock className="w-12 h-12 animate-pulse" />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-3xl font-black text-text-main uppercase tracking-tight">
+                  Ödeme Onayı Bekleniyor
+                </h2>
+                <p className="text-text-secondary font-medium max-w-lg mx-auto leading-relaxed">
+                  Banka havalesi bildiriminiz alınmıştır. Admin onayından sonra
+                  şube kurulum sürecine (salon detayları) devam edebileceksiniz. Lütfen bu sayfayı yenilemeyin veya onay geldiğinde sayfayı yenileyin.
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
+            <div className="max-w-2xl mx-auto p-8 bg-surface-alt rounded-[40px] border border-border animate-in slide-in-from-bottom-10 space-y-6">
+              <h4 className="text-center text-[10px] font-black text-text-muted uppercase tracking-[0.3em]">
+                Ödeme Yöntemi Seçin
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => setPaymentMethod("CREDIT_CARD")}
+                  className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === "CREDIT_CARD"
+                    ? "border-primary bg-white shadow-xl shadow-primary/5"
+                    : "border-border bg-white hover:border-primary/20"
+                    }`}
+                >
+                  <ShieldCheck
+                    className={`w-8 h-8 ${paymentMethod === "CREDIT_CARD" ? "text-primary" : "text-gray-300"}`}
+                  />
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    Kredi Kartı
+                  </span>
+                  <p className="text-[10px] text-text-muted font-medium">
+                    (Yakında)
+                  </p>
+                </button>
+                <button
+                  onClick={() => setPaymentMethod("BANK_TRANSFER")}
+                  className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === "BANK_TRANSFER"
+                    ? "border-blue-500 bg-white shadow-xl shadow-blue-500/5"
+                    : "border-border bg-white hover:border-blue-500/20"
+                    }`}
+                >
+                  <Clock
+                    className={`w-8 h-8 ${paymentMethod === "BANK_TRANSFER" ? "text-blue-500" : "text-gray-300"}`}
+                  />
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    Banka Havalesi
+                  </span>
+                  <p className="text-[10px] text-text-muted font-medium">
+                    Manuel Onay
+                  </p>
+                </button>
+              </div>
+
+              {paymentMethod === "BANK_TRANSFER" && (
+                <div className="mt-8 space-y-4 pt-6 border-t border-border">
+                  <h4 className="text-[10px] font-black text-text-muted uppercase tracking-widest">
+                    Seçilen Plan: {selectedPlan2?.display_name} - {billingCycle === "YEARLY" ? "Yıllık" : "Aylık"}
+                  </h4>
+                  {bankAccounts.map((acc: any, i: number) => (
+                    <div
+                      key={i}
+                      className="p-4 bg-gray-50 rounded-2xl border border-border"
+                    >
+                      <p className="text-[9px] font-black text-primary uppercase mb-1">
+                        {acc.bank}
+                      </p>
+                      <p className="text-sm font-bold text-text-main">
+                        {acc.owner}
+                      </p>
+                      <p className="text-xs font-mono text-text-secondary mt-1">
+                        {acc.iban}
+                      </p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-text-secondary mt-4 bg-blue-50 p-4 rounded-xl">
+                    Lütfen ödemeyi yukarıdaki hesaplardan birine yapın ve <b>Sonraki Adım</b> (Onaya Gönder) butonuna tıklayın. Açıklama kısmına hesap e-postanızı yazmayı unutmayın.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 3:
         return (
           <div className="space-y-8 animate-in slide-in-from-right duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
@@ -1215,7 +1251,7 @@ export default function OnboardingWizard() {
             </div>
           </div>
         );
-      case 7:
+      case 999: // DEAD CODE
         return (
           <div className="space-y-8 text-center py-6 animate-in zoom-in duration-300">
             <div className="w-24 h-24 bg-green-50 rounded-[30px] flex items-center justify-center text-green-600 mx-auto shadow-inner border border-green-100">
@@ -1421,7 +1457,7 @@ export default function OnboardingWizard() {
             </div>
           </div>
         );
-      case 4:
+      case 5:
         return (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
             {salonData.id ? (
@@ -1431,7 +1467,7 @@ export default function OnboardingWizard() {
             )}
           </div>
         );
-      case 5:
+      case 6:
         return (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
             {salonData.id ? (
@@ -1441,7 +1477,7 @@ export default function OnboardingWizard() {
             )}
           </div>
         );
-      case 6:
+      case 7:
         return (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
             {salonData.id ? (
@@ -1451,7 +1487,7 @@ export default function OnboardingWizard() {
             )}
           </div>
         );
-      case 7:
+      case 8:
         return (
           <div className="space-y-6 animate-in slide-in-from-right duration-300">
             {salonData.id ? (
@@ -1464,7 +1500,7 @@ export default function OnboardingWizard() {
             )}
           </div>
         );
-      case 8:
+      case 9:
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500">
             <div className="text-center space-y-3">
@@ -1608,7 +1644,7 @@ return (
               </h2>
             </div>
             <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-[11px] font-black text-text-muted border border-border">
-              {currentStep}/8
+              {currentStep}/9
             </div>
           </div>
 
@@ -1618,7 +1654,7 @@ return (
           <div className="mt-12 pt-10 border-t border-gray-100 flex justify-between items-center">
             <button
               onClick={handleBack}
-              disabled={currentStep === 1 || loading}
+              disabled={currentStep === 1 || loading || paymentStatus === 'PENDING_APPROVAL'}
               className={`flex items-center gap-2 font-black text-sm uppercase tracking-widest px-6 py-4 rounded-2xl transition-all ${currentStep === 1 ? "opacity-0 pointer-events-none" : "text-text-muted hover:text-text-main hover:bg-gray-50"}`}
             >
               <ChevronLeft className="w-4 h-4" /> Geri
@@ -1626,7 +1662,7 @@ return (
 
             <button
               onClick={handleNext}
-              disabled={loading}
+              disabled={loading || paymentStatus === 'PENDING_APPROVAL'}
               className="group flex items-center gap-3 bg-primary text-white font-black text-sm uppercase tracking-widest px-12 py-5 rounded-2xl shadow-xl shadow-primary/25 hover:bg-primary-hover hover:scale-[1.02] transition-all disabled:opacity-50 disabled:scale-100"
             >
               {loading ? (
@@ -1636,11 +1672,11 @@ return (
                 </div>
               ) : (
                 <>
-                  {currentStep === 8 ? "Onaya Gönder" : "Sonraki Adım"}
+                  {currentStep === 9 ? "Onaya Gönder" : "Sonraki Adım"}
                   <ChevronRight
-                    className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 8 ? "hidden" : ""}`}
+                    className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${currentStep === 9 ? "hidden" : ""}`}
                   />
-                  {currentStep === 8 && <Save className="w-4 h-4" />}
+                  {currentStep === 9 && <Save className="w-4 h-4" />}
                 </>
               )}
             </button>

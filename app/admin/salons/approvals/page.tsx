@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
-import { SalonDataService, ServiceService, NotificationService } from '@/services/db';
+import { SalonDataService, ServiceService, NotificationService, MasterDataService } from '@/services/db';
 import { SalonDetail, SalonServiceDetail } from '@/types';
 import {
     Eye,
@@ -27,7 +27,9 @@ import {
     ChevronRight,
     Map as MapIcon,
     Camera,
-    PenLine
+    PenLine,
+    Trash2,
+    PowerOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -40,7 +42,19 @@ export default function AdminApprovalsPage() {
     const router = useRouter();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
+    const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'SUSPENDED' | 'ALL'>('PENDING');
+
+    // Advanced Filters State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCity, setSelectedCity] = useState('');
+    const [selectedDistrict, setSelectedDistrict] = useState('');
+    const [selectedType, setSelectedType] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState('');
+    const [selectedPlan, setSelectedPlan] = useState('');
+
+    const [cities, setCities] = useState<any[]>([]);
+    const [districts, setDistricts] = useState<any[]>([]);
+    const [salonTypes, setSalonTypes] = useState<any[]>([]);
 
     // Detailed Review State
     const [selectedSalon, setSelectedSalon] = useState<SalonDetail | null>(null);
@@ -50,7 +64,39 @@ export default function AdminApprovalsPage() {
 
     useEffect(() => {
         fetchSalons();
+        fetchMasterData();
     }, []);
+
+    useEffect(() => {
+        if (selectedCity) {
+            fetchDistricts(selectedCity);
+        } else {
+            setDistricts([]);
+            setSelectedDistrict('');
+        }
+    }, [selectedCity]);
+
+    const fetchMasterData = async () => {
+        try {
+            const [cityData, typeData] = await Promise.all([
+                MasterDataService.getCities(),
+                MasterDataService.getSalonTypes()
+            ]);
+            setCities(cityData);
+            setSalonTypes(typeData);
+        } catch (err) {
+            console.error('Master data fetch error:', err);
+        }
+    };
+
+    const fetchDistricts = async (cityId: string) => {
+        try {
+            const data = await MasterDataService.getDistrictsByCity(cityId);
+            setDistricts(data);
+        } catch (err) {
+            console.error('District fetch error:', err);
+        }
+    };
 
     const fetchSalons = async () => {
         try {
@@ -160,6 +206,21 @@ export default function AdminApprovalsPage() {
                 }
             }
 
+            // Send Notification
+            if (selectedSalon?.owner_id) {
+                try {
+                    await NotificationService.sendNotification({
+                        user_id: selectedSalon.owner_id,
+                        title: 'Salon Bilgileriniz İçin Revizyon İstendi',
+                        content: `"${selectedSalon.name}" işletmeniz için şu nedenle revizyon istendi: ${reason}. Lütfen bilgilerinizi güncelleyip tekrar onaya gönderin.`,
+                        type: 'SYSTEM',
+                        link: '/owner/salons'
+                    });
+                } catch (notifErr) {
+                    console.error('Notification error:', notifErr);
+                }
+            }
+
             alert('Revizyon isteği gönderildi.');
         } catch (err) {
             console.error('Revizyon isteği hatası:', err);
@@ -167,10 +228,77 @@ export default function AdminApprovalsPage() {
         }
     };
 
+    const handleDeactivate = async (id: string) => {
+        if (!confirm('Bu salonu pasife almak istediğinize emin misiniz?')) return;
+        try {
+            await SalonDataService.deactivateSalon(id);
+            setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'PASSIVE' } : s));
+            if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'PASSIVE' } : null);
+            alert('Salon pasif duruma getirildi.');
+        } catch (err) {
+            console.error('Pasife alma hatası:', err);
+            alert('Hata oluştu.');
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('DİKKAT: Bu salonu silmek istediğinize emin misiniz?')) return;
+        try {
+            await SalonDataService.softDeleteSalon(id);
+            setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'DELETED' } : s));
+            if (selectedSalon?.id === id) setSelectedSalon(prev => prev ? { ...prev, status: 'DELETED' } : null);
+            alert('Salon silindi (Durumu DELETED olarak güncellendi).');
+        } catch (err) {
+            console.error('Silme hatası:', err);
+            alert('Hata oluştu.');
+        }
+    };
+
     const filteredSalons = salons.filter(s => {
-        if (filter === 'ALL') return true;
-        if (filter === 'PENDING') return s.status === 'SUBMITTED' || s.status === 'PENDING' as any || s.status === 'REVISION_REQUESTED';
-        return s.status === filter;
+        // Status Filter
+        if (filter !== 'ALL') {
+            const isPending = s.status === 'SUBMITTED' || s.status === 'PENDING' as any || s.status === 'REVISION_REQUESTED';
+            if (filter === 'PENDING' && !isPending) return false;
+            if (filter === 'APPROVED' && s.status !== 'APPROVED') return false;
+            if (filter === 'REJECTED' && s.status !== 'REJECTED') return false;
+            if (filter === 'DRAFT' && s.status !== 'DRAFT') return false;
+            if (filter === 'SUSPENDED' && s.status !== 'SUSPENDED') return false;
+        }
+
+        // Search Query (Expanded: Name, Phone, OwnerID)
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            const matchesName = s.name.toLowerCase().includes(query);
+            const matchesPhone = s.phone?.toLowerCase().includes(query);
+            const matchesOwner = s.owner_id?.toLowerCase().includes(query);
+            if (!matchesName && !matchesPhone && !matchesOwner) return false;
+        }
+
+        // City Filter
+        if (selectedCity) {
+            const city = cities.find(c => c.id === selectedCity);
+            if (city && s.city_name !== city.name) return false;
+        }
+
+        // District Filter
+        if (selectedDistrict) {
+            const district = districts.find(d => d.id === selectedDistrict);
+            if (district && s.district_name !== district.name) return false;
+        }
+
+        // Status Filter (Advanced)
+        if (selectedStatus && s.status !== selectedStatus) return false;
+
+        // Plan Filter
+        if (selectedPlan && s.plan !== selectedPlan) return false;
+
+        // Type Filter
+        if (selectedType) {
+            const type = salonTypes.find(t => t.id === selectedType);
+            if (type && s.type_name !== type.name) return false;
+        }
+
+        return true;
     });
 
     return (
@@ -179,7 +307,7 @@ export default function AdminApprovalsPage() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <h2 className="text-3xl font-black text-text-main tracking-tight">Salon Onayları</h2>
+                        <h2 className="text-3xl font-black text-text-main tracking-tight">Salon Yönetimi</h2>
                         <p className="text-text-secondary font-medium mt-1">Sisteme yeni kaydedilen şubeleri inceleyin ve onaylayın.</p>
                     </div>
                     <div className="bg-primary/10 px-4 py-2 rounded-2xl flex items-center gap-2 border border-primary/20">
@@ -193,30 +321,138 @@ export default function AdminApprovalsPage() {
 
                     {/* List Section */}
                     <div className="lg:col-span-12 space-y-6">
-                        {/* Filters Bar */}
-                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-2 rounded-[24px] border border-border shadow-sm">
-                            <div className="flex flex-wrap gap-1">
-                                {[
-                                    { id: 'PENDING', label: 'Başvurular', icon: Clock, count: salons.filter(s => s.status === 'SUBMITTED' || s.status === 'REVISION_REQUESTED').length },
-                                    { id: 'APPROVED', label: 'Onaylı', icon: CheckCircle, count: salons.filter(s => s.status === 'APPROVED').length },
-                                    { id: 'REJECTED', label: 'Reddedilen', icon: XCircle, count: salons.filter(s => s.status === 'REJECTED').length },
-                                    { id: 'ALL', label: 'Tümü', icon: Filter, count: salons.length }
-                                ].map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setFilter(tab.id as any)}
-                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-xs font-black transition-all ${filter === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-text-secondary hover:bg-gray-50'}`}
-                                    >
-                                        <tab.icon className="w-4 h-4" />
-                                        {tab.label}
-                                        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${filter === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-text-muted'}`}>{tab.count}</span>
-                                    </button>
-                                ))}
+                        {/* Status Tabs Header */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {[
+                                { id: 'PENDING', label: 'Başvurular', icon: Clock, count: salons.filter(s => s.status === 'SUBMITTED' || s.status === 'REVISION_REQUESTED').length },
+                                { id: 'APPROVED', label: 'Onaylı', icon: CheckCircle, count: salons.filter(s => s.status === 'APPROVED').length },
+                                { id: 'REJECTED', label: 'Reddedilen', icon: XCircle, count: salons.filter(s => s.status === 'REJECTED').length },
+                                { id: 'DRAFT', label: 'Taslaklar', icon: MoreVertical, count: salons.filter(s => s.status === 'DRAFT').length },
+                                { id: 'SUSPENDED', label: 'Askıda', icon: AlertCircle, count: salons.filter(s => s.status === 'SUSPENDED').length },
+                                { id: 'ALL', label: 'Tümü', icon: Filter, count: salons.length }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setFilter(tab.id as any)}
+                                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black transition-all border ${filter === tab.id ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white text-text-secondary border-border hover:bg-gray-50'}`}
+                                >
+                                    <tab.icon className="w-4 h-4" />
+                                    {tab.label}
+                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${filter === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-text-muted'}`}>{tab.count}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Advanced Filters Bar */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 bg-white p-6 rounded-[32px] border border-border shadow-sm">
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                <input 
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    placeholder="Salon adı ile ara..." 
+                                    className="w-full h-12 pl-12 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none" 
+                                />
                             </div>
-                            <div className="relative w-full sm:w-64 px-2">
-                                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                                <input placeholder="Salon adı ile ara..." className="w-full h-11 pl-12 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none" />
+                            
+                            <div className="relative">
+                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <select 
+                                    value={selectedType}
+                                    onChange={e => setSelectedType(e.target.value)}
+                                    className="w-full h-12 pl-10 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">Tüm Salon Tipleri</option>
+                                    {salonTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
                             </div>
+
+                            <div className="relative">
+                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <select 
+                                    value={selectedCity}
+                                    onChange={e => setSelectedCity(e.target.value)}
+                                    className="w-full h-12 pl-10 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">Tüm İller</option>
+                                    {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                            </div>
+
+                            <div className="relative">
+                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <select 
+                                    value={selectedStatus}
+                                    onChange={e => setSelectedStatus(e.target.value)}
+                                    className="w-full h-12 pl-10 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">Tüm Durumlar</option>
+                                    <option value="SUBMITTED">Onay Bekliyor</option>
+                                    <option value="APPROVED">Onaylı</option>
+                                    <option value="REVISION_REQUESTED">Revizyon İstendi</option>
+                                    <option value="REJECTED">Reddedildi</option>
+                                    <option value="PASSIVE">Pasif</option>
+                                    <option value="DELETED">Silinmiş</option>
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                            </div>
+
+                            <div className="relative">
+                                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <select 
+                                    value={selectedPlan}
+                                    onChange={e => setSelectedPlan(e.target.value)}
+                                    className="w-full h-12 pl-10 pr-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="">Tüm Planlar</option>
+                                    <option value="STARTER">Starter</option>
+                                    <option value="PRO">Pro</option>
+                                    <option value="BUSINESS">Business</option>
+                                    <option value="ELITE">Elite</option>
+                                </select>
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                            </div>
+                        </div>
+
+                        {/* Summary Bar */}
+                        <div className="flex justify-between items-center px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                                    <span className="text-sm font-black text-text-main">{filteredSalons.length} Salon Listeleniyor</span>
+                                </div>
+                                {(selectedCity || selectedType || searchQuery) && (
+                                    <div className="flex gap-2">
+                                        {selectedCity && (
+                                            <span className="text-[10px] font-black text-primary bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
+                                                {cities.find(c => c.id === selectedCity)?.name}
+                                                {selectedDistrict && ` / ${districts.find(d => d.id === selectedDistrict)?.name}`}
+                                            </span>
+                                        )}
+                                        {selectedType && (
+                                            <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                                                {salonTypes.find(t => t.id === selectedType)?.name}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedCity('');
+                                    setSelectedDistrict('');
+                                    setSelectedType('');
+                                    setSelectedStatus('');
+                                    setSelectedPlan('');
+                                    setFilter('ALL');
+                                }}
+                                className="flex items-center gap-2 text-[10px] font-black text-text-muted hover:text-primary transition-colors tracking-widest uppercase bg-white px-4 py-2 rounded-xl border border-border shadow-sm"
+                            >
+                                <X className="w-3 h-3" /> Filtreleri Temizle
+                            </button>
                         </div>
 
                         {/* Table */}
@@ -255,6 +491,11 @@ export default function AdminApprovalsPage() {
                                                                 <p className="text-base font-black text-text-main group-hover:text-primary transition-colors">{salon.name}</p>
                                                                 <div className="flex items-center gap-2 mt-1">
                                                                     <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-black text-text-muted uppercase tracking-tighter">{salon.type_name}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${
+                                                                        salon.plan === 'ELITE' ? 'bg-purple-100 text-purple-700' :
+                                                                        salon.plan === 'BUSINESS' ? 'bg-indigo-100 text-indigo-700' :
+                                                                        salon.plan === 'PRO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-text-muted'
+                                                                    }`}>{salon.plan || 'STARTER'}</span>
                                                                     <span className="text-[10px] font-bold text-text-muted italic">{new Date(salon.created_at || '').toLocaleDateString('tr-TR')}</span>
                                                                 </div>
                                                             </div>
@@ -427,14 +668,35 @@ export default function AdminApprovalsPage() {
 
                             {/* Drawer Footer - Action Bar */}
                             <div className="px-8 py-8 border-t border-border bg-gray-50/50 flex flex-wrap justify-between items-center gap-4">
-                                <button
-                                    onClick={() => handleReject(selectedSalon.id)}
-                                    className="flex items-center gap-3 px-6 py-4 bg-white text-red-600 border-2 border-red-100 hover:border-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
-                                >
-                                    <XCircle className="w-4 h-4" /> Reddet
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleReject(selectedSalon.id)}
+                                        className="flex items-center gap-3 px-6 py-4 bg-white text-red-600 border-2 border-red-100 hover:border-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                                    >
+                                        <XCircle className="w-4 h-4" /> Reddet
+                                    </button>
+                                    
+                                    {selectedSalon.status !== 'DELETED' && (
+                                        <button
+                                            onClick={() => handleDelete(selectedSalon.id)}
+                                            className="flex items-center gap-3 px-4 py-4 bg-white text-gray-400 border-2 border-gray-100 hover:text-red-700 hover:border-red-200 rounded-2xl font-black text-[10px] uppercase transition-all shadow-sm"
+                                            title="Salonu Sil"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
 
                                 <div className="flex flex-wrap gap-4">
+                                    {selectedSalon.status === 'APPROVED' && (
+                                        <button
+                                            onClick={() => handleDeactivate(selectedSalon.id)}
+                                            className="flex items-center gap-3 px-6 py-4 bg-white text-gray-600 border-2 border-border hover:border-gray-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                                        >
+                                            <PowerOff className="w-4 h-4" /> Pasife Al
+                                        </button>
+                                    )}
+
                                     <button
                                         onClick={() => handleRequestRevision(selectedSalon.id)}
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-amber-600 border-2 border-amber-100 hover:border-amber-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
@@ -483,7 +745,9 @@ function StatusBadge({ status, reason }: { status: any, reason?: string }) {
         REVISION_REQUESTED: { label: 'REVİZYON İSTENDİ', icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
         APPROVED: { label: 'ONAYLANDI', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
         REJECTED: { label: 'REDDEDİLDİ', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-        SUSPENDED: { label: 'ASKIDA', icon: AlertCircle, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' }
+        SUSPENDED: { label: 'ASKIDA', icon: AlertCircle, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+        PASSIVE: { label: 'PASİF', icon: PowerOff, color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200' },
+        DELETED: { label: 'SİLİNDİ', icon: Trash2, color: 'text-red-800', bg: 'bg-red-50', border: 'border-red-300' }
     };
     const s = statusMap[status || 'DRAFT'];
     if (!s) return null;

@@ -319,11 +319,13 @@ export const NotificationService = {
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Notification> {
     // Map TypeScript field names to actual DB column names
-    const { content, link, ...rest } = notification as any;
-    const dbPayload: Record<string, unknown> = {
-      ...rest,
-      message: content ?? (notification as any).message,
-      action_url: link ?? (notification as any).action_url,
+    const dbPayload = {
+      user_id: notification.user_id,
+      salon_id: notification.salon_id,
+      title: notification.title,
+      content: notification.content,
+      type: notification.type,
+      link: notification.link,
       is_read: false,
       created_at: new Date().toISOString(),
     };

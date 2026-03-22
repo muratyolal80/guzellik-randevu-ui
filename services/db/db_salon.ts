@@ -542,7 +542,7 @@ export const SalonDataService = {
   },
 
   /**
-   * Delete salon
+   * Delete salon (Hard delete)
    */
   async deleteSalon(
     id: string,
@@ -550,6 +550,37 @@ export const SalonDataService = {
   ): Promise<void> {
     const { error } = await supabase.from("salons").delete().eq("id", id);
 
+    if (error) throw error;
+  },
+
+  /**
+   * Soft delete salon (Set status to DELETED)
+   */
+  async softDeleteSalon(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("salons")
+      .update({ status: "DELETED", updated_at: new Date().toISOString() })
+      .eq("id", id);
+      
+    if (error) throw error;
+  },
+
+  /**
+   * General purpose status update
+   */
+  async setSalonStatus(
+    id: string,
+    status: Salon["status"],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("salons")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+      
     if (error) throw error;
   },
 
@@ -693,6 +724,18 @@ export const SalonDataService = {
   ): Promise<void> {
     await this.updateSalonStatus(id, "SUSPENDED", reason, supabase);
   },
+ 
+  /**
+   * Admin: Deactivate a salon (Passive)
+   */
+  async deactivateSalon(
+    id: string,
+    reason?: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    await this.updateSalonStatus(id, "PASSIVE", reason, supabase);
+  },
+ 
 
   /**
    * Owner: Submit salon for approval
