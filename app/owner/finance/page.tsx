@@ -106,9 +106,8 @@ export default function OwnerFinancePage() {
                     pending += depositAmount;
                 }
 
-                const globalServiceName = Array.isArray(serviceData?.global_services) 
-                    ? serviceData?.global_services[0]?.name 
-                    : serviceData?.global_services?.name;
+                const gs: any = serviceData?.global_services;
+                const globalServiceName = Array.isArray(gs) ? gs[0]?.name : gs?.name;
 
                 return {
                     id: app.id,

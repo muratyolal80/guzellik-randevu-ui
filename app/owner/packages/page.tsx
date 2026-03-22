@@ -11,6 +11,7 @@ import {
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
 import { useTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
 import { SubscriptionService, PaymentService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -26,6 +27,7 @@ const PlanIcon = ({ name }: { name: string }) => {
 };
 
 export default function BillingPage() {
+    const { user } = useAuth();
     const { salonId, subscriptionStatus, refreshSalonId } = useTenant();
     const { activeBranch } = useActiveBranch();
 
@@ -41,30 +43,38 @@ export default function BillingPage() {
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
     const fetchData = async () => {
-        if (!salonId) return;
+        if (!user?.id) return;
         setLoading(true);
         try {
             const [plansData, historyData, subHistoryData] = await Promise.all([
                 SubscriptionService.getPlans(),
-                PaymentService.getSalonPaymentHistory(salonId),
-                SubscriptionService.getSalonSubscriptionHistory(salonId)
+                salonId ? PaymentService.getSalonPaymentHistory(salonId) : Promise.resolve([]),
+                SubscriptionService.getOwnerSubscriptionHistory(user.id)
             ]);
             setPlans(plansData);
             setPaymentHistory(historyData);
             setSubHistory(subHistoryData);
 
             // Fetch current limits used
-            const [branchRes, staffRes, galleryRes] = await Promise.all([
-                SubscriptionService.checkLimit(salonId, 'branch'),
-                SubscriptionService.checkLimit(salonId, 'staff'),
-                SubscriptionService.checkLimit(salonId, 'gallery_photo')
-            ]);
+            if (salonId) {
+                const [branchRes, staffRes, galleryRes] = await Promise.all([
+                    SubscriptionService.checkLimit(salonId, 'branch'),
+                    SubscriptionService.checkLimit(salonId, 'staff'),
+                    SubscriptionService.checkLimit(salonId, 'gallery_photo')
+                ]);
 
-            setLimits({
-                branches: { current: branchRes.current, max: branchRes.limit },
-                staff: { current: staffRes.current, max: staffRes.limit },
-                gallery: { current: galleryRes.current, max: galleryRes.limit }
-            });
+                setLimits({
+                    branches: { current: branchRes.current, max: branchRes.limit },
+                    staff: { current: staffRes.current, max: staffRes.limit },
+                    gallery: { current: galleryRes.current, max: galleryRes.limit }
+                });
+            } else {
+                setLimits({
+                    branches: { current: 0, max: 0 },
+                    staff: { current: 0, max: 0 },
+                    gallery: { current: 0, max: 0 }
+                });
+            }
 
         } catch (err) {
             console.error("Billing fetch error:", err);
@@ -75,9 +85,9 @@ export default function BillingPage() {
     };
 
     useEffect(() => {
-        if (!salonId) return;
+        if (!user?.id) return;
         fetchData();
-    }, [salonId]);
+    }, [user?.id, salonId]);
 
     const currentActiveSub = subHistory.find(s => s.status === 'ACTIVE' || s.status === 'TRIAL' || s.status === 'PENDING');
     const isExpired = subscriptionStatus === 'EXPIRED' || subscriptionStatus === 'CANCELLED';
@@ -170,7 +180,7 @@ export default function BillingPage() {
                         onClick={() => setActiveTab('SUBSCRIPTIONS')}
                         className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'SUBSCRIPTIONS' ? 'bg-white shadow-md text-primary' : 'text-text-muted hover:text-text-main'}`}
                     >
-                        <ShieldCheck className="w-4 h-4" /> Pasif Paketler
+                        <ShieldCheck className="w-4 h-4" /> Tüm Paketlerim
                     </button>
                     <button
                         onClick={() => setActiveTab('HISTORY')}
@@ -417,43 +427,51 @@ export default function BillingPage() {
             {activeTab === 'SUBSCRIPTIONS' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white rounded-[40px] border border-border shadow-sm overflow-hidden font-sans">
                     <div className="p-8 border-b border-border">
-                        <h3 className="text-xl font-black text-text-main">Pasif ve Eski Paketler</h3>
-                        <p className="text-sm font-medium text-text-secondary italic">Geçmişte kullandığınız veya süresi dolmuş olan tüm paketler.</p>
+                        <h3 className="text-xl font-black text-text-main">Tüm Paket Geçmişi</h3>
+                        <p className="text-sm font-medium text-text-secondary italic">Şimdiye kadar sahibi olduğunuz tüm paketler ve durumları.</p>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-gray-50 border-b border-border">
                                 <tr>
-                                    <th className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Paket</th>
+                                    <th className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Paket / Salon</th>
                                     <th className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Başlangıç</th>
                                     <th className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">Bitiş</th>
                                     <th className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest text-right">Durum</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {subHistory.filter(s => s.status === 'EXPIRED' || s.status === 'CANCELLED' || s.status === 'REJECTED').length > 0 ?
-                                    subHistory.filter(s => s.status === 'EXPIRED' || s.status === 'CANCELLED' || s.status === 'REJECTED').map((sub) => (
+                                {subHistory.length > 0 ?
+                                    subHistory.map((sub) => (
                                     <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-8 py-5">
                                             <div className="flex items-center gap-3">
                                                 <PlanIcon name={sub.subscription_plans?.name} />
-                                                <span className="text-sm font-bold text-text-main">{sub.subscription_plans?.display_name}</span>
+                                                <div>
+                                                    <span className="text-sm font-bold text-text-main block">{sub.subscription_plans?.display_name}</span>
+                                                    <span className="text-[10px] font-medium text-text-muted uppercase">{sub.salons?.name || 'Yeni Salon'}</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-sm font-medium text-text-secondary">
-                                            {format(new Date(sub.start_date), 'dd MMM yyyy', { locale: tr })}
+                                            {sub.start_date ? format(new Date(sub.start_date), 'dd MMM yyyy', { locale: tr }) : '-'}
                                         </td>
                                         <td className="px-8 py-5 text-sm font-medium text-text-secondary">
                                             {sub.end_date ? format(new Date(sub.end_date), 'dd MMM yyyy', { locale: tr }) : '-'}
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                                sub.status === 'ACTIVE' || sub.status === 'TRIAL' ? 'bg-emerald-50 text-emerald-600' :
+                                                sub.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
                                                 sub.status === 'EXPIRED' ? 'bg-red-50 text-red-600' :
                                                 sub.status === 'CANCELLED' ? 'bg-gray-50 text-gray-400' :
                                                 'bg-red-100 text-red-800'
                                             }`}>
-                                                {sub.status === 'EXPIRED' ? 'Süresi Doldu' :
-                                                 sub.status === 'CANCELLED' ? 'İptal Edildi' : 'Reddedildi'}
+                                                {sub.status === 'ACTIVE' ? 'Aktif' :
+                                                 sub.status === 'TRIAL' ? 'Deneme' :
+                                                 sub.status === 'PENDING' ? 'Onay Bekliyor' :
+                                                 sub.status === 'EXPIRED' ? 'Süresi Doldu' :
+                                                 sub.status === 'CANCELLED' ? 'İptal Edildi' : 'Pasif/Red'}
                                             </span>
                                         </td>
                                     </tr>

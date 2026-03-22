@@ -140,17 +140,17 @@ export const SubscriptionService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    const { data, error } = await supabase
+    const { data: subscription, error } = await supabase
       .from("subscriptions")
       .select("*, subscription_plans(*)")
       .eq("salon_id", salonId)
-      .in("status", ["ACTIVE", "TRIAL", "PENDING"])
+      .in("status", ["ACTIVE", "PENDING_APPROVAL"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return subscription;
   },
 
   /**
@@ -193,7 +193,7 @@ export const SubscriptionService = {
       .from("subscriptions")
       .select("*, subscription_plans(*)")
       .in("salon_id", salonIds)
-      .in("status", ["ACTIVE", "TRIAL", "PENDING"])
+      .in("status", ["ACTIVE", "PENDING_APPROVAL"])
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -215,6 +215,57 @@ export const SubscriptionService = {
     });
 
     return data[0];
+  },
+
+  /**
+   * Get all subscriptions for an owner (across all salons)
+   */
+  async getOwnerSubscriptionHistory(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { data: salons } = await supabase
+      .from("salons")
+      .select("id")
+      .eq("owner_id", ownerId);
+      
+    if (!salons || salons.length === 0) return [];
+
+    const salonIds = salons.map((s) => s.id);
+
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*), salons(name)")
+      .in("salon_id", salonIds)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Admin: Get ALL subscriptions with salon info
+   */
+  async getAllSubscriptions(supabase: SupabaseClient = defaultSupabase) {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*), salons(name, owner_id)")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Admin: Delete a subscription record
+   */
+  async deleteSubscription(id: string, supabase: SupabaseClient = defaultSupabase) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
   },
 
   /**
@@ -351,13 +402,13 @@ export const SubscriptionService = {
       .single();
 
     let days = billingCycle === "YEARLY" ? 365 : 30;
-    let initialStatus = "PENDING";
+    let initialStatus = "PENDING_APPROVAL";
     let periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
     // Starter planı 3 ay (90 gün) ücretsiz deneme
     if (planData && (planData.name === "STARTER" || planData.price_monthly === 0)) {
        days = 90;
-       initialStatus = "TRIAL";
+       initialStatus = "ACTIVE"; // Starter matches ACTIVE in schema
        periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     }
 
@@ -371,14 +422,27 @@ export const SubscriptionService = {
         billing_cycle: billingCycle,
         current_period_start: new Date().toISOString(),
         current_period_end: periodEnd,
-      })
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'salon_id' })
       .select()
       .single();
 
     if (error) throw error;
     
-    // Eğer TRIAL ise doğrudan onaya gönderelim
-    if (initialStatus === 'TRIAL') {
+    // If it's a free plan (STARTER), activate it immediately
+    if (initialStatus === 'ACTIVE' && planData?.price_monthly === 0) {
+      // 1. Ödeme geçmişine kaydet
+      await supabase.from("payment_history").insert({
+        salon_id: salonId,
+        subscription_id: data.id,
+        amount: 0,
+        payment_method: "TRIAL",
+        payment_type: "SUBSCRIPTION",
+        status: "SUCCESS",
+        metadata: { note: "Ücretsiz deneme başlatıldı" }
+      });
+
+      // 2. Aktivasyon yap
       await SubscriptionService.activateSalonAndSubscription(
         salonId, 
         data.id, 
@@ -540,7 +604,30 @@ export const FinanceService = {
 
     if (pError) throw pError;
 
-    const { error } = await supabase
+    // Case 1: Subscription Activation (Atomic RPC)
+    if (status === "SUCCESS" && payment.payment_type === "SUBSCRIPTION" && payment.subscription_id) {
+      try {
+        const { error: rpcError } = await supabase.rpc("activate_salon_and_subscription", {
+          p_salon_id: payment.salon_id,
+          p_subscription_id: payment.subscription_id,
+          p_admin_note: adminNote
+        });
+        
+        if (rpcError) {
+          console.error("RPC Error (Activation):", rpcError);
+          throw rpcError;
+        }
+        return { success: true, method: 'RPC' };
+      } catch (err) {
+          console.error("Activation RPC failed, attempting manual fallback for payment history:", err);
+          // Fallback: at least update the payment record
+          await supabase.from("payment_history").update({ status: 'SUCCESS' }).eq("id", paymentId);
+          throw err;
+      }
+    }
+
+    // Case 2: Standard Status Update (Manual)
+    const { error: updateError } = await supabase
       .from("payment_history")
       .update({
         status,
@@ -552,26 +639,20 @@ export const FinanceService = {
       })
       .eq("id", paymentId);
 
-    if (error) throw error;
-
-    // If it was a subscription payment, activate the subscription and the salon
-    if (
-      status === "SUCCESS" &&
-      payment.payment_type === "SUBSCRIPTION" &&
-      payment.subscription_id
-    ) {
-      // Activate subscription
-      await supabase
-        .from("subscriptions")
-        .update({ status: "ACTIVE" })
-        .eq("id", payment.subscription_id);
-
-      // Activate salon (Set to APPROVED)
-      await supabase
-        .from("salons")
-        .update({ status: "APPROVED", is_verified: true })
-        .eq("id", payment.salon_id);
+    if (updateError) {
+      console.error("Update Error (Manual):", updateError);
+      throw updateError;
     }
+
+    // NEW: If rejected AND was a subscription, update subscription status to CANCELLED
+    if (status === 'FAILED' && payment.payment_type === 'SUBSCRIPTION' && payment.subscription_id) {
+        await supabase
+            .from('subscriptions')
+            .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+            .eq('id', payment.subscription_id);
+    }
+    
+    return { success: true, method: 'MANUAL' };
   },
 
   /**
@@ -581,7 +662,25 @@ export const FinanceService = {
     filter: { salonId?: string; startDate?: string; endDate?: string } = {},
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    let query = supabase.from("payment_history").select("*");
+    let query = supabase.from("payment_history").select(`
+      *, 
+      salons(
+        id, 
+        name, 
+        owner_id, 
+        phone,
+        address,
+        cities(name),
+        districts(name),
+        profiles!owner_id(full_name, email, phone)
+      ), 
+      subscriptions(
+        current_period_end, 
+        status, 
+        plan_id,
+        subscription_plans(*)
+      )
+    `);
 
     if (filter.salonId) query = query.eq("salon_id", filter.salonId);
     if (filter.startDate) query = query.gte("created_at", filter.startDate);
@@ -609,4 +708,36 @@ export const FinanceService = {
       },
     };
   },
+
+  /**
+   * Delete a payment record
+   */
+  async deletePayment(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    // 1. Get payment info to see if it's a subscription request
+    const { data: payment } = await supabase
+        .from('payment_history')
+        .select('payment_type, subscription_id')
+        .eq('id', id)
+        .single();
+
+    // 2. Delete the payment record
+    const { error } = await supabase
+      .from("payment_history")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    // 3. If it was a subscription request, cancel the pending subscription too
+    if (payment?.payment_type === 'SUBSCRIPTION' && payment?.subscription_id) {
+        await supabase
+            .from('subscriptions')
+            .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+            .eq('id', payment.subscription_id)
+            .eq('status', 'PENDING_APPROVAL');
+    }
+  }
 };

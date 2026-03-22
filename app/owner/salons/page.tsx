@@ -17,7 +17,8 @@ import {
     Search,
     LayoutGrid,
     PowerOff,
-    Ban
+    Ban,
+    Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -76,7 +77,10 @@ export default function OwnerSalonsPage() {
             case 'REVISION_REQUESTED':
                 return { label: 'Revizyon Gerekli', color: 'text-orange-600', bg: 'bg-orange-50', icon: AlertCircle };
             case 'SUSPENDED':
+            case 'PASSIVE':
                 return { label: 'Pasif', color: 'text-gray-600', bg: 'bg-gray-100', icon: Ban };
+            case 'DELETED':
+                return { label: 'Silindi', color: 'text-red-700', bg: 'bg-red-100', icon: Trash2 };
             case 'SUBMITTED':
                 return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: AlertCircle };
             default:
@@ -105,12 +109,31 @@ export default function OwnerSalonsPage() {
         }
     };
 
-    // Filter salons based on active tab
+    const handleDelete = async (salonId: string) => {
+        const confirmText = 'Bu salonu tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm veriler (personel, hizmetler, geçmiş randevular) silinecektir.';
+        if (!confirm(confirmText)) return;
+
+        const finalConfirm = prompt('Silmek için "SIL" yazın:');
+        if (finalConfirm !== 'SIL') return;
+
+        try {
+            // We use hard delete as requested for "full silme"
+            await SalonDataService.deleteSalon(salonId);
+            alert('Salon başarıyla silindi.');
+            fetchSalons();
+        } catch (error: any) {
+            console.error('Delete error:', error);
+            alert('Silme işlemi sırasında bir hata oluştu: ' + error.message);
+        }
+    };
+
+    // Filter salons based on active tab and exclude deleted ones
     const filteredSalons = salons.filter(salon => {
+        if (salon.status === 'DELETED') return false;
         if (activeTab === 'ACTIVE') {
-            return (salon.status as any) !== 'SUSPENDED';
+            return (salon.status as any) !== 'SUSPENDED' && (salon.status as any) !== 'PASSIVE';
         } else {
-            return (salon.status as any) === 'SUSPENDED';
+            return (salon.status as any) === 'SUSPENDED' || (salon.status as any) === 'PASSIVE';
         }
     });
 
@@ -256,10 +279,17 @@ export default function OwnerSalonsPage() {
                                                     </Link>
                                                     <button
                                                         onClick={() => handleSuspend(salon.id)}
-                                                        className="w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
+                                                        className="w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-100 transition-colors border border-border"
                                                         title="Salonu Pasife Al"
                                                     >
                                                         <PowerOff className="w-4 h-4 md:w-5 md:h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(salon.id)}
+                                                        className="w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
+                                                        title="Salonu Tamamen Sil"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                                                     </button>
                                                 </>
                                             )}

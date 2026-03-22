@@ -433,4 +433,82 @@ export const ProfileService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Admin: Get all profiles with advanced filtering
+   */
+  async adminGetProfiles(
+    options: {
+      search?: string;
+      role?: string;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    } = {},
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    let query = supabase
+      .from("profiles")
+      .select("*");
+
+    if (options.role && options.role !== 'all') {
+      query = query.eq("role", options.role);
+    }
+
+    if (options.search) {
+      query = query.or(`full_name.ilike.%${options.search}%,email.ilike.%${options.search}%,phone.ilike.%${options.search}%`);
+    }
+
+    if (options.sortBy) {
+      query = query.order(options.sortBy, { ascending: options.sortOrder === 'asc' });
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Admin: Update profile (Full control)
+   */
+  async adminUpdateProfile(
+    userId: string,
+    updates: Partial<Profile>,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Admin: Delete profile (Auth delete is complex via RPC, usually we soft delete or revoke access)
+   */
+  async adminDeleteProfile(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    // 1. Mark as deleted in profiles (Soft delete)
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ 
+        full_name: 'DELETED USER',
+        email: `deleted_${userId}@system.local`,
+        phone: null,
+        role: 'CUSTOMER' // Reset role
+      })
+      .eq("id", userId);
+
+    if (profileError) throw profileError;
+
+    // 2. Revoke sessions
+    await supabase.from("user_sessions").update({ is_revoked: true }).eq("user_id", userId);
+  }
 };

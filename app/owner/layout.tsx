@@ -23,25 +23,60 @@ import {
     Briefcase,
     Database,
     Wallet,
-    Package
+    Package,
+    ChevronDown,
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
     const pathname = usePathname();
     const { user } = useAuth();
+    const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['Genel', 'İşletme Yönetimi', 'Operasyon', 'Müşteri ve Pazarlama', 'Finans']);
 
-    const menuItems = [
-        { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
-        { name: 'Paket ve Abonelik', path: '/owner/packages', icon: Package },
-        { name: 'Salonlarım', path: '/owner/salons', icon: Store },
-        { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
-        { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
-        { name: 'Personel Yönetimi', path: '/owner/staff', icon: Briefcase },
-        { name: 'Müşterilerim', path: '/owner/customers', icon: Users },
-        { name: 'Kaynak Yönetimi', path: '/owner/resources', icon: Database },
-        { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
-        { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
-        { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
+    const toggleGroup = (groupName: string) => {
+        setExpandedGroups(prev =>
+            prev.includes(groupName)
+                ? prev.filter(g => g !== groupName)
+                : [...prev, groupName]
+        );
+    };
+
+    const menuGroups = [
+        {
+            name: 'Genel',
+            items: [
+                { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
+                { name: 'Paket ve Abonelik', path: '/owner/packages', icon: Package },
+            ]
+        },
+        {
+            name: 'İşletme Yönetimi',
+            items: [
+                { name: 'Salonlarım', path: '/owner/salons', icon: Store },
+                { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
+            ]
+        },
+        {
+            name: 'Operasyon',
+            items: [
+                { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
+                { name: 'Personel Yönetimi', path: '/owner/staff', icon: Briefcase },
+                { name: 'Kaynak Yönetimi', path: '/owner/resources', icon: Database },
+            ]
+        },
+        {
+            name: 'Müşteri ve Pazarlama',
+            items: [
+                { name: 'Müşterilerim', path: '/owner/customers', icon: Users },
+                { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
+            ]
+        },
+        {
+            name: 'Finans',
+            items: [
+                { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
+                { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
+            ]
+        }
     ];
 
     return (
@@ -58,20 +93,39 @@ const OwnerSidebar: React.FC = () => {
                 </div>
             </div>
 
-            <nav className="flex flex-col gap-1.5 flex-1">
-                {menuItems.map(item => (
-                    <Link
-                        key={item.path}
-                        href={item.path}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${pathname.startsWith(item.path)
-                            ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
-                            : 'text-text-secondary hover:bg-gray-50 hover:translate-x-1'
-                            }`}
-                    >
-                        <item.icon className="w-4 h-4" />
-                        {item.name}
-                    </Link>
-                ))}
+            <nav className="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2">
+                {menuGroups.map(group => {
+                    const isExpanded = expandedGroups.includes(group.name);
+                    return (
+                        <div key={group.name} className="flex flex-col gap-1">
+                            <button
+                                onClick={() => toggleGroup(group.name)}
+                                className="flex items-center justify-between px-4 py-2 w-full text-left group/header"
+                            >
+                                <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] opacity-70 group-hover/header:text-primary transition-colors">
+                                    {group.name}
+                                </p>
+                                <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-300 ${isExpanded ? '' : '-rotate-90 opacity-40'}`} />
+                            </button>
+                            
+                            <div className={`flex flex-col gap-1 transition-all duration-300 origin-top overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                                {group.items.map(item => (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all group ${pathname.startsWith(item.path)
+                                            ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
+                                            : 'text-text-secondary hover:bg-gray-50 hover:text-primary hover:translate-x-1'
+                                            }`}
+                                    >
+                                        <item.icon className={`w-4 h-4 ${pathname.startsWith(item.path) ? 'text-white' : 'text-text-muted group-hover:text-primary transition-colors'}`} />
+                                        {item.name}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
             </nav>
 
             <div className="pt-4 border-t border-border mt-auto">
