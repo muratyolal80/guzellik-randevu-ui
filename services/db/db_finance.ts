@@ -529,7 +529,70 @@ export const SubscriptionService = {
 
     if (error) throw error;
   },
+  /**
+   * Admin: Manually assign or upgrade a subscription for a salon.
+   * This bypasses the normal payment flow.
+   */
+  async adminAssignSubscription(
+    salonId: string,
+    planId: string,
+    billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
+    adminNote: string = "Admin tarafından manuel atandı",
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    // 1. Plan detaylarını al
+    const { data: planData } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("id", planId)
+      .single();
+
+    if (!planData) throw new Error("Plan bulunamadı");
+
+    const days = billingCycle === "YEARLY" ? 365 : 30;
+    const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    // 2. Aboneliği oluştur veya güncelle
+    const { data: subscription, error: subError } = await supabase
+      .from("subscriptions")
+      .upsert({
+        salon_id: salonId,
+        plan_id: planId,
+        status: "ACTIVE",
+        payment_method: "BANK_TRANSFER", // Placeholder for manual
+        billing_cycle: billingCycle,
+        current_period_start: new Date().toISOString(),
+        current_period_end: periodEnd,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'salon_id' })
+      .select()
+      .single();
+
+    if (subError) throw subError;
+
+    // 3. Ödeme geçmişine "Sistem Ataması" olarak ekle
+    await supabase.from("payment_history").insert({
+      salon_id: salonId,
+      subscription_id: subscription.id,
+      amount: billingCycle === "YEARLY" ? planData.price_yearly : planData.price_monthly,
+      payment_method: "BANK_TRANSFER",
+      payment_type: "SUBSCRIPTION",
+      status: "SUCCESS",
+      metadata: { note: adminNote, is_admin_assignment: true }
+    });
+
+    // 4. Salonu ve aboneliği aktif et (onaylı durumu için)
+    await this.activateSalonAndSubscription(
+      salonId,
+      subscription.id,
+      adminNote,
+      supabase
+    );
+
+    return subscription;
+  },
 };
+
 
 export const SubmerchantService = {
   /**
@@ -739,5 +802,38 @@ export const FinanceService = {
             .eq('id', payment.subscription_id)
             .eq('status', 'PENDING_APPROVAL');
     }
+  },
+
+  /**
+   * Admin: Get Ghost (Orphaned) Subscriptions
+   * Subscriptions that belong to deleted salons or have inconsistent states.
+   */
+  async getGhostSubscriptions(supabase: SupabaseClient = defaultSupabase) {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, salons(name, status, owner_id), subscription_plans(name)")
+      .or(`salons.status.eq.DELETED,current_period_end.lt.${new Date().toISOString()}`)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Filter purely in JS for safety if the .or filter on joined table is tricky
+    return data.filter((sub: any) => 
+      !sub.salons || 
+      sub.salons.status === 'DELETED' || 
+      (sub.status === 'ACTIVE' && new Date(sub.current_period_end) < new Date())
+    );
+  },
+
+  /**
+   * Admin: Hard delete a ghost subscription
+   */
+  async hardDeleteSubscription(id: string, supabase: SupabaseClient = defaultSupabase) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .delete()
+      .eq("id", id);
+      
+    if (error) throw error;
   }
 };

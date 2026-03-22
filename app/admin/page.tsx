@@ -3,14 +3,24 @@
 import React from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 
-const StatCard = ({ title, value, icon, color }: { title: string, value: string, icon: string, color: string }) => (
-    <div className={`bg-white rounded-xl border border-border p-6 shadow-sm flex items-center gap-6`}>
-        <div className={`size-12 rounded-full flex items-center justify-center ${color}`}>
-            <span className="material-symbols-outlined text-white">{icon}</span>
+import { 
+    Store, 
+    Calendar, 
+    CreditCard, 
+    Users, 
+    TrendingUp, 
+    Activity 
+} from 'lucide-react';
+import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
+
+const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string, icon: any, color: string }) => (
+    <div className={`bg-white rounded-[32px] border border-border p-8 shadow-card flex items-center gap-6 hover:scale-[1.02] transition-all`}>
+        <div className={`size-16 rounded-2xl flex items-center justify-center ${color} text-white shadow-lg`}>
+            <Icon size={32} />
         </div>
         <div>
-            <p className="text-sm text-text-secondary font-medium">{title}</p>
-            <h3 className="text-2xl font-bold text-text-main">{value}</h3>
+            <p className="text-[11px] font-black text-text-muted uppercase tracking-widest mb-1">{title}</p>
+            <h3 className="text-3xl font-black text-text-main tracking-tighter leading-none">{value}</h3>
         </div>
     </div>
 );
@@ -20,10 +30,10 @@ import { DashboardService } from '@/services/db';
 
 export default function Dashboard() {
     const [stats, setStats] = React.useState([
-        { title: 'Toplam Salon', value: '0', icon: 'store', color: 'bg-blue-500' },
-        { title: 'Bugünkü Randevu', value: '0', icon: 'calendar_today', color: 'bg-green-500' },
-        { title: 'Toplam Ciro', value: '0 TL', icon: 'payments', color: 'bg-yellow-500' },
-        { title: 'Aktif Personel', value: '0', icon: 'group', color: 'bg-purple-500' },
+        { title: 'Toplam Salon', value: '0', icon: Store, color: 'bg-blue-600' },
+        { title: 'Bugünkü Randevu', value: '0', icon: Calendar, color: 'bg-emerald-600' },
+        { title: 'Toplam Ciro', value: '0 TL', icon: CreditCard, color: 'bg-amber-600' },
+        { title: 'Aktif Personel', value: '0', icon: Users, color: 'bg-indigo-600' },
     ]);
     const [chartData, setChartData] = React.useState<any[]>([]);
     const [activities, setActivities] = React.useState<any[]>([]);
@@ -35,10 +45,10 @@ export default function Dashboard() {
                 const data = await DashboardService.getPlatformStats();
 
                 setStats([
-                    { title: 'Toplam Salon', value: data.totalSalons.toString(), icon: 'store', color: 'bg-blue-500' },
-                    { title: 'Bugünkü Randevu', value: data.todayAppointments.toString(), icon: 'calendar_today', color: 'bg-green-500' },
-                    { title: 'Toplam Ciro', value: `${data.totalRevenue.toLocaleString('tr-TR')} TL`, icon: 'payments', color: 'bg-yellow-500' },
-                    { title: 'Aktif Personel', value: data.activeStaff.toString(), icon: 'group', color: 'bg-purple-500' },
+                    { title: 'Toplam Salon', value: data.totalSalons.toString(), icon: Store, color: 'bg-blue-600' },
+                    { title: 'Bugünkü Randevu', value: data.todayAppointments.toString(), icon: Calendar, color: 'bg-emerald-600' },
+                    { title: 'Toplam Ciro', value: `${data.totalRevenue.toLocaleString('tr-TR')} TL`, icon: CreditCard, color: 'bg-amber-600' },
+                    { title: 'Aktif Personel', value: data.activeStaff.toString(), icon: Users, color: 'bg-indigo-600' },
                 ]);
 
                 // 2. Fetch Chart Data (Last 7 Days)
@@ -66,9 +76,12 @@ export default function Dashboard() {
 
     return (
         <AdminLayout>
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold text-text-main">Dashboard</h2>
-                <p className="text-text-secondary">Genel bakış ve istatistikler.</p>
+            <Breadcrumbs items={[]} />
+            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 mt-6">
+                <div>
+                    <h2 className="text-4xl font-black text-text-main tracking-tighter uppercase">Panel <span className="text-primary">Özeti</span></h2>
+                    <p className="text-text-secondary font-medium">Platform genel performansı ve anlık takip.</p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -77,10 +90,13 @@ export default function Dashboard() {
                 ))}
             </div>
 
-            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Chart Section */}
-                <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
-                    <h3 className="font-bold text-lg text-text-main mb-4">Haftalık Randevu Grafiği</h3>
+                <div className="bg-white rounded-[40px] border border-border p-10 shadow-card">
+                    <div className="flex items-center gap-3 mb-8">
+                        <TrendingUp className="text-primary" size={24} />
+                        <h3 className="font-black text-xl text-text-main tracking-tight uppercase">Randevu Grafiği</h3>
+                    </div>
                     <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
@@ -121,9 +137,12 @@ export default function Dashboard() {
                 </div>
 
                 {/* Activities Section */}
-                <div className="bg-white rounded-xl border border-border p-6 shadow-sm">
-                    <h3 className="font-bold text-lg text-text-main mb-4">Son Aktiviteler</h3>
-                    <ul className="divide-y divide-gray-100">
+                <div className="bg-white rounded-[40px] border border-border p-10 shadow-card">
+                    <div className="flex items-center gap-3 mb-8">
+                        <Activity className="text-primary" size={24} />
+                        <h3 className="font-black text-xl text-text-main tracking-tight uppercase">Son Aktiviteler</h3>
+                    </div>
+                    <ul className="space-y-4">
                         {activities.length > 0 ? activities.map((activity) => (
                             <li key={activity.id} className="py-3 flex items-center justify-between group cursor-pointer hover:bg-gray-50 px-2 rounded-lg transition-colors">
                                 <div>

@@ -25,15 +25,12 @@ export async function adminCreateUserAction(formData: {
         });
 
         if (authError) throw authError;
-
-        // Note: The public.profiles trigger will handle profile creation automatically.
-        // But we might want to ensure it's updated if metadata didn't fire correctly.
-        
+ 
         revalidatePath('/admin/users');
         return { success: true, user: authData.user };
     } catch (error: any) {
         console.error('Admin Create User Error:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message || 'Kullanıcı oluşturulamadı.' };
     }
 }
 
@@ -43,11 +40,12 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
     password?: string;
 }) {
     try {
-        const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-            email: updates.email,
-            phone: updates.phone,
-            password: updates.password
-        });
+        const updateParams: any = {};
+        if (updates.email) updateParams.email = updates.email;
+        if (updates.phone) updateParams.phone = updates.phone;
+        if (updates.password) updateParams.password = updates.password;
+
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, updateParams);
 
         if (error) throw error;
         
@@ -55,7 +53,7 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
         return { success: true };
     } catch (error: any) {
         console.error('Admin Update Auth Error:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message || 'Kullanıcı bilgileri güncellenemedi.' };
     }
 }
 
@@ -68,6 +66,6 @@ export async function adminDeleteUserAuthAction(userId: string) {
         return { success: true };
     } catch (error: any) {
         console.error('Admin Delete Auth Error:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message || 'Kullanıcı silinemedi.' };
     }
 }

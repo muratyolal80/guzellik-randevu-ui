@@ -435,7 +435,7 @@ export const ProfileService = {
   },
 
   /**
-   * Admin: Get all profiles with advanced filtering
+   * Admin: Get all profiles with advanced filtering and pagination
    */
   async adminGetProfiles(
     options: {
@@ -443,19 +443,26 @@ export const ProfileService = {
       role?: string;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
+      page?: number;
+      pageSize?: number;
     } = {},
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
     let query = supabase
       .from("profiles")
-      .select("*");
+      .select("*", { count: 'exact' });
 
     if (options.role && options.role !== 'all') {
       query = query.eq("role", options.role);
     }
 
     if (options.search) {
-      query = query.or(`full_name.ilike.%${options.search}%,email.ilike.%${options.search}%,phone.ilike.%${options.search}%`);
+      const s = options.search;
+      query = query.or(`full_name.ilike."%${s}%",email.ilike."%${s}%",phone.ilike."%${s}%"`);
     }
 
     if (options.sortBy) {
@@ -464,13 +471,19 @@ export const ProfileService = {
       query = query.order("created_at", { ascending: false });
     }
 
-    const { data, error } = await query;
+    // Pagination
+    query = query.range(offset, offset + pageSize - 1);
+
+    const { data, error, count } = await query;
     if (error) throw error;
-    // Map is_active from profiles (ensure it's typed properly if possible)
-    return (data || []).map(u => ({
-      ...u,
-      is_active: u.is_active ?? true
-    }));
+    
+    return {
+      profiles: (data || []).map(u => ({
+        ...u,
+        is_active: u.is_active ?? true
+      })) as Profile[],
+      totalCount: count || 0
+    };
   },
 
   /**
