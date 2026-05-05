@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { revalidatePath } from 'next/cache';
 
 export async function adminCreateUserAction(formData: {
@@ -20,7 +20,8 @@ export async function adminCreateUserAction(formData: {
                 full_name: formData.full_name,
                 first_name: formData.full_name.split(' ')[0],
                 last_name: formData.full_name.split(' ').slice(1).join(' '),
-                role: formData.role
+                role: formData.role,
+                phone: formData.phone
             }
         });
 

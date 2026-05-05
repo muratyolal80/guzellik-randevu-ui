@@ -100,12 +100,15 @@ const OwnerSidebar: React.FC = () => {
                         <div key={group.name} className="flex flex-col gap-1">
                             <button
                                 onClick={() => toggleGroup(group.name)}
-                                className="flex items-center justify-between px-4 py-2 w-full text-left group/header"
+                                className="flex items-center justify-between px-4 py-3 w-full text-left group/header hover:bg-gray-50/50 rounded-2xl transition-all"
                             >
-                                <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] opacity-70 group-hover/header:text-primary transition-colors">
-                                    {group.name}
-                                </p>
-                                <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-300 ${isExpanded ? '' : '-rotate-90 opacity-40'}`} />
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover/header:bg-primary transition-colors" />
+                                    <p className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] group-hover/header:text-primary transition-colors">
+                                        {group.name}
+                                    </p>
+                                </div>
+                                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isExpanded ? '' : '-rotate-90 opacity-40'}`} />
                             </button>
                             
                             <div className={`flex flex-col gap-1 transition-all duration-300 origin-top overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>

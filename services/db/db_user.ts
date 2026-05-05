@@ -457,12 +457,16 @@ export const ProfileService = {
       .select("*", { count: 'exact' });
 
     if (options.role && options.role !== 'all') {
-      query = query.eq("role", options.role);
+      if (options.role === 'SALON_OWNER' || options.role === 'OWNER') {
+        query = query.in("role", ['OWNER', 'SALON_OWNER']);
+      } else {
+        query = query.eq("role", options.role);
+      }
     }
 
     if (options.search) {
       const s = options.search;
-      query = query.or(`full_name.ilike."%${s}%",email.ilike."%${s}%",phone.ilike."%${s}%"`);
+      query = query.or(`full_name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`);
     }
 
     if (options.sortBy) {

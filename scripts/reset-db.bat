@@ -55,7 +55,7 @@ echo.
 echo [*] Running database migrations...
 
 REM Run schema migration
-type initdb\01-schema.sql | docker exec -i supabase-db psql -U postgres -d postgres
+type initdb\Master-Database-Setup.sql | docker exec -i supabase-db psql -U postgres -d postgres
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Schema creation failed
     pause

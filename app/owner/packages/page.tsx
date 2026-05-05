@@ -5,13 +5,14 @@ import {
     Package, Building, Users, Image as ImageIcon, CheckCircle2,
     AlertCircle, Clock, CreditCard, Wallet, ArrowRight,
     ShieldCheck, Zap, Briefcase, Crown, Check, X,
-    History as HistoryIcon, Loader2
+    History as HistoryIcon, Loader2, Landmark
 } from 'lucide-react';
 // import { toast } from 'sonner'; // No toast lib installed in package.json
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
 import { useTenant } from '@/context/TenantContext';
 import { useAuth } from '@/context/AuthContext';
+import ImageUpload from '@/components/ImageUpload';
+import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
 import { SubscriptionService, PaymentService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -41,6 +42,7 @@ export default function BillingPage() {
     const [limits, setLimits] = useState<any>(null);
     const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const [receiptUrl, setReceiptUrl] = useState<string>('');
 
     const fetchData = async () => {
         if (!user?.id) return;
@@ -92,7 +94,7 @@ export default function BillingPage() {
     const currentActiveSub = subHistory.find(s => s.status === 'ACTIVE' || s.status === 'TRIAL' || s.status === 'PENDING');
     const isExpired = subscriptionStatus === 'EXPIRED' || subscriptionStatus === 'CANCELLED';
 
-    const handleUpgrade = async (planId: string) => {
+    const handleUpgradeWithSender = async (planId: string, senderName?: string, proofUrl?: string) => {
         if (!salonId || !activeBranch) return;
         const targetPlan = plans.find(p => p.id === planId);
         const confirm = window.confirm(`"${targetPlan?.display_name}" paketine geçiş yapmak istediğinize emin misiniz?`);
@@ -104,7 +106,12 @@ export default function BillingPage() {
                 activeBranch.id,
                 planId,
                 'BANK_TRANSFER',
-                billingCycle
+                billingCycle,
+                {
+                    senderName: senderName,
+                    amount: billingCycle === 'YEARLY' ? targetPlan?.price_yearly : targetPlan?.price_monthly,
+                    receiptUrl: proofUrl
+                }
             );
             alert('Abonelik talebiniz oluşturuldu!');
             await refreshSalonId();
@@ -340,19 +347,106 @@ export default function BillingPage() {
                     />
 
                     {selectedPlanId && (
-                        <div className="mt-12 p-8 bg-white border-2 border-primary rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-bottom-4 duration-500">
-                            <div>
-                                <h3 className="text-xl font-black text-text-main mb-1 uppercase tracking-tight">
-                                    {plans.find(p => p.id === selectedPlanId)?.display_name} Planını Seçtiniz
-                                </h3>
-                                <p className="text-sm text-text-secondary font-medium italic">Seçilen plan üzerinden abonelik sürecinizi başlatabilirsiniz.</p>
+                        <div className="mt-12 p-8 bg-white border-2 border-primary rounded-[32px] flex flex-col gap-8 animate-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-border pb-8">
+                                <div>
+                                    <h3 className="text-xl font-black text-text-main mb-1 uppercase tracking-tight">
+                                        {plans.find(p => p.id === selectedPlanId)?.display_name} Planını Seçtiniz
+                                    </h3>
+                                    <p className="text-sm text-text-secondary font-medium italic">Seçilen plan üzerinden abonelik sürecinizi başlatabilirsiniz.</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-text-muted text-xs font-bold uppercase tracking-widest mb-1">ÖDENECEK TUTAR</div>
+                                    <div className="text-3xl font-black text-primary">
+                                       {((billingCycle === 'YEARLY' && plans.find(p => p.id === selectedPlanId)?.price_yearly) 
+                                            ? plans.find(p => p.id === selectedPlanId)!.price_yearly! 
+                                            : plans.find(p => p.id === selectedPlanId)?.price_monthly || 0) / 100} ₺
+                                    </div>
+                                </div>
                             </div>
-                            <button
-                                onClick={() => handleUpgrade(selectedPlanId)}
-                                className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest"
-                            >
-                                Aboneliği Başlat
-                            </button>
+                            
+                            {/* Bank Transfer Info */}
+                            {plans.find(p => p.id === selectedPlanId)?.price_monthly !== 0 && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="bg-surface-alt p-6 rounded-2xl border border-border">
+                                        <div className="flex items-center gap-3 mb-4 text-text-main">
+                                            <Landmark className="w-5 h-5 text-primary" />
+                                            <h4 className="font-black text-sm uppercase tracking-widest">Havale / EFT Bilgileri</h4>
+                                        </div>
+                                        <div className="space-y-4 text-sm font-medium text-text-secondary">
+                                            <div>
+                                                <div className="text-xs text-text-muted uppercase mb-1">Banka Adı</div>
+                                                <div className="text-text-main font-bold">Örnek Bankası A.Ş.</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-text-muted uppercase mb-1">Alıcı Adı Soyadı/Ünvanı</div>
+                                                <div className="text-text-main font-bold">Güzellik Randevu Bilişim Hizmetleri Tic. Ltd. Şti.</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-text-muted uppercase mb-1">IBAN</div>
+                                                <div className="font-mono bg-white p-3 rounded-xl border border-border flex items-center justify-between">
+                                                    <span className="font-bold text-text-main tracking-wider">TR00 0000 0000 0000 0000 0000 00</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-amber-50 text-amber-800 p-4 rounded-xl border border-amber-200 text-xs leading-relaxed">
+                                                <span className="font-bold">ÖNEMLİ:</span> Havale yaparken açıklama kısmına <b>"{activeBranch?.name}"</b> yazmayı lütfen unutmayın.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col justify-center gap-6">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-widest text-text-muted mb-2">
+                                                Gönderici Ad - Soyad
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                id="senderNameInput"
+                                                placeholder="Ödemeyi yapan kişinin veya şirketin adı..."
+                                                className="w-full bg-white border-2 border-border p-4 rounded-2xl text-sm font-bold text-text-main focus:outline-none focus:border-primary transition-colors"
+                                            />
+                                            <p className="text-[10px] text-text-muted font-bold mt-2 uppercase tracking-wide">Ödemenizin hızlıca onaylanması için dekonttaki adı tam ve eksiksiz girin.</p>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-widest text-text-muted mb-2">
+                                                Dekont (İsteğe Bağlı)
+                                            </label>
+                                            <ImageUpload 
+                                                bucket="receipts"
+                                                currentImage={receiptUrl}
+                                                onUpload={(url) => setReceiptUrl(url)}
+                                                label="Dekont Dosyası Seç / Sürükle"
+                                                aspectRatio="video"
+                                            />
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                const senderName = (document.getElementById('senderNameInput') as HTMLInputElement)?.value;
+                                                if (plans.find(p => p.id === selectedPlanId)?.price_monthly !== 0 && !senderName) {
+                                                    alert('Lütfen gönderici Ad-Soyad veya Ünvan giriniz.');
+                                                    return;
+                                                }
+                                                handleUpgradeWithSender(selectedPlanId, senderName, receiptUrl);
+                                            }}
+                                            className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+                                        >
+                                            <Check className="w-5 h-5" /> Ödemeyi Bildir ve Aboneliği Başlat
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {plans.find(p => p.id === selectedPlanId)?.price_monthly === 0 && (
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => handleUpgradeWithSender(selectedPlanId)}
+                                        className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center gap-2"
+                                    >
+                                        <Crown className="w-5 h-5" /> Ücretsiz Başla
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

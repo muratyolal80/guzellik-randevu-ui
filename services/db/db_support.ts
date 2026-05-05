@@ -323,9 +323,9 @@ export const NotificationService = {
       user_id: notification.user_id,
       salon_id: notification.salon_id,
       title: notification.title,
-      content: notification.content,
+      message: notification.content,
       type: notification.type,
-      link: notification.link,
+      action_url: notification.link,
       is_read: false,
       created_at: new Date().toISOString(),
     };

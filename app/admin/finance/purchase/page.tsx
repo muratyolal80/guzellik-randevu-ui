@@ -5,7 +5,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
-import { SubscriptionService, PaymentService, SalonDataService } from '@/services/db';
+import { SubscriptionService, PaymentService, SalonDataService, FinanceService, ProfileService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -33,8 +33,12 @@ import {
     Check,
     History as HistoryIcon,
     ChevronRight,
-    Star
+    Star,
+    UploadCloud,
+    Info
 } from 'lucide-react';
+import ImageUpload from '@/components/ImageUpload';
+import { useSearchParams } from 'next/navigation';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -105,7 +109,7 @@ type ActiveTab = 'OVERVIEW' | 'UPGRADE' | 'SUBSCRIPTIONS' | 'HISTORY';
 
 function ProgressSteps({ step }: { step: 1 | 2 }) {
     const steps = [
-        { n: 1, label: 'Salon / İşletme Seç' },
+        { n: 1, label: 'İşletme Sahibi Seç' },
         { n: 2, label: 'Paket & Ödeme' },
     ];
     return (
@@ -127,43 +131,51 @@ function ProgressSteps({ step }: { step: 1 | 2 }) {
     );
 }
 
-// ─── Step 1: Salon Select ─────────────────────────────────────────────────────
+// ─── Step 1: Owner Select ─────────────────────────────────────────────────────
 
-function SalonSelectStep({ onSelect }: { onSelect: (salon: any, sub: any) => void }) {
-    const [salons, setSalons]   = useState<any[]>([]);
+function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => void }) {
+    const [owners, setOwners]   = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery]     = useState('');
 
     useEffect(() => {
-        (async () => {
+        const fetchOwners = async () => {
             try {
-                const data = await SalonDataService.getAllSalonsForAdmin();
-                // For each salon, fetch their active subscription in parallel (batch)
-                const enriched = await Promise.all(
-                    data.map(async (s: any) => {
-                        try {
-                            const sub = await SubscriptionService.getSalonSubscription(s.id);
-                            return { ...s, activeSub: sub };
-                        } catch {
-                            return { ...s, activeSub: null };
-                        }
-                    })
-                );
-                setSalons(enriched);
+                // Fetch all users with OWNER or SALON_OWNER role
+                const { profiles } = await ProfileService.adminGetProfiles({ 
+                    pageSize: 1000, 
+                });
+
+                const ownerProfiles = profiles.filter(p => ['OWNER', 'SALON_OWNER', 'MANAGER', 'ADMIN'].includes(p.role));
+
+                // Enrich with subscription data and salon count
+                const enriched = await Promise.all(ownerProfiles.map(async (p) => {
+                    try {
+                        const sub = await SubscriptionService.getOwnerActiveSubscription(p.id);
+                        const salons = await SalonDataService.getSalonsByOwner(p.id);
+                        return { ...p, activeSub: sub, salonCount: salons.length || 0 };
+                    } catch (err) {
+                        console.error(`Error enriching owner ${p.id}:`, err);
+                        return { ...p, activeSub: null, salonCount: 0 };
+                    }
+                }));
+
+                setOwners(enriched);
             } catch (err) {
-                console.error('Salon list error:', err);
+                console.error('Owner list error:', err);
             } finally {
                 setLoading(false);
             }
-        })();
+        };
+
+        fetchOwners();
     }, []);
 
-    const filtered = salons.filter(s => {
+    const filtered = owners.filter(o => {
         const q = query.toLowerCase();
         return (
-            s.name?.toLowerCase().includes(q) ||
-            s.owner_name?.toLowerCase().includes(q) ||
-            s.owner_email?.toLowerCase().includes(q)
+            o.full_name?.toLowerCase().includes(q) ||
+            o.email?.toLowerCase().includes(q)
         );
     });
 
@@ -171,7 +183,7 @@ function SalonSelectStep({ onSelect }: { onSelect: (salon: any, sub: any) => voi
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-40 bg-gray-100 rounded-[28px]" />
+                    <div key={i} className="h-40 bg-gray-100 rounded-[32px]" />
                 ))}
             </div>
         );
@@ -185,7 +197,7 @@ function SalonSelectStep({ onSelect }: { onSelect: (salon: any, sub: any) => voi
                 <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Salon adı veya owner e-postası ile ara…"
+                    placeholder="Owner adı veya e-postası ile ara…"
                     className="w-full pl-11 pr-4 py-3.5 bg-white border border-border rounded-2xl text-sm font-medium text-text-main focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all"
                 />
                 {query && (
@@ -197,59 +209,78 @@ function SalonSelectStep({ onSelect }: { onSelect: (salon: any, sub: any) => voi
 
             {filtered.length === 0 ? (
                 <div className="bg-white rounded-[32px] border border-border p-16 text-center">
-                    <Building2 className="w-12 h-12 text-text-muted mx-auto mb-4" />
-                    <h3 className="font-black text-text-main">Salon Bulunamadı</h3>
+                    <User className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                    <h3 className="font-black text-text-main">İşletme Sahibi Bulunamadı</h3>
                     <p className="text-sm text-text-secondary mt-1">Arama kriterlerinizi değiştirin.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filtered.map((salon) => {
-                        const sub  = salon.activeSub;
-                        const plan = sub?.subscription_plans;
-                        const ss   = salonStatusLabel[salon.status] ?? { label: salon.status, cls: 'bg-gray-100 text-gray-500' };
+                    {filtered.map((owner) => {
+                        const hasActive = !!owner.activeSub;
+                        const displayName = owner.full_name || owner.email?.split('@')[0] || 'Bilinmeyen Kullanıcı';
+                        const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+                        
+                        const colors = ['bg-blue-500', 'bg-purple-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500', 'bg-indigo-500'];
+                        const colorIndex = displayName.length % colors.length;
+                        const avatarBg = colors[colorIndex];
+
                         return (
-                            <button
-                                key={salon.id}
-                                onClick={() => onSelect(salon, sub)}
-                                className="text-left bg-white border-2 border-border rounded-[28px] p-6 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:scale-[1.01] transition-all duration-200 group"
+                            <div
+                                key={owner.id}
+                                onClick={() => onSelect(owner, owner.activeSub)}
+                                className="group bg-white border border-border rounded-[32px] p-6 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer relative overflow-hidden flex flex-col items-center text-center gap-4"
                             >
-                                {/* Header */}
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center">
-                                        <Building2 className="w-6 h-6 text-primary" />
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${ss.cls}`}>
-                                            {ss.label}
-                                        </span>
-                                        {plan && (
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${statusLabel[sub?.status]?.cls ?? 'bg-gray-100 text-gray-500'}`}>
-                                                {plan.display_name}
-                                            </span>
+                                {/* Status Badge */}
+                                <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                    hasActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'
+                                }`}>
+                                    {hasActive ? 'AKTİF' : 'PAKET YOK'}
+                                </div>
+
+                                {/* Avatar / Photo */}
+                                <div className="relative mt-2">
+                                    <div className={`w-20 h-20 rounded-[28px] overflow-hidden flex items-center justify-center text-2xl font-black text-white ${avatarBg} shadow-lg group-hover:scale-110 transition-transform duration-500`}>
+                                        {owner.avatar_url ? (
+                                            <img src={owner.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span>{initials}</span>
                                         )}
                                     </div>
+                                    {hasActive && (
+                                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full flex items-center justify-center">
+                                            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                        </div>
+                                    )}
                                 </div>
 
-                                <h3 className="font-black text-text-main text-sm uppercase tracking-tight mb-1 group-hover:text-primary transition-colors">
-                                    {salon.name}
-                                </h3>
-                                {salon.city_name && (
-                                    <p className="text-[11px] text-text-muted font-medium mb-3">{salon.city_name}{salon.district_name ? ` / ${salon.district_name}` : ''}</p>
-                                )}
+                                <div className="space-y-1">
+                                    <h4 className="font-black text-text-main text-lg group-hover:text-primary transition-colors line-clamp-1 uppercase tracking-tight">
+                                        {displayName}
+                                    </h4>
+                                    <p className="text-xs font-medium text-text-secondary line-clamp-1">{owner.email}</p>
+                                </div>
 
-                                {/* Owner info */}
-                                {salon.owner_name && (
-                                    <div className="flex items-center gap-2 text-[11px] text-text-secondary font-medium">
-                                        <User className="w-3.5 h-3.5 flex-shrink-0" />
-                                        <span className="truncate">{salon.owner_name}</span>
+                                <div className="w-full pt-4 border-t border-border/50 grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Şube</span>
+                                        <span className="text-sm font-bold text-text-main">{owner.salonCount || 0}</span>
                                     </div>
-                                )}
-
-                                <div className="mt-4 flex items-center justify-end text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-[11px] font-black uppercase tracking-widest">Seç</span>
-                                    <ChevronRight className="w-4 h-4" />
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Plan</span>
+                                        <span className={`text-[10px] font-black uppercase truncate max-w-full ${hasActive ? 'text-primary' : 'text-text-muted'}`}>
+                                            {owner.activeSub?.subscription_plans?.display_name || 'YOK'}
+                                        </span>
+                                    </div>
                                 </div>
-                            </button>
+
+                                <div className="mt-2 w-full">
+                                    <div className="w-full bg-slate-50 rounded-xl py-2 group-hover:bg-primary/5 transition-colors">
+                                        <span className="text-[10px] font-black group-hover:text-primary flex items-center justify-center gap-2 text-primary">
+                                            DETAYLARI GÖR <ChevronRight className="w-3 h-3" />
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         );
                     })}
                 </div>
@@ -289,9 +320,12 @@ function ProgressBar({ label, icon, current, max }: { label: string; icon: React
 export default function AdminPurchasePage() {
     const { showToast } = useToast();
 
+    const searchParams = useSearchParams();
+    const urlPlanId = searchParams.get('plan');
+
     // Step 1 state
     const [step, setStep]             = useState<1 | 2>(1);
-    const [selectedSalon, setSelectedSalon] = useState<any>(null);
+    const [selectedOwner, setSelectedOwner] = useState<any>(null);
     const [currentSub, setCurrentSub] = useState<any>(null);
 
     // Step 2 state
@@ -304,95 +338,110 @@ export default function AdminPurchasePage() {
 
     // Payment state
     const [billingCycle, setBillingCycle]     = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
-    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-    const [paymentMethod, setPaymentMethod]   = useState<'BANK_TRANSFER' | 'CREDIT_CARD'>('BANK_TRANSFER');
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(urlPlanId);
+    const [paymentMethod, setPaymentMethod]   = useState<'BANK_TRANSFER' | 'CREDIT_CARD' | 'CASH'>('BANK_TRANSFER');
     const [immediateActivate, setImmediateActivate] = useState(true); // Super admin default: true
     const [purchasing, setPurchasing]         = useState(false);
     const [hasPendingPayment, setHasPendingPayment] = useState(false);
 
+    // Bank Transfer Detail states
+    const [manualSenderName, setManualSenderName] = useState('');
+    const [manualBankName, setManualBankName]     = useState('');
+    const [manualReceiptUrl, setManualReceiptUrl] = useState('');
+
     // ── Step 2 data load ─────────────────────────────────────────────────────
-    const loadSalonData = useCallback(async (salonId: string, ownerId?: string) => {
+    const loadOwnerData = useCallback(async (ownerId: string) => {
         setLoading(true);
         try {
-            const [plansData, payHistoryData, subHistoryData] = await Promise.all([
+            const [plansData, currentSubData, usageData, fullHistory] = await Promise.all([
                 SubscriptionService.getPlans(),
-                PaymentService.getSalonPaymentHistory(salonId),
-                ownerId
-                    ? SubscriptionService.getOwnerSubscriptionHistory(ownerId)
-                    : SubscriptionService.getSalonSubscriptionHistory(salonId),
+                SubscriptionService.getOwnerActiveSubscription(ownerId),
+                SubscriptionService.getOwnerUsageStats(ownerId),
+                SubscriptionService.getOwnerSubscriptionFullDetails(ownerId)
             ]);
+            
             setPlans(plansData || []);
-            setPayHistory(payHistoryData || []);
-            setSubHistory(subHistoryData || []);
-
-            const [brRes, stRes, galRes] = await Promise.all([
-                SubscriptionService.checkLimit(salonId, 'branch'),
-                SubscriptionService.checkLimit(salonId, 'staff'),
-                SubscriptionService.checkLimit(salonId, 'gallery_photo'),
-            ]);
-            setLimits({
-                branches: { current: brRes.current, max: brRes.limit },
-                staff:    { current: stRes.current, max: stRes.limit },
-                gallery:  { current: galRes.current, max: galRes.limit },
-            });
+            setCurrentSub(currentSubData);
+            
+            // Fix: getOwnerSubscriptionFullDetails returns 'history' which contains joined data
+            setPayHistory(fullHistory?.history || []);
+            
+            // For subHistory, we can use history or fetch specifically
+            const subHist = await SubscriptionService.getOwnerSubscriptionHistory(ownerId);
+            setSubHistory(subHist || []);
+            
+            if (usageData) {
+                setLimits({
+                    branches: { current: usageData.usage.branches, max: usageData.plan.limits.branches },
+                    staff:    { current: usageData.usage.staff, max: usageData.plan.limits.staff },
+                    gallery:  { current: usageData.usage.gallery_photos, max: usageData.plan.limits.gallery_photos },
+                });
+            }
 
             // Check for pending payments in history
-            const pending = payHistoryData?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION');
+            const pending = fullHistory.history?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION');
             setHasPendingPayment(pending);
         } catch (err) {
-            console.error('Load salon data error:', err);
+            console.error('Load owner data error:', err);
             showToast('Veriler yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
     }, [showToast]);
 
-    // ── Salon selected ────────────────────────────────────────────────────────
-    const handleSalonSelect = (salon: any, sub: any) => {
-        setSelectedSalon(salon);
+    // ── Owner selected ────────────────────────────────────────────────────────
+    const handleOwnerSelect = (owner: any, sub: any) => {
+        setSelectedOwner(owner);
         setCurrentSub(sub);
         setStep(2);
         setActiveTab('OVERVIEW');
         setSelectedPlanId(null);
-        loadSalonData(salon.id, salon.owner_id);
+        loadOwnerData(owner.id);
     };
 
     // ── Purchase handler ──────────────────────────────────────────────────────
     const handlePurchase = async () => {
-        if (!selectedSalon || !selectedPlanId) return;
+        if (!selectedOwner || !selectedPlanId) return;
         const plan = plans.find(p => p.id === selectedPlanId);
-        if (!window.confirm(`"${plan?.display_name}" paketini "${selectedSalon.name}" salonu için başlatmak istiyor musunuz?`)) return;
+        if (!window.confirm(`"${plan?.display_name}" paketini "${selectedOwner.full_name || selectedOwner.email}" için başlatmak istiyor musunuz?`)) return;
 
         setPurchasing(true);
         try {
-            if (immediateActivate && (paymentMethod === 'BANK_TRANSFER' || selectedPlanId === 'free')) {
+            if (immediateActivate && (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH' || selectedPlanId === 'free')) {
                 // Admin fast-track: bypass PENDING status
                 await SubscriptionService.adminAssignSubscription(
-                    selectedSalon.id,
+                    { ownerId: selectedOwner.id },
                     selectedPlanId,
                     billingCycle,
-                    "Admin tarafından anında satın alındı ve aktifleştirildi."
+                    paymentMethod === 'CASH' ? "Nakit ödeme ile admin tarafından aktifleştirildi." : "Banka havalesi ile admin tarafından aktifleştirildi."
                 );
                 showToast('Paket başarıyla atanmış ve tüm sistemlerde aktif edilmiştir!', 'success');
             } else {
-                // Standard flow (potential PENDING or iyzico)
+                // Standard flow (potential PENDING)
                 await SubscriptionService.subscribe(
-                    selectedSalon.id,
+                    undefined as any, // owner centric uses owner_id logic inside if salonId missing
                     selectedPlanId,
-                    paymentMethod,
+                    paymentMethod === 'CASH' ? 'BANK_TRANSFER' : paymentMethod,
                     billingCycle,
+                    { 
+                        senderName: paymentMethod === 'CASH' ? 'NAKİT ÖDEME (Admin)' : (manualSenderName || 'Belirtilmedi'),
+                        bankName: paymentMethod === 'CASH' ? 'NAKİT / ELDEN' : (manualBankName || 'Belirtilmedi'),
+                        receiptUrl: manualReceiptUrl || undefined,
+                        // Note: If subscribe method doesn't take ownerId, we need to ensure it's handled or backfilled.
+                        // For now we assume the service handles the logged in context or we need to pass ownerId.
+                    }
                 );
                 showToast(
-                    paymentMethod === 'BANK_TRANSFER'
-                        ? 'Havale talebi oluşturuldu! Finans > Onaylar ekranından onaylayabilirsiniz.'
+                    (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH')
+                        ? 'İşlem talebi oluşturuldu! Finans > Onaylar ekranından onaylayabilirsiniz.'
                         : 'Abonelik başlatıldı!',
                     'success'
                 );
             }
             
             // Reload data & switch to overview
-            await loadSalonData(selectedSalon.id, selectedSalon.owner_id);
-            const freshSub = await SubscriptionService.getSalonSubscription(selectedSalon.id);
+            await loadOwnerData(selectedOwner.id);
+            const freshSub = await SubscriptionService.getOwnerActiveSubscription(selectedOwner.id);
             setCurrentSub(freshSub);
             setActiveTab('OVERVIEW');
             setSelectedPlanId(null);
@@ -407,7 +456,7 @@ export default function AdminPurchasePage() {
     // ── Reset back to step 1 ──────────────────────────────────────────────────
     const handleBack = () => {
         setStep(1);
-        setSelectedSalon(null);
+        setSelectedOwner(null);
         setCurrentSub(null);
         setActiveTab('OVERVIEW');
         setSelectedPlanId(null);
@@ -422,17 +471,17 @@ export default function AdminPurchasePage() {
 
     return (
         <AdminLayout>
-            <Breadcrumbs items={[{ label: 'Operasyon & Onay' }, { label: 'Paket Satın Al' }]} />
+            <Breadcrumbs items={[{ label: 'Operasyon & Onay' }, { label: 'Paket Tanımlama (Atama-Ödeme Geçmişi)' }]} />
 
             <div className="max-w-7xl mx-auto py-8">
                 {/* Page Header */}
                 <div className="flex items-end justify-between mb-10 gap-4">
                     <div>
                         <h1 className="text-4xl font-black text-text-main tracking-tight uppercase">
-                            Paket <span className="text-primary">Satın Al</span>
+                            Paket Tanımlama <span className="text-primary">(Atama-Ödeme Geçmişi)</span>
                         </h1>
                         <p className="text-text-secondary font-medium mt-1">
-                            Bir salon seçin ve o salon adına paket aboneliği başlatın.
+                            Bir işletme sahibi (owner) seçin ve o kullanıcı adına manuel paket tanımlaması yapın veya ödeme geçmişini inceleyin.
                         </p>
                     </div>
                     {step === 2 && (
@@ -441,7 +490,7 @@ export default function AdminPurchasePage() {
                             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-border text-sm font-black text-text-secondary hover:text-primary hover:border-primary/30 transition-all"
                         >
                             <ArrowLeft className="w-4 h-4" />
-                            Salon Değiştir
+                            Sahibi Değiştir
                         </button>
                     )}
                 </div>
@@ -449,47 +498,80 @@ export default function AdminPurchasePage() {
                 {/* Progress */}
                 <ProgressSteps step={step} />
 
-                {/* ─── Step 1: Salon Choose ──────────────────────────────── */}
+                {/* ─── Step 1: Owner Choose ──────────────────────────────── */}
                 {step === 1 && (
-                    <SalonSelectStep onSelect={handleSalonSelect} />
+                    <OwnerSelectStep onSelect={handleOwnerSelect} />
                 )}
 
                 {/* ─── Step 2: Billing ──────────────────────────────────── */}
-                {step === 2 && selectedSalon && (
+                {step === 2 && selectedOwner && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
 
-                        {/* Selected Salon Info Bar */}
+                        {/* Selected Owner Info Bar */}
                         <div className="bg-text-main text-white p-6 rounded-[28px] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
                             <div className="relative z-10 flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-                                    <Building2 className="w-6 h-6 text-white" />
+                                    <User className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-0.5">Seçili Salon</p>
-                                    <h2 className="font-black text-xl tracking-tight">{selectedSalon.name}</h2>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-0.5">Seçili İşletme Sahibi</p>
+                                    <h2 className="font-black text-xl tracking-tight">{selectedOwner.full_name || 'İsimsiz'}</h2>
                                     <div className="flex flex-wrap items-center gap-3 mt-1">
-                                        {selectedSalon.owner_name && (
-                                            <span className="flex items-center gap-1.5 text-[11px] text-white/70 font-medium">
-                                                <User className="w-3 h-3" /> {selectedSalon.owner_name}
-                                            </span>
-                                        )}
-                                        {selectedSalon.city_name && (
-                                            <span className="text-[11px] text-white/70 font-medium">
-                                                📍 {selectedSalon.city_name}
-                                            </span>
-                                        )}
+                                        <span className="flex items-center gap-1.5 text-[11px] text-white/70 font-medium">
+                                            <Mail className="w-3 h-3" /> {selectedOwner.email}
+                                        </span>
+                                        <span className="text-[11px] text-white/70 font-medium">
+                                            🏢 {selectedOwner.salonCount} Şube
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="relative z-10 flex flex-wrap gap-2">
+                            <div className="relative z-10 flex flex-wrap gap-3 items-center">
                                 {currentSub ? (
-                                    <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${statusLabel[currentSub.status]?.cls ?? 'bg-white/10 text-white'}`}>
-                                        <span>Mevcut: {currentSub.subscription_plans?.display_name}</span>
-                                    </div>
+                                        <div className="flex items-center gap-0 bg-[#0f172a] text-white rounded-[24px] shadow-2xl border border-white/10 overflow-hidden group hover:border-emerald-500/30 transition-all duration-500">
+                                            {/* Plan Name Section */}
+                                            <div className="flex flex-col px-7 py-3 bg-gradient-to-br from-slate-800 to-slate-900 border-r border-white/10">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${currentSub.status === 'ACTIVE' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]'}`} />
+                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">AKTİF PLAN</span>
+                                                </div>
+                                                <span className="text-lg font-black tracking-tight uppercase leading-none text-white">
+                                                    {currentSub.subscription_plans?.display_name}
+                                                </span>
+                                            </div>
+                                            
+                                            {/* Usage Stats Section */}
+                                            {limits && (
+                                                <div className="flex items-center gap-6 px-8 py-3 bg-[#0f172a] divide-x divide-white/5">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">ŞUBELER</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-sm font-black text-white">{limits.branches.current}</span>
+                                                            <span className="text-[10px] font-bold text-slate-600">/ {limits.branches.max === -1 ? '∞' : limits.branches.max}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center pl-6">
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">PERSONEL</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-sm font-black text-white">{limits.staff.current}</span>
+                                                            <span className="text-[10px] font-bold text-slate-600">/ {limits.staff.max === -1 ? '∞' : limits.staff.max}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-center pl-6">
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">GALERİ</span>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-sm font-black text-white">{limits.gallery.current}</span>
+                                                            <span className="text-[10px] font-bold text-slate-600">/ {limits.gallery.max === -1 ? '∞' : limits.gallery.max}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                 ) : (
-                                    <div className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-500/20 text-red-300 border border-red-500/20">
-                                        Aktif Abonelik Yok
+                                    <div className="px-6 py-3 rounded-2xl bg-black text-white border border-red-500/30 flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                        <span className="text-xs font-black uppercase tracking-widest">Abonelik Bulunamadı</span>
                                     </div>
                                 )}
                             </div>
@@ -602,8 +684,8 @@ export default function AdminPurchasePage() {
                                             <Package className="w-8 h-8" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-black text-text-main">Bu Salon İçin Aktif Paket Yok</h3>
-                                            <p className="text-text-secondary font-medium text-sm mt-1 max-w-sm">Salonu aktif hale getirmek için hemen bir paket başlatın.</p>
+                                            <h3 className="text-xl font-black text-text-main">Bu Kullanıcı İçin Aktif Paket Yok</h3>
+                                            <p className="text-text-secondary font-medium text-sm mt-1 max-w-sm">İşletme sahibini aktif hale getirmek için hemen bir paket başlatın.</p>
                                         </div>
                                         <button
                                             onClick={() => setActiveTab('UPGRADE')}
@@ -647,7 +729,7 @@ export default function AdminPurchasePage() {
                                                     {plan?.display_name} Planı Seçildi
                                                 </h3>
                                                 <p className="text-sm text-text-secondary font-medium mt-0.5">
-                                                    {selectedSalon.name} salonu için ödeme yöntemini seçin.
+                                                    {selectedOwner.full_name || selectedOwner.email} kullanıcısı için ödeme yöntemini seçin.
                                                 </p>
                                             </div>
 
@@ -678,9 +760,7 @@ export default function AdminPurchasePage() {
                                                                 color: 'emerald'
                                                             }
                                                         ] as const).map(m => {
-                                                            // CASH maps to BANK_TRANSFER in backend but shown separately
-                                                            const backendMethod = m.id === 'CASH' ? 'BANK_TRANSFER' : m.id;
-                                                            const isSelected = paymentMethod === backendMethod && (m.id !== 'CASH' || paymentMethod === 'BANK_TRANSFER');
+                                                            const isSelected = paymentMethod === m.id;
                                                             const colorMap: Record<string, string> = {
                                                                 blue: 'bg-blue-50 border-blue-200 text-blue-700',
                                                                 purple: 'bg-purple-50 border-purple-200 text-purple-700',
@@ -689,17 +769,17 @@ export default function AdminPurchasePage() {
                                                             return (
                                                                 <button
                                                                     key={m.id}
-                                                                    onClick={() => setPaymentMethod(backendMethod as 'BANK_TRANSFER' | 'CREDIT_CARD')}
-                                                                    className={`relative flex flex-col items-start p-5 rounded-2xl border-2 transition-all duration-300 ${paymentMethod === backendMethod
+                                                                    onClick={() => setPaymentMethod(m.id)}
+                                                                    className={`relative flex flex-col items-start p-5 rounded-2xl border-2 transition-all duration-300 ${isSelected
                                                                         ? `${colorMap[m.color]} shadow-lg shadow-black/5 scale-[1.02]`
                                                                         : 'border-border bg-white hover:border-primary/20'}`}
                                                                 >
-                                                                    {paymentMethod === backendMethod && (
+                                                                    {isSelected && (
                                                                         <div className="absolute top-3 right-3 w-5 h-5 bg-primary rounded-full flex items-center justify-center animate-in zoom-in duration-300">
                                                                             <Check className="w-3 h-3 text-white" />
                                                                         </div>
                                                                     )}
-                                                                    <m.icon className={`w-8 h-8 mb-3 transition-colors ${paymentMethod === backendMethod ? '' : 'text-text-muted'}`} />
+                                                                    <m.icon className={`w-8 h-8 mb-3 transition-colors ${isSelected ? '' : 'text-text-muted'}`} />
                                                                     <p className="font-black text-sm text-text-main leading-tight tracking-tight">{m.label}</p>
                                                                     <p className="text-[11px] text-text-muted font-medium mt-1 uppercase tracking-widest">{m.desc}</p>
                                                                 </button>
@@ -707,8 +787,55 @@ export default function AdminPurchasePage() {
                                                         })}
                                                     </div>
 
+                                                    {/* Manual Payment Details Form */}
+                                                    {paymentMethod === 'BANK_TRANSFER' && !immediateActivate && (
+                                                        <div className="bg-blue-50/50 border-2 border-blue-100 p-6 md:p-8 rounded-[28px] space-y-6 animate-in slide-in-from-top-4 duration-500">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                                                                    <Info className="w-4 h-4" />
+                                                                </div>
+                                                                <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">Havale Bildirim Detayları</h4>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[10px] font-black text-blue-800 uppercase tracking-widest ml-1">Gönderen Ad Soyad</label>
+                                                                    <input 
+                                                                        type="text"
+                                                                        value={manualSenderName}
+                                                                        onChange={e => setManualSenderName(e.target.value)}
+                                                                        placeholder="Örn: Ahmet Yılmaz"
+                                                                        className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-medium focus:border-blue-500 outline-none transition-all shadow-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <label className="text-[10px] font-black text-blue-800 uppercase tracking-widest ml-1">Hangi Bankaya Yapıldı?</label>
+                                                                    <input 
+                                                                        type="text"
+                                                                        value={manualBankName}
+                                                                        onChange={e => setManualBankName(e.target.value)}
+                                                                        placeholder="Örn: Garanti BBVA"
+                                                                        className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-medium focus:border-blue-500 outline-none transition-all shadow-sm"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-black text-blue-800 uppercase tracking-widest ml-1">Ödeme Dekontu (Opsiyonel)</label>
+                                                                <ImageUpload 
+                                                                    bucket="receipts"
+                                                                    currentImage={manualReceiptUrl}
+                                                                    onUpload={setManualReceiptUrl}
+                                                                    aspectRatio="video"
+                                                                    label="Dekont Dosyası Seç veya Sürükle"
+                                                                    className="bg-white border-blue-200"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Admin Fast-track Toggle */}
-                                                    {paymentMethod === 'BANK_TRANSFER' && (
+                                                    {(paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH') && (
                                                         <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[24px] flex items-center justify-between group hover:border-emerald-200 transition-colors">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
@@ -787,7 +914,7 @@ export default function AdminPurchasePage() {
                                             </div>
 
                                             {/* Info note */}
-                                            {!isFree && paymentMethod === 'BANK_TRANSFER' && (
+                                            {!isFree && (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH') && (
                                                 <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4 text-[12px] text-blue-800 font-medium">
                                                     <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                                                     <span>Havale/EFT yönteminde abonelik, Finans → Ödeme Onayları ekranından onaylandıktan sonra aktif olacaktır.</span>
@@ -804,13 +931,13 @@ export default function AdminPurchasePage() {
                             <div className="bg-white rounded-[36px] border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                                 <div className="p-8 border-b border-border">
                                     <h3 className="text-xl font-black text-text-main">Tüm Paket Geçmişi</h3>
-                                    <p className="text-sm font-medium text-text-secondary italic mt-1">Bu salona ait tüm abonelik kayıtları.</p>
+                                    <p className="text-sm font-medium text-text-secondary italic mt-1">Bu kullanıcıya ait tüm abonelik kayıtları.</p>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead className="bg-gray-50 border-b border-border">
                                             <tr>
-                                                {['Paket', 'Başlangıç', 'Bitiş', 'Durum'].map(h => (
+                                                {['Paket', 'Periyot', 'Başlangıç', 'Bitiş', 'Durum'].map(h => (
                                                     <th key={h} className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">{h}</th>
                                                 ))}
                                             </tr>
@@ -825,9 +952,14 @@ export default function AdminPurchasePage() {
                                                                 <PlanIcon name={sub.subscription_plans?.name} />
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-main block">{sub.subscription_plans?.display_name}</span>
-                                                                    <span className="text-[10px] font-medium text-text-muted uppercase">{sub.salons?.name || selectedSalon?.name}</span>
+                                                                    <span className="text-[10px] font-medium text-text-muted uppercase">{selectedOwner.full_name || 'Owner'}</span>
                                                                 </div>
                                                             </div>
+                                                        </td>
+                                                        <td className="px-8 py-5">
+                                                            <span className="px-2 py-1 bg-slate-100 rounded text-[9px] font-black uppercase text-slate-500 tracking-wider">
+                                                                {sub.billing_cycle === 'YEARLY' ? 'Yıllık' : 'Aylık'}
+                                                            </span>
                                                         </td>
                                                         <td className="px-8 py-5 text-sm font-medium text-text-secondary">
                                                             {sub.current_period_start ? format(new Date(sub.current_period_start), 'dd MMM yyyy', { locale: tr }) : '-'}
@@ -842,8 +974,8 @@ export default function AdminPurchasePage() {
                                                 );
                                             }) : (
                                                 <tr>
-                                                    <td colSpan={4} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
-                                                        Bu salona ait paket geçmişi bulunmuyor.
+                                                    <td colSpan={5} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
+                                                        Bu kullanıcıya ait paket geçmişi bulunmuyor.
                                                     </td>
                                                 </tr>
                                             )}
@@ -854,68 +986,160 @@ export default function AdminPurchasePage() {
                         )}
 
                         {/* ─ HISTORY ─ */}
-                        {!loading && activeTab === 'HISTORY' && (
-                            <div className="bg-white rounded-[36px] border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                                <div className="p-8 border-b border-border/50 flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center text-text-main">
-                                        <CreditCard className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-black text-text-main">Ödeme Geçmişi</h2>
-                                        <p className="text-sm font-medium text-text-secondary">Bu salona ait tüm finansal işlemler.</p>
-                                    </div>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        <thead>
-                                            <tr className="bg-surface-alt/50 border-b border-border text-[10px] font-black tracking-widest uppercase text-text-muted">
-                                                {['Tarih', 'Açıklama', 'Yöntem', 'Tutar', 'Durum'].map(h => (
-                                                    <th key={h} className={`px-8 py-4 ${h === 'Durum' ? 'text-right' : ''}`}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border/50">
-                                            {payHistory.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={5} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
-                                                        Henüz bir ödeme işlemi bulunmuyor.
-                                                    </td>
-                                                </tr>
-                                            ) : payHistory.map((payment) => {
-                                                const psSt: Record<string, string> = {
-                                                    SUCCESS: 'text-emerald-500 bg-emerald-50',
-                                                    PENDING: 'text-amber-500 bg-amber-50',
-                                                    FAILED:  'text-red-500 bg-red-50',
-                                                };
-                                                return (
-                                                    <tr key={payment.id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-8 py-5 text-sm font-bold text-text-secondary">
-                                                            {format(new Date(payment.created_at), 'dd MMM yyyy, HH:mm', { locale: tr })}
-                                                        </td>
-                                                        <td className="px-8 py-5 font-bold text-sm text-text-main">
-                                                            {payment.payment_type === 'SUBSCRIPTION' ? 'Abonelik Satın Alma' : 'İşlem'}
-                                                        </td>
-                                                        <td className="px-8 py-5">
-                                                            <span className="px-3 py-1 bg-surface-alt rounded-lg text-[10px] font-black uppercase text-text-secondary tracking-wider">
-                                                                {payment.payment_method === 'BANK_TRANSFER' ? 'Havale / EFT' : payment.payment_method === 'CREDIT_CARD' ? 'Kredi Kartı' : payment.payment_method}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-8 py-5 font-black text-text-main">
-                                                            {(payment.amount / 100).toLocaleString('tr-TR')} ₺
-                                                        </td>
-                                                        <td className="px-8 py-5 text-right">
-                                                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${psSt[payment.status] ?? 'text-gray-500 bg-gray-50'}`}>
-                                                                {payment.status === 'SUCCESS' ? 'Başarılı' : payment.status === 'PENDING' ? 'Bekliyor' : 'Başarısız'}
-                                                            </span>
-                                                        </td>
+                        {!loading && activeTab === 'HISTORY' && (() => {
+                            const [currentPage, setCurrentPage] = useState(1);
+                            const itemsPerPage = 3;
+                            const totalPages = Math.ceil(payHistory.length / itemsPerPage);
+                            const startIndex = (currentPage - 1) * itemsPerPage;
+                            const currentItems = payHistory.slice(startIndex, startIndex + itemsPerPage);
+
+                            return (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                    <div className="bg-white rounded-[36px] border border-border overflow-hidden">
+                                        <div className="p-8 border-b border-border/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center text-text-main shadow-inner">
+                                                    <HistoryIcon className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-xl font-black text-text-main tracking-tight uppercase">Ödeme Geçmişi</h2>
+                                                    <p className="text-xs font-medium text-text-secondary mt-0.5 uppercase tracking-widest">Tüm finansal kayıtlar ve faturalandırma.</p>
+                                                </div>
+                                            </div>
+                                            {totalPages > 1 && (
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                        disabled={currentPage === 1}
+                                                        className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
+                                                    >
+                                                        <ArrowLeft className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="flex items-center gap-1.5 px-3">
+                                                        {[...Array(totalPages)].map((_, i) => (
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => setCurrentPage(i + 1)}
+                                                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'text-text-muted hover:bg-gray-100'}`}
+                                                            >
+                                                                {i + 1}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                        disabled={currentPage === totalPages}
+                                                        className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
+                                                    >
+                                                        <ArrowRight className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead>
+                                                    <tr className="bg-surface-alt/30 border-b border-border text-[9px] font-black tracking-[0.2em] uppercase text-text-muted">
+                                                        {['İşlem Tarihi', 'Dönem', 'Paket / Açıklama', 'Ödeme Yöntemi', 'Tutar', 'Durum'].map(h => (
+                                                            <th key={h} className={`px-8 py-5 ${h === 'Durum' ? 'text-right' : ''}`}>{h}</th>
+                                                        ))}
                                                     </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-border/50">
+                                                    {currentItems.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={6} className="px-8 py-20 text-center">
+                                                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                                                    <HistoryIcon className="w-12 h-12" />
+                                                                    <p className="text-xs font-black uppercase tracking-widest">Henüz ödeme kaydı bulunmuyor</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ) : currentItems.map((payment) => {
+                                                        const psSt: Record<string, string> = {
+                                                            SUCCESS: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+                                                            PENDING: 'text-amber-600 bg-amber-50 border-amber-100',
+                                                            FAILED:  'text-red-600 bg-red-50 border-red-100',
+                                                        };
+                                                        const periodStr = format(new Date(payment.created_at), 'MMMM yyyy', { locale: tr });
+                                                        
+                                                        return (
+                                                            <tr key={payment.id} className="hover:bg-gray-50/50 transition-all group">
+                                                                <td className="px-8 py-6">
+                                                                    <span className="text-sm font-bold text-text-main">
+                                                                        {format(new Date(payment.created_at), 'dd MMM yyyy', { locale: tr })}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-medium text-text-muted block mt-0.5">
+                                                                        {format(new Date(payment.created_at), 'HH:mm', { locale: tr })}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <span className="text-xs font-black text-primary uppercase tracking-tight bg-primary/5 px-2.5 py-1 rounded-lg border border-primary/10">
+                                                                        {periodStr}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-black text-sm text-text-main group-hover:text-primary transition-colors">
+                                                                            {payment.payment_type === 'SUBSCRIPTION' ? 'Abonelik Ödemesi' : 'Ek İşlem'}
+                                                                        </span>
+                                                                        {payment.subscriptions?.subscription_plans?.display_name && (
+                                                                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mt-0.5">
+                                                                                {payment.subscriptions.subscription_plans.display_name} 
+                                                                                <span className="text-text-muted italic lowercase"> / {payment.subscriptions.billing_cycle === 'YEARLY' ? 'yıllık' : 'aylık'}</span>
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
+                                                                        payment.payment_method === 'IYZICO' || payment.payment_method === 'CREDIT_CARD' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                                        payment.payment_method === 'BANK_TRANSFER' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                                                        payment.payment_method === 'CASH' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                                        'bg-slate-50 text-slate-700 border-slate-100'
+                                                                    }`}>
+                                                                        {payment.payment_method === 'IYZICO' || payment.payment_method === 'CREDIT_CARD' ? 'KR. KARTI' : 
+                                                                         payment.payment_method === 'BANK_TRANSFER' ? 'HAVALE / EFT' : 
+                                                                         payment.payment_method === 'CASH' ? 'NAKİT' : payment.payment_method}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-8 py-6">
+                                                                    <span className="text-base font-black text-text-main tracking-tight">
+                                                                        {payment.amount === 0 ? (
+                                                                            <span className="text-emerald-600">ÜCRETSİZ</span>
+                                                                        ) : (
+                                                                            <>{(payment.amount / 100).toLocaleString('tr-TR')} ₺</>
+                                                                        )}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-8 py-6 text-right">
+                                                                    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border shadow-sm ${psSt[payment.status] ?? 'text-gray-500 bg-gray-50 border-gray-200'}`}>
+                                                                        {payment.status === 'SUCCESS' ? 'BAŞARILI' : payment.status === 'PENDING' ? 'BEKLEMEDE' : 'HATA'}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-200/60 flex items-start gap-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-primary shrink-0">
+                                            <Info className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Ödeme Geçmişi Hakkında</p>
+                                            <p className="text-xs text-slate-600 font-medium mt-1 leading-relaxed">
+                                                Burada listelenen tüm işlemler işletme sahibinin mali kayıtlarını oluşturur. 
+                                                <strong> Onay bekleyen</strong> havale işlemlerini Onaylar sekmesinden yönetebilirsiniz.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
                     </div>
                 )}

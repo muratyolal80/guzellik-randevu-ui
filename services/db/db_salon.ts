@@ -351,11 +351,15 @@ export const SalonDataService = {
     }
 
     const { type_ids, primary_type_id, ...salonData } = salon;
+    const slug = (salonData as any).slug || (salonData.name.toLowerCase().trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') + '-' + Math.random().toString(36).substring(2, 7));
 
-    // Use primary_type_id as fallback for type_id for backward compatibility
     const dbSalon = {
       ...salonData,
-      type_id: primary_type_id || salonData.type_id,
+      slug,
+      type_id: primary_type_id || (salonData as any).type_id,
     };
 
     let data;

@@ -222,6 +222,66 @@ export const AppointmentService = {
   },
 
   /**
+   * Complete appointment and record payment
+   */
+  async completeAppointmentWithPayment(
+    id: string,
+    salonId: string,
+    paymentMethod: PaymentMethod,
+    amount: number,
+    customerId?: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<{ appointment: Appointment; transaction: Transaction }> {
+    // 1. Update Appointment Status
+    const { data: appointment, error: apptError } = await supabase
+      .from("appointments")
+      .update({ 
+        status: "COMPLETED",
+        payment_method: paymentMethod as any,
+        payment_status: "COMPLETED",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .eq("salon_id", salonId)
+      .select()
+      .single();
+
+    if (apptError) throw apptError;
+
+    // 2. Create Transaction Record
+    const { data: transaction, error: transError } = await supabase
+      .from("transactions")
+      .insert({
+        salon_id: salonId,
+        customer_id: customerId || appointment.customer_id,
+        appointment_id: id,
+        amount: amount,
+        payment_method: paymentMethod,
+        payment_status: "COMPLETED",
+        notes: "On-site payment recorded during appointment completion."
+      })
+      .select()
+      .single();
+
+    if (transError) {
+      console.error("Failed to create transaction after completing appointment:", transError);
+      throw transError;
+    }
+
+    // 3. Log the action
+    AuditLogService.logAction({
+      salon_id: salonId,
+      action: "APPOINTMENT_COMPLETED_WITH_PAYMENT",
+      resource_type: "appointment",
+      resource_id: id,
+      changes: { status: "COMPLETED", paymentMethod, amount },
+      supabase,
+    }).catch(console.error);
+
+    return { appointment, transaction };
+  },
+
+  /**
    * Update appointment status (with tenant check)
    */
   async updateAppointmentStatus(

@@ -210,21 +210,6 @@ export default function AdminApprovalsPage() {
                 }
             }
 
-            // Send Notification
-            if (selectedSalon?.owner_id) {
-                try {
-                    await NotificationService.sendNotification({
-                        user_id: selectedSalon.owner_id,
-                        title: 'Salon Bilgileriniz İçin Revizyon İstendi',
-                        content: `"${selectedSalon.name}" işletmeniz için şu nedenle revizyon istendi: ${reason}. Lütfen bilgilerinizi güncelleyip tekrar onaya gönderin.`,
-                        type: 'SYSTEM',
-                        link: '/owner/salons'
-                    });
-                } catch (notifErr) {
-                    console.error('Notification error:', notifErr);
-                }
-            }
-
             showToast('Revizyon isteği gönderildi.', 'success');
         } catch (err) {
             console.error('Revizyon isteği hatası:', err);
@@ -475,14 +460,37 @@ export default function AdminApprovalsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {loading ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-8 py-20 text-center">
-                                                    <div className="flex flex-col items-center gap-3">
-                                                        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                                        <span className="text-sm font-bold text-text-secondary uppercase tracking-widest">Veriler Senkronize Ediliyor...</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            Array.from({ length: 5 }).map((_, index) => (
+                                                <tr key={`skeleton-${index}`} className="border-b border-gray-50">
+                                                    <td className="px-8 py-7">
+                                                        <div className="flex items-center gap-5">
+                                                            <div className="w-14 h-14 rounded-2xl flex-shrink-0 bg-gray-200 animate-pulse" />
+                                                            <div className="space-y-2">
+                                                                <div className="h-5 w-32 bg-gray-200 animate-pulse rounded" />
+                                                                <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-7">
+                                                        <div className="space-y-2">
+                                                            <div className="h-5 w-24 bg-gray-200 animate-pulse rounded" />
+                                                            <div className="h-4 w-32 bg-gray-200 animate-pulse rounded" />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-7">
+                                                        <div className="space-y-2">
+                                                            <div className="h-4 w-28 bg-gray-200 animate-pulse rounded" />
+                                                            <div className="h-4 w-24 bg-gray-200 animate-pulse rounded" />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-7">
+                                                        <div className="h-8 w-24 rounded-full bg-gray-200 animate-pulse" />
+                                                    </td>
+                                                    <td className="px-8 py-7 text-right">
+                                                        <div className="h-10 w-24 rounded-xl ml-auto bg-gray-200 animate-pulse" />
+                                                    </td>
+                                                </tr>
+                                            ))
                                         ) : filteredSalons.length > 0 ? (
                                             filteredSalons.map((salon) => (
                                                 <tr key={salon.id} className={`hover:bg-primary/[0.02] transition-colors group cursor-pointer ${selectedSalon?.id === salon.id ? 'bg-primary/[0.04]' : ''}`} onClick={() => handleOpenReview(salon)}>

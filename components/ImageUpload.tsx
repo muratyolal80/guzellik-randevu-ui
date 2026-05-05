@@ -8,7 +8,7 @@ interface ImageUploadProps {
     /**
      * The storage bucket to upload to
      */
-    bucket: 'avatars' | 'salon-images' | 'staff-photos' | 'system-assets' | 'reviews';
+    bucket: 'avatars' | 'salon-images' | 'staff-photos' | 'system-assets' | 'reviews' | 'receipts';
     /**
      * The current image URL to display
      */
@@ -29,6 +29,11 @@ interface ImageUploadProps {
      * Label to show when no image
      */
     label?: string;
+    /**
+     * Optional: The target user ID for the image path. 
+     * If not provided, will use current auth user's ID.
+     */
+    userId?: string;
 }
 
 export default function ImageUpload({
@@ -37,7 +42,8 @@ export default function ImageUpload({
     onUpload,
     aspectRatio = 'square',
     className = '',
-    label = 'Resim Yükle'
+    label = 'Resim Yükle',
+    userId
 }: ImageUploadProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
@@ -88,18 +94,32 @@ export default function ImageUpload({
             const objectUrl = URL.createObjectURL(file);
             setPreviewUrl(objectUrl);
 
-            // 3. User & Path setup
-            const user = (await supabase.auth.getUser()).data.user;
-            if (!user) throw new Error('Oturum açmanız gerekiyor.');
+            // 3. Path setup
+            // Use provided userId or fallback to current auth user
+            let targetUserId = userId;
+            if (!targetUserId) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error('Oturum açmanız gerekiyor.');
+                targetUserId = user.id;
+            }
+
+            // --- EK GÜVENLİK ---
+            // Eğer userId hala boşsa (örn: yeni kayıt oluştururken henüz ID oluşmamışsa)
+            if (!targetUserId) {
+                throw new Error('Kullanıcı ID\'si henüz oluşturulmadı. Lütfen önce kaydı tamamlayın, sonra resim yükleyin.');
+            }
 
             const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${targetUserId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `${fileName}`;
 
             // 4. Upload to Supabase
             const { error: uploadError } = await supabase.storage
                 .from(bucket)
-                .upload(filePath, file);
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
 
             if (uploadError) {
                 throw uploadError;
@@ -176,12 +196,12 @@ export default function ImageUpload({
                          * Optional: Clear button. 
                          * Only show if we want to allow removing the image completely.
                          */}
-                        {/* <button 
+                        <button 
                             onClick={clearImage}
                             className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                         >
                             <X className="w-4 h-4" />
-                        </button> */}
+                        </button>
                     </div>
                 </>
             ) : (

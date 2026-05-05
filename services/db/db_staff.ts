@@ -32,6 +32,7 @@ import type {
   DiscountType,
   PaymentMethod,
   PaymentStatus,
+  UserRole,
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
 
@@ -379,6 +380,107 @@ export const StaffService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Create an email invitation for a new staff member
+   */
+  async createStaffInvite(
+    salonId: string,
+    email: string,
+    role: UserRole = "STAFF",
+    inviterId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite> {
+    // Check limit first
+    const limitResult = await SubscriptionService.checkLimit(salonId, "staff", supabase);
+    if (!limitResult.allowed) throw new Error(`SUBSCRIPTION_LIMIT_REACHED:STAFF:${limitResult.limit}`);
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days valid
+
+    const { data, error } = await supabase
+      .from("invites")
+      .insert({
+        salon_id: salonId,
+        email: email,
+        role: role,
+        token: token,
+        status: "PENDING",
+        inviter_id: inviterId,
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Accept an email invitation via token
+   */
+  async acceptStaffInvite(
+    token: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<boolean> {
+    const { data, error } = await supabase.rpc("accept_staff_invite", {
+      p_token: token,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get invite by token (public check before login)
+   */
+  async getInviteByToken(
+    token: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite | null> {
+    const { data, error } = await supabase
+      .from("invites")
+      .select("*, salon:salons(name)")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get pending invites for a salon
+   */
+  async getPendingInvites(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite[]> {
+    const { data, error } = await supabase
+      .from("invites")
+      .select("*")
+      .eq("salon_id", salonId)
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Cancel an invite
+   */
+  async cancelInvite(
+    inviteId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("invites")
+      .update({ status: "CANCELLED" })
+      .eq("id", inviteId);
+
+    if (error) throw error;
   },
 };
 

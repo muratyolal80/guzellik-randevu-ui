@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
-import { Staff, WorkingHours } from '@/types';
+import { Staff, WorkingHours, Invite } from '@/types';
 import ImageUpload from '@/components/ImageUpload';
 import WorkingHoursEditor from './WorkingHoursEditor';
 import {
@@ -24,7 +25,10 @@ import {
     Search,
     Phone,
     ShieldCheck,
-    ShieldAlert
+    ShieldAlert,
+    Copy,
+    ExternalLink,
+    MessageCircle
 } from 'lucide-react';
 
 const DEFAULT_HOURS = [
@@ -46,7 +50,12 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'add' | 'edit'>('add');
+    const [addMode, setAddMode] = useState<'direct' | 'invite'>('direct');
     const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+    const { user } = useAuth();
+    const [invites, setInvites] = useState<Invite[]>([]);
+    const [showInviteSuccess, setShowInviteSuccess] = useState(false);
+    const [lastInviteLink, setLastInviteLink] = useState('');
     
     const [showShiftModal, setShowShiftModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
@@ -72,7 +81,17 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         fetchStaff();
         fetchSalon();
         fetchServices();
+        fetchInvites();
     }, [salonId]);
+
+    const fetchInvites = async () => {
+        try {
+            const pendingInvites = await StaffService.getPendingInvites(salonId);
+            setInvites(pendingInvites);
+        } catch (err) {
+            console.error('Davetler çekilemedi:', err);
+        }
+    };
 
     const fetchServices = async () => {
         try {
@@ -162,6 +181,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setFormKvkkConsent(false);
             setSelectedServiceIds([]);
             setFormWorkingHours(DEFAULT_HOURS);
+            setAddMode('direct');
             setShowModal(true);
         } catch (err: any) {
             if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
@@ -201,20 +221,39 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         setSaving(true);
         try {
             if (modalType === 'add') {
-                const newMember = await StaffService.createStaff({
-                    salon_id: salonId,
-                    name: formName,
-                    email: formEmail,
-                    role: formSpecialty,
-                    photo: formPhoto,
-                    phone: formPhone,
-                    tc_no: formTcNo,
-                    kvkk_consent: formKvkkConsent,
-                    is_active: true
-                }, formWorkingHours);
+                if (addMode === 'invite') {
+                    if (!formEmail) {
+                        alert('Davet göndermek için e-posta adresi zorunludur.');
+                        setSaving(false);
+                        return;
+                    }
+                    const invite = await StaffService.createStaffInvite(
+                        salonId,
+                        formEmail,
+                        'STAFF',
+                        user?.id || ''
+                    );
+                    const link = `${window.location.origin}/invite/accept?token=${invite.token}`;
+                    setLastInviteLink(link);
+                    setShowModal(false);
+                    setShowInviteSuccess(true);
+                    fetchInvites();
+                } else {
+                    const newMember = await StaffService.createStaff({
+                        salon_id: salonId,
+                        name: formName,
+                        email: formEmail,
+                        role: formSpecialty,
+                        photo: formPhoto,
+                        phone: formPhone,
+                        tc_no: formTcNo,
+                        kvkk_consent: formKvkkConsent,
+                        is_active: true
+                    }, formWorkingHours);
 
-                if (newMember && selectedServiceIds.length > 0) {
-                    await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+                    if (newMember && selectedServiceIds.length > 0) {
+                        await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+                    }
                 }
             } else if (editingStaffId) {
                 await StaffService.updateStaff(editingStaffId, {
@@ -299,7 +338,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
                         <h3 className="text-2xl font-black text-text-main tracking-tight">Personel Yönetimi</h3>
                     </div>
-                    <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi</p>
+                    <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi {invites.length > 0 && `• ${invites.length} bekleyen davet`}</p>
                 </div>
 
                 <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
@@ -329,6 +368,39 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     </button>
                 </div>
             </div>
+
+            {/* Pending Invites Alert */}
+            {invites.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-amber-100/50 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+                            <Mail className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-lg font-black text-amber-900">Bekleyen Davetler ({invites.length})</h4>
+                            <p className="text-sm font-bold text-amber-700/80">Kullanıcıların e-posta adreslerine gönderilen davetler henüz kabul edilmedi.</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        {invites.map(inv => (
+                            <div key={inv.id} className="text-xs font-bold text-amber-800 bg-white/60 px-4 py-2 rounded-xl flex items-center justify-between gap-4 border border-amber-200/50">
+                                <span>{inv.email}</span>
+                                <button 
+                                    onClick={async () => {
+                                        if(window.confirm('Bu daveti iptal etmek istediğinize emin misiniz?')) {
+                                            await StaffService.cancelInvite(inv.id);
+                                            fetchInvites();
+                                        }
+                                    }}
+                                    className="text-red-500 hover:text-red-700 uppercase tracking-widest font-black text-[10px]"
+                                >
+                                    İptal Et
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* List Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -443,7 +515,53 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-10 space-y-12">
-                            <div className="flex flex-col lg:flex-row gap-12">
+                            {modalType === 'add' && (
+                                <div className="flex p-1 bg-surface-alt rounded-2xl border border-border w-full max-w-sm mb-8 mx-auto shadow-inner">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAddMode('direct')}
+                                        className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${addMode === 'direct' ? 'bg-white shadow-md text-primary' : 'text-text-muted hover:text-text-main'}`}
+                                    >
+                                        Hızlı Ekle (Sistemsiz)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAddMode('invite')}
+                                        className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${addMode === 'invite' ? 'bg-white shadow-md text-primary' : 'text-text-muted hover:text-text-main'}`}
+                                    >
+                                        <Mail className="w-4 h-4" /> E-Posta İle Davet
+                                    </button>
+                                </div>
+                            )}
+
+                            {addMode === 'invite' && modalType === 'add' ? (
+                                <div className="space-y-8 max-w-xl mx-auto text-center py-8">
+                                    <div className="w-24 h-24 bg-primary/10 text-primary rounded-[32px] mx-auto flex items-center justify-center mb-6">
+                                        <Mail className="w-10 h-10" />
+                                    </div>
+                                    <h4 className="text-2xl font-black text-text-main">Personel Daveti Gönder</h4>
+                                    <p className="text-sm font-bold text-text-muted">Personelinizin e-posta adresini girin. Sisteme kayıt olması ve salonunuza dijital olarak bağlanması için bir davet linki göndereceğiz.</p>
+                                    
+                                    <div className="text-left space-y-3 pt-6">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
+                                            Personel E-Posta Adresi
+                                        </label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                                            <input
+                                                required
+                                                type="email"
+                                                value={formEmail}
+                                                onChange={(e) => setFormEmail(e.target.value)}
+                                                className="w-full pl-16 pr-8 py-5 bg-surface-alt border-2 border-border/50 rounded-3xl font-bold text-text-main outline-none focus:border-primary focus:bg-white focus:ring-8 focus:ring-primary/5 transition-all"
+                                                placeholder="personel@firsat.com"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex flex-col lg:flex-row gap-12">
                                 <div className="flex-shrink-0 flex flex-col items-center">
                                     <div className="w-40 h-40 md:w-52 md:h-52 rounded-[40px] overflow-hidden border-4 border-dashed border-gray-100 hover:border-primary transition-all group relative bg-surface-alt shadow-inner">
                                         <ImageUpload
@@ -630,6 +748,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     </div>
                                 </div>
                             )}
+                            </>
+                            )}
 
                             <div className="sticky bottom-0 bg-white/80 backdrop-blur-md -mx-10 -mb-10 p-10 mt-12 border-t border-border flex items-center justify-end gap-6 shadow-[0_-20px_50px_rgba(0,0,0,0.03)] selection-none">
                                 <button
@@ -644,8 +764,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     disabled={saving}
                                     className={`px-12 py-5 text-white rounded-[28px] font-black shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 disabled:opacity-50 ${modalType === 'add' ? 'bg-primary shadow-primary/20' : 'bg-amber-500 shadow-amber-500/20'}`}
                                 >
-                                    {saving ? 'Kaydediliyor...' : (modalType === 'add' ? 'Personeli Kaydet' : 'Değişiklikleri Kaydet')}
-                                    {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                                    {saving ? (addMode === 'invite' ? 'Gönderiliyor...' : 'Kaydediliyor...') : (modalType === 'add' ? (addMode === 'invite' ? 'Davet Gönder' : 'Personeli Kaydet') : 'Değişiklikleri Kaydet')}
+                                    {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : (addMode === 'invite' ? <Mail className="w-6 h-6" /> : <Save className="w-6 h-6" />)}
                                 </button>
                             </div>
                         </form>
@@ -712,6 +832,86 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             )}
             {/* Assign Existing Staff Modal */}
+            {/* Invite Success Modal (WhatsApp / Copy / Email Share) */}
+            {showInviteSuccess && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl border border-white/20 animate-in zoom-in duration-300 overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-10 text-center border-b border-border">
+                            <div className="w-20 h-20 bg-green-500 text-white rounded-[28px] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200">
+                                <CheckCircle2 className="w-10 h-10" />
+                            </div>
+                            <h3 className="text-2xl font-black text-text-main tracking-tight">Davet Oluşturuldu!</h3>
+                            <p className="text-sm font-bold text-text-muted mt-2">
+                                Personele aşağıdaki bağlantıyı paylaşarak sisteme katılmasını sağlayabilirsiniz.
+                            </p>
+                        </div>
+
+                        {/* Link Display */}
+                        <div className="px-10 py-8 space-y-6">
+                            <div className="bg-surface-alt rounded-2xl p-4 border border-border flex items-center gap-3">
+                                <ExternalLink className="w-5 h-5 text-text-muted shrink-0" />
+                                <p className="text-xs font-bold text-text-main truncate flex-1 select-all">{lastInviteLink}</p>
+                            </div>
+
+                            {/* Share Actions */}
+                            <div className="space-y-3">
+                                {/* WhatsApp */}
+                                <button
+                                    onClick={() => {
+                                        const wpMessage = encodeURIComponent(
+                                            `Merhaba! 🎉\n\n${salonName || 'Salonumuz'} salonuna personel olarak davet edildiniz. Sisteme katılmak için aşağıdaki bağlantıya tıklayın:\n\n${lastInviteLink}`
+                                        );
+                                        window.open(`https://wa.me/?text=${wpMessage}`, '_blank');
+                                    }}
+                                    className="w-full flex items-center justify-center gap-3 py-5 bg-[#25D366] text-white rounded-[24px] font-black text-lg shadow-xl shadow-[#25D366]/20 hover:shadow-2xl hover:-translate-y-0.5 active:translate-y-0 transition-all"
+                                >
+                                    <MessageCircle className="w-6 h-6" />
+                                    WhatsApp ile Paylaş
+                                </button>
+
+                                {/* Copy Link */}
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(lastInviteLink);
+                                        alert('Bağlantı panoya kopyalandı!');
+                                    }}
+                                    className="w-full flex items-center justify-center gap-3 py-4 bg-surface-alt text-text-main border border-border rounded-[24px] font-black hover:bg-gray-50 transition-all"
+                                >
+                                    <Copy className="w-5 h-5" />
+                                    Bağlantıyı Kopyala
+                                </button>
+
+                                {/* Email */}
+                                <button
+                                    onClick={() => {
+                                        const subject = encodeURIComponent(`${salonName || 'Salon'} - Personel Daveti`);
+                                        const body = encodeURIComponent(
+                                            `Merhaba,\n\n${salonName || 'Salonumuz'} salonuna personel olarak davet edildiniz.\n\nKatılmak için aşağıdaki bağlantıya tıklayın:\n${lastInviteLink}\n\nİyi çalışmalar!`
+                                        );
+                                        window.open(`mailto:${formEmail}?subject=${subject}&body=${body}`, '_blank');
+                                    }}
+                                    className="w-full flex items-center justify-center gap-3 py-4 bg-surface-alt text-text-main border border-border rounded-[24px] font-black hover:bg-gray-50 transition-all"
+                                >
+                                    <Mail className="w-5 h-5" />
+                                    E-Posta ile Gönder
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-10 py-6 border-t border-border flex justify-end">
+                            <button
+                                onClick={() => setShowInviteSuccess(false)}
+                                className="px-8 py-3 font-black text-text-muted hover:text-text-main transition-colors"
+                            >
+                                Kapat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showAssignModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-[40px] shadow-2xl border border-white/20 animate-in zoom-in duration-300">

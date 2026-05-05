@@ -36,9 +36,10 @@ import type {
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
-  return (
-    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
-  );
+    return (
+        typeof supabaseUrl === 'string' && 
+        (supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1'))
+    );
 };
 
 export const PaymentService = {
@@ -62,6 +63,7 @@ export const PaymentService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Transaction[]> {
+    if (!salonId || salonId === "") return [];
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
@@ -77,6 +79,7 @@ export const PaymentService = {
     customerId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Transaction[]> {
+    if (!customerId || customerId === "") return [];
     const { data, error } = await supabase
       .from("transactions")
       .select("*, salons(name)")
@@ -108,6 +111,7 @@ export const PaymentService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    if (!salonId || salonId === "") return [];
     const { data, error } = await supabase
       .from("payment_history")
       .select("*, subscriptions(subscription_plans(name, display_name))")
@@ -121,13 +125,19 @@ export const PaymentService = {
 
 export const SubscriptionService = {
   /**
-   * Get all available plans
+   * Get available plans
+   * @param onlyActive If true, returns only plans where is_active is true
    */
-  async getPlans(supabase: SupabaseClient = defaultSupabase) {
-    const { data, error } = await supabase
+  async getPlans(onlyActive: boolean = false, supabase: SupabaseClient = defaultSupabase) {
+    let query = supabase
       .from("subscription_plans")
-      .select("*")
-      .order("sort_order", { ascending: true });
+      .select("*");
+    
+    if (onlyActive) {
+      query = query.eq("is_active", true);
+    }
+
+    const { data, error } = await query.order("sort_order", { ascending: true });
 
     if (error) throw error;
     return data;
@@ -140,6 +150,7 @@ export const SubscriptionService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    if (!salonId || salonId === "") return null;
     const { data: subscription, error } = await supabase
       .from("subscriptions")
       .select("*, subscription_plans(*)")
@@ -160,6 +171,7 @@ export const SubscriptionService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    if (!salonId || salonId === "") return [];
     const { data, error } = await supabase
       .from("subscriptions")
       .select("*, subscription_plans(*)")
@@ -178,6 +190,7 @@ export const SubscriptionService = {
     ownerId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    if (!ownerId || ownerId === "") return null;
     // Önce sahibin salonlarını bul
     const { data: salons } = await supabase
       .from("salons")
@@ -218,6 +231,152 @@ export const SubscriptionService = {
   },
 
   /**
+   * Get total resource usage for an owner across all their salons
+   */
+  async getOwnerUsageStats(ownerId: string, supabase: SupabaseClient = defaultSupabase) {
+    if (!ownerId || ownerId === "") return null;
+    const sub = await this.getOwnerActiveSubscription(ownerId, supabase);
+    const plan = sub?.subscription_plans;
+
+    if (!plan) return null;
+
+    // 1. Total Salons (Branches)
+    const { count: branchCount } = await supabase
+      .from("salons")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId)
+      .not("status", "eq", "DELETED");
+
+    // 2. Total Staff (Across all salons)
+    const { data: salons } = await supabase
+      .from("salons")
+      .select("id")
+      .eq("owner_id", ownerId);
+    
+    const salonIds = salons?.map(s => s.id) || [];
+    
+    let staffCount = 0;
+    if (salonIds.length > 0) {
+      const { count } = await supabase
+        .from("staff")
+        .select("id", { count: "exact", head: true })
+        .in("salon_id", salonIds)
+        .eq("is_active", true);
+      staffCount = count || 0;
+    }
+
+    // 3. Total Gallery Photos
+    let photoCount = 0;
+    if (salonIds.length > 0) {
+      const { count } = await supabase
+        .from("salon_gallery")
+        .select("id", { count: "exact", head: true })
+        .in("salon_id", salonIds);
+      photoCount = count || 0;
+    }
+
+    return {
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        display_name: plan.display_name,
+        limits: {
+          branches: plan.max_branches,
+          staff: plan.max_staff,
+          gallery_photos: plan.max_gallery_photos,
+          sms_monthly: plan.max_sms_monthly,
+        }
+      },
+      usage: {
+        branches: branchCount || 0,
+        staff: staffCount || 0,
+        gallery_photos: photoCount || 0,
+      },
+      subscription: {
+        status: sub.status,
+        expires_at: sub.current_period_end
+      }
+    };
+  },
+
+  /**
+   * Get comprehensive subscription and payment details for an owner
+   */
+  async getOwnerSubscriptionFullDetails(ownerId: string, supabase: SupabaseClient = defaultSupabase) {
+    if (!ownerId || ownerId === "") return null;
+    try {
+      // 1. Current Active Subscription
+      const activeSub = await this.getOwnerActiveSubscription(ownerId, supabase);
+      
+      // 2. Resource Usage Stats (Branches, Staff, Photos)
+      const usage = await this.getOwnerUsageStats(ownerId, supabase);
+      
+      // 3. Payment & Subscription History
+      const { data: history, error: historyError } = await supabase
+        .from("payment_history")
+        .select(`
+          *,
+          subscriptions:subscriptions (
+            id,
+            status,
+            current_period_end,
+            subscription_plans (
+              name,
+              display_name
+            )
+          )
+        `)
+        .eq("owner_id", ownerId)
+        .order("created_at", { ascending: false });
+
+      if (historyError) {
+        // Fallback to salon-based history if owner_id migration isn't applied yet
+        const { data: salons } = await supabase.from("salons").select("id").eq("owner_id", ownerId);
+        const salonIds = salons?.map(s => s.id) || [];
+        
+        const { data: fallbackHistory } = await supabase
+          .from("payment_history")
+          .select(`
+            *,
+            subscriptions:subscriptions (
+              id,
+              status,
+              current_period_end,
+              subscription_plans (
+                name,
+                display_name
+              )
+            )
+          `)
+          .in("salon_id", salonIds)
+          .order("created_at", { ascending: false });
+          
+        return {
+          activeSub,
+          usage,
+          history: fallbackHistory || [],
+          firstPurchase: fallbackHistory && fallbackHistory.length > 0 ? fallbackHistory[fallbackHistory.length - 1].created_at : null
+        };
+      }
+
+      // 4. First Purchase Date
+      const firstPurchase = history && history.length > 0 
+        ? history[history.length - 1].created_at 
+        : (activeSub?.created_at || null);
+
+      return {
+        activeSub,
+        usage,
+        history: history || [],
+        firstPurchase
+      };
+    } catch (error) {
+      console.error("Error in getOwnerSubscriptionFullDetails:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Get all subscriptions for an owner (across all salons)
    */
   async getOwnerSubscriptionHistory(
@@ -246,14 +405,86 @@ export const SubscriptionService = {
   /**
    * Admin: Get ALL subscriptions with salon info
    */
-  async getAllSubscriptions(supabase: SupabaseClient = defaultSupabase) {
-    const { data, error } = await supabase
+  async getAllSubscriptions(
+    options: { page?: number; pageSize?: number; search?: string } = {},
+    supabase: SupabaseClient = defaultSupabase
+  ) {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
+    let selectQuery = "*, subscription_plans(*), salons(name, owner_id)";
+    if (options.search) {
+      selectQuery = "*, subscription_plans(*), salons!inner(name, owner_id)";
+    }
+
+    let query = supabase
       .from("subscriptions")
-      .select("*, subscription_plans(*), salons(name, owner_id)")
-      .order("created_at", { ascending: false });
+      .select(selectQuery, { count: 'exact' });
+
+    if (options.search) {
+      query = query.ilike("salons.name", `%${options.search}%`);
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
 
     if (error) throw error;
-    return data;
+    return {
+      subscriptions: data || [],
+      totalCount: count || 0
+    };
+  },
+
+  /**
+   * Performance optimization: Get all salons with their active subscription in a single query.
+   */
+  async getSalonsWithActiveSubscriptions(
+    options: { search?: string } = {},
+    supabase: SupabaseClient = defaultSupabase
+  ) {
+    let query = supabase
+      .from("salons")
+      .select(`
+        *,
+        cities(name),
+        districts(name),
+        profiles:profiles!owner_id(full_name, email, phone),
+        subscriptions(
+          id, status, plan_id, current_period_start, current_period_end,
+          subscription_plans(name, display_name, price_monthly, price_yearly)
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (options.search) {
+      query = query.ilike("name", `%${options.search}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Supabase normally returns all subscriptions, but we want the 'active' one 
+    // Usually we only have one ACTIVE/PENDING_APPROVAL subscription at a time per salon.
+    const enriched = data?.map(s => {
+      // Find the active/pending subscription
+      const activeSubs = Array.isArray(s.subscriptions) ? s.subscriptions.filter((sub: any) => 
+        sub.status === "ACTIVE" || sub.status === "PENDING_APPROVAL" || sub.status === "TRIAL"
+      ) : [];
+      let activeSub = activeSubs.length > 0 ? activeSubs[0] : null;
+
+      return {
+        ...s,
+        activeSub,
+        city_name: s.cities?.name,
+        district_name: s.districts?.name,
+        owner_name: s.profiles?.full_name,
+        owner_email: s.profiles?.email
+      };
+    }) || [];
+
+    return enriched;
   },
 
   /**
@@ -278,6 +509,7 @@ export const SubscriptionService = {
     resourceType: "staff" | "branch" | "gallery_photo",
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<{ allowed: boolean; current: number; limit: number }> {
+    if (!salonId || salonId === "") return { allowed: false, current: 0, limit: 0 };
     const sub = await this.getSalonSubscription(salonId, supabase);
     let plan = sub?.subscription_plans;
 
@@ -361,6 +593,7 @@ export const SubscriptionService = {
     planId: string,
     paymentMethod: "CREDIT_CARD" | "BANK_TRANSFER",
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
+    metadata?: { senderName?: string; bankName?: string; amount?: number; receiptUrl?: string },
     supabase: SupabaseClient = defaultSupabase,
   ) {
     if (paymentMethod === "CREDIT_CARD") {
@@ -374,14 +607,36 @@ export const SubscriptionService = {
       return data;
     }
 
-    // Default: Just create the pending record for Bank Transfer
-    return this.createSubscriptionRequest(
+    // Default: BANK_TRANSFER flow
+    const sub: any = await this.createSubscriptionRequest(
       salonId,
       planId,
       paymentMethod,
       billingCycle,
       supabase,
     );
+
+    // After creating subscription, if it is PENDING_APPROVAL, register it in payment_history
+    if (sub.status === "PENDING_APPROVAL") {
+      // Ensure we have an amount, fall back to plan price if metadata is missing
+      let amount: number = metadata?.amount || 0;
+      if (amount === 0) {
+          const { data: plan } = await supabase.from('subscription_plans').select('price_monthly, price_yearly').eq('id', planId).single();
+          amount = billingCycle === 'YEARLY' ? (plan?.price_yearly || 0) : (plan?.price_monthly || 0);
+      }
+
+      await this.notifyBankTransfer(
+        sub.id,
+        salonId,
+        amount,
+        metadata?.senderName || 'Belirtilmedi',
+        metadata?.receiptUrl,
+        supabase,
+        metadata?.bankName || 'Belirtilmedi'
+      );
+    }
+    
+    return sub;
   },
 
   /**
@@ -394,28 +649,33 @@ export const SubscriptionService = {
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    // Önce planın detaylarını alalım
+    // 1. Plan ve Salon bilgilerini al
     const { data: planData } = await supabase
       .from("subscription_plans")
       .select("*")
       .eq("id", planId)
       .single();
 
-    let days = billingCycle === "YEARLY" ? 365 : 30;
-    let initialStatus = "PENDING_APPROVAL";
-    let periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const { data: salonData } = await supabase
+      .from("salons")
+      .select("owner_id")
+      .eq("id", salonId)
+      .single();
 
-    // Starter planı 3 ay (90 gün) ücretsiz deneme
-    if (planData && (planData.name === "STARTER" || planData.price_monthly === 0)) {
-       days = 90;
-       initialStatus = "ACTIVE"; // Starter matches ACTIVE in schema
-       periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-    }
+    if (!planData) throw new Error("Plan bulunamadı");
 
+    const days = billingCycle === "YEARLY" ? 365 : 30;
+    const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Ücretsiz paketse direkt ACTIVE, değilse PENDING_APPROVAL
+    const initialStatus = planData.price_monthly === 0 ? 'ACTIVE' : 'PENDING_APPROVAL';
+
+    // 2. Abonelik talebi oluştur
     const { data, error } = await supabase
       .from("subscriptions")
       .upsert({
         salon_id: salonId,
+        owner_id: salonData?.owner_id || null,
         plan_id: planId,
         status: initialStatus,
         payment_method: paymentMethod,
@@ -434,6 +694,7 @@ export const SubscriptionService = {
       // 1. Ödeme geçmişine kaydet
       await supabase.from("payment_history").insert({
         salon_id: salonId,
+        owner_id: salonData?.owner_id || null,
         subscription_id: data.id,
         amount: 0,
         payment_method: "TRIAL",
@@ -443,7 +704,7 @@ export const SubscriptionService = {
       });
 
       // 2. Aktivasyon yap
-      await SubscriptionService.activateSalonAndSubscription(
+      await this.activateSalonAndSubscription(
         salonId, 
         data.id, 
         'Otomatik TRIAL Aktivasyonu',
@@ -461,7 +722,10 @@ export const SubscriptionService = {
     subscriptionId: string,
     salonId: string,
     amount: number,
+    senderName?: string,
+    receiptUrl?: string,
     supabase: SupabaseClient = defaultSupabase,
+    bankName?: string,
   ) {
     const { data, error } = await supabase
       .from("payment_history")
@@ -473,6 +737,11 @@ export const SubscriptionService = {
         payment_type: "SUBSCRIPTION",
         status: "PENDING", // Admin confirmation needed
         bank_transfer_notified_at: new Date().toISOString(),
+        bank_transfer_proof_url: receiptUrl || null,
+        metadata: {
+          sender_name: senderName || 'Belirtilmedi',
+          bank_name: bankName || 'Belirtilmedi'
+        }
       })
       .select()
       .single();
@@ -534,12 +803,15 @@ export const SubscriptionService = {
    * This bypasses the normal payment flow.
    */
   async adminAssignSubscription(
-    salonId: string,
+    target: { salonId?: string; ownerId?: string },
     planId: string,
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
     adminNote: string = "Admin tarafından manuel atandı",
     supabase: SupabaseClient = defaultSupabase,
   ) {
+    const { salonId, ownerId } = target;
+    if (!salonId && !ownerId) throw new Error("salonId veya ownerId zorunludur");
+
     // 1. Plan detaylarını al
     const { data: planData } = await supabase
       .from("subscription_plans")
@@ -552,27 +824,59 @@ export const SubscriptionService = {
     const days = billingCycle === "YEARLY" ? 365 : 30;
     const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
-    // 2. Aboneliği oluştur veya güncelle
-    const { data: subscription, error: subError } = await supabase
-      .from("subscriptions")
-      .upsert({
-        salon_id: salonId,
-        plan_id: planId,
-        status: "ACTIVE",
-        payment_method: "BANK_TRANSFER", // Placeholder for manual
-        billing_cycle: billingCycle,
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEnd,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'salon_id' })
-      .select()
-      .single();
+    // 2. Owner ID'yi bul (salonId verilmişse)
+    let finalOwnerId = ownerId;
+    if (salonId && !finalOwnerId) {
+      const { data: salon } = await supabase.from('salons').select('owner_id').eq('id', salonId).single();
+      finalOwnerId = salon?.owner_id;
+    }
 
-    if (subError) throw subError;
+    // 3. Aboneliği oluştur veya güncelle
+    let existingSub = null;
+    if (salonId) {
+       const { data } = await supabase.from('subscriptions').select('id').eq('salon_id', salonId).maybeSingle();
+       existingSub = data;
+    } else if (finalOwnerId) {
+       const { data } = await supabase.from('subscriptions').select('id').eq('owner_id', finalOwnerId).maybeSingle();
+       existingSub = data;
+    }
 
-    // 3. Ödeme geçmişine "Sistem Ataması" olarak ekle
+    const subPayload = {
+      salon_id: salonId || null,
+      owner_id: finalOwnerId || null,
+      plan_id: planId,
+      status: "ACTIVE",
+      payment_method: "BANK_TRANSFER",
+      billing_cycle: billingCycle,
+      current_period_start: new Date().toISOString(),
+      current_period_end: periodEnd,
+      updated_at: new Date().toISOString()
+    };
+
+    let subscription;
+    if (existingSub) {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .update(subPayload)
+        .eq("id", existingSub.id)
+        .select()
+        .single();
+      if (error) throw error;
+      subscription = data;
+    } else {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .insert(subPayload)
+        .select()
+        .single();
+      if (error) throw error;
+      subscription = data;
+    }
+
+    // 4. Ödeme geçmişine "Sistem Ataması" olarak ekle
     await supabase.from("payment_history").insert({
-      salon_id: salonId,
+      salon_id: salonId || null,
+      owner_id: finalOwnerId || null,
       subscription_id: subscription.id,
       amount: billingCycle === "YEARLY" ? planData.price_yearly : planData.price_monthly,
       payment_method: "BANK_TRANSFER",
@@ -581,15 +885,62 @@ export const SubscriptionService = {
       metadata: { note: adminNote, is_admin_assignment: true }
     });
 
-    // 4. Salonu ve aboneliği aktif et (onaylı durumu için)
-    await this.activateSalonAndSubscription(
-      salonId,
-      subscription.id,
-      adminNote,
-      supabase
-    );
+    // 5. Salonu ve aboneliği aktif et (eğer salonId varsa)
+    if (salonId) {
+      await this.activateSalonAndSubscription(
+        salonId,
+        subscription.id,
+        adminNote,
+        supabase
+      );
+    }
 
     return subscription;
+  },
+
+  /**
+   * Admin: Create a new subscription plan
+   */
+  async createPlan(plan: any, supabase: SupabaseClient = defaultSupabase) {
+    const { data, error } = await supabase
+      .from("subscription_plans")
+      .insert(plan)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Admin: Delete or deactivate a plan
+   */
+  async deletePlan(planId: string, supabase: SupabaseClient = defaultSupabase) {
+    // Önce bu plana bağlı abonelik var mı kontrol et
+    const { count } = await supabase
+      .from("subscriptions")
+      .select("*", { count: 'exact', head: true })
+      .eq("plan_id", planId);
+
+    if (count && count > 0) {
+      // Eğer kullanımda ise tamamen silme, pasife çek
+      const { error } = await supabase
+        .from("subscription_plans")
+        .update({ is_active: false })
+        .eq("id", planId);
+      
+      if (error) throw error;
+      return { success: true, action: 'DEACTIVATED' };
+    }
+
+    // Kullanımda değilse tamamen sil
+    const { error } = await supabase
+      .from("subscription_plans")
+      .delete()
+      .eq("id", planId);
+
+    if (error) throw error;
+    return { success: true, action: 'DELETED' };
   },
 };
 
@@ -637,6 +988,64 @@ export const SubmerchantService = {
 
 export const FinanceService = {
   /**
+   * Admin: Get Unified Finance Records (Combines payments and subscriptions without a payment record)
+   */
+  async getUnifiedFinanceRecords(
+    options: { page?: number; pageSize?: number; search?: string; status?: string } = {},
+    supabase: SupabaseClient = defaultSupabase
+  ) {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
+    // We primarily query payment_history as it contains the sequence of events
+    let query = supabase
+      .from("payment_history")
+      .select(`
+        *,
+        salons!inner(
+          id, 
+          name, 
+          owner_id,
+          cities(name),
+          districts(name),
+          profiles:profiles!owner_id(full_name, email, phone)
+        ),
+        subscriptions(
+          id,
+          status,
+          current_period_end,
+          subscription_plans(*)
+        )
+      `, { count: 'exact' });
+
+    if (options.search) {
+      query = query.ilike("salons.name", `%${options.search}%`);
+    }
+
+    if (options.status && options.status !== 'ALL') {
+      if (options.status === 'PENDING') {
+          query = query.eq('status', 'PENDING');
+      } else if (options.status === 'SUCCESS') {
+          query = query.eq('status', 'SUCCESS');
+      } else if (options.status === 'FAILED') {
+          query = query.eq('status', 'FAILED');
+      }
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    return {
+      records: data || [],
+      totalCount: count || 0
+    };
+  },
+
+  /**
    * Get pending bank transfer payments for Admin
    */
   async getPendingPayments(supabase: SupabaseClient = defaultSupabase) {
@@ -668,28 +1077,41 @@ export const FinanceService = {
     if (pError) throw pError;
 
     // Case 1: Subscription Activation (Atomic RPC)
-    if (status === "SUCCESS" && payment.payment_type === "SUBSCRIPTION" && payment.subscription_id) {
-      try {
+    if (status === "SUCCESS" && payment.payment_type === "SUBSCRIPTION") {
+      let subscriptionId = payment.subscription_id;
+      
+      // RECOVERY: If subscription_id is missing, try to find a pending one for this salon
+      if (!subscriptionId) {
+        const { data: latestSub } = await supabase
+          .from("subscriptions")
+          .select("id")
+          .eq("salon_id", payment.salon_id)
+          .eq("status", "PENDING_APPROVAL")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (latestSub) {
+          subscriptionId = latestSub.id;
+        }
+      }
+
+      if (subscriptionId) {
         const { error: rpcError } = await supabase.rpc("activate_salon_and_subscription", {
           p_salon_id: payment.salon_id,
-          p_subscription_id: payment.subscription_id,
+          p_subscription_id: subscriptionId,
           p_admin_note: adminNote
         });
         
         if (rpcError) {
-          console.error("RPC Error (Activation):", rpcError);
-          throw rpcError;
+          console.error("Activation RPC Error:", rpcError);
+          throw new Error(`Aktivasyon hatası (RPC): ${rpcError.message}`);
         }
-        return { success: true, method: 'RPC' };
-      } catch (err) {
-          console.error("Activation RPC failed, attempting manual fallback for payment history:", err);
-          // Fallback: at least update the payment record
-          await supabase.from("payment_history").update({ status: 'SUCCESS' }).eq("id", paymentId);
-          throw err;
+        // After RPC, we continue to Case 2 to ensure the specific payment_history record is updated by ID
       }
     }
 
-    // Case 2: Standard Status Update (Manual)
+    // Case 2: Standard Status Update (Direct ID)
     const { error: updateError } = await supabase
       .from("payment_history")
       .update({
@@ -715,17 +1137,30 @@ export const FinanceService = {
             .eq('id', payment.subscription_id);
     }
     
-    return { success: true, method: 'MANUAL' };
+    return { success: true };
   },
 
   /**
    * Get financial reports (Overview)
    */
   async getFinancialReports(
-    filter: { salonId?: string; startDate?: string; endDate?: string } = {},
+    filter: { 
+      salonId?: string; 
+      startDate?: string; 
+      endDate?: string;
+      page?: number;
+      pageSize?: number;
+      status?: string;
+      method?: string;
+      search?: string;
+    } = {},
     supabase: SupabaseClient = defaultSupabase,
   ) {
-    let query = supabase.from("payment_history").select(`
+    const page = filter.page || 1;
+    const pageSize = filter.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
+    let selectStr = `
       *, 
       salons(
         id, 
@@ -735,7 +1170,7 @@ export const FinanceService = {
         address,
         cities(name),
         districts(name),
-        profiles!owner_id(full_name, email, phone)
+        profiles:profiles!owner_id(full_name, email, phone)
       ), 
       subscriptions(
         current_period_end, 
@@ -743,33 +1178,88 @@ export const FinanceService = {
         plan_id,
         subscription_plans(*)
       )
-    `);
+    `;
+
+    if (filter.search) {
+      selectStr = `
+      *, 
+      salons!inner(
+        id, 
+        name, 
+        owner_id, 
+        phone,
+        address,
+        cities(name),
+        districts(name),
+        profiles:profiles!owner_id(full_name, email, phone)
+      ), 
+      subscriptions(
+        current_period_end, 
+        status, 
+        plan_id,
+        subscription_plans(*)
+      )
+    `;
+    }
+
+    let query = supabase.from("payment_history").select(selectStr, { count: 'exact' });
 
     if (filter.salonId) query = query.eq("salon_id", filter.salonId);
+    if (filter.status && filter.status !== 'ALL') query = query.eq("status", filter.status);
+    if (filter.method && filter.method !== 'ALL') {
+        if (filter.method === 'TRIAL') {
+            query = query.or('payment_method.eq.TRIAL,amount.eq.0');
+        } else {
+            query = query.eq("payment_method", filter.method);
+        }
+    }
     if (filter.startDate) query = query.gte("created_at", filter.startDate);
-    if (filter.endDate) query = query.lte("created_at", filter.endDate);
+    if (filter.search) {
+      // payment_history joined with salons
+      // Since supabase JS currently doesn't support complex embedded OR searches easily on joined tables
+      // via `ilike`, we apply it on `salons.name`.
+      // Using foreign table filtering notation:
+      // Note: Supabase JS filtering on joined columns correctly uses `salons.name`
+      query = query.ilike('salons.name', `%${filter.search}%`);
+    }
 
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
     if (error) throw error;
 
-    // Simple aggregation
-    const totalRevenue = data.reduce(
-      (acc, curr) => (curr.status === "SUCCESS" ? acc + curr.amount : acc),
-      0,
-    );
-    const successCount = data.filter((p) => p.status === "SUCCESS").length;
-
+    // Stats for overall overview (not paginated)
+    // To get accurate stats, we might need a separate query, but for now we calculate from the current page 
+    // OR we can do a quick separate stats query for the admin dashboard.
+    // Let's assume the user wants stats for the current filter.
+    
     return {
-      transactions: data,
-      stats: {
-        totalRevenue,
-        successCount,
-        failedCount: data.filter((p) => p.status === "FAILED").length,
-        pendingCount: data.filter((p) => p.status === "PENDING").length,
-      },
+      transactions: data || [],
+      totalCount: count || 0,
     };
+  },
+
+  /**
+   * Admin: Get overall finance stats
+   */
+  async getFinanceStats(supabase: SupabaseClient = defaultSupabase) {
+    const { data: payments, error } = await supabase
+      .from("payment_history")
+      .select("amount, status, payment_method, subscriptions(current_period_end)");
+
+    if (error) throw error;
+
+    const stats = {
+        total: payments.length,
+        pending: payments.filter(p => p.status === 'PENDING').length,
+        revenue: payments
+            .filter(p => p.status === 'SUCCESS' && p.payment_method !== 'TRIAL')
+            .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0),
+        trialActive: payments.filter(p => (p.payment_method === 'TRIAL' || p.amount === 0) && p.subscriptions?.[0] && new Date(p.subscriptions[0].current_period_end) > new Date()).length
+    };
+
+    return stats;
   },
 
   /**

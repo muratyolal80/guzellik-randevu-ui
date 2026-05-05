@@ -54,6 +54,11 @@ function LoginContent() {
 
     // Auto-redirect if already authenticated
     useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'account_deactivated') {
+            setError('Hesabınız dondurulmuş veya askıya alınmıştır. Lütfen destek ile iletişime geçin.');
+        }
+
         if (!authLoading && isAuthenticated && user) {
             const dest = getRedirectUrl();
             console.log('Redirecting authenticated user to:', dest, 'Role:', user.role);

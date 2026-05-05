@@ -1,4 +1,4 @@
-export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'OWNER' | 'ADMIN' | 'SUPER_ADMIN';
 export type SalonPlan = 'STARTER' | 'PRO' | 'BUSINESS' | 'ELITE';
 
 export type Permission =

@@ -44,8 +44,8 @@ const AdminSidebar: React.FC = () => {
                 { name: 'Kullanıcı Yönetimi', path: '/admin/users', icon: Users },
                 { name: 'Salon Yönetimi & Onay', path: '/admin/salons/approvals', icon: Store },
                 { name: 'Salon Ekle', path: '/admin/salons/new', icon: PlusCircle },
-                { name: 'Paket Ödeme Onayları', path: '/admin/finance/approvals', icon: CheckCircle },
-                { name: 'Paket Satın Al', path: '/admin/finance/purchase', icon: ShoppingCart },
+                { name: 'Paket Yönetimi', path: '/admin/finance/packages', icon: CheckCircle },
+                { name: 'Hızlı Paket Atama', path: '/admin/finance/purchase', icon: ShoppingCart },
             ]
         },
         { 

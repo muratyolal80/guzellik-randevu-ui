@@ -1,10 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const dev = process.env.NODE_ENV === 'development'
+
 export async function middleware(request: NextRequest) {
-    console.log('--- Proxy execution start ---');
-    console.log('Path:', request.nextUrl.pathname);
-    console.log('Host:', request.headers.get('host'));
+    if (dev) console.log('--- Proxy execution start ---', request.nextUrl.pathname, request.headers.get('host'));
 
     // 1. Initialize Response
     let response = NextResponse.next({
@@ -36,10 +36,8 @@ export async function middleware(request: NextRequest) {
     )
 
     // 2. Refresh session
-    console.log('Refreshing session...');
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError) console.error('Auth Error in Proxy:', authError);
-    console.log('User detected:', user?.id || 'none');
 
     // 3. Subdomain / Multi-tenant Routing
     const url = request.nextUrl.clone();
@@ -63,11 +61,10 @@ export async function middleware(request: NextRequest) {
     if (!isMainDomain && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next') && !url.pathname.includes('.')) {
         const subdomain = host.split('.')[0];
         if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
-            console.log('Rewriting to subdomain:', subdomain);
+            if (dev) console.log('Rewriting to subdomain:', subdomain);
             return NextResponse.rewrite(new URL(`/salon-slug/${subdomain}${url.pathname}`, request.url));
         }
     }
-    console.log('No rewrite needed. isMainDomain:', isMainDomain);
 
     // 4. Role-Based Route Protection Logic
     const pathname = request.nextUrl.pathname;
@@ -92,9 +89,19 @@ export async function middleware(request: NextRequest) {
             try {
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('role')
+                    .select('role, is_active')
                     .eq('id', user.id)
                     .single();
+                
+                // --- Pasif Kullanıcı Kontrolü ---
+                if (profile && profile.is_active === false) {
+                    console.warn('Middleware: Inactive user detected, signing out:', user.email);
+                    await supabase.auth.signOut();
+                    const loginUrl = new URL('/login', request.url);
+                    loginUrl.searchParams.set('error', 'account_deactivated');
+                    return NextResponse.redirect(loginUrl);
+                }
+
                 userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
             } catch (err) {
                 console.error('Middleware: Error fetching profile:', err);
@@ -184,7 +191,6 @@ export async function middleware(request: NextRequest) {
     }
 
 
-    console.log('--- Proxy execution end ---');
     return response;
 }
 

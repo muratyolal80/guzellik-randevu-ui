@@ -12,11 +12,13 @@ import {
     Info,
     AlertTriangle,
     Plus,
-    Trash2
+    Trash2,
+    Mail,
+    Send
 } from 'lucide-react';
 
 export default function Settings() {
-    const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank'>('sms');
+    const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank' | 'email'>('sms');
 
     // SMS States (LocalStorage - existing)
     const [usercode, setUsercode] = useState('');
@@ -33,6 +35,18 @@ export default function Settings() {
 
     // Bank States (DB)
     const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+
+    // Email/SMTP States (DB)
+    const [emailConfig, setEmailConfig] = useState({
+        smtp_host: '',
+        smtp_port: '587',
+        smtp_user: '',
+        smtp_pass: '',
+        from_address: '',
+        from_name: 'Güzellik Randevu',
+        encryption: 'TLS' as 'TLS' | 'SSL' | 'NONE',
+    });
+    const [emailTestSending, setEmailTestSending] = useState(false);
 
     const [loading, setLoading] = useState(true);
     const [saved, setSaved] = useState(false);
@@ -71,6 +85,11 @@ export default function Settings() {
 
             const banks = await PlatformService.getSetting('bank_accounts');
             setBankAccounts(banks || []);
+
+            const emailCfg = await PlatformService.getSetting('email_smtp_config');
+            if (emailCfg) {
+                setEmailConfig(prev => ({ ...prev, ...emailCfg }));
+            }
         } catch (err) {
             console.error('Settings fetch error:', err);
         } finally {
@@ -124,6 +143,18 @@ export default function Settings() {
     };
 
     const hasSMSConfig = usercode.length > 0 && password.length > 0 && header.length > 0;
+    const hasEmailConfig = emailConfig.smtp_host.length > 0 && emailConfig.smtp_user.length > 0;
+
+    const handleSaveEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await PlatformService.updateSetting('email_smtp_config', emailConfig);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            alert('E-posta ayarları kaydedilirken hata oluştu.');
+        }
+    };
 
     return (
         <AdminLayout>
@@ -159,6 +190,12 @@ export default function Settings() {
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'bank' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
                     <Building2 size={18} /> Banka Hesapları
+                </button>
+                <button
+                    onClick={() => setActiveTab('email')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'email' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                >
+                    <Mail size={18} /> E-Posta (SMTP)
                 </button>
             </div>
 
@@ -417,6 +454,121 @@ export default function Settings() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'email' && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+                            <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600">
+                                        <Mail size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-text-main">E-Posta SMTP Yapılandırması</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Davetiye ve Bildirim Gönderimi</p>
+                                    </div>
+                                </div>
+                                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${hasEmailConfig ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {hasEmailConfig ? 'Yapılandırıldı' : 'Konfigürasyon Eksik'}
+                                </div>
+                            </div>
+                            <form onSubmit={handleSaveEmail} className="p-8 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">SMTP Sunucu (Host)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_host}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                                            placeholder="smtp.gmail.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Port</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_port}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
+                                            placeholder="587"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Kullanıcı Adı</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_user}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                                            placeholder="noreply@salonunuz.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Şifre / App Password</label>
+                                        <input
+                                            type="password"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_pass}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Gönderen E-Posta</label>
+                                        <input
+                                            type="email"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.from_address}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, from_address: e.target.value })}
+                                            placeholder="bilgi@salonunuz.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Gönderen Adı</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.from_name}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })}
+                                            placeholder="Güzellik Randevu"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Şifreleme</label>
+                                        <div className="flex gap-3">
+                                            {(['TLS', 'SSL', 'NONE'] as const).map(enc => (
+                                                <button
+                                                    key={enc}
+                                                    type="button"
+                                                    onClick={() => setEmailConfig({ ...emailConfig, encryption: enc })}
+                                                    className={`px-6 py-3 rounded-xl text-sm font-black transition-all border ${emailConfig.encryption === enc ? 'bg-primary text-white border-primary shadow-md' : 'bg-surface-alt text-text-muted border-border hover:border-primary/40'}`}
+                                                >
+                                                    {enc === 'NONE' ? 'Yok' : enc}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info */}
+                                <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                                    <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 font-bold leading-relaxed">
+                                        Gmail kullanıyorsanız <strong>App Password</strong> oluşturmanız gerekir. Normal şifreniz çalışmaz.
+                                        SMTP ayarları yapılandırıldığında, personel davetleri otomatik olarak e-posta ile de gönderilebilir hale gelecektir.
+                                    </p>
+                                </div>
+
+                                <div className="pt-6 border-t border-border flex justify-end gap-4">
+                                    <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
+                                        <Save size={20} /> E-Posta Ayarlarını Kaydet
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}
