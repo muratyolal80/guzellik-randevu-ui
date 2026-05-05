@@ -1,7 +1,41 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+
+// Çağıran kullanıcının SUPER_ADMIN olduğunu doğrular.
+// Middleware yalnızca sayfa yönlendirmesini korur; server action endpoint'leri
+// /_next/action/<id> üzerinden doğrudan çağrılabilir, bu yüzden burada da kontrol şart.
+async function requireSuperAdmin(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll: () => cookieStore.getAll(),
+                setAll: () => {},
+            },
+        }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { authorized: false, error: 'Oturum açılmamış.' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'SUPER_ADMIN') {
+        return { authorized: false, error: 'Bu işlem için yetkiniz yok.' };
+    }
+
+    return { authorized: true };
+}
 
 export async function adminCreateUserAction(formData: {
     email: string;
@@ -10,8 +44,10 @@ export async function adminCreateUserAction(formData: {
     role: string;
     password?: string;
 }) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return { success: false, error: auth.error };
+
     try {
-        // 1. Create Auth User
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: formData.email,
             password: formData.password || 'TemporaryPassword123!',
@@ -26,7 +62,7 @@ export async function adminCreateUserAction(formData: {
         });
 
         if (authError) throw authError;
- 
+
         revalidatePath('/admin/users');
         return { success: true, user: authData.user };
     } catch (error: any) {
@@ -40,6 +76,9 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
     phone?: string;
     password?: string;
 }) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return { success: false, error: auth.error };
+
     try {
         const updateParams: any = {};
         if (updates.email) updateParams.email = updates.email;
@@ -49,7 +88,7 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
         const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, updateParams);
 
         if (error) throw error;
-        
+
         revalidatePath('/admin/users');
         return { success: true };
     } catch (error: any) {
@@ -59,10 +98,13 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
 }
 
 export async function adminDeleteUserAuthAction(userId: string) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return { success: false, error: auth.error };
+
     try {
         const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (error) throw error;
-        
+
         revalidatePath('/admin/users');
         return { success: true };
     } catch (error: any) {
