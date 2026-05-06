@@ -60,25 +60,30 @@ export const StaffService = {
 
     if (homeError) throw homeError;
 
-    // 2. Get staff assigned via staff_branches
-    const { data: assignedStaffMap, error: assignedError } = await supabase
-      .from("staff_branches")
-      .select("staff(*)")
-      .eq("salon_id", salonId);
-
-    if (assignedError) throw assignedError;
-
     // Merge and Deduplicate
     const allStaff = [...(homeStaff || [])];
-    const assigned = (assignedStaffMap || [])
-      .map((item: any) => item.staff)
-      .filter((s) => s && s.is_active);
 
-    assigned.forEach((s) => {
-      if (!allStaff.find((existing) => existing.id === s.id)) {
-        allStaff.push(s);
+    // 2. Get staff assigned via staff_branches (table may not exist yet — non-critical)
+    try {
+      const { data: assignedStaffMap, error: assignedError } = await supabase
+        .from("staff_branches")
+        .select("staff(*)")
+        .eq("salon_id", salonId);
+
+      if (!assignedError) {
+        const assigned = (assignedStaffMap || [])
+          .map((item: any) => item.staff)
+          .filter((s: any) => s && s.is_active);
+
+        assigned.forEach((s: any) => {
+          if (!allStaff.find((existing) => existing.id === s.id)) {
+            allStaff.push(s);
+          }
+        });
       }
-    });
+    } catch {
+      // staff_branches does not exist yet — skip branch assignment lookup
+    }
 
     return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   },
@@ -310,6 +315,39 @@ export const StaffService = {
 
     if (error) throw error;
     return data?.map((s) => s.salon_service_id) || [];
+  },
+
+  /**
+   * Returns the subset of staffIds that have at least one working_hours row.
+   * Used to badge incomplete staff in the owner panel.
+   */
+  async getStaffHoursPresence(
+    staffIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (staffIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from("working_hours")
+      .select("staff_id")
+      .in("staff_id", staffIds);
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
+  },
+
+  /**
+   * Returns the subset of staffIds that have at least one staff_services row.
+   */
+  async getStaffServicesPresence(
+    staffIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (staffIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from("staff_services")
+      .select("staff_id")
+      .in("staff_id", staffIds);
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
   },
 
   /**

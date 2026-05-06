@@ -44,8 +44,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setSalonTypes(data.salonTypes || []);
         setCategories(data.categories || []);
         setServicesByCat(data.servicesByCatId || {});
-      } catch (err) {
-        console.error('❌ Error in fetchMenuData:', err);
+      } catch (err: any) {
+        console.error('❌ Error in fetchMenuData:', err?.message || err?.code || JSON.stringify(err) || err);
       }
     };
 

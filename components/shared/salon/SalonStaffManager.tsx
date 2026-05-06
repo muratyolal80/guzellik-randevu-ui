@@ -47,6 +47,7 @@ interface SalonStaffManagerProps {
 
 export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [staff, setStaff] = useState<Staff[]>([]);
+    const [staffMissing, setStaffMissing] = useState<Record<string, { hours: boolean; services: boolean }>>({});
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState<'add' | 'edit'>('add');
@@ -116,6 +117,25 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setLoading(true);
             const staffList = await StaffService.getStaffBySalon(salonId);
             setStaff(staffList);
+
+            // Detect staff with missing working_hours or staff_services (single batch query)
+            if (staffList.length > 0) {
+                const ids = staffList.map(s => s.id);
+                const [hoursRows, servicesRows] = await Promise.all([
+                    StaffService.getStaffHoursPresence?.(ids) ?? Promise.resolve([]),
+                    StaffService.getStaffServicesPresence?.(ids) ?? Promise.resolve([]),
+                ]);
+                const hoursSet = new Set<string>(hoursRows as string[]);
+                const servicesSet = new Set<string>(servicesRows as string[]);
+                const missing: Record<string, { hours: boolean; services: boolean }> = {};
+                for (const s of staffList) {
+                    missing[s.id] = {
+                        hours: !hoursSet.has(s.id),
+                        services: !servicesSet.has(s.id),
+                    };
+                }
+                setStaffMissing(missing);
+            }
         } catch (err) {
             console.error('Veri çekme hatası:', err);
         } finally {
@@ -448,6 +468,31 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     {member.role || member.specialty || 'Uzman'}
                                 </div>
                             </div>
+
+                            {(staffMissing[member.id]?.hours || staffMissing[member.id]?.services) && (
+                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                    {staffMissing[member.id]?.hours && (
+                                        <button
+                                            onClick={() => handleOpenShifts(member)}
+                                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-tight bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg hover:bg-amber-100 transition-colors"
+                                            title="Bu personel için çalışma saatleri tanımlı değil — randevu sistemi salon saatine düşer."
+                                        >
+                                            <ShieldAlert className="w-3 h-3" />
+                                            Mesai eksik
+                                        </button>
+                                    )}
+                                    {staffMissing[member.id]?.services && (
+                                        <button
+                                            onClick={() => handleOpenEdit(member)}
+                                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-tight bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg hover:bg-rose-100 transition-colors"
+                                            title="Bu personel hiçbir hizmete atanmamış — booking akışında listede görünmez."
+                                        >
+                                            <ShieldAlert className="w-3 h-3" />
+                                            Hizmet eksik
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="mt-4 flex items-center justify-between">
                                 <div className="flex items-center gap-1 text-amber-500">

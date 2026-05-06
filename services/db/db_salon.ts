@@ -1203,7 +1203,11 @@ export const GalleryService = {
       .eq("salon_id", salonId)
       .order("display_order", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      // Gallery is non-critical; log and return empty rather than crashing the page
+      console.warn(`[GalleryService] getSalonGallery error (salonId=${salonId}):`, error.message || error.code || JSON.stringify(error));
+      return [];
+    }
     return data || [];
   },
 

@@ -83,29 +83,34 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(loginUrl);
         }
 
-        // Fetch user role ONLY for protected routes
+        // Fetch user role ONLY for protected routes.
+        // Prefer app_metadata (JWT-embedded, no DB hit) if set; fall back to DB query.
         let userRole = '';
         if (user.id && user.id !== "") {
-            try {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role, is_active')
-                    .eq('id', user.id)
-                    .single();
-                
-                // --- Pasif Kullanıcı Kontrolü ---
-                if (profile && profile.is_active === false) {
-                    console.warn('Middleware: Inactive user detected, signing out:', user.email);
+            const cachedRole = (user.app_metadata?.role as string | undefined)?.toUpperCase();
+
+            if (cachedRole) {
+                userRole = cachedRole;
+                // Deactivation flag is stored in app_metadata (set by admin actions)
+                if (user.app_metadata?.is_active === false) {
                     await supabase.auth.signOut();
                     const loginUrl = new URL('/login', request.url);
                     loginUrl.searchParams.set('error', 'account_deactivated');
                     return NextResponse.redirect(loginUrl);
                 }
+            } else {
+                try {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
 
-                userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
-            } catch (err) {
-                console.error('Middleware: Error fetching profile:', err);
-                userRole = 'CUSTOMER';
+                    userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
+                } catch (err) {
+                    if (dev) console.error('Middleware: Error fetching profile:', err);
+                    userRole = 'CUSTOMER';
+                }
             }
         } else {
             userRole = 'CUSTOMER';
@@ -138,29 +143,23 @@ export async function middleware(request: NextRequest) {
             let subscription: any = null;
 
             try {
+                // Single query: salon + subscription via join (avoids sequential DB calls)
                 const { data: salonData } = await supabase
                     .from('salons')
-                    .select('id, status')
+                    .select('id, status, subscriptions(status)')
                     .eq('owner_id', user.id)
                     .maybeSingle();
 
                 salon = salonData;
 
                 if (!salon) {
-                    // If no salon found, force onboarding
                     return NextResponse.redirect(new URL('/owner/onboarding', request.url));
                 }
 
-                // check subscription status
-                const { data: subData } = await supabase
-                    .from('subscriptions')
-                    .select('status')
-                    .eq('salon_id', salon.id)
-                    .maybeSingle();
-
-                subscription = subData;
+                const subs = (salonData as any)?.subscriptions;
+                subscription = Array.isArray(subs) ? subs[0] : subs;
             } catch (err) {
-                console.error('Middleware: Error fetching salon/subscription:', err);
+                if (dev) console.error('Middleware: Error fetching salon/subscription:', err);
             }
 
             if (salon && (salon.status === 'PENDING_APPROVAL' || (subscription && subscription.status === 'PENDING_APPROVAL'))) {

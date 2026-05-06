@@ -34,3 +34,6 @@ supabase-project
 
 # Backups
 db_backups/
+
+# MCP config (contains DB password)
+.mcp.json

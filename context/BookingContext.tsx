@@ -74,13 +74,18 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
 
   const basePrice = selectedServices.reduce((acc, s) => acc + (s.price || 0), 0);
 
-  // Fetch campaigns for the salon
+  // Fetch campaigns for the salon (non-critical — silently skip on permission/missing-table errors)
   React.useEffect(() => {
     if (salon?.id) {
       const fetchRules = async () => {
-        const { CampaignService } = await import('@/services/db');
-        const rules = await CampaignService.getSalonCampaignRules(salon.id);
-        setCampaignRules(rules.filter(r => r.is_active));
+        try {
+          const { CampaignService } = await import('@/services/db');
+          const rules = await CampaignService.getSalonCampaignRules(salon.id);
+          setCampaignRules(rules.filter(r => r.is_active));
+        } catch (err: any) {
+          console.warn('Campaign rules fetch failed:', err?.message || err?.code || err);
+          setCampaignRules([]);
+        }
       };
       fetchRules();
     }

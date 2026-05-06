@@ -1,73 +1,82 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Bu dosya Claude Code asistanına bu repo üzerinde çalışırken rehberlik eder. **Projenin tek anayasasıdır — geliştirme yapmadan önce tümü okunmalıdır.**
 
-## Project Overview
+---
 
-**Güzellik Randevu** — A multi-tenant SaaS marketplace for beauty salons (kuaforara.com.tr). Salon owners list services, customers book appointments. Built on Next.js 16 App Router + Supabase (self-hosted).
+## Proje Özeti
+
+**Güzellik Randevu** — Güzellik salonları, kuaförler ve berberler için çok kiracılı (multi-tenant) SaaS marketplace.
+- **Temel fonksiyon:** Salonlar hizmet ve personellerini listeler, müşteriler online randevu alır.
+- **Mimari:** Subdomain tabanlı multi-tenant, RBAC, veritabanı seviyesinde güvenlik (RLS).
+- **Dil kuralı:** Kullanıcı ile iletişim **Türkçe**, kod (değişken/fonksiyon/yorum) **İngilizce**, UI mesajları/toast **Türkçe**.
 
 ---
 
 ## Commands
 
 ```bash
-npm run dev       # Start dev server (localhost:3000)
-npm run build     # Production build (also runs next-sitemap postbuild)
-npm run start     # Start production server
-npm run lint      # ESLint check
+npm run dev       # Dev server (localhost:3000)
+npm run build     # Production build (next-sitemap postbuild dahil)
+npm run start     # Production server
+npm run lint      # ESLint
 ```
 
-No test runner is configured.
+Test runner yapılandırılmamış.
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router), React 19 — use `use`, Server Actions, Server Components
-- **Database/Auth:** Supabase (`@supabase/ssr` + `@supabase/supabase-js`)
-- **Styling:** Tailwind CSS (no component library — shadcn/ui style patterns)
-- **Icons:** `lucide-react`
-- **Charts:** Recharts | **Maps:** react-leaflet | **Calendar:** FullCalendar v6
-- **Payment:** Iyzico | **SMS:** İletiMerkezi/NetGSM | **AI:** Google Gemini (`@google/genai`)
-- **Bot protection:** Cloudflare Turnstile
+| Katman | Teknoloji |
+|--------|-----------|
+| Framework | Next.js 16 (App Router), React 19 — Server Actions, `use` hook, Server Components |
+| Database/Auth | Supabase (`@supabase/ssr` + `@supabase/supabase-js`) |
+| Styling | Tailwind CSS — shadcn/ui stili, component library yok |
+| Icons | `lucide-react` |
+| Charts | Recharts |
+| Maps | `react-leaflet` |
+| Calendar | FullCalendar v6 |
+| Payment | Iyzico (`iyzipay`) |
+| SMS | İletiMerkezi / NetGSM |
+| AI | Google Gemini (`@google/genai`) |
+| Bot koruması | Cloudflare Turnstile |
 
-### Design tokens (tailwind.config.ts)
+### Design Tokens (`tailwind.config.ts`)
 - Primary gold: `#C59F59`
 - Background: `#FAF8F5`
 - Fonts: Plus Jakarta Sans (body), Playfair Display (headings)
 
 ---
 
-## Architecture
+## Mimari
 
-### Supabase Client Selection — Critical
+### Supabase Client — Kritik Kural
 
-| Context | Client | Import |
-|---------|--------|--------|
+| Bağlam | Client | Import |
+|--------|--------|--------|
 | Client components (`'use client'`) | `createBrowserClient` | `@/lib/supabase` |
 | Server Actions, API routes, middleware | `createServerClient` / admin | `@/lib/supabaseAdmin` |
 
-`supabaseAdmin` uses the service role key — it bypasses RLS. Use it **only** in server-side code, never in client components.
+`supabaseAdmin` service role key kullanır — RLS'i bypass eder. **Sadece server-side kodda kullanılır, client component'larda asla.**
 
 ### Data Layer
 
-All DB queries go through `@/services/db/` modules, exported via `@/services/db.ts` barrel:
+Tüm DB sorguları `@/services/db/` modülleri üzerinden geçer; `@/services/db.ts` barrel ile export edilir. **Sayfa veya component dosyalarına ham Supabase sorgusu yazılmaz.**
 
-| Module | Responsibility |
-|--------|---------------|
-| `db_core.ts` | Cities, districts, salon types, global services |
-| `db_salon.ts` | Salon CRUD, approval flow |
-| `db_staff.ts` | Staff management, working hours |
-| `db_appointments.ts` | Appointments |
-| `db_finance.ts` | Subscriptions, payments |
-| `db_user.ts` / `db_customer.ts` | Profile, customer data |
-| `db_support.ts` / `db_resource.ts` | Support tickets, resources |
-
-Do not write raw Supabase queries in page/component files.
+| Modül | Sorumluluk |
+|-------|-----------|
+| `db_core.ts` | Şehirler, ilçeler, salon tipleri, global servisler |
+| `db_salon.ts` | Salon CRUD, onay akışı |
+| `db_staff.ts` | Personel yönetimi, çalışma saatleri |
+| `db_appointments.ts` | Randevular |
+| `db_finance.ts` | Abonelikler, ödemeler |
+| `db_user.ts` / `db_customer.ts` | Profil, müşteri verisi |
+| `db_support.ts` / `db_resource.ts` | Destek, kaynaklar |
 
 ### Types
 
-All TypeScript interfaces live in `@/types.ts` (622 lines). Key types:
+Tüm TypeScript arayüzleri `@/types.ts` içindedir. **`any` kullanımı yasaktır.** Yeni tipler buraya eklenir.
 
 ```typescript
 type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
@@ -76,32 +85,30 @@ type SalonPlan = 'STARTER' | 'PRO' | 'BUSINESS' | 'ELITE';
 // Subscription.status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED'
 ```
 
-Never use `any`. All new types go into `@/types.ts`.
-
 ### Auth & RBAC
 
-`context/AuthContext.tsx` is the central auth provider. Key helpers: `isAdmin`, `isOwner`, `isStaff`, `isAuthenticated`.
+`context/AuthContext.tsx` merkezi auth provider'dır. Helper'lar: `isAdmin`, `isOwner`, `isStaff`, `isAuthenticated`.
 
-Role hierarchy enforced in **middleware** (`middleware.ts`):
-- `/admin` → `SUPER_ADMIN` only
+Rol hiyerarşisi **middleware** (`middleware.ts`) ile uygulanır:
+- `/admin` → sadece `SUPER_ADMIN`
 - `/owner` → `SALON_OWNER | MANAGER | SUPER_ADMIN`
 - `/staff` → `STAFF | SALON_OWNER | SUPER_ADMIN`
-- Customer paths redirect roles to their own panel (e.g. OWNER hitting `/customer` → `/owner/dashboard`)
-- Inactive users (`is_active = false`) are automatically signed out in middleware
+- Yanlış panele giren roller kendi paneline yönlendirilir (örn. OWNER → `/customer` → `/owner/dashboard`)
+- `is_active = false` kullanıcılar middleware'de otomatik çıkış yaptırılır
 
-Salon owners hitting `/owner/*` are also checked for onboarding completion (no salon → `/owner/onboarding`) and subscription status.
+Salon sahipleri `/owner/*`'da onboarding (salon yoksa → `/owner/onboarding`) ve abonelik durumu da kontrol edilir.
 
 ### Multi-tenancy / Subdomain Routing
 
-Subdomains (`*.kuaforara.com.tr`) are rewritten by middleware to `/salon-slug/[subdomain]`. Main domains are whitelisted in `middleware.ts` → `mainDomains` array. Update this array when adding new domains.
+`*.kuaforara.com.tr` subdomainleri middleware'de `/salon-slug/[subdomain]`'e rewrite edilir. Ana domainler `middleware.ts` → `mainDomains` dizisinde tanımlıdır. **Yeni domain eklendiğinde bu dizi güncellenir.**
 
 ### Slot Booking Engine
 
-`services/slot.ts` — `SlotService.getAvailableSlots(query)` calculates available time slots from staff working hours + existing appointments + service duration. Used by `/api/booking/available-slots/`.
+`services/slot.ts` — `SlotService.getAvailableSlots(query)`: personel mesaisi + mevcut randevular + servis süresi hesabıyla boş slotları bulur. `/api/booking/available-slots/` tarafından kullanılır.
 
-### OTP System
+### OTP Sistemi
 
-`lib/auth/otp.ts` — 6-digit codes, 5-min expiry. Set `OTP_DEMO_MODE=true` in `.env` to bypass SMS (always returns `111111`).
+`lib/auth/otp.ts` — 6 haneli kod, 5 dk. süre. `.env`'de `OTP_DEMO_MODE=true` ile SMS bypass edilir (her zaman `111111` döner).
 
 ---
 
@@ -111,58 +118,101 @@ Subdomains (`*.kuaforara.com.tr`) are rewritten by middleware to `/salon-slug/[s
 |--------|------|-------|
 | `/` `/search` `/salon/[id]` `/salon-slug/[slug]` | Public | Marketplace |
 | `/login` `/register` `/register/business` | Public | Auth |
-| `/booking/[id]/*` `/bookings` | — | 4-step booking flow |
-| `/customer/*` | CUSTOMER | Customer dashboard |
-| `/owner/*` | SALON_OWNER | Owner panel |
-| `/staff/*` | STAFF | Staff panel |
-| `/admin/*` | SUPER_ADMIN | Admin panel |
+| `/booking/[id]/*` `/bookings` | — | 4 adımlı randevu akışı |
+| `/customer/*` | CUSTOMER | Müşteri paneli |
+| `/owner/*` | SALON_OWNER | Salon sahibi paneli |
+| `/staff/*` | STAFF | Personel paneli |
+| `/admin/*` | SUPER_ADMIN | Admin paneli |
 
-API routes: `app/api/` — booking, auth (OTP), iyzico webhook, subscription, AI insights, cron reminders.
+API routes (`app/api/`): booking, auth (OTP), iyzico webhook, subscription, AI insights, cron reminders.
 
 ---
 
-## Security Rules (Enforced)
+## UI/UX Standartları
 
-**RLS is mandatory on every table.** Policy hierarchy:
+- **Tasarım:** Minimalist, premium, modern (shadcn/ui stili).
+- **Loading state:** Her zaman Skeleton screen — boş, stillenmemiş alan bırakılmaz.
+- **Empty state:** Boş listeler için anlamlı mesaj/görsel eklenir.
+- **SEO:** Her sayfada `metadata` export'u veya `generateMetadata` fonksiyonu zorunludur.
+- **Erişilebilirlik:** `alt` nitelikleri ve semantik HTML (`section`, `article`, `header`) zorunludur.
+- **Import:** Her zaman mutlak import — `@/lib/supabase`, `@/components/...`, `@/services/db`.
 
-- **SUPER_ADMIN / ADMIN:** Full access to all rows
-- **OWNER:** Access only to own salon rows — **CANNOT DELETE from `salons` or `salon_services`** (use status update instead)
-- **STAFF:** Own appointments + own profile + own working_hours only
-- **CUSTOMER:** Own appointments/profile/reviews + public APPROVED salon data
-- **Public:** SELECT on active/approved salons and global services only
+---
 
-After any DB change, run the RLS audit queries (see `.agent/workflows/security-audit.md`):
+## Güvenlik Kuralları (Zorunlu)
+
+**Her tabloda RLS aktif olmalıdır.** Politika hiyerarşisi:
+
+| Rol | Yetki |
+|-----|-------|
+| SUPER_ADMIN / ADMIN | Tüm tablolarda tam yetki (SELECT, INSERT, UPDATE, DELETE) |
+| OWNER | Kendi `salon_id`/`owner_id` satırlarında tam yetki — **`salons` ve `salon_services`'ta DELETE yasak** (status update yapılır) |
+| STAFF | Sadece kendi randevuları + kendi profili + kendi `working_hours` |
+| CUSTOMER | Kendi randevuları/profili/yorumları + APPROVED salonların genel verisi |
+| Public (anonim) | Sadece aktif/onaylı salonlar ve global servisler için SELECT |
+
+### DB Değişikliği Sonrası Denetim
 
 ```sql
--- Check RLS is enabled
+-- RLS aktif mi?
 SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
 
--- List all policies
+-- Tüm politikalar
 SELECT policyname, tablename, cmd, roles FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename;
 
--- Find DELETE policies not scoped to admins (salons/salon_services should NOT appear)
+-- Admin dışında DELETE politikası var mı? (salons/salon_services'ta olmamalı)
 SELECT policyname, tablename FROM pg_policies
 WHERE schemaname = 'public' AND cmd = 'DELETE' AND policyname NOT LIKE 'admin_%';
 ```
 
 ---
 
-## Database Migrations
+## Veritabanı Migration Workflow
 
-Every schema change must be saved as `initdb/New-XX-Description.sql`. Check existing files to get the next number:
+Her şema değişikliği `initdb/New-XX-Description.sql` olarak kaydedilir. Sıradaki numarayı öğrenmek için:
 
 ```bash
 ls initdb/New-*.sql
 ```
 
-The canonical schema is `initdb/Master-Database-Setup.sql`. Individual `New-*.sql` files are incremental migrations to apply on top.
+Kanonik şema: `initdb/Master-Database-Setup.sql`. `New-*.sql` dosyaları üstüne uygulanan artımlı migration'lardır.
+
+### Supabase MCP ile Uygulama
+
+Kod geliştirirken DB değişikliği gerekirse:
+1. `initdb/New-XX-Description.sql` dosyasını yaz.
+2. Supabase MCP bağlıysa SQL'i doğrudan çalıştır.
+3. **MCP bağlı değilse** aşağıdaki uyarıyı ver ve manuel çalıştırmasını iste:
+
+```
+⚠️ DB değişikliği gerekiyor:
+  Dosya  : initdb/New-XX-Description.sql
+  İşlem  : [ne yapıldığı]
+  Manuel : Supabase SQL Editor'da bu dosyayı çalıştırman gerekiyor.
+```
 
 ---
 
-## Imports & Conventions
+## Yıkıcı Operasyonlar — Zorunlu Onay Protokolü
 
-- Always use absolute imports: `@/lib/supabase`, `@/components/...`, `@/services/db`
-- Every page needs a `metadata` export or `generateMetadata` function (SEO)
-- Use Skeleton screens for loading states, never empty unstyled blanks
-- Semantic HTML: `section`, `article`, `header`, etc.
-- Images require `alt` attributes
+**Aşağıdakilerden önce dur, kullanıcıya ne olacağını açıkla, onay bekle:**
+
+- `TRUNCATE`, `DROP TABLE`, `DELETE FROM` (dar `WHERE` olmadan), `DROP VIEW`, `DROP POLICY`
+- `TRUNCATE ... CASCADE` — önce etkilenen tüm tabloları listele
+- `docker exec ... psql` ile şema veya veri silen SQL
+- `git reset --hard`, `git clean`, dosya/branch silme
+- Backup olmadan geri alınamayacak her işlem
+
+**Gösterilecek format:**
+```
+⚠️ Yıkıcı operasyon planlandı:
+  İşlem    : TRUNCATE public.global_services CASCADE
+  Etkiler  : global_services → salon_services → appointments (cascade)
+  Kayıp    : Tüm servis verisi + bağımlı satırlar — backup olmadan kurtarılamaz
+  Devam edilsin mi? (evet/hayır)
+```
+
+**Tercih edilmesi gereken güvenli alternatifler:**
+- Encoding düzeltme: `TRUNCATE` yerine `UPDATE table SET col = doğru_değer`
+- Policy kaldırma: Sadece `DROP POLICY IF EXISTS <spesifik_policy>`
+- CASCADE kullanmadan önce etkilenen tüm tabloları listele

@@ -65,6 +65,23 @@ export const SlotService = {
         }
 
         // 2. Get staff who can perform this service
+        // Filter by staff_services if specific service(s) requested
+        const requestedServiceIds = serviceIds && serviceIds.length > 0
+            ? serviceIds
+            : (serviceId ? [serviceId] : null);
+
+        let capableStaffIds: string[] | null = null;
+        if (requestedServiceIds) {
+            const { data: capable } = await supabase
+                .from('staff_services')
+                .select('staff_id')
+                .in('salon_service_id', requestedServiceIds);
+            capableStaffIds = Array.from(new Set((capable || []).map(r => r.staff_id)));
+            if (capableStaffIds.length === 0) {
+                return [];
+            }
+        }
+
         let staffQuery = supabase
             .from('staff')
             .select('id, name')
@@ -73,6 +90,9 @@ export const SlotService = {
 
         if (staffId) {
             staffQuery = staffQuery.eq('id', staffId);
+        }
+        if (capableStaffIds) {
+            staffQuery = staffQuery.in('id', capableStaffIds);
         }
 
         const { data: staffList, error: staffError } = await staffQuery;

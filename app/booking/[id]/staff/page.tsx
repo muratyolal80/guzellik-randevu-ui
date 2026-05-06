@@ -42,27 +42,25 @@ export default function StaffSelection() {
       if (!id) return;
       setLoading(true);
       try {
-        // Parallel requests: Salon, Staff, and potentially Service if rescheduling
-        const requests: Promise<any>[] = [
+        // Critical fetches: salon + staff must succeed
+        const [salonData, staffData] = await Promise.all([
           !bookingSalon || bookingSalon.id !== id ? SalonDataService.getSalonById(id) : Promise.resolve(bookingSalon),
           StaffService.getStaffBySalon(id)
-        ];
-
-        // If we are rescheduling (have serviceId) and context is empty or mismatch, fetch service details
-        if (rescheduleServiceId && (selectedServices.length === 0 || selectedServices[0].id !== rescheduleServiceId)) {
-          requests.push(ServiceService.getServiceById(rescheduleServiceId));
-        }
-
-        const [salonData, staffData, serviceData] = await Promise.all(requests);
+        ]);
 
         if (salonData && (!bookingSalon || bookingSalon.id !== salonData.id)) {
           setSalon(salonData);
           setBookingSalon(salonData);
         }
 
-        // Handle Service Hydration
-        if (serviceData && (selectedServices.length === 0 || selectedServices[0].id !== serviceData.id)) {
-          setSelectedServices([serviceData]);
+        // Non-critical: service deep-link — failure doesn't break the page
+        if (rescheduleServiceId && (selectedServices.length === 0 || selectedServices[0].id !== rescheduleServiceId)) {
+          try {
+            const serviceData = await ServiceService.getServiceById(rescheduleServiceId);
+            if (serviceData) setSelectedServices([serviceData]);
+          } catch {
+            console.warn('Service deep-link fetch failed, continuing without pre-selection');
+          }
         }
 
         // Map staff data

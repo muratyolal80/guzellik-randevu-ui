@@ -48,8 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (error) {
                 // Handle "not found" error - profile might not be created yet by trigger
                 if (error.code === 'PGRST116' && retryCount < 3) {
-                    // Profile not found, retry
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // Profile may not yet exist (DB trigger lag after sign-up)
+                    const PROFILE_CREATION_RETRY_DELAY_MS = 500;
+                    await new Promise(resolve => setTimeout(resolve, PROFILE_CREATION_RETRY_DELAY_MS));
                     return fetchProfile(userId, retryCount + 1);
                 }
 

@@ -4,6 +4,20 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
 
+const bookingRateLimit = new Map<string, { count: number; resetTime: number }>();
+
+function checkBookingRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = bookingRateLimit.get(userId);
+  if (!entry || now > entry.resetTime) {
+    bookingRateLimit.set(userId, { count: 1, resetTime: now + 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 10) return false;
+  entry.count += 1;
+  return true;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +36,10 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' }, { status: 401 });
+    }
+
+    if (!checkBookingRateLimit(user.id)) {
+      return NextResponse.json({ error: 'Çok fazla randevu isteği. Lütfen 1 dakika bekleyin.' }, { status: 429 });
     }
 
     const body = await request.json();
@@ -79,26 +97,29 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true)
         .single();
 
-      if (coupon && !couponError) {
-        // Check usage limit
-        if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-          console.warn('Coupon usage limit reached');
-        } else if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
-          console.warn('Coupon expired');
-        } else if (coupon.min_purchase_amount && service.price < coupon.min_purchase_amount) {
-          console.warn('Minimum purchase amount not met');
-        } else {
-          // Valid coupon!
-          validCoupon = coupon;
-          if (coupon.discount_type === 'PERCENTAGE') {
-            discountAmount = (basePrice * coupon.discount_value) / 100;
-            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
-              discountAmount = coupon.max_discount_amount;
-            }
-          } else {
-            discountAmount = coupon.discount_value;
-          }
+      if (couponError || !coupon) {
+        return NextResponse.json({ error: 'Kupon kodu geçersiz veya bu salon için geçerli değil.' }, { status: 400 });
+      }
+      if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+        return NextResponse.json({ error: 'Bu kuponun kullanım limiti dolmuştur.' }, { status: 400 });
+      }
+      if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+        return NextResponse.json({ error: 'Bu kuponun süresi dolmuştur.' }, { status: 400 });
+      }
+      if (coupon.min_purchase_amount && basePrice < coupon.min_purchase_amount) {
+        return NextResponse.json({
+          error: `Bu kupon için minimum ${coupon.min_purchase_amount}₺ tutarında hizmet seçimi gereklidir.`
+        }, { status: 400 });
+      }
+
+      validCoupon = coupon;
+      if (coupon.discount_type === 'PERCENTAGE') {
+        discountAmount = (basePrice * coupon.discount_value) / 100;
+        if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+          discountAmount = coupon.max_discount_amount;
         }
+      } else {
+        discountAmount = coupon.discount_value;
       }
     }
 

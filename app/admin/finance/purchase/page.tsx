@@ -379,7 +379,7 @@ export default function AdminPurchasePage() {
             }
 
             // Check for pending payments in history
-            const pending = fullHistory.history?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION');
+            const pending = fullHistory?.history?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION') ?? false;
             setHasPendingPayment(pending);
         } catch (err) {
             console.error('Load owner data error:', err);
