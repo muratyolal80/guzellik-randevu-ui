@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/auth/otp';
 import { sendOTPSMS } from '@/lib/messaging/sms';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { verifyTurnstile } from '@/lib/turnstile';
 
 // Rate limiting icin basit bir in-memory store
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -43,7 +44,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { phone } = body;
+    const { phone, turnstileToken } = body;
+
+    // Cloudflare Turnstile bot koruması (secret yoksa atlar)
+    const turnstile = await verifyTurnstile(turnstileToken, ip);
+    if (!turnstile.success) {
+      return NextResponse.json(
+        { error: 'Bot doğrulaması başarısız oldu. Lütfen tekrar deneyin.' },
+        { status: 403 }
+      );
+    }
 
     if (!phone || typeof phone !== 'string') {
       return NextResponse.json(
