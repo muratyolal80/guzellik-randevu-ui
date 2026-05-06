@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/auth/otp';
 import { sendOTPSMS } from '@/lib/messaging/sms';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 // Rate limiting icin basit bir in-memory store
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -35,6 +36,11 @@ function checkRateLimit(phone: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  // IP tabanlı rate limit (spam farklı telefon numaralarıyla bypass edilemesin)
+  const ip = getClientIp(request);
+  const ipLimit = await rateLimit(`otp-send:${ip}`, 8, 60_000);
+  if (!ipLimit.success) return rateLimitResponse(ipLimit.reset);
+
   try {
     const body = await request.json();
     const { phone } = body;

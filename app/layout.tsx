@@ -1,10 +1,37 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
+import { CookieBanner } from '@/components/CookieBanner';
 import './globals.css';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kuaforara.com.tr';
+
 export const metadata: Metadata = {
-  title: 'Güzellik Randevu',
-  description: "Türkiye'nin en kapsamlı kişisel bakım ve güzellik platformu",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Güzellik Randevu — Salon, Kuaför ve Berber Rezervasyonu',
+    template: '%s | Güzellik Randevu',
+  },
+  description: "Türkiye'nin en kapsamlı kişisel bakım ve güzellik platformu. Online randevu al, uzmanları karşılaştır, kampanyaları kaçırma.",
+  applicationName: 'Güzellik Randevu',
+  keywords: ['güzellik', 'salon', 'randevu', 'kuaför', 'berber', 'bakım', 'spa', 'tırnak'],
+  authors: [{ name: 'Güzellik Randevu' }],
+  manifest: '/manifest.webmanifest',
+  openGraph: {
+    type: 'website',
+    locale: 'tr_TR',
+    siteName: 'Güzellik Randevu',
+    title: 'Güzellik Randevu',
+    description: "Türkiye'nin en kapsamlı kişisel bakım ve güzellik platformu",
+    url: siteUrl,
+  },
+  twitter: { card: 'summary_large_image', title: 'Güzellik Randevu' },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#C59F59',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -34,8 +61,8 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background text-text-main" suppressHydrationWarning>
-
         <Providers>{children}</Providers>
+        <CookieBanner />
       </body>
     </html>
   );

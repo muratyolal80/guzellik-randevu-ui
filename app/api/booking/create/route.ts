@@ -3,6 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { sendEmail, renderAppointmentConfirmation } from '@/lib/messaging/email';
 
 const bookingRateLimit = new Map<string, { count: number; resetTime: number }>();
 
@@ -19,6 +21,11 @@ function checkBookingRateLimit(userId: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  // IP tabanlı rate limit (5 istek / 60 sn) — bot/spam koruması, user-id limitiyle birlikte çalışır
+  const ip = getClientIp(request);
+  const ipLimit = await rateLimit(`booking:${ip}`, 5, 60_000);
+  if (!ipLimit.success) return rateLimitResponse(ipLimit.reset);
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -362,6 +369,34 @@ export async function POST(request: NextRequest) {
       await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
     } catch (smsErr) {
       console.error('SMS Notification failed:', smsErr);
+    }
+
+    // 9. Send Email Confirmation (best-effort, hata ana akışı bozmaz)
+    try {
+      if (user.email) {
+        const { data: salonInfo } = await supabaseAdmin
+          .from('salons')
+          .select('name, neighborhood, district_id, city_id')
+          .eq('id', salonId)
+          .single();
+        const { data: staffInfo } = await supabaseAdmin
+          .from('staff')
+          .select('name')
+          .eq('id', staffId)
+          .maybeSingle();
+
+        const tpl = renderAppointmentConfirmation({
+          customerName: customerName || (user.email?.split('@')[0] ?? 'Müşterimiz'),
+          salonName: salonInfo?.name || 'Salonumuz',
+          serviceName: (service as any)?.global_services?.[0]?.name || (service as any)?.service_name || 'Hizmet',
+          staffName: staffInfo?.name || 'Uzman',
+          startTime,
+          appointmentId: appointment.id,
+        });
+        await sendEmail({ to: user.email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+      }
+    } catch (emailErr) {
+      console.error('Email Notification failed:', emailErr);
     }
 
     return NextResponse.json({

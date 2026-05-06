@@ -14,6 +14,7 @@ import GallerySlider from '@/components/GallerySlider';
 import ImageUpload from '@/components/ImageUpload';
 import Skeleton from '@/components/Skeleton';
 import Lightbox from '@/components/common/Lightbox';
+import { JsonLd, beautySalonSchema, breadcrumbSchema } from '@/components/seo/JsonLd';
 import {
     Star, MapPin, Clock, Heart, Share2, ChevronDown, ChevronRight,
     Scissors, Wifi, Coffee, Car, CreditCard, Wind, CheckCircle2,
@@ -288,6 +289,14 @@ export default function SalonDetailPage() {
 
     return (
         <Layout>
+            {/* SEO: structured data — Google rich result için */}
+            <JsonLd data={beautySalonSchema(salon, reviews)} />
+            <JsonLd data={breadcrumbSchema([
+                { name: 'Ana Sayfa', url: '/' },
+                { name: salon.city_name || 'Salonlar', url: `/?city=${encodeURIComponent(salon.city_name || '')}` },
+                { name: salon.name, url: `/salon/${salon.id}` },
+            ])} />
+
             {/* ── HERO ── */}
             <div className="relative h-[60vh] min-h-[400px] max-h-[560px] w-full group overflow-hidden">
                 {gallery.length > 0 ? (
@@ -337,12 +346,14 @@ export default function SalonDetailPage() {
                         </div>
 
                         <div className="flex gap-2 shrink-0">
-                            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 backdrop-blur-md transition-all text-white font-semibold text-sm">
+                            <button aria-label="Salonu paylaş" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 backdrop-blur-md transition-all text-white font-semibold text-sm">
                                 <Share2 className="w-4 h-4" /> Paylaş
                             </button>
                             <button
                                 onClick={handleToggleFavorite}
                                 disabled={togglingFavorite}
+                                aria-label={isFavorite ? 'Favorilerden kaldır' : 'Favorilere ekle'}
+                                aria-pressed={isFavorite}
                                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border backdrop-blur-md transition-all font-semibold text-sm ${isFavorite ? 'bg-red-500 border-red-400 text-white' : 'bg-white/15 hover:bg-white/25 border-white/20 text-white'}`}
                             >
                                 <Heart className={`w-4 h-4 ${isFavorite ? 'fill-white' : ''}`} />

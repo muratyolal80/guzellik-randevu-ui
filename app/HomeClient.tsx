@@ -513,10 +513,10 @@ export default function HomeClient() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
-                                        <button onClick={() => setViewMode('split')} className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+                                        <button onClick={() => setViewMode('split')} aria-label="Harita ile birlikte göster" className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
                                             <MapIcon className="w-3 h-3" />
                                         </button>
-                                        <button onClick={() => setViewMode('wide')} className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+                                        <button onClick={() => setViewMode('wide')} aria-label="Sadece liste görünümü" className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
                                             <LayoutGrid className="w-3 h-3" />
                                         </button>
                                     </div>
