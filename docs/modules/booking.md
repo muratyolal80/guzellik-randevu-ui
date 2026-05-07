@@ -72,6 +72,13 @@ Müşterinin salonu seçtikten sonra hizmet → personel → tarih/saat → onay
 2. Her state değişiminde: `savePersistedState()` (debounce yok — state nadiren değişir)
 3. Hiçbir seçim yoksa storage temizlenir (kirletme yok)
 
+### Time sayfası özel restore mantığı
+
+[`app/booking/[id]/time/page.tsx`](../../app/booking/[id]/time/page.tsx):
+- `selectedDate` (Date) — `persistedDate` string'inden parse edilir, geçmiş tarihler atlanır
+- `selectedSlot` (string) — `persistedTime`'dan başlar, fetch sonrası `availableTimeSlots` içinde değilse otomatik temizlenir
+- **Guard:** Hizmet seçimi yoksa otomatik `/salon/[id]`'ye redirect (boş URL ile gelinemez)
+
 ## Cancellation Policy (F-032 — commit `9fd7b03`)
 
 **Hard lock kuralı:** Randevuya **1 saatten az** kala iptal yasak.

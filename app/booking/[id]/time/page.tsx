@@ -21,6 +21,8 @@ export default function TimeSelection() {
     setSalon: setBookingSalon,
     selectedServices,
     selectedStaff: bookingStaff,
+    selectedDate: persistedDate,
+    selectedTime: persistedTime,
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
     appointmentId,
@@ -33,8 +35,18 @@ export default function TimeSelection() {
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
   const [services, setServices] = useState<SalonServiceDetail[]>(selectedServices);
   const [loading, setLoading] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // sessionStorage'dan restore — yenileme sonrası kullanıcı seçimini görür
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(persistedTime);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (persistedDate) {
+      const d = new Date(persistedDate);
+      // Bugünden geçmiş tarihi restore etme
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (d >= today) return d;
+    }
+    return new Date();
+  });
   const [dateOffset, setDateOffset] = useState(0);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -59,12 +71,15 @@ export default function TimeSelection() {
         const data = await response.json();
 
         if (data.success) {
-          // Map available slots for the UI
-          // We'll trust the API to only return valid strings
-          setAvailableTimeSlots(data.slots || []);
+          const slots = data.slots || [];
+          setAvailableTimeSlots(slots);
+          // Restore edilen slot artık uygun değilse temizle
+          // (kullanıcı yenileme sonrası başka tarih seçtiyse vb.)
+          setSelectedSlot(prev => (prev && slots.includes(prev) ? prev : null));
         } else {
           console.error('❌ API Error:', data.error);
           setAvailableTimeSlots([]);
+          setSelectedSlot(null);
         }
       } catch (error) {
         console.error('❌ Fetch Error:', error);
@@ -76,6 +91,17 @@ export default function TimeSelection() {
 
     fetchAvailableSlots();
   }, [selectedDate, staff?.id, id, selectedServices]);
+
+  // Guard: hizmet seçimi yoksa adım 1'e yönlendir (kullanıcı direkt URL ile gelmiş veya
+  // sessionStorage temizlenmiş olabilir)
+  useEffect(() => {
+    if (selectedServices.length === 0 && !loading) {
+      const t = setTimeout(() => {
+        router.replace(`/salon/${id}`);
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [selectedServices.length, loading, id, router]);
 
   // Fetch data
   useEffect(() => {
