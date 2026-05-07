@@ -10,6 +10,8 @@ import { useAuth } from '@/context/AuthContext';
 import { CampaignService } from '@/services/db';
 import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
 import { Ticket, Tag, CheckCircle2, XCircle, Users, AlertCircle } from 'lucide-react';
+import LegalConsentModal from '@/components/common/LegalConsentModal';
+import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 
 export default function BookingUserInfoPage() {
   const params = useParams();
@@ -66,6 +68,7 @@ export default function BookingUserInfoPage() {
   const [countdown, setCountdown] = useState(0);
   const [isNewUser, setIsNewUser] = useState(false);
   const [consentGiven, setConsentGiven] = useState(true);
+  const [legalModal, setLegalModal] = useState<null | 'kvkk' | 'tei'>(null);
 
   // Coupon & Discount states
   const [couponCode, setCouponCode] = useState('');
@@ -141,9 +144,10 @@ export default function BookingUserInfoPage() {
         setDemoMode(data.demoMode || false);
 
         if (data.demoMode) {
-          // Demo mode message improvement: Show the actual generated code
+          // Demo mode: SMS gönderilmez. Kodu otomatik doldur, kullanıcı sadece "Doğrula" tıklasın.
           const demoCode = data.demoCode || '111111';
-          setError(`DEMO MODU AKTİF: Lütfen doğrulama kodu olarak "${demoCode}" giriniz.`);
+          setOtp(demoCode);
+          // setError'a düşürmüyoruz; UI'da "Demo modu" rozeti gösteriliyor.
         }
       } else {
         setError(data.error || 'SMS gönderilemedi');
@@ -447,8 +451,14 @@ export default function BookingUserInfoPage() {
                     </div>
 
                     <div>
-                      <label className="block text-text-main text-sm font-bold mb-2">
+                      <label className="block text-text-main text-sm font-bold mb-2 flex items-center gap-2">
                         Doğrulama Kodu *
+                        {demoMode && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                            <span className="material-symbols-outlined text-[12px]">science</span>
+                            Demo modu — kod otomatik dolduruldu
+                          </span>
+                        )}
                       </label>
                       <input
                         type="text"
@@ -471,7 +481,22 @@ export default function BookingUserInfoPage() {
                         />
                       </div>
                       <label htmlFor="consent" className="text-sm text-text-secondary select-none">
-                        <span className="font-semibold text-text-main">Aydınlatma Metni</span> ve <span className="font-semibold text-text-main">Ticari Elektronik İleti</span> iznini okudum, onaylıyorum.
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setLegalModal('kvkk'); }}
+                          className="font-semibold text-primary underline-offset-2 hover:underline"
+                        >
+                          Aydınlatma Metni
+                        </button>
+                        {' '}ve{' '}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setLegalModal('tei'); }}
+                          className="font-semibold text-primary underline-offset-2 hover:underline"
+                        >
+                          Ticari Elektronik İleti
+                        </button>
+                        {' '}iznini okudum, onaylıyorum.
                       </label>
                     </div>
 
@@ -711,6 +736,18 @@ export default function BookingUserInfoPage() {
           </div>
         </div>
       </div>
+      <LegalConsentModal
+        open={legalModal === 'kvkk'}
+        title="Kişisel Verilerin Korunması — Aydınlatma Metni"
+        content={KVKK_AYDINLATMA_METNI}
+        onClose={() => setLegalModal(null)}
+      />
+      <LegalConsentModal
+        open={legalModal === 'tei'}
+        title="Ticari Elektronik İleti İzni"
+        content={TICARI_ELEKTRONIK_ILETI_ONAYI}
+        onClose={() => setLegalModal(null)}
+      />
     </Layout>
   );
 }
