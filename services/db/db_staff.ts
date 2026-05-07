@@ -318,6 +318,26 @@ export const StaffService = {
   },
 
   /**
+   * Returns the staff IDs capable of performing at least one of the given services.
+   * Used by booking flow to filter "Uzmanını Seç" by selected service.
+   */
+  async getStaffIdsForServices(
+    salonServiceIds: string[],
+    salonId?: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (salonServiceIds.length === 0) return [];
+    let q = supabase
+      .from("staff_services")
+      .select("staff_id")
+      .in("salon_service_id", salonServiceIds);
+    if (salonId) q = q.eq("salon_id", salonId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
+  },
+
+  /**
    * Returns the subset of staffIds that have at least one working_hours row.
    * Used to badge incomplete staff in the owner panel.
    */

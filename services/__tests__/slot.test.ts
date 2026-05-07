@@ -290,6 +290,7 @@ describe('getAvailableSlots — tam akış', () => {
     it('serviceId verilince o hizmetin duration_min değeri kullanılır', async () => {
         const db = createMockSupabase({
             salon_services: { data: { duration_min: 45 }, error: null },
+            staff_services: { data: [{ staff_id: STAFF_ID }], error: null },
             staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
             working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
             appointments: { data: [], error: null },
@@ -312,6 +313,7 @@ describe('getAvailableSlots — tam akış', () => {
                 data: [{ duration_min: 30 }, { duration_min: 45 }],
                 error: null,
             },
+            staff_services: { data: [{ staff_id: STAFF_ID }], error: null },
             staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
             working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
             appointments: { data: [], error: null },
@@ -324,6 +326,23 @@ describe('getAvailableSlots — tam akış', () => {
         expect(slots.length).toBeGreaterThan(0)
         const diff = slots[0].endTime.getTime() - slots[0].startTime.getTime()
         expect(diff).toBe(75 * 60 * 1000)
+    })
+
+    it('seçilen hizmeti veremeyen personel slotu dönmez', async () => {
+        // staff_services boş döner — yani bu salonda kimse bu hizmeti veremiyor
+        const db = createMockSupabase({
+            salon_services: { data: { duration_min: 30 }, error: null },
+            staff_services: { data: [], error: null },
+            staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
+            working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
+            appointments: { data: [], error: null },
+        })
+
+        const slots = await SlotService.getAvailableSlots(
+            { salonId: 'salon-1', serviceId: 'svc-1', date: TEST_DATE },
+            db as never
+        )
+        expect(slots).toHaveLength(0)
     })
 
     it('personel bulunamazsa boş dizi döner', async () => {

@@ -63,6 +63,14 @@ export default function StaffSelection() {
           }
         }
 
+        // Filter staff by selected services via staff_services (capability check)
+        const serviceIds = selectedServices.map(s => s.id).filter(Boolean) as string[];
+        let capableIds: Set<string> | null = null;
+        if (serviceIds.length > 0) {
+          const capable = await StaffService.getStaffIdsForServices(serviceIds, id);
+          capableIds = new Set(capable);
+        }
+
         // Map staff data
         const mappedStaff = staffData.map((s: Staff) => ({
           ...s,
@@ -72,11 +80,22 @@ export default function StaffSelection() {
           isOnline: s.is_active
         }));
 
-        // Filter based on Faz 4 rules: 
-        // Verified (Email or Phone) OR KVKK Consent for unverified
-        const visibleStaff = mappedStaff.filter((s: Staff) => 
-          s.is_email_verified || s.is_phone_verified || s.kvkk_consent
-        );
+        // Visibility rules:
+        //   - Active staff
+        //   - Capable of selected services (if any selected)
+        //   - Verified or KVKK consent (legal display requirement)
+        const visibleStaff = mappedStaff.filter((s: Staff) => {
+          if (s.is_active === false) return false;
+          if (capableIds && !capableIds.has(s.id)) return false;
+          // Legal: must be verified OR have KVKK consent. Default to true if all flags are missing
+          // (legacy staff records before verification was tracked).
+          const hasVerificationFlag =
+            s.is_email_verified !== undefined ||
+            s.is_phone_verified !== undefined ||
+            s.kvkk_consent !== undefined;
+          if (!hasVerificationFlag) return true;
+          return Boolean(s.is_email_verified || s.is_phone_verified || s.kvkk_consent);
+        });
 
         setStaff(visibleStaff);
 

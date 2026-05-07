@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SlotService } from '@/services/slot';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 /**
  * Available Slots API
@@ -35,7 +36,9 @@ export async function GET(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Use SlotService to get available slots
+        // Use SlotService with admin client (server-side, bypasses RLS).
+        // Booking flow needs to read appointments to compute conflicts; the
+        // anon role does not have SELECT on appointments by design.
         const availableSlots = await SlotService.getAvailableSlots({
             salonId,
             serviceId: serviceId || undefined,
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
             durationMin: durationMin ? parseInt(durationMin) : undefined,
             date: selectedDate,
             staffId: (staffId && staffId !== 'any') ? staffId : undefined
-        });
+        }, supabaseAdmin);
 
         console.log(`✅ Generated ${availableSlots.length} slots for ${dateStr} (Staff: ${staffId || 'any'})`);
 
