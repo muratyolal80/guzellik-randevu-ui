@@ -16,6 +16,7 @@ initdb/
 ├── New-08-Demo-Data.sql                  # Demo veri (galeri/yorum/randevu)
 ├── New-09-Service-Role-Grants.sql        # service_role tüm tablo erişim
 ├── New-10-OTP-Codes-Table.sql            # otp_codes tablosu
+├── New-11-NoShow-And-Migration-Tracker.sql # NO_SHOW enum + _migrations tablosu
 ├── 02-seed-data.sql                      # 81 il + ilçe master data
 ├── 03-sample-data.sql                    # Örnek salon/staff (legacy)
 ├── 04-advanced-schema.sql                # Storage + finance ek
@@ -51,6 +52,7 @@ psql < initdb/New-07-Staff-Verification-Columns.sql
 psql < initdb/New-08-Demo-Data.sql        # opsiyonel (test data)
 psql < initdb/New-09-Service-Role-Grants.sql
 psql < initdb/New-10-OTP-Codes-Table.sql
+psql < initdb/New-11-NoShow-And-Migration-Tracker.sql
 
 # 5. Sağlık kontrolü
 psql < initdb/db-health-check.sql
@@ -154,7 +156,7 @@ CLAUDE.md kuralı:
 
 ## Açık Aksiyon (TODO)
 - 🟡 **Master schema güncelleme** — `Master-Database-Setup.sql` mevcut DB ile %100 uyumlu değil; yeni dump ile değiştirilmeli
-- 🟡 **Migration tracking tablosu** — `_migrations` tablosu ekle, hangi New-XX uygulandı kaydet
+- ✅ ~~Migration tracking tablosu~~ — `_migrations` tablosu eklendi (Faz 3, [New-11](../../initdb/New-11-NoShow-And-Migration-Tracker.sql)). Geriye dönük 12 New-XX kaydı yapıldı. Yeni migration eklendiğinde son satıra `INSERT INTO _migrations(name)` eklenmesi gerekli.
 - 🟢 **CI'da migration test** — fresh DB'ye sıralı uygulama test
 - 🟢 **Down migration** — geri alma scriptleri (riskli, opsiyonel)
 - 🟢 **archive/old temizliği** — kullanılmayan eski dosyalar `_archive/` altına taşı

@@ -199,7 +199,17 @@ export const SlotService = {
             end: new Date(appt.end_time)
         }));
 
+        // 5. Filter out past slots if the requested date is today.
+        //    "Now + 15 dk buffer" altındaki slotlar booking yapılamaz hale gelir.
+        const now = new Date();
+        const isToday =
+            date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() === now.getDate();
+        const minStart = isToday ? new Date(now.getTime() + 15 * 60 * 1000) : null;
+
         return slots.filter(slot => {
+            if (minStart && slot.startTime < minStart) return false;
             const hasConflict = bookedSlots.some(booked => {
                 return (
                     (slot.startTime >= booked.start && slot.startTime < booked.end) ||

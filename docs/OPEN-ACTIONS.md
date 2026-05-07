@@ -31,7 +31,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Soft-delete cron** — 30 gün sonra hard-delete cron yok ([Customer](modules/customer.md))
 
 ### Booking
-- 🟡 **Geçmiş saat filtresi** — bugün için geçmiş saatler slot'ta görünüyor ([Booking](modules/booking.md))
+- ✅ ~~Geçmiş saat filtresi~~ — `slot.ts` artık bugünkü `now()+15dk` altındaki slot'ları filtreler (commit Faz 3)
 - 🟡 **Multi-resource booking** — `salon_resources` flow'a entegre değil ([Booking](modules/booking.md))
 
 ### Salon
@@ -46,7 +46,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 
 ### Randevu
 - 🟡 **Drag & drop owner takvim** — backend update_appointment kontrolü ([Appointments](modules/appointments.md))
-- 🟡 **No-show işaretleme** — `status='NO_SHOW'` enum'a eklenmeli ([Appointments](modules/appointments.md))
+- ✅ ~~No-show işaretleme~~ — `appt_status` enum'a `NO_SHOW` eklendi (Faz 3, New-11). UI butonu eklenmesi kaldı.
 - 🟡 **Multi-service randevu** — tek satır yerine `appointment_services` join ([Appointments](modules/appointments.md))
 
 ### Müşteri
@@ -80,7 +80,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 
 ### Altyapı
 - 🟡 **Master schema güncelleme** — DB ile sync değil ([Database](infrastructure/database.md))
-- 🟡 **Migration tracking tablosu** — `_migrations` ([Migrations](infrastructure/migrations.md))
+- ✅ ~~Migration tracking tablosu~~ — `_migrations` tablosu eklendi (Faz 3, New-11). Geriye dönük tüm New-XX kaydedildi.
 - 🟡 **MCP doc onboarding** — yeni geliştirici test ([MCP](infrastructure/mcp.md))
 
 ---
@@ -177,6 +177,8 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 | Tarih | İşlem |
 |-------|-------|
 | 2026-05-07 | İlk oluşturma — 11 modül + 6 entegrasyon + 4 altyapı belgesi |
+| 2026-05-07 | Faz 2 — Demo OTP autofill + KVKK/TEİ modal metinleri |
+| 2026-05-07 | Faz 3 — Geçmiş saat slot filtresi + NO_SHOW enum + _migrations tracking (3 TODO çözüldü) |
 
 ## Belge Güncelleme Kuralı
 

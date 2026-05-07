@@ -76,7 +76,7 @@ Randevu CRUD, takvim görünümü, hatırlatma, iptal/yeniden zamanlama. Hem mü
 ## Açık Aksiyon (TODO)
 - 🟡 **Multi-service randevu** — şu an her hizmet ayrı `appointment` satırı; ileride `appointment_services` join table tasarımı
 - 🟡 **Drag & drop owner takvim** — UI mevcut ama backend `update_appointment` çağrısı kontrol edilmeli
-- 🟡 **No-show işaretleme** — müşteri gelmediyse owner'ın işaretleyebileceği status yok (`status='NO_SHOW'` enum'a eklenmeli)
+- ✅ ~~No-show işaretleme (DB)~~ — `appt_status` enum'a `NO_SHOW` eklendi (Faz 3, [New-11](../../initdb/New-11-NoShow-And-Migration-Tracker.sql)). Owner UI butonu kaldı (🟢).
 - 🟢 **Otomatik no-show tespiti** — randevu saatinden 30 dk sonra status sorulması
 - 🟢 **Tekrar eden randevu** — haftalık/aylık tekrarlayan randevu
 - 🟢 **Bekleme listesi (waitlist)** — dolu olan slot için kuyruğa girme

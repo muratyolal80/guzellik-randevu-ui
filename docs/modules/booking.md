@@ -116,10 +116,10 @@ Müşterinin salonu seçtikten sonra hizmet → personel → tarih/saat → onay
 3. **Slot çakışma:** Aynı tarihe 2 randevu denersen 2.'yi DB exclusion constraint reddeder (toast: "Saat dolu")
 4. **Reschedule:** `/booking/[id]?appointmentId=X&staffId=Y&serviceId=Z` → mevcut randevu güncellenir
 5. **Kapalı gün:** Pazar günü slot listesi boş gelmelidir
-6. **Geçmiş tarih:** Slot motorunda geçmiş saat filtresi YOK (UI'da bugünün geçmiş saati görünür ama booking gece-yarısı sonrası sıkıntılıdır)
+6. **Geçmiş saat filtresi:** Bugünün `now() + 15 dk` öncesi slot'lar dönmemeli (Faz 3 implementi)
 
 ## Açık Aksiyon (TODO)
-- 🟡 **Geçmiş saat filtresi** — `slot.ts` bugün için geçmiş saatleri filtrelemiyor; UI'da hata gibi görünüyor
+- ✅ ~~Geçmiş saat filtresi~~ — `services/slot.ts` `getStaffAvailableSlots` içinde `now()+15dk` öncesi filtrelenir
 - 🟡 **Multi-resource booking** — `salon_resources` (ekipman/kabin) tablosu var ama booking flow'a entegre değil
 - 🟢 **Grup hizmeti** — `salon_services.max_participants` kolonu var ama UI'da kapasite kontrolü yok
 - 🟢 **Konum bazlı slot blok** — staff'ın o saatte başka şubede olduğunu kontrol (multi-branch)

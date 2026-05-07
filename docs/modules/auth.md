@@ -12,7 +12,8 @@ Kullanıcı kayıt, giriş, telefon/email doğrulama ve KVKK onay süreçlerini 
 - ✅ **Email kayıt** — `/register` (müşteri), `/register/business` (salon sahibi)
 - ✅ **Telefon doğrulama** — 6 haneli OTP (`otp_codes` tablosu, 5 dk geçerli)
 - ✅ **Email OTP** — alternatif doğrulama
-- ✅ **OTP demo modu** — `OTP_DEMO_MODE=true` → her zaman `111111`
+- ✅ **OTP demo modu** — `OTP_DEMO_MODE=true` → her zaman `111111` (Faz 2: input'a otomatik dolar, "Demo modu" amber rozeti gösterilir)
+- ✅ **Aydınlatma Metni / TEİ modal** — booking checkbox link'leri tıklanır, profesyonel KVKK ve TEİ metinleri modal'da gösterilir ([lib/legal-texts.ts](../../lib/legal-texts.ts) + [LegalConsentModal.tsx](../../components/common/LegalConsentModal.tsx))
 - ✅ **KVKK onay kaydı** — `profiles.kvkk_accepted_at`, `marketing_opt_in`
 - ✅ **Soft-delete** — `profiles.deleted_at` (30 gün geri alma penceresi)
 - ✅ **Rol hiyerarşisi** — middleware'de panel bazlı yönlendirme
