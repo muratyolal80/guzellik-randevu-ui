@@ -4,7 +4,7 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.0.0 |
+| Sürüm | 1.0.1 |
 | Son güncelleme | 07.05.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
@@ -195,8 +195,15 @@ Her özellik aşağıdaki şablonla yazılır:
 ### [F-032] Randevu İptali ve Yeniden Planlama
 **Aktör:** Müşteri / Salon sahibi
 **API:** `POST /api/booking/cancel`
-**Kural:** Randevuya 4 saatten az kala iptal yasak (politika değişebilir, şu an enforce edilmiyor)
-**TODO:** Cancellation policy enforcement + iade akışı
+**Cancellation Policy (enforce):**
+- Randevuya **1 saatten az** kala iptal yasak — HTTP 400 + `code: 'CANCELLATION_LOCKED'`
+- Eşik değiştirilebilir: `CANCELLATION_HARD_LOCK_MINUTES` env (default 60)
+- Zaten iptal edilmiş veya tamamlanmış randevular için tekrar iptal hatası
+**Refund Policy:**
+- `salons.cancellation_deadline_hours` (default 24) — bu süreden önce iptal: full refund
+- Iyzico üzerinden otomatik refund (`IyzicoService.refund`)
+- Refund başarısız olursa randevu yine iptal edilir, `notes` alanına hata yazılır
+**TODO:** Reschedule akışı için ayrı endpoint (şu an cancel + new booking gerekli)
 
 ---
 
@@ -312,8 +319,12 @@ Her özellik aşağıdaki şablonla yazılır:
 **Yanıt:** 429 + Retry-After header
 
 ### [F-091] Cloudflare Turnstile (Bot Koruması)
-**Form:** Booking confirmation adımı
-**TODO:** Şu an env'de key var ama widget aktif değil — aktivasyon bekliyor
+**Form:** Booking OTP send adımı (booking confirmation)
+**Bileşen:** [components/common/Turnstile.tsx](components/common/Turnstile.tsx) — script lazy-load, demo mode (env yoksa atlar)
+**Server verify:** [lib/turnstile.ts](lib/turnstile.ts) → `verifyTurnstile(token, ip)` (Cloudflare siteverify endpoint)
+**Entegrasyon:** `POST /api/booking/send-otp` body'de `turnstileToken` bekler, fail → HTTP 403
+**Env:** `NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY` (client) + `CLOUDFLARE_TURNSTILE_SECRET_KEY` (server)
+**Demo mode:** Secret yoksa veya token "demo-no-turnstile" ise verify true döner (development)
 
 ### [F-092] Row Level Security (RLS)
 **Politika hiyerarşisi:**
@@ -474,6 +485,7 @@ npm run lint          # ESLint
 | Sürüm | Tarih | Değişiklik |
 |-------|-------|------------|
 | 1.0.0 | 07.05.2026 | İlk yayın — production-readiness hardening sonrası |
+| 1.0.1 | 07.05.2026 | F-091 (Turnstile) aktive edildi, F-032 (Cancellation policy) enforce edildi (commit `9fd7b03`) |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)

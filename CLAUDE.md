@@ -167,6 +167,53 @@ WHERE schemaname = 'public' AND cmd = 'DELETE' AND policyname NOT LIKE 'admin_%'
 
 ---
 
+## Belge Güncelleme Kuralı (ZORUNLU)
+
+**Her özellik/değişiklik commit edilmeden önce ilgili belgeler güncellenmelidir.** Belgeler asla "sonra yapılır" listesine bırakılmaz — koddaki değişiklikle aynı commit'e dahildir.
+
+### Tek doğruluk kaynağı
+**`docs/SPECIFICATIONS.md`** — Yazılım Gereksinim ve Tasarım Belgesi. Tüm modüller `[F-XXX]` ID'siyle burada listelenir.
+
+### Hangi değişiklikte hangi belge güncellenir?
+
+| Değişiklik tipi | Güncellenecek belge(ler) |
+|-----------------|--------------------------|
+| Yeni özellik (yeni `[F-XXX]`) | `docs/SPECIFICATIONS.md` (yeni F-ID + Sürüm Geçmişi) **+** ilgili `docs/modules/<X>.md` veya `docs/integrations/<X>.md` |
+| Mevcut özelliğe değişiklik | `docs/SPECIFICATIONS.md` (ilgili F-ID güncel) **+** alt-belge varsa onu da |
+| Yeni entegrasyon (örn. yeni SMS provider) | `docs/integrations/<isim>.md` oluştur **+** SPECIFICATIONS.md'ye F-ID ekle |
+| Yeni modül (yeni panel/akış) | `docs/modules/<isim>.md` oluştur **+** SPECIFICATIONS.md'de yeni bölüm |
+| DB şema değişikliği | `docs/infrastructure/database.md` **+** SPECIFICATIONS.md veri modeli bölümü |
+| RLS politikası değişikliği | `docs/infrastructure/rls.md` **+** SPECIFICATIONS.md F-092 |
+| Sadece bug fix / refactor | Belge güncellemesi opsiyonel (davranış değişmiyorsa) |
+
+### Sürüm bumping (`docs/SPECIFICATIONS.md`)
+- **Major** (1.0.0 → 2.0.0): RLS hiyerarşisi, auth modeli veya domain rename değişikliği
+- **Minor** (1.0.0 → 1.1.0): Yeni `[F-XXX]` modülü
+- **Patch** (1.0.0 → 1.0.1): Mevcut özelliğe değişiklik, bug fix
+
+### Workflow
+1. Kodu yaz/değiştir
+2. `docs/SPECIFICATIONS.md` aç → ilgili `[F-XXX]` bölümünü güncelle veya ekle
+3. Sürüm geçmişine satır ekle (tarih + commit hash placeholder + ne değişti)
+4. Sürüm numarasını bumpla (yukarıdaki kurala göre)
+5. İlgili `docs/modules/` veya `docs/integrations/` veya `docs/infrastructure/` belgesini güncelle
+6. Aynı commit'e tüm değişiklikleri ekle:
+   ```bash
+   git add <kod-dosyaları> docs/
+   git commit -m "feat: ..."
+   ```
+
+### Belge Eksikse / Güncel Değilse Kontrol
+Her commit öncesi hızlı kontrol:
+```bash
+# SPECIFICATIONS.md'de bugün eklenen F-ID'ler var mı?
+grep -E "\[F-[0-9]+\]" docs/SPECIFICATIONS.md | wc -l
+# Modüllerde dosya eksiği var mı?
+ls docs/modules/ docs/integrations/ docs/infrastructure/
+```
+
+---
+
 ## Veritabanı Migration Workflow
 
 Her şema değişikliği `initdb/New-XX-Description.sql` olarak kaydedilir. Sıradaki numarayı öğrenmek için:
