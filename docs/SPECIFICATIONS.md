@@ -4,7 +4,7 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.0.1 |
+| Sürüm | 1.0.2 |
 | Son güncelleme | 07.05.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
@@ -179,6 +179,7 @@ Her özellik aşağıdaki şablonla yazılır:
 4. `/booking/[id]/confirm` → telefon doğrulama (OTP) → ödeme yönlendir
 **Veri:** `appointments` (status: `PENDING|CONFIRMED|COMPLETED|CANCELLED|NO_SHOW`)
 **API:** [app/api/booking/create](app/api/booking/create)
+**State persistence:** [context/BookingContext.tsx](context/BookingContext.tsx) — sayfa yenileme veya geri tuşunda state korunsun diye `sessionStorage`'a yazılır (key: `booking-state-v1`, TTL: 2 saat). Tab kapatılınca otomatik temizlenir. Salon değişince eski state geçersiz sayılır.
 **Bildirim:**
 - SMS (zorunlu, `sendAppointmentSMS`)
 - Email (opsiyonel, Resend ile, `renderAppointmentConfirmation`)
@@ -486,6 +487,7 @@ npm run lint          # ESLint
 |-------|-------|------------|
 | 1.0.0 | 07.05.2026 | İlk yayın — production-readiness hardening sonrası |
 | 1.0.1 | 07.05.2026 | F-091 (Turnstile) aktive edildi, F-032 (Cancellation policy) enforce edildi (commit `9fd7b03`) |
+| 1.0.2 | 07.05.2026 | F-030: BookingContext sessionStorage persistence — yenileme/geri tuşunda slot/seçim kaybı düzeltildi |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)

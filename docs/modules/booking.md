@@ -51,6 +51,27 @@ Müşterinin salonu seçtikten sonra hizmet → personel → tarih/saat → onay
 | `/api/booking/verify-and-book` | POST | OTP doğrula + üye yap + randevu oluştur (atomik) |
 | `/api/booking/cancel` | POST | Randevu iptal (kullanıcı) — **Cancellation Policy enforcement** ile (aşağıda) |
 
+## State Persistence (F-030 — commit `pending`)
+
+**Sorun:** Booking flow sırasında sayfa yenileme veya tarayıcı geri tuşu kullanıldığında seçilen hizmet/personel/tarih/saat kayboluyordu.
+
+**Çözüm:** [`context/BookingContext.tsx`](../../context/BookingContext.tsx) içine `sessionStorage` persistence eklendi.
+
+| Özellik | Detay |
+|---------|-------|
+| Storage key | `booking-state-v1` |
+| TTL | 2 saat (eski randevu denemesi karışmasın) |
+| Scope | Tab bazlı — tab kapanınca otomatik temizlenir |
+| Salon değişimi | `salonId` farklıysa eski state geçersiz sayılır |
+| Persist edilen alanlar | selectedServices, selectedStaff, selectedDate, selectedTime, customerName, customerPhone, customerNotes, participantCount, appointmentId |
+| Persist EDİLMEYEN | salon objesi (DB'den fetch edilir), campaign/discount (otomatik hesaplanır) |
+| Reset | `resetBooking()` çağrısı veya başarılı randevu sonrası storage temizlenir |
+
+**Akış:**
+1. İlk render: `loadPersistedState(salonId)` → varsa state initial value olarak kullanılır
+2. Her state değişiminde: `savePersistedState()` (debounce yok — state nadiren değişir)
+3. Hiçbir seçim yoksa storage temizlenir (kirletme yok)
+
 ## Cancellation Policy (F-032 — commit `9fd7b03`)
 
 **Hard lock kuralı:** Randevuya **1 saatten az** kala iptal yasak.
