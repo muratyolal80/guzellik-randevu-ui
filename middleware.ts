@@ -37,7 +37,12 @@ export async function middleware(request: NextRequest) {
 
     // 2. Refresh session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError) console.error('Auth Error in Proxy:', authError);
+    // AuthSessionMissingError is the normal/expected result for anonymous visitors —
+    // logging it as an error on every public request is just noise. Only surface real failures
+    // (e.g. AuthRetryableFetchError when the auth server is unreachable).
+    if (authError && authError.name !== 'AuthSessionMissingError') {
+        console.error('Auth Error in Proxy:', authError);
+    }
 
     // 3. Subdomain / Multi-tenant Routing
     const url = request.nextUrl.clone();
@@ -194,5 +199,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+    // Skip middleware (and its auth/getUser network call) for Next internals and static assets.
+    // Includes manifest.webmanifest, icons, robots.txt, sitemap*.xml — these must not trigger auth.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|txt|xml|json|woff|woff2|ttf)$).*)'],
 };

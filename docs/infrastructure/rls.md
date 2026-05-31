@@ -121,6 +121,8 @@ CREATE POLICY ... ON profiles FOR SELECT USING (
 | `audit_logs` | owner + admin | system (insert) | - | - |
 | `notifications` | self | system | self (mark read) | - |
 
+> ⚠️ **Tablo-seviyesi GRANT, RLS'in önkoşuludur.** RLS politikası tek başına yetmez; ilgili rolde (`authenticated`) tablo GRANT'ı yoksa PostgREST `42501 permission denied for table` döner. `notifications`'ta `authenticated` rolünün `SELECT` GRANT'ı eksikti (INSERT/UPDATE/DELETE vardı) → client SELECT 403 alıyordu. Düzeltme: [initdb/New-12-Notifications-Select-Grant.sql](../../initdb/New-12-Notifications-Select-Grant.sql). Satır görünürlüğü `users_view_own_notifications` (USING `auth.uid() = user_id`) ile sınırlı kaldığından veri ifşası yok.
+
 ## Açık Aksiyon (TODO)
 - 🟢 **Otomatik denetim** — health-check.sql'i CI'da çalıştır (PR öncesi)
 - 🟢 **Penetration test** — anon kullanıcı ile her tablo için 4xx yanıt beklenmesi gereken sorgular test edilebilir

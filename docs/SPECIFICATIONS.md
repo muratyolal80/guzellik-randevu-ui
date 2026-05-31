@@ -4,8 +4,8 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.0.2 |
-| Son güncelleme | 07.05.2026 |
+| Sürüm | 1.0.4 |
+| Son güncelleme | 31.05.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
 | Domain | `kuaforara.com.tr` |
@@ -488,6 +488,8 @@ npm run lint          # ESLint
 | 1.0.0 | 07.05.2026 | İlk yayın — production-readiness hardening sonrası |
 | 1.0.1 | 07.05.2026 | F-091 (Turnstile) aktive edildi, F-032 (Cancellation policy) enforce edildi (commit `9fd7b03`) |
 | 1.0.2 | 07.05.2026 | F-030: BookingContext sessionStorage persistence — yenileme/geri tuşunda slot/seçim kaybı düzeltildi |
+| 1.0.3 | 31.05.2026 | Bugfix: (1) Admin owner listesi geçersiz `OWNER` enum değeriyle 400 alıyordu → `SALON_OWNER`'a sabitlendi (`db_user.ts`); (2) F-092: `notifications` tablosunda `authenticated` rolüne `SELECT` GRANT'ı eksikti → client 403 alıyordu, GRANT eklendi (`New-12`) |
+| 1.0.4 | 31.05.2026 | Veri onarımı: `cities` (31/81) ve `districts` (509/975) isimlerinde UTF-8 import bozulması (`İstanbul→"??stanbul"`) düzeltildi. `cities` plate_code ile UPSERT, `districts` bozuk-form eşleştirmesiyle UPDATE — id'ler ve salon FK'leri korundu (`New-13`) |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)

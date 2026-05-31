@@ -458,7 +458,9 @@ export const ProfileService = {
 
     if (options.role && options.role !== 'all') {
       if (options.role === 'SALON_OWNER' || options.role === 'OWNER') {
-        query = query.in("role", ['OWNER', 'SALON_OWNER']);
+        // user_role enum only has SALON_OWNER (no legacy 'OWNER' value) —
+        // querying a non-existent enum value makes PostgREST reject the whole request (22P02).
+        query = query.eq("role", 'SALON_OWNER');
       } else {
         query = query.eq("role", options.role);
       }
