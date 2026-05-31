@@ -7,7 +7,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Orta** — yakın zamanda (sonraki sprint)
 - 🟢 **Düşük** — backlog
 
-**Son güncelleme:** 2026-05-31
+**Son güncelleme:** 2026-06-01
 
 ---
 
@@ -17,10 +17,11 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 |---|---------|-------|-------|
 | K1 | NetGSM hesap aç + İYS başlık `KUAFORARA` onayı | [SMS](integrations/sms-netgsm.md) | Kullanıcı |
 | K2 | `.env` production NetGSM kredensiyalleri + `OTP_DEMO_MODE=false` | [SMS](integrations/sms-netgsm.md) | Kullanıcı |
-| K3 | Iyzico production hesap onayı | [Payment](integrations/payment-iyzico.md) | Kullanıcı |
+| ~~K3~~ | ~~Iyzico production hesap onayı~~ → Ertelendi, **PayTR'ye geçildi** (`1.1.0`) | [Payment-Iyzico](integrations/payment-iyzico.md) (arşiv) | — |
+| K3a | **PayTR canlı hesap onayı + `paytr_config.test_mode=0` yap** | [PayTR](integrations/payment-paytr.md) | Kullanıcı |
 | K4 | İYS API entegrasyonu — `verify-phone/route.ts:148` TODO | [Auth](modules/auth.md), [Notif](modules/notifications.md) | Dev |
 | K5 | RLS — `salons/salon_services` üzerinde DELETE policy yasak (audit) | [RLS](infrastructure/rls.md) | Dev |
-| K6 | PCI-DSS audit (Iyzico tokenization sonrası) | [Payment](integrations/payment-iyzico.md) | Kullanıcı + Dev |
+| ~~K6~~ | ~~PCI-DSS audit (Iyzico tokenization sonrası)~~ → PayTR iFrame ile gerek yok (kart bize değmiyor) | [Payment-PayTR](integrations/payment-paytr.md) | — |
 
 ---
 
@@ -53,9 +54,11 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Yorum düzenleme UI** — sadece silme var ([Customer](modules/customer.md))
 
 ### Finans
-- 🟡 **Refund flow UI** — kapora geri ödeme akışı test edilmemiş ([Finance](modules/finance.md))
-- 🟡 **Sub-merchant aktivasyon UI** — IBAN onay süreci ([Finance](modules/finance.md))
+- 🟡 **Booking kapora ödemesi (PayTR/Iyzico)** — şu an YOK; aktivasyon için (a) PayTR Pazaryeri modülü veya (b) Iyzico sub-merchant onayı gerekir ([PayTR](integrations/payment-paytr.md))
+- 🟡 **Refund flow UI** — admin tarafından abonelik iadesi (`/api/paytr/refund` hazır, UI butonu eksik) ([PayTR](integrations/payment-paytr.md))
+- 🟡 **Recurring abonelik (PayTR tokenization)** — şu an her ay owner elle ödüyor; saved card ileri sprint ([PayTR](integrations/payment-paytr.md))
 - 🟡 **Plan downgrade kontrolü** — limit aşımı koruması yok ([Finance](modules/finance.md))
+- 🟡 **Manuel IBAN transfer otomasyonu** — salon gelirleri için (PayTR sub-merchant yok) ([PayTR](integrations/payment-paytr.md))
 
 ### Bildirim
 - 🟡 **Queue processor cron** — `processQueue` otomatik çağıran scheduler yok (Vercel Cron) ([Notifications](modules/notifications.md))
@@ -181,6 +184,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 | 2026-05-07 | Faz 2 — Demo OTP autofill + KVKK/TEİ modal metinleri |
 | 2026-05-07 | Faz 3 — Geçmiş saat slot filtresi + NO_SHOW enum + _migrations tracking (3 TODO çözüldü) |
 | 2026-05-31 | New-14 — support_tickets boş `{}` hatası onarımı + 17 tabloda authenticated SELECT GRANT audit + health-check Section 8 + CLAUDE.md RLS+GRANT kuralı |
+| 2026-06-01 | **PayTR iFrame entegrasyonu (1.1.0)** — sadece abonelik için. Iyzico arşivde, provider switch ile geri dönüş mümkün. Faz 0 admin finance crash fix + Faz A-F PayTR (New-15, lib/types/routes/modal/admin settings) + payment-paytr.md belge |
 
 ## Belge Güncelleme Kuralı
 

@@ -1,10 +1,18 @@
 # Entegrasyon: Iyzico Ödeme
 
-## Amaç
+> ⚠️ **DEPRECATED (2026-06-01)** — Iyzico production hesap onayı alınamadığı için sistemde **runtime'da PASİF**. Kod tabanında arşiv olarak korunuyor (`lib/payment/iyzico.ts`, `app/api/iyzico/*`, `iyzipay` npm package). Aktif ödeme sağlayıcı: **[PayTR iFrame API](payment-paytr.md)**.
+>
+> Iyzico'ya geri dönüş senaryosu (ileride):
+> 1. Iyzico ticari hesap onayı alınınca
+> 2. Booking kapora ödemesi açılmak istendiğinde (PayTR'de sub-merchant yok)
+>
+> Admin Panel > Ayarlar > Ödeme Sağlayıcıları'ndan "Aktif Sağlayıcı = IYZICO" seçilince tek satır değişiklikle aktive edilebilir; subscription akışı `getActiveProvider()` ile Iyzico Link API'ye dallanır.
+
+## Amaç (orijinal hedef)
 SaaS abonelik ödemeleri (salon plan satın alma) ve randevu içi kapora/ödemeler. Marketplace modeliyle salon-müşteri arasında doğrudan ödeme + komisyon platformu.
 
 ## Durum
-🟡 **Sandbox aktif** — kod prod-ready, gerçek hesap onayı bekleniyor.
+🔴 **DEPRECATED / Arşiv** — kod prod-ready ama PayTR'ye geçildi. Iyzico kodu silinmedi, geri dönüş için saklı.
 
 ## Iyzico Modelleri
 

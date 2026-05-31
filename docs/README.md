@@ -32,7 +32,8 @@ Bu klasör projenin **detaylı modül belgelerini** içerir. Üst düzey gereksi
 | Entegrasyon | Durum |
 |-------------|-------|
 | [NetGSM SMS](integrations/sms-netgsm.md) | Kod hazır, env eksik (demo mode) |
-| [Iyzico Ödeme](integrations/payment-iyzico.md) | Sandbox aktif, prod key bekleniyor |
+| [PayTR Ödeme](integrations/payment-paytr.md) | **AKTİF (1.1.0)** — iFrame API, abonelik için, demo modu test_mode=1 |
+| [Iyzico Ödeme](integrations/payment-iyzico.md) | DEPRECATED — arşivde, provider switch ile geri dönüş mümkün |
 | [Google Gemini AI](integrations/ai-gemini.md) | Aktif, salon insights ve chatbot |
 | [Leaflet Harita](integrations/maps.md) | Aktif, OpenStreetMap |
 | [Cloudflare Turnstile](integrations/turnstile.md) | Kod hazır, key eksik |

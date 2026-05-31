@@ -20,6 +20,7 @@ initdb/
 ├── New-12-Notifications-Select-Grant.sql # notifications SELECT grant
 ├── New-13-Fix-Turkish-Encoding.sql       # cities/districts mojibake onarımı
 ├── New-14-Authenticated-Select-Grants-Audit.sql # support + audit + 17 tablo grant tamamlama
+├── New-15-PayTR-Setup.sql                # PayTR config + active_payment_provider + paytr_oid + paytr_webhooks
 ├── 02-seed-data.sql                      # 81 il + ilçe master data
 ├── 03-sample-data.sql                    # Örnek salon/staff (legacy)
 ├── 04-advanced-schema.sql                # Storage + finance ek
@@ -59,6 +60,7 @@ psql < initdb/New-11-NoShow-And-Migration-Tracker.sql
 psql < initdb/New-12-Notifications-Select-Grant.sql
 psql < initdb/New-13-Fix-Turkish-Encoding.sql
 psql < initdb/New-14-Authenticated-Select-Grants-Audit.sql
+psql < initdb/New-15-PayTR-Setup.sql
 
 # 5. Sağlık kontrolü
 psql < initdb/db-health-check.sql

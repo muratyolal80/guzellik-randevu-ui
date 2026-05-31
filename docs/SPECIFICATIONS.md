@@ -4,8 +4,8 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.0.5 |
-| Son güncelleme | 31.05.2026 |
+| Sürüm | 1.1.0 |
+| Son güncelleme | 01.06.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
 | Domain | `kuaforara.com.tr` |
@@ -493,6 +493,7 @@ npm run lint          # ESLint
 | 1.0.3 | 31.05.2026 | Bugfix: (1) Admin owner listesi geçersiz `OWNER` enum değeriyle 400 alıyordu → `SALON_OWNER`'a sabitlendi (`db_user.ts`); (2) F-092: `notifications` tablosunda `authenticated` rolüne `SELECT` GRANT'ı eksikti → client 403 alıyordu, GRANT eklendi (`New-12`) |
 | 1.0.4 | 31.05.2026 | Veri onarımı: `cities` (31/81) ve `districts` (509/975) isimlerinde UTF-8 import bozulması (`İstanbul→"??stanbul"`) düzeltildi. `cities` plate_code ile UPSERT, `districts` bozuk-form eşleştirmesiyle UPDATE — id'ler ve salon FK'leri korundu (`New-13`) |
 | 1.0.5 | 31.05.2026 | F-092 hardening: `/admin/support` sayfası "Biletler çekilemedi: `{}`" boş hatası → kök neden `support_tickets`/`ticket_messages`'ta `authenticated` rolünün SELECT/INSERT/UPDATE GRANT'larının eksik olması. `New-14` ile (a) support tablolarına kesin GRANT, (b) tüm RLS-aktif public tablolarda authenticated SELECT eksik olanları otomatik tamamlayan audit DO bloğu (17 ek tabloya GRANT verildi), (c) `db-health-check.sql` Section 8 + Section 9 (eksik GRANT audit + migration kayıt görünümü), (d) CLAUDE.md ve `docs/infrastructure/rls.md`'ye RLS+GRANT birlikte kurulum kuralı eklendi |
+| 1.1.0 | 01.06.2026 | **PayTR entegrasyonu (yeni)** — Iyzico üretim onayı alınamadığı için **PayTR iFrame API** ile salon sahibi abonelik ödemesi entegrasyonu eklendi. Yeni: `lib/payment/paytr.ts`, `types/paytr.d.ts`, `app/api/paytr/{create-token,callback,refund}`, `components/payment/PayTRPaymentModal.tsx`. DB: `New-15` ile `paytr_config`, `active_payment_provider` (PAYTR/IYZICO/NONE switch), `subscriptions.paytr_oid`, `paytr_webhooks` audit tablosu. Admin Panel > Ayarlar'a provider switch + her iki provider config formu (demo kart bilgi kartı dahil). Iyzico kodu **SİLİNMEDİ** (arşiv); admin "Aktif Sağlayıcı" toggle ile geri dönülebilir. Önceki Faz 0: admin finance crashlerinin tamiri (`FinancialReportsView` defensive guard + IIFE içindeki conditional `useState` bug'ı, history tab'ında). Kapsam: SADECE abonelik ödemesi; booking kapora yine kapsam dışı. |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)

@@ -37,7 +37,7 @@ Test runner yapılandırılmamış.
 | Charts | Recharts |
 | Maps | `react-leaflet` |
 | Calendar | FullCalendar v6 |
-| Payment | Iyzico (`iyzipay`) |
+| Payment | **PayTR iFrame API** (aktif, sadece abonelik) · Iyzico (`iyzipay`) arşivde, provider switch ile geri dönüş mümkün |
 | SMS | İletiMerkezi / NetGSM |
 | AI | Google Gemini (`@google/genai`) |
 | Bot koruması | Cloudflare Turnstile |
