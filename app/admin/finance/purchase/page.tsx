@@ -5,6 +5,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
+import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
 import { SubscriptionService, PaymentService, SalonDataService, FinanceService, ProfileService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -349,6 +350,9 @@ export default function AdminPurchasePage() {
     const [manualBankName, setManualBankName]     = useState('');
     const [manualReceiptUrl, setManualReceiptUrl] = useState('');
 
+    const [historyPage, setHistoryPage] = useState(1);
+    const [showPayTR, setShowPayTR] = useState(false);
+
     // ── Step 2 data load ─────────────────────────────────────────────────────
     const loadOwnerData = useCallback(async (ownerId: string) => {
         setLoading(true);
@@ -403,6 +407,13 @@ export default function AdminPurchasePage() {
     const handlePurchase = async () => {
         if (!selectedOwner || !selectedPlanId) return;
         const plan = plans.find(p => p.id === selectedPlanId);
+
+        // Kredi kartı seçilirse PayTR iframe modal açılır (admin owner adına başlatır)
+        if (paymentMethod === 'CREDIT_CARD' && plan?.price_monthly !== 0) {
+            setShowPayTR(true);
+            return;
+        }
+
         if (!window.confirm(`"${plan?.display_name}" paketini "${selectedOwner.full_name || selectedOwner.email}" için başlatmak istiyor musunuz?`)) return;
 
         setPurchasing(true);
@@ -748,7 +759,7 @@ export default function AdminPurchasePage() {
                                                             {
                                                                 id: 'CREDIT_CARD',
                                                                 label: 'Kredi / Banka Kartı',
-                                                                desc: 'Anlık iyzico entegrasyonu',
+                                                                desc: 'PayTR iFrame · 3D Secure',
                                                                 icon: CreditCard,
                                                                 color: 'purple'
                                                             },
@@ -987,10 +998,9 @@ export default function AdminPurchasePage() {
 
                         {/* ─ HISTORY ─ */}
                         {!loading && activeTab === 'HISTORY' && (() => {
-                            const [currentPage, setCurrentPage] = useState(1);
                             const itemsPerPage = 3;
                             const totalPages = Math.ceil(payHistory.length / itemsPerPage);
-                            const startIndex = (currentPage - 1) * itemsPerPage;
+                            const startIndex = (historyPage - 1) * itemsPerPage;
                             const currentItems = payHistory.slice(startIndex, startIndex + itemsPerPage);
 
                             return (
@@ -1008,9 +1018,9 @@ export default function AdminPurchasePage() {
                                             </div>
                                             {totalPages > 1 && (
                                                 <div className="flex items-center gap-2">
-                                                    <button 
-                                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                        disabled={currentPage === 1}
+                                                    <button
+                                                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                                        disabled={historyPage === 1}
                                                         className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
                                                     >
                                                         <ArrowLeft className="w-4 h-4" />
@@ -1019,16 +1029,16 @@ export default function AdminPurchasePage() {
                                                         {[...Array(totalPages)].map((_, i) => (
                                                             <button
                                                                 key={i}
-                                                                onClick={() => setCurrentPage(i + 1)}
-                                                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'text-text-muted hover:bg-gray-100'}`}
+                                                                onClick={() => setHistoryPage(i + 1)}
+                                                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${historyPage === i + 1 ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'text-text-muted hover:bg-gray-100'}`}
                                                             >
                                                                 {i + 1}
                                                             </button>
                                                         ))}
                                                     </div>
-                                                    <button 
-                                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                        disabled={currentPage === totalPages}
+                                                    <button
+                                                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                                                        disabled={historyPage === totalPages}
                                                         className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
                                                     >
                                                         <ArrowRight className="w-4 h-4" />
@@ -1144,6 +1154,15 @@ export default function AdminPurchasePage() {
                     </div>
                 )}
             </div>
+
+            <PayTRPaymentModal
+                isOpen={showPayTR && !!selectedPlanId && !!selectedOwner}
+                planId={selectedPlanId || ''}
+                billingCycle={billingCycle}
+                ownerId={selectedOwner?.id}
+                planLabel={plans.find(p => p.id === selectedPlanId)?.display_name}
+                onClose={() => setShowPayTR(false)}
+            />
         </AdminLayout>
     );
 }

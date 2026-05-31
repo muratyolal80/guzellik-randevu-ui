@@ -234,16 +234,17 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
 }
 
 function FinancialReportsView({ reports, formatCurrency }: any) {
-    if (!reports) return null;
+    const stats = reports?.stats ?? { totalRevenue: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
+    const transactions = reports?.transactions ?? [];
 
     return (
         <div className="space-y-10">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard label="Toplam Ciro" value={formatCurrency(reports.stats.totalRevenue)} icon={TrendingUp} color="blue" />
-                <StatCard label="Başarılı İşlem" value={reports.stats.successCount} icon={CheckCircle2} color="emerald" />
-                <StatCard label="Bekleyen Ödeme" value={reports.stats.pendingCount} icon={Clock} color="amber" />
-                <StatCard label="İptal/Hata" value={reports.stats.failedCount} icon={XCircle} color="red" />
+                <StatCard label="Toplam Ciro" value={formatCurrency(stats.totalRevenue)} icon={TrendingUp} color="blue" />
+                <StatCard label="Başarılı İşlem" value={stats.successCount} icon={CheckCircle2} color="emerald" />
+                <StatCard label="Bekleyen Ödeme" value={stats.pendingCount} icon={Clock} color="amber" />
+                <StatCard label="İptal/Hata" value={stats.failedCount} icon={XCircle} color="red" />
             </div>
 
             {/* Recent Transactions */}
@@ -271,7 +272,7 @@ function FinancialReportsView({ reports, formatCurrency }: any) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
-                            {reports.transactions.map((tr: any) => (
+                            {transactions.map((tr: any) => (
                                 <tr key={tr.id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">

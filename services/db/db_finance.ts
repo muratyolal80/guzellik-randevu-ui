@@ -1229,14 +1229,27 @@ export const FinanceService = {
 
     if (error) throw error;
 
-    // Stats for overall overview (not paginated)
-    // To get accurate stats, we might need a separate query, but for now we calculate from the current page 
-    // OR we can do a quick separate stats query for the admin dashboard.
-    // Let's assume the user wants stats for the current filter.
-    
+    const transactions = data || [];
+    const stats = transactions.reduce(
+      (acc, t: any) => {
+        const amount = Number(t.amount) || 0;
+        if (t.status === 'SUCCESS') {
+          acc.totalRevenue += amount;
+          acc.successCount += 1;
+        } else if (t.status === 'PENDING') {
+          acc.pendingCount += 1;
+        } else if (t.status === 'FAILED' || t.status === 'CANCELLED') {
+          acc.failedCount += 1;
+        }
+        return acc;
+      },
+      { totalRevenue: 0, successCount: 0, pendingCount: 0, failedCount: 0 }
+    );
+
     return {
-      transactions: data || [],
+      transactions,
       totalCount: count || 0,
+      stats,
     };
   },
 
