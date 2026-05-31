@@ -13,6 +13,7 @@ import { useTenant } from '@/context/TenantContext';
 import { useAuth } from '@/context/AuthContext';
 import ImageUpload from '@/components/ImageUpload';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
+import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
 import { SubscriptionService, PaymentService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -43,6 +44,7 @@ export default function BillingPage() {
     const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
     const [receiptUrl, setReceiptUrl] = useState<string>('');
+    const [showPayTR, setShowPayTR] = useState(false);
 
     const fetchData = async () => {
         if (!user?.id) return;
@@ -422,6 +424,13 @@ export default function BillingPage() {
                                         </div>
 
                                         <button
+                                            onClick={() => setShowPayTR(true)}
+                                            className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-600/20 hover:bg-emerald-700 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+                                        >
+                                            <CreditCard className="w-5 h-5" /> Kredi Kartı ile Öde (PayTR)
+                                        </button>
+
+                                        <button
                                             onClick={() => {
                                                 const senderName = (document.getElementById('senderNameInput') as HTMLInputElement)?.value;
                                                 if (plans.find(p => p.id === selectedPlanId)?.price_monthly !== 0 && !senderName) {
@@ -430,9 +439,9 @@ export default function BillingPage() {
                                                 }
                                                 handleUpgradeWithSender(selectedPlanId, senderName, receiptUrl);
                                             }}
-                                            className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2"
+                                            className="w-full py-4 bg-white text-primary border-2 border-primary font-black rounded-2xl hover:bg-primary/5 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2"
                                         >
-                                            <Check className="w-5 h-5" /> Ödemeyi Bildir ve Aboneliği Başlat
+                                            <Check className="w-5 h-5" /> Havale ile Öde (Manuel Onay)
                                         </button>
                                     </div>
                                 </div>
@@ -581,6 +590,15 @@ export default function BillingPage() {
                     </div>
                 </div>
             )}
+
+            <PayTRPaymentModal
+                isOpen={showPayTR && !!selectedPlanId}
+                planId={selectedPlanId || ''}
+                billingCycle={billingCycle}
+                salonId={salonId || undefined}
+                planLabel={plans.find(p => p.id === selectedPlanId)?.display_name}
+                onClose={() => setShowPayTR(false)}
+            />
         </div>
     );
 }
