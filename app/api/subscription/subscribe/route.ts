@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
+import { getActiveProvider } from '@/lib/payment/paytr';
 
 export async function POST(request: NextRequest) {
     const supabase = createServerClient(
@@ -80,37 +81,60 @@ export async function POST(request: NextRequest) {
 
         if (subError) throw subError;
 
-        // 4. Generate iyzico Link
-        const linkResult = await IyzicoLinkService.createLink({
-            name: `${plan.display_name} Aboneliği`,
-            description: `${billingCycle === 'YEARLY' ? 'Yıllık' : 'Aylık'} Paket Ödemesi`,
-            price: price / 100 // Unit is TRY
-        });
+        // 4. Provider'a göre yönlendir
+        //    PayTR (default): client tarafına yönlendir; gerçek token üretimi /api/paytr/create-token'da
+        //    Iyzico (arşiv): eski link flow'u (onay alınca tekrar aktive edilir)
+        //    NONE: kredi kartı yok, sadece havale (yine PENDING kalır)
+        const provider = await getActiveProvider();
 
-        if (linkResult.status !== 'success' || !linkResult.url) {
-            throw new Error('Ödeme linki oluşturulamadı: ' + JSON.stringify(linkResult));
+        if (provider === 'PAYTR') {
+            return NextResponse.json({
+                success: true,
+                provider: 'PAYTR',
+                redirectTo: '/api/paytr/create-token',
+                subscription_id: subscription.id,
+                message: 'PayTR aktif. Frontend /api/paytr/create-token endpoint\'inden iframe token alıp ödemeyi başlatmalı.',
+            });
         }
 
-        // 5. Record in Payment History
-        await supabaseAdmin.from('payment_history').insert({
-            salon_id: salonId,
-            subscription_id: subscription.id,
-            payment_type: 'SUBSCRIPTION',
-            payment_method: 'IYZICO_LINK',
-            amount: price,
-            status: 'PENDING',
-            iyzico_link_id: linkResult.token,
-            metadata: {
-                payment_url: linkResult.url,
-                plan_id: planId,
-                billing_cycle: billingCycle
-            }
-        });
+        if (provider === 'IYZICO') {
+            const linkResult = await IyzicoLinkService.createLink({
+                name: `${plan.display_name} Aboneliği`,
+                description: `${billingCycle === 'YEARLY' ? 'Yıllık' : 'Aylık'} Paket Ödemesi`,
+                price: price / 100
+            });
 
-        return NextResponse.json({
-            success: true,
-            paymentUrl: linkResult.url
-        });
+            if (linkResult.status !== 'success' || !linkResult.url) {
+                throw new Error('Ödeme linki oluşturulamadı: ' + JSON.stringify(linkResult));
+            }
+
+            await supabaseAdmin.from('payment_history').insert({
+                salon_id: salonId,
+                subscription_id: subscription.id,
+                payment_type: 'SUBSCRIPTION',
+                payment_method: 'IYZICO_LINK',
+                amount: price,
+                status: 'PENDING',
+                iyzico_link_id: linkResult.token,
+                metadata: {
+                    payment_url: linkResult.url,
+                    plan_id: planId,
+                    billing_cycle: billingCycle
+                }
+            });
+
+            return NextResponse.json({
+                success: true,
+                provider: 'IYZICO',
+                paymentUrl: linkResult.url
+            });
+        }
+
+        // NONE — Hiçbir kart sağlayıcısı aktif değil
+        return NextResponse.json(
+            { error: 'Aktif ödeme sağlayıcısı yok. Admin > Ayarlar > Ödeme Sağlayıcıları üzerinden seçim yapın.' },
+            { status: 503 }
+        );
 
     } catch (err: any) {
         console.error('Subscription Error:', err.message);
