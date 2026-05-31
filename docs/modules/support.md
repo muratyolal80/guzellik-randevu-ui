@@ -45,6 +45,8 @@ Kullanıcıların admin'le iletişim kurması (ticket sistemi), salon ve persone
 - Messages: `ticket_owner_or_admin_see_messages`, `auth_users_send_messages`
 - Reviews: `staff_reviews_public_read`, `auth_users_create_staff_review`, `users_delete_own_staff_review`
 
+> ⚠️ **GRANT Pattern Notu (2026-05-31):** Bu tablolarda RLS politikası baştan beri vardı ama `authenticated` rolüne `SELECT`/`INSERT`/`UPDATE` GRANT'ları **eksikti** → `/admin/support` sayfası `Biletler çekilemedi: {}` boş hatası veriyordu. [New-14](../../initdb/New-14-Authenticated-Select-Grants-Audit.sql) ile düzeltildi. Detay: [docs/infrastructure/rls.md → PostgREST GRANT vs RLS](../infrastructure/rls.md#postgrest-grant-vs-rls--tekrar-eden-boş--hatası-patterni).
+
 ## Test Adımları
 1. **Ticket aç:** CUSTOMER → `/customer/support` → "Yeni Talep" → form → `support_tickets` insert
 2. **Admin cevap:** SUPER_ADMIN → `/admin/support` → ticket aç → mesaj gönder → `ticket_messages` insert
@@ -54,6 +56,7 @@ Kullanıcıların admin'le iletişim kurması (ticket sistemi), salon ve persone
 6. **Yorum sil:** Müşteri kendi yorumunu silebilir (RLS policy)
 
 ## Açık Aksiyon (TODO)
+- ✅ ~~Boş `{}` hatası~~ — `support_tickets`/`ticket_messages` authenticated GRANT'ları eklendi (New-14, 2026-05-31)
 - 🟡 **Ticket UI tamamlanması** — admin tarafı `/admin/support` sayfası kapsamlı olmalı (filtreler, atama)
 - 🟡 **Yorum moderasyonu** — admin küfür/spam yorumu silme/onaylama akışı
 - 🟢 **Ticket atama** — admin'ler arası dağıtım

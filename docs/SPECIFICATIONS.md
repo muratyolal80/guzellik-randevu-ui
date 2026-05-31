@@ -4,7 +4,7 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.0.4 |
+| Sürüm | 1.0.5 |
 | Son güncelleme | 31.05.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
@@ -339,6 +339,8 @@ Her özellik aşağıdaki şablonla yazılır:
 
 **Migration kayıtları:** `initdb/New-XX-*.sql`, rollback'leri [initdb/rollbacks/](initdb/rollbacks/)
 
+**RLS + GRANT ikilisi (zorunlu birlikte kurulum):** Self-hosted Supabase'de RLS politikası TEK BAŞINA YETMEZ. PostgREST tabloya erişebilmek için rol bazlı `GRANT SELECT/INSERT/UPDATE/DELETE` de gerektirir; eksikse client-side Supabase JS'ten yanıltıcı boş `{}` hatası döner. Yeni tablo veya yeni RLS kurulumunda **politika + GRANT birlikte yazılmalı** ve `db-health-check.sql` Section 8 audit'i ile doğrulanmalıdır. Mevcut audit referans implementasyonları: `New-09` (service_role), `New-12` (notifications), `New-14` (support_tickets + 17 tablo authenticated SELECT audit).
+
 ### [F-093] Sentry Hata İzleme
 **Config:** [sentry.client.config.ts](sentry.client.config.ts), [sentry.server.config.ts](sentry.server.config.ts), [sentry.edge.config.ts](sentry.edge.config.ts)
 **Aktivasyon:** `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` env
@@ -490,6 +492,7 @@ npm run lint          # ESLint
 | 1.0.2 | 07.05.2026 | F-030: BookingContext sessionStorage persistence — yenileme/geri tuşunda slot/seçim kaybı düzeltildi |
 | 1.0.3 | 31.05.2026 | Bugfix: (1) Admin owner listesi geçersiz `OWNER` enum değeriyle 400 alıyordu → `SALON_OWNER`'a sabitlendi (`db_user.ts`); (2) F-092: `notifications` tablosunda `authenticated` rolüne `SELECT` GRANT'ı eksikti → client 403 alıyordu, GRANT eklendi (`New-12`) |
 | 1.0.4 | 31.05.2026 | Veri onarımı: `cities` (31/81) ve `districts` (509/975) isimlerinde UTF-8 import bozulması (`İstanbul→"??stanbul"`) düzeltildi. `cities` plate_code ile UPSERT, `districts` bozuk-form eşleştirmesiyle UPDATE — id'ler ve salon FK'leri korundu (`New-13`) |
+| 1.0.5 | 31.05.2026 | F-092 hardening: `/admin/support` sayfası "Biletler çekilemedi: `{}`" boş hatası → kök neden `support_tickets`/`ticket_messages`'ta `authenticated` rolünün SELECT/INSERT/UPDATE GRANT'larının eksik olması. `New-14` ile (a) support tablolarına kesin GRANT, (b) tüm RLS-aktif public tablolarda authenticated SELECT eksik olanları otomatik tamamlayan audit DO bloğu (17 ek tabloya GRANT verildi), (c) `db-health-check.sql` Section 8 + Section 9 (eksik GRANT audit + migration kayıt görünümü), (d) CLAUDE.md ve `docs/infrastructure/rls.md`'ye RLS+GRANT birlikte kurulum kuralı eklendi |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)

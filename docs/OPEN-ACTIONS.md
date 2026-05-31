@@ -7,7 +7,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Orta** — yakın zamanda (sonraki sprint)
 - 🟢 **Düşük** — backlog
 
-**Son güncelleme:** 2026-05-07
+**Son güncelleme:** 2026-05-31
 
 ---
 
@@ -81,6 +81,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 ### Altyapı
 - 🟡 **Master schema güncelleme** — DB ile sync değil ([Database](infrastructure/database.md))
 - ✅ ~~Migration tracking tablosu~~ — `_migrations` tablosu eklendi (Faz 3, New-11). Geriye dönük tüm New-XX kaydedildi.
+- ✅ ~~RLS aktif olup GRANT eksik tablolar~~ — New-14 ile tüm tablolarda `authenticated` SELECT GRANT tamamlandı, audit query `db-health-check.sql` Section 8'e eklendi.
 - 🟡 **MCP doc onboarding** — yeni geliştirici test ([MCP](infrastructure/mcp.md))
 
 ---
@@ -179,6 +180,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 | 2026-05-07 | İlk oluşturma — 11 modül + 6 entegrasyon + 4 altyapı belgesi |
 | 2026-05-07 | Faz 2 — Demo OTP autofill + KVKK/TEİ modal metinleri |
 | 2026-05-07 | Faz 3 — Geçmiş saat slot filtresi + NO_SHOW enum + _migrations tracking (3 TODO çözüldü) |
+| 2026-05-31 | New-14 — support_tickets boş `{}` hatası onarımı + 17 tabloda authenticated SELECT GRANT audit + health-check Section 8 + CLAUDE.md RLS+GRANT kuralı |
 
 ## Belge Güncelleme Kuralı
 

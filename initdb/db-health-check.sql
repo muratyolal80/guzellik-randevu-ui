@@ -67,6 +67,28 @@ UNION ALL SELECT 'total_views',         COUNT(*)::text FROM information_schema.v
 UNION ALL SELECT 'rls_enabled_tables',  COUNT(*)::text FROM pg_tables WHERE schemaname='public' AND rowsecurity=true
 UNION ALL SELECT 'total_policies',      COUNT(*)::text FROM pg_policies WHERE schemaname='public';
 
+-- 8. RLS aktif ama authenticated SELECT grant'ı eksik tablolar
+--    (Bu durum, PostgREST'in tabloya hiç erişememesine ve client-side Supabase JS'in
+--     boş `{}` hatası döndürmesine yol açar. Bkz New-12, New-14.)
+\echo ''
+\echo '▶ 8) RLS açık ama authenticated SELECT GRANT eksik tablolar (BEKLENEN: 0):'
+SELECT c.relname AS tablename
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind = 'r'
+  AND c.relrowsecurity = true
+  AND NOT has_table_privilege('authenticated', c.oid, 'SELECT')
+ORDER BY c.relname;
+
+-- 9. Uygulanan migration kayıtları
+\echo ''
+\echo '▶ 9) Uygulanan migration kayıtları (kronolojik, son 20):'
+SELECT name, applied_at::date AS applied
+FROM public._migrations
+ORDER BY applied_at DESC
+LIMIT 20;
+
 \echo ''
 \echo '═══════════════════════════════════════════════════════════════════════'
 \echo '  KONTROL TAMAM. Yukarıdaki adımlarda hiçbir bulgu olmamalı.'

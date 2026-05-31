@@ -151,6 +151,33 @@ API routes (`app/api/`): booking, auth (OTP), iyzico webhook, subscription, AI i
 | CUSTOMER | Kendi randevuları/profili/yorumları + APPROVED salonların genel verisi |
 | Public (anonim) | Sadece aktif/onaylı salonlar ve global servisler için SELECT |
 
+### RLS + GRANT İkilisi — ZORUNLU Birlikte Kurulum
+
+**Self-hosted Supabase'de RLS politikası TEK BAŞINA YETMEZ.** PostgREST'in tabloya erişebilmesi için rol bazlı `GRANT` da gerekir:
+
+```
+İstek → PostgREST → 1) Base GRANT kontrolü (rol tabloya erişebilir mi?)
+                  → 2) RLS policy değerlendirmesi (hangi satırlar görünür?)
+                  → Yanıt
+```
+
+`GRANT SELECT ON tbl TO authenticated` **eksikse**, RLS politikası ne kadar doğru olsa da PostgREST tabloyu hiç sorgulayamaz. Supabase JS client bunu çoğu zaman boş `{}` hatası olarak iletir (özellikle join'li query'lerde) — sessiz ve yanıltıcı.
+
+**Bu nedenle yeni tablo eklerken veya mevcut tabloda RLS açarken iki şeyi BİRLİKTE yap:**
+
+```sql
+-- 1. Satır görünürlüğü için RLS politikası
+ALTER TABLE public.<tbl> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "..." ON public.<tbl> FOR SELECT USING (...);
+
+-- 2. Tabloya temel erişim grant'ı (yoksa PostgREST sessiz boş hata)
+GRANT SELECT ON public.<tbl> TO authenticated;
+-- (gerektiğinde INSERT/UPDATE/DELETE de eklenir; RLS satır seviyesinde sınırı korur)
+GRANT SELECT ON public.<tbl> TO anon;  -- public okuma gerekiyorsa
+```
+
+**Referans çözümler:** `New-09-Service-Role-Grants.sql` (service_role), `New-12-Notifications-Select-Grant.sql` (notifications), `New-14-Authenticated-Select-Grants-Audit.sql` (support + audit).
+
 ### DB Değişikliği Sonrası Denetim
 
 ```sql
@@ -163,7 +190,14 @@ SELECT policyname, tablename, cmd, roles FROM pg_policies WHERE schemaname = 'pu
 -- Admin dışında DELETE politikası var mı? (salons/salon_services'ta olmamalı)
 SELECT policyname, tablename FROM pg_policies
 WHERE schemaname = 'public' AND cmd = 'DELETE' AND policyname NOT LIKE 'admin_%';
+
+-- RLS açık ama authenticated SELECT GRANT yok → boş {} hatası riski
+SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity
+  AND NOT has_table_privilege('authenticated', c.oid, 'SELECT');
 ```
+
+Yukarıdaki sorguların hepsi `initdb/db-health-check.sql` içindedir — periyodik çalıştır.
 
 ---
 

@@ -17,6 +17,9 @@ initdb/
 ├── New-09-Service-Role-Grants.sql        # service_role tüm tablo erişim
 ├── New-10-OTP-Codes-Table.sql            # otp_codes tablosu
 ├── New-11-NoShow-And-Migration-Tracker.sql # NO_SHOW enum + _migrations tablosu
+├── New-12-Notifications-Select-Grant.sql # notifications SELECT grant
+├── New-13-Fix-Turkish-Encoding.sql       # cities/districts mojibake onarımı
+├── New-14-Authenticated-Select-Grants-Audit.sql # support + audit + 17 tablo grant tamamlama
 ├── 02-seed-data.sql                      # 81 il + ilçe master data
 ├── 03-sample-data.sql                    # Örnek salon/staff (legacy)
 ├── 04-advanced-schema.sql                # Storage + finance ek
@@ -53,6 +56,9 @@ psql < initdb/New-08-Demo-Data.sql        # opsiyonel (test data)
 psql < initdb/New-09-Service-Role-Grants.sql
 psql < initdb/New-10-OTP-Codes-Table.sql
 psql < initdb/New-11-NoShow-And-Migration-Tracker.sql
+psql < initdb/New-12-Notifications-Select-Grant.sql
+psql < initdb/New-13-Fix-Turkish-Encoding.sql
+psql < initdb/New-14-Authenticated-Select-Grants-Audit.sql
 
 # 5. Sağlık kontrolü
 psql < initdb/db-health-check.sql

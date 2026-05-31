@@ -16,10 +16,11 @@
 ### Uygulama Rolleri (`profiles.role`)
 `CUSTOMER`, `STAFF`, `MANAGER`, `SALON_OWNER`, `ADMIN`, `SUPER_ADMIN`
 
-## Mevcut Durum (2026-05-07)
-- **47 tablo** — 42'sinde RLS açık, 5'i public lookup (RLS gerekmez)
-- **90 policy** tanımlı
+## Mevcut Durum (2026-05-31)
+- **49 tablo** — 44'ünde RLS açık, 5'i public lookup (cities, districts, salon_types, service_categories, global_services)
+- **91 policy** tanımlı
 - **service_role** tüm public tablolara `ALL` GRANT'ı var (New-09)
+- **authenticated** rolü için RLS-aktif tüm tablolarda SELECT GRANT mevcut (New-14 ile audit + tamamlama)
 
 ## Politika Hiyerarşisi (Kural Kitabı)
 
@@ -82,6 +83,34 @@ docker exec -i supabase-db psql -U postgres -d postgres < initdb/db-health-check
 5. Storage bucket sayısı: ≥5
 
 ## Yaygın Hatalar ve Çözümleri
+
+### PostgREST GRANT vs RLS — Tekrar Eden Boş `{}` Hatası Pattern'i
+
+**Belirti:** Client'ta `Console Error: <bir şey> çekilemedi: {}` — boş gövdeli error.
+
+**Sebep:** Tablo RLS açık + policy doğru, **ama** rol için **base GRANT eksik**. Self-hosted Supabase'de:
+
+```
+İstek → PostgREST → 1) Base GRANT kontrolü → 2) RLS policy → Yanıt
+                       └ FAIL  → ya 42501 ya boş {} (özellikle join'li query'lerde)
+```
+
+**Çözüm — Birlikte verilmeli:**
+```sql
+ALTER TABLE public.<tbl> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "..." ON public.<tbl> FOR SELECT USING (...);
+GRANT SELECT ON public.<tbl> TO authenticated;  -- ← unutulmamalı
+GRANT SELECT ON public.<tbl> TO anon;            -- public okuma gerekliyse
+```
+
+**Tarihçe / Olay Listesi:**
+| Tarih | Tablo | Belirti | Çözüm |
+|-------|-------|---------|-------|
+| 2026-05-07 | `notifications` | NotificationCenter `42501 permission denied` | [New-12](../../initdb/New-12-Notifications-Select-Grant.sql) — SELECT grant |
+| 2026-05-07 | tüm public tablolar (server-side) | "Sabah saatlerinde slot yok" — slot motoru appointments okuyamıyordu | [New-09](../../initdb/New-09-Service-Role-Grants.sql) — service_role'a ALL grant + BYPASSRLS |
+| 2026-05-31 | `support_tickets`, `ticket_messages` + 17 diğer tablo | `/admin/support` → `Biletler çekilemedi: {}` | [New-14](../../initdb/New-14-Authenticated-Select-Grants-Audit.sql) — authenticated SELECT grant + audit |
+
+**Önleyici Audit:** `db-health-check.sql` Section 8, RLS açık olup `authenticated` SELECT GRANT'ı eksik tabloları her çalıştırmada listeler. PR öncesi kontrol edilmelidir.
 
 ### "permission denied for table X"
 **Sebep:** Tablo RLS açık ama o role policy yok, **veya** GRANT verilmemiş.
