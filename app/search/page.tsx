@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { SalonDataService, MasterDataService } from '@/services/db';
 import { SalonDetail, SalonType, City, District } from '@/types';
+import { useGeolocation, haversineKm } from '@/lib/geocoding/useGeolocation';
+import { isSalonOpenNow } from '@/lib/availability';
 import { 
     Search, 
     MapPin, 
@@ -59,10 +61,32 @@ function SearchContent() {
     const [showFilters, setShowFilters] = useState(false);
 
     // Sprint B — sort + sayfalama
-    type SortKey = 'sponsored' | 'rating_desc' | 'rating_asc' | 'newest' | 'price_asc' | 'price_desc';
+    type SortKey = 'sponsored' | 'rating_desc' | 'rating_asc' | 'newest' | 'price_asc' | 'price_desc' | 'distance_asc';
     const [sortKey, setSortKey] = useState<SortKey>('sponsored');
     const PAGE_SIZE = 20;
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+    // Sprint C (K2) — Konum bazlı arama
+    const geo = useGeolocation();
+    const [radiusKm, setRadiusKm] = useState<5 | 10 | 25 | 50>(10);
+    const [nearbyMode, setNearbyMode] = useState(false);
+
+    const handleNearbyToggle = () => {
+        if (nearbyMode) {
+            setNearbyMode(false);
+            geo.reset();
+            if (sortKey === 'distance_asc') setSortKey('sponsored');
+            return;
+        }
+        geo.request();
+    };
+
+    React.useEffect(() => {
+        if (geo.status === 'ok') {
+            setNearbyMode(true);
+            setSortKey('distance_asc');
+        }
+    }, [geo.status]);
 
     useEffect(() => {
         fetchInitialData();
@@ -116,7 +140,22 @@ function SearchContent() {
         const matchesType = !typeParam || salon.type_id === typeParam || salon.assigned_types?.some(t => t.id === typeParam);
         const matchesRating = (salon.rating || 0) >= minRating;
 
-        return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesRating;
+        const matchesOpen = !onlyOpen || isSalonOpenNow(salon as any);
+
+        let matchesRadius = true;
+        if (nearbyMode && geo.lat !== null && geo.lng !== null) {
+            const sLat = Number(salon.geo_latitude || 0);
+            const sLng = Number(salon.geo_longitude || 0);
+            if (sLat === 0 || sLng === 0) {
+                matchesRadius = false;
+            } else {
+                const dist = haversineKm(geo.lat, geo.lng, sLat, sLng);
+                (salon as any)._distanceKm = dist;
+                matchesRadius = dist <= radiusKm;
+            }
+        }
+
+        return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesRating && matchesRadius && matchesOpen;
     });
 
     // Sprint B (K7) — sıralama
@@ -128,6 +167,7 @@ function SearchContent() {
             case 'newest': return arr.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
             case 'price_asc': return arr.sort((a, b) => Number((a as any).min_price ?? 9999) - Number((b as any).min_price ?? 9999));
             case 'price_desc': return arr.sort((a, b) => Number((b as any).min_price ?? 0) - Number((a as any).min_price ?? 0));
+            case 'distance_asc': return arr.sort((a, b) => Number((a as any)._distanceKm ?? 9999) - Number((b as any)._distanceKm ?? 9999));
             default: return arr.sort((a, b) => {
                 const sa = a.is_sponsored ? 1 : 0;
                 const sb = b.is_sponsored ? 1 : 0;
@@ -226,7 +266,7 @@ function SearchContent() {
                                 <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">Minimum Puan</label>
                                 <div className="flex gap-1">
                                     {[3, 4, 4.5].map(rating => (
-                                        <button 
+                                        <button
                                             key={rating}
                                             onClick={() => setMinRating(minRating === rating ? 0 : rating)}
                                             className={`px-3 py-2 rounded-xl text-xs font-black transition-all border ${minRating === rating ? 'bg-yellow-400 text-white border-yellow-500' : 'bg-white text-text-muted border-border'}`}
@@ -235,6 +275,19 @@ function SearchContent() {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">Müsaitlik</label>
+                                <label className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-border rounded-xl cursor-pointer hover:bg-white transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={onlyOpen}
+                                        onChange={(e) => setOnlyOpen(e.target.checked)}
+                                        className="size-4 rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <span className="text-xs font-bold text-text-main">Şu an açık olanlar</span>
+                                </label>
                             </div>
 
                             {/* View Switch */}
@@ -270,8 +323,34 @@ function SearchContent() {
                                 <h2 className="text-xl font-black text-text-main">
                                     {sortedSalons.length} Salon Bulundu
                                 </h2>
-                                <div className="flex items-center gap-2">
-                                    <label htmlFor="sort-select" className="text-xs font-bold text-text-muted uppercase tracking-wider">Sırala:</label>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                        onClick={handleNearbyToggle}
+                                        disabled={geo.status === 'pending'}
+                                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                                            nearbyMode
+                                                ? 'bg-primary text-white border border-primary'
+                                                : 'bg-white text-text-main border border-border hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {geo.status === 'pending' ? 'Konum...' : nearbyMode ? 'Yakındaki ✓' : 'Yakındakini Bul'}
+                                    </button>
+
+                                    {nearbyMode && (
+                                        <select
+                                            value={radiusKm}
+                                            onChange={(e) => setRadiusKm(Number(e.target.value) as 5 | 10 | 25 | 50)}
+                                            className="px-3 py-2 bg-white border border-border rounded-xl text-sm font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                                        >
+                                            <option value={5}>5 km</option>
+                                            <option value={10}>10 km</option>
+                                            <option value={25}>25 km</option>
+                                            <option value={50}>50 km</option>
+                                        </select>
+                                    )}
+
+                                    <label htmlFor="sort-select" className="text-xs font-bold text-text-muted uppercase tracking-wider ml-2">Sırala:</label>
                                     <select
                                         id="sort-select"
                                         value={sortKey}
@@ -279,6 +358,7 @@ function SearchContent() {
                                         className="px-3 py-2 bg-white border border-border rounded-xl text-sm font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
                                     >
                                         <option value="sponsored">Önerilen</option>
+                                        {nearbyMode && <option value="distance_asc">En Yakın</option>}
                                         <option value="rating_desc">Puanı Yüksek</option>
                                         <option value="rating_asc">Puanı Düşük</option>
                                         <option value="price_asc">Fiyat Artan</option>
@@ -286,6 +366,12 @@ function SearchContent() {
                                         <option value="newest">En Yeni</option>
                                     </select>
                                 </div>
+                                {geo.status === 'denied' && (
+                                    <p className="text-xs text-red-600 mt-1 w-full">Konum izni reddedildi. Tarayıcı ayarlarından izin verebilirsin.</p>
+                                )}
+                                {geo.status === 'error' && geo.error && (
+                                    <p className="text-xs text-amber-600 mt-1 w-full">{geo.error}</p>
+                                )}
                             </div>
 
                             {loading ? (
@@ -308,6 +394,12 @@ function SearchContent() {
                                                     <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                                                     <span className="text-xs font-black">{salon.rating || 0}</span>
                                                 </div>
+                                                {nearbyMode && (salon as any)._distanceKm !== undefined && (
+                                                    <div className="absolute top-4 left-4 bg-primary text-white px-2 py-1 rounded-xl flex items-center gap-1 shadow-md text-[10px] font-black">
+                                                        <MapPin className="w-3 h-3" />
+                                                        {Number((salon as any)._distanceKm).toFixed(1)} km
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="p-6">
                                                 <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest mb-2">

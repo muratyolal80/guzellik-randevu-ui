@@ -171,6 +171,43 @@ export const SalonDataService = {
   },
 
   /**
+   * Sprint C (K2) — PostGIS ST_DWithin ile konum bazlı arama.
+   * RPC salons_within_radius çağrılır (New-17 migration ile gelir).
+   */
+  async getSalonsNearby(
+    centerLat: number,
+    centerLng: number,
+    radiusKm = 10,
+    supabase: SupabaseClient = defaultSupabase
+  ): Promise<Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    image?: string;
+    city_name?: string;
+    district_name?: string;
+    average_rating?: number;
+    is_sponsored?: boolean;
+    distance_km: number;
+  }>> {
+    try {
+      const { data, error } = await supabase.rpc('salons_within_radius', {
+        center_lat: centerLat,
+        center_lng: centerLng,
+        radius_km: radiusKm,
+      });
+      if (error) {
+        console.error('[getSalonsNearby] RPC error:', error.message);
+        return [];
+      }
+      return (data || []) as any[];
+    } catch (err) {
+      console.error('[getSalonsNearby] threw:', err);
+      return [];
+    }
+  },
+
+  /**
    * Get salons by user membership (Owner/Staff branches)
    */
   async getSalonsByMembership(
