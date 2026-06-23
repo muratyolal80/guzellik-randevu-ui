@@ -121,17 +121,53 @@ export const SalonDataService = {
 
   /**
    * Get all salons with detailed information (using view)
+   * Sprint B: limit/offset/sort destek + total count
    */
-  async getSalons(supabase: SupabaseClient = defaultSupabase): Promise<SalonDetail[]> {
-    const { data, error } = await supabase
-      .from("salon_details")
-      .select("*")
-      .eq("status", "APPROVED") // Only show approved salons
-      .order("is_sponsored", { ascending: false })
-      .order("average_rating", { ascending: false });
+  async getSalons(
+    supabase: SupabaseClient = defaultSupabase,
+    options?: {
+      limit?: number;
+      offset?: number;
+      sort?: 'rating_desc' | 'rating_asc' | 'newest' | 'sponsored';
+      withCount?: boolean;
+    }
+  ): Promise<{ data: SalonDetail[]; total: number | null }> {
+    const limit = Math.max(1, Math.min(options?.limit ?? 20, 100));
+    const offset = Math.max(0, options?.offset ?? 0);
+    const sort = options?.sort ?? 'sponsored';
 
+    let q = supabase
+      .from("salon_details")
+      .select("*", options?.withCount ? { count: 'exact' } : undefined)
+      .eq("status", "APPROVED");
+
+    if (sort === 'rating_desc') {
+      q = q.order("average_rating", { ascending: false });
+    } else if (sort === 'rating_asc') {
+      q = q.order("average_rating", { ascending: true });
+    } else if (sort === 'newest') {
+      q = q.order("created_at", { ascending: false });
+    } else {
+      q = q.order("is_sponsored", { ascending: false }).order("average_rating", { ascending: false });
+    }
+
+    q = q.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await q;
     if (error) throw error;
-    return (data || []).map((s) => this.mapSalonDetail(s));
+    return {
+      data: (data || []).map((s: any) => this.mapSalonDetail(s)),
+      total: typeof count === 'number' ? count : null,
+    };
+  },
+
+  /**
+   * Backwards-compatible alias: tüm salonları çek (limit yok).
+   * Sayfalama destekleyen yeni getSalons'a yönlendirilir.
+   */
+  async getAllSalons(supabase: SupabaseClient = defaultSupabase): Promise<SalonDetail[]> {
+    const { data: page1 } = await this.getSalons(supabase, { limit: 100, offset: 0 });
+    return page1;
   },
 
   /**

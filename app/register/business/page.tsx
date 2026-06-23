@@ -8,6 +8,7 @@ import { Store, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 import { createBrowserClient } from '@supabase/ssr';
+import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 const KVKK_VERSION = 'v1.0';
 
@@ -34,6 +35,13 @@ export default function BusinessRegister() {
 
         if (!firstName || !lastName || !email || !password) {
             setError('Lütfen tüm alanları doldurunuz.');
+            setLoading(false);
+            return;
+        }
+
+        const pwCheck = validatePassword(password);
+        if (!pwCheck.valid) {
+            setError(`Şifre: ${pwCheck.errors.join(', ')}.`);
             setLoading(false);
             return;
         }
@@ -146,7 +154,8 @@ export default function BusinessRegister() {
                                 </div>
                                 <div>
                                     <label className="label-sm">ŞİFRE</label>
-                                    <input type="password" className="input-field" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+                                    <input type="password" className="input-field" placeholder="En az 8 karakter" value={password} onChange={e => setPassword(e.target.value)} />
+                                    <p className="mt-1 text-[11px] text-text-muted px-1">{PASSWORD_HINT_TR}</p>
                                 </div>
 
                                 <div className="space-y-3 pt-2">

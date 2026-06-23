@@ -58,6 +58,12 @@ function SearchContent() {
     const [onlyOpen, setOnlyOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
+    // Sprint B — sort + sayfalama
+    type SortKey = 'sponsored' | 'rating_desc' | 'rating_asc' | 'newest' | 'price_asc' | 'price_desc';
+    const [sortKey, setSortKey] = useState<SortKey>('sponsored');
+    const PAGE_SIZE = 20;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
     useEffect(() => {
         fetchInitialData();
     }, []);
@@ -76,7 +82,7 @@ function SearchContent() {
         setLoading(true);
         try {
             const [salonsData, typesData, citiesData] = await Promise.all([
-                SalonDataService.getSalons(),
+                SalonDataService.getAllSalons(),
                 MasterDataService.getSalonTypes(),
                 MasterDataService.getCities()
             ]);
@@ -101,19 +107,43 @@ function SearchContent() {
 
     // Filtering Logic
     const filteredSalons = salons.filter(salon => {
-        const matchesSearch = !localSearch || 
+        const matchesSearch = !localSearch ||
             normalize(salon.name).includes(normalize(localSearch)) ||
             normalize(salon.description).includes(normalize(localSearch));
-        
+
         const matchesCity = selectedCity === 'Tümü' || normalize(salon.city_name) === normalize(selectedCity);
         const matchesDistrict = selectedDistrict === 'Tümü' || normalize(salon.district_name) === normalize(selectedDistrict);
         const matchesType = !typeParam || salon.type_id === typeParam || salon.assigned_types?.some(t => t.id === typeParam);
         const matchesRating = (salon.rating || 0) >= minRating;
-        
-        // Availability logic would go here (complex, needs SlotService)
-        
+
         return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesRating;
     });
+
+    // Sprint B (K7) — sıralama
+    const sortedSalons = React.useMemo(() => {
+        const arr = [...filteredSalons];
+        switch (sortKey) {
+            case 'rating_desc': return arr.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            case 'rating_asc': return arr.sort((a, b) => (a.rating || 0) - (b.rating || 0));
+            case 'newest': return arr.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+            case 'price_asc': return arr.sort((a, b) => Number((a as any).min_price ?? 9999) - Number((b as any).min_price ?? 9999));
+            case 'price_desc': return arr.sort((a, b) => Number((b as any).min_price ?? 0) - Number((a as any).min_price ?? 0));
+            default: return arr.sort((a, b) => {
+                const sa = a.is_sponsored ? 1 : 0;
+                const sb = b.is_sponsored ? 1 : 0;
+                if (sa !== sb) return sb - sa;
+                return (b.rating || 0) - (a.rating || 0);
+            });
+        }
+    }, [filteredSalons, sortKey]);
+
+    // Sprint B (K1) — frontend sayfalama: filtre/sort değişince visibleCount sıfırla
+    React.useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [sortKey, localSearch, selectedCity, selectedDistrict, minRating, typeParam]);
+
+    const visibleSalons = sortedSalons.slice(0, visibleCount);
+    const hasMore = visibleCount < sortedSalons.length;
 
     const executeSearch = () => {
         const params = new URLSearchParams();
@@ -236,10 +266,26 @@ function SearchContent() {
                     {/* List Section */}
                     {viewMode === 'list' ? (
                         <div className="space-y-8">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <h2 className="text-xl font-black text-text-main">
-                                    {filteredSalons.length} Salon Bulundu
+                                    {sortedSalons.length} Salon Bulundu
                                 </h2>
+                                <div className="flex items-center gap-2">
+                                    <label htmlFor="sort-select" className="text-xs font-bold text-text-muted uppercase tracking-wider">Sırala:</label>
+                                    <select
+                                        id="sort-select"
+                                        value={sortKey}
+                                        onChange={(e) => setSortKey(e.target.value as SortKey)}
+                                        className="px-3 py-2 bg-white border border-border rounded-xl text-sm font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                                    >
+                                        <option value="sponsored">Önerilen</option>
+                                        <option value="rating_desc">Puanı Yüksek</option>
+                                        <option value="rating_asc">Puanı Düşük</option>
+                                        <option value="price_asc">Fiyat Artan</option>
+                                        <option value="price_desc">Fiyat Azalan</option>
+                                        <option value="newest">En Yeni</option>
+                                    </select>
+                                </div>
                             </div>
 
                             {loading ? (
@@ -248,9 +294,9 @@ function SearchContent() {
                                         <div key={i} className="bg-white h-72 rounded-3xl border border-border animate-pulse" />
                                     ))}
                                 </div>
-                            ) : filteredSalons.length > 0 ? (
+                            ) : visibleSalons.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredSalons.map(salon => (
+                                    {visibleSalons.map(salon => (
                                         <div key={salon.id} className="bg-white rounded-[32px] border border-border overflow-hidden shadow-card hover:shadow-xl transition-all group">
                                             <div className="h-48 relative overflow-hidden">
                                                 <img 
@@ -298,7 +344,7 @@ function SearchContent() {
                                     <p className="text-text-muted max-w-sm">
                                         Aradığınız kriterlere uygun salon bulunamadı. Lütfen filtreleri değiştirmeyi deneyin.
                                     </p>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setSelectedCity('Tümü');
                                             setLocalSearch('');
@@ -310,6 +356,18 @@ function SearchContent() {
                                     </button>
                                 </div>
                             )}
+
+                            {/* Sprint B (K1) — Daha Fazla Yükle */}
+                            {!loading && hasMore && (
+                                <div className="flex justify-center pt-4">
+                                    <button
+                                        onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                                        className="px-8 py-3 bg-white border-2 border-primary text-primary font-black text-sm rounded-2xl hover:bg-primary hover:text-white transition-all shadow-sm"
+                                    >
+                                        Daha Fazla Yükle ({sortedSalons.length - visibleCount} kaldı)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         /* Map + Sidebar View */
@@ -317,14 +375,14 @@ function SearchContent() {
                             {/* Mobile Sidebar Toggle would go here */}
                             <div className="w-full lg:w-[400px] h-full overflow-y-auto pr-4 hidden lg:block no-scrollbar">
                                 <div className="space-y-4 mb-6">
-                                    <h2 className="text-lg font-black text-text-main">{filteredSalons.length} Salon</h2>
+                                    <h2 className="text-lg font-black text-text-main">{sortedSalons.length} Salon</h2>
                                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-3">
                                         <MapPin className="w-5 h-5 text-blue-500 shrink-0" />
                                         <p className="text-xs text-blue-700 font-medium">Haritadaki konumlara göre salonları inceleyebilirsiniz.</p>
                                     </div>
                                 </div>
                                 <div className="space-y-4 pb-10">
-                                    {filteredSalons.map(salon => (
+                                    {sortedSalons.map(salon => (
                                         <div 
                                             key={salon.id}
                                             className="p-4 bg-white border border-border rounded-2xl hover:border-primary transition-all cursor-pointer group shadow-sm"
@@ -349,8 +407,8 @@ function SearchContent() {
                             
                             <div className="flex-grow h-full bg-white rounded-[40px] border border-border overflow-hidden shadow-2xl relative z-10">
                                 <SalonMap 
-                                    salons={filteredSalons} 
-                                    center={filteredSalons.length > 0 ? { lat: filteredSalons[0].geo_latitude, lng: filteredSalons[0].geo_longitude } : undefined as any}
+                                    salons={sortedSalons}
+                                    center={sortedSalons.length > 0 ? { lat: sortedSalons[0].geo_latitude, lng: sortedSalons[0].geo_longitude } : undefined as any}
                                 />
                             </div>
                         </div>

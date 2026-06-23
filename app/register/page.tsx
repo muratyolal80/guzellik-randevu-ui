@@ -8,6 +8,7 @@ import { Store } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 import { createBrowserClient } from '@supabase/ssr';
+import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 const KVKK_VERSION = 'v1.0';
 
@@ -53,8 +54,9 @@ export default function Register() {
             return;
         }
 
-        if (password.length < 6) {
-            setError('Şifre en az 6 karakter olmalıdır.');
+        const pwCheck = validatePassword(password);
+        if (!pwCheck.valid) {
+            setError(`Şifre: ${pwCheck.errors.join(', ')}.`);
             setLoading(false);
             return;
         }
@@ -215,9 +217,10 @@ export default function Register() {
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     disabled={loading || success}
-                                    placeholder="En az 6 karakter"
+                                    placeholder="En az 8 karakter"
                                     className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
                                 />
+                                <p className="mt-1 text-[11px] text-text-muted">{PASSWORD_HINT_TR}</p>
                             </div>
 
                             <div>

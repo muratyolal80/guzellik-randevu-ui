@@ -209,7 +209,7 @@ export default function HomeClient() {
             setLoading(true);
             try {
                 const results = await Promise.allSettled([
-                    SalonDataService.getSalons(),
+                    SalonDataService.getAllSalons(),
                     MasterDataService.getSalonTypes(),
                     MasterDataService.getAllGlobalServices(),
                     MasterDataService.getCities()
