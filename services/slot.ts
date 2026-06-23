@@ -183,6 +183,16 @@ export const SlotService = {
             return [];
         }
 
+        // Sprint D (R4) — slot lock'larını da hesaba kat (5 dk TTL, başkası tutmuş)
+        const { data: locks } = await supabase
+            .from('slot_reservations')
+            .select('slot_start, slot_end')
+            .eq('salon_id', salonId)
+            .eq('staff_id', staffId)
+            .gt('expires_at', new Date().toISOString())
+            .gte('slot_start', startOfDay.toISOString())
+            .lte('slot_start', endOfDay.toISOString());
+
         // 3. Generate potential slots
         const slots = this.generateTimeSlots(
             date,
@@ -193,11 +203,17 @@ export const SlotService = {
             staffName
         );
 
-        // 4. Filter out slots that conflict with existing appointments
-        const bookedSlots = (appointments || []).map(appt => ({
-            start: new Date(appt.start_time),
-            end: new Date(appt.end_time)
-        }));
+        // 4. Filter out slots that conflict with existing appointments OR active slot locks
+        const bookedSlots = [
+            ...(appointments || []).map(appt => ({
+                start: new Date(appt.start_time),
+                end: new Date(appt.end_time)
+            })),
+            ...((locks || []) as any[]).map(l => ({
+                start: new Date(l.slot_start),
+                end: new Date(l.slot_end)
+            })),
+        ];
 
         // 5. Filter out past slots if the requested date is today.
         //    "Now + 15 dk buffer" altındaki slotlar booking yapılamaz hale gelir.

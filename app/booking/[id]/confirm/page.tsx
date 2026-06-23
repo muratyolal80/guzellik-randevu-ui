@@ -15,6 +15,7 @@ export default function Confirmation() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const appointmentId = searchParams.get('appointmentId');
+    const smsFailed = searchParams.get('smsFailed') === '1';
     const salonId = params.id as string;
 
     const {
@@ -191,8 +192,18 @@ export default function Confirmation() {
                             </div>
                             <h1 className="text-3xl font-bold text-text-main">Randevunuz Onaylandi!</h1>
                             <p className="text-text-secondary mt-2">
-                                Randevu detaylariniz asagidadir. Telefonunuza SMS ile de bilgilendirme yapilmistir.
+                                Randevu detaylariniz asagidadir.{smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapilmistir.'}
                             </p>
+
+                            {smsFailed && (
+                                <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-left">
+                                    <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
+                                        <p className="text-xs text-amber-700 mt-0.5">Randevunuz oluşturuldu fakat onay SMS'i gönderilemedi. Randevu bilgilerinizi bu sayfadan kontrol edip not alın. Salonu telefonla aramanızda fayda var.</p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* User Status Badge */}
                             <div className="mt-4 flex justify-center">

@@ -299,7 +299,8 @@ export default function BookingUserInfoPage() {
           window.location.href = data.paymentUrl;
         } else {
           router.refresh();
-          router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+          const smsFailed = data?.smsDelivered === false ? '&smsFailed=1' : '';
+          router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}${smsFailed}`);
         }
       } else {
         if (response.status === 409 || data.error?.includes('dolu')) {

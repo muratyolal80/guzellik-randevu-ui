@@ -18,7 +18,7 @@ function createMockSupabase(tables: Record<string, TableMock>) {
     function makeChain(tableName: string) {
         const result = tables[tableName] ?? { data: null, error: null }
         const chain: Record<string, unknown> = {}
-        for (const method of ['select', 'eq', 'neq', 'gte', 'lte', 'in', 'limit', 'or']) {
+        for (const method of ['select', 'eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'in', 'limit', 'or']) {
             chain[method] = () => chain
         }
         chain.maybeSingle = () => Promise.resolve(result)

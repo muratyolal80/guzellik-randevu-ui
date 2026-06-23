@@ -360,6 +360,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. Send SMS Notification
+    let smsDelivered = true;
+    let smsError: string | null = null;
     try {
       const smsMessage = paymentUrl
         ? `Sayin ${customerName}, randevunuz olusturuldu. Odemenizi tamamlamak icin: ${paymentUrl}`
@@ -367,8 +369,10 @@ export async function POST(request: NextRequest) {
 
       const cleanPhone = user.phone?.replace('+90', '') || '';
       await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
-    } catch (smsErr) {
+    } catch (smsErr: any) {
       console.error('SMS Notification failed:', smsErr);
+      smsDelivered = false;
+      smsError = smsErr?.message || 'unknown';
     }
 
     // 9. Send Email Confirmation (best-effort, hata ana akışı bozmaz)
@@ -403,6 +407,8 @@ export async function POST(request: NextRequest) {
       success: true,
       appointmentId: appointment.id,
       paymentUrl,
+      smsDelivered,
+      smsError,
       message: 'Randevu başarıyla oluşturuldu!',
     });
 

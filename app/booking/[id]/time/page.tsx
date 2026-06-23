@@ -369,7 +369,7 @@ export default function TimeSelection() {
                           <button
                             key={time}
                             onClick={() => setSelectedSlot(time)}
-                            className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+                            className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
                           >
                             {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
@@ -404,7 +404,7 @@ export default function TimeSelection() {
                           <button
                             key={time}
                             onClick={() => setSelectedSlot(time)}
-                            className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+                            className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
                           >
                             {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
