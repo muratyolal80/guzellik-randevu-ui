@@ -5,6 +5,11 @@ import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Store } from 'lucide-react';
+import LegalConsentModal from '@/components/common/LegalConsentModal';
+import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
+import { createBrowserClient } from '@supabase/ssr';
+
+const KVKK_VERSION = 'v1.0';
 
 export default function Register() {
     const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
@@ -15,6 +20,10 @@ export default function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [kvkkAccepted, setKvkkAccepted] = useState(false);
+    const [marketingAccepted, setMarketingAccepted] = useState(false);
+    const [showKvkkModal, setShowKvkkModal] = useState(false);
+    const [showMarketingModal, setShowMarketingModal] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -56,11 +65,38 @@ export default function Register() {
             return;
         }
 
+        if (!kvkkAccepted) {
+            setError('KVKK Aydınlatma Metni onayı zorunludur.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            await signUp(email, password, firstName, lastName);
+            const result = await signUp(email, password, firstName, lastName);
+
+            // Persist KVKK + marketing consent metadata after signUp succeeded
+            try {
+                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+                const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+                const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+                const userId = result?.user?.id;
+                if (userId) {
+                    const nowIso = new Date().toISOString();
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            kvkk_accepted_at: nowIso,
+                            kvkk_version: KVKK_VERSION,
+                            marketing_opt_in: marketingAccepted,
+                            marketing_opt_in_at: marketingAccepted ? nowIso : null,
+                        })
+                        .eq('id', userId);
+                }
+            } catch (consentErr) {
+                console.warn('Consent metadata write failed (non-blocking):', consentErr);
+            }
+
             setSuccess(true);
-            // User is automatically logged in after registration
-            // Redirect to dashboard page
             setTimeout(() => {
                 router.push('/customer/dashboard');
             }, 1500);
@@ -196,6 +232,49 @@ export default function Register() {
                                 />
                             </div>
 
+                            <div className="space-y-3 pt-2">
+                                <label className="flex items-start gap-2 cursor-pointer text-xs text-text-secondary leading-relaxed">
+                                    <input
+                                        type="checkbox"
+                                        checked={kvkkAccepted}
+                                        onChange={e => setKvkkAccepted(e.target.checked)}
+                                        disabled={loading || success}
+                                        className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+                                        aria-required="true"
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowKvkkModal(true)}
+                                            className="text-primary font-bold hover:underline"
+                                        >
+                                            KVKK Aydınlatma Metni
+                                        </button>
+                                        'ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum. <span className="text-red-500">*</span>
+                                    </span>
+                                </label>
+
+                                <label className="flex items-start gap-2 cursor-pointer text-xs text-text-secondary leading-relaxed">
+                                    <input
+                                        type="checkbox"
+                                        checked={marketingAccepted}
+                                        onChange={e => setMarketingAccepted(e.target.checked)}
+                                        disabled={loading || success}
+                                        className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowMarketingModal(true)}
+                                            className="text-primary font-bold hover:underline"
+                                        >
+                                            Ticari Elektronik İleti
+                                        </button>
+                                        {' '}gönderilmesine onay veriyorum (kampanya, fırsat, hatırlatma SMS/email). Opsiyonel.
+                                    </span>
+                                </label>
+                            </div>
+
                             {error && (
                                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                                     <p className="text-red-700 text-sm">{error}</p>
@@ -204,7 +283,7 @@ export default function Register() {
 
                             <button
                                 type="submit"
-                                disabled={loading || success}
+                                disabled={loading || success || !kvkkAccepted}
                                 className="w-full h-12 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {loading ? (
@@ -242,6 +321,19 @@ export default function Register() {
                     </div>
                 </div>
             </div>
+
+            <LegalConsentModal
+                open={showKvkkModal}
+                title="KVKK Aydınlatma Metni"
+                content={KVKK_AYDINLATMA_METNI}
+                onClose={() => setShowKvkkModal(false)}
+            />
+            <LegalConsentModal
+                open={showMarketingModal}
+                title="Ticari Elektronik İleti Onayı"
+                content={TICARI_ELEKTRONIK_ILETI_ONAYI}
+                onClose={() => setShowMarketingModal(false)}
+            />
         </Layout>
     );
 }

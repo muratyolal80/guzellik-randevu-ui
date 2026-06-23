@@ -407,8 +407,10 @@ export default function BookingUserInfoPage() {
                       </label>
                       <input
                         type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel-national"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                         placeholder="0xxx xxx xx xx"
                         maxLength={11}
                         className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -461,7 +463,9 @@ export default function BookingUserInfoPage() {
                         )}
                       </label>
                       <input
-                        type="text"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
                         value={otp}
                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                         placeholder="6 haneli kod"

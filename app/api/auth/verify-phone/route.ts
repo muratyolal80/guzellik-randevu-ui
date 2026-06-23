@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { registerIYSConsent } from '@/lib/messaging/iys';
 
 export async function POST(request: NextRequest) {
   const response = new NextResponse();
@@ -145,9 +146,13 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
 
-        // TODO: Call actual IYS API to register consent
-        // await registerToIYS(userId, e164Phone);
-        // After success, update iys_registered = true, iys_registered_at = now()
+        // Real IYS API call — non-blocking (booking flow devam eder, hata log'lanır)
+        registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
+          .then((res) => {
+            if (res.skipped) console.log(`[IYS] env eksik — kayıt atlanıyor (userId=${userId})`);
+            else if (!res.success) console.error(`[IYS] register FAIL userId=${userId}: ${res.error}`);
+          })
+          .catch((err) => console.error('[IYS] register threw:', err?.message || err));
       }
     } else if (consent && !isNewUser) {
       // Existing user verified phone again (maybe changed phone)
@@ -172,6 +177,12 @@ export async function POST(request: NextRequest) {
           });
 
         console.log(`[IYS LOG] Existing user ${userId} verified phone. Phone: ${e164Phone}`);
+
+        registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
+          .then((res) => {
+            if (!res.skipped && !res.success) console.error(`[IYS] register FAIL userId=${userId}: ${res.error}`);
+          })
+          .catch((err) => console.error('[IYS] register threw:', err?.message || err));
       }
     }
 
