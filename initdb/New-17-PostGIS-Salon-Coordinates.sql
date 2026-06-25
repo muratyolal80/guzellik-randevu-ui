@@ -79,7 +79,7 @@ AS $$
     s.image,
     c.name AS city_name,
     d.name AS district_name,
-    s.average_rating,
+    s.rating AS average_rating,
     s.is_sponsored,
     ROUND(
       (ST_Distance(
