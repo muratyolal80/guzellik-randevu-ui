@@ -60,6 +60,10 @@ function SearchContent() {
     const [onlyOpen, setOnlyOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
+    // Sprint F (K4) — fiyat & hizmet tipi filtreleri
+    const [maxPrice, setMaxPrice] = useState<number | null>(null);
+    const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>(typeParam ? [typeParam] : []);
+
     // Sprint B — sort + sayfalama
     type SortKey = 'sponsored' | 'rating_desc' | 'rating_asc' | 'newest' | 'price_asc' | 'price_desc' | 'distance_asc';
     const [sortKey, setSortKey] = useState<SortKey>('sponsored');
@@ -137,10 +141,15 @@ function SearchContent() {
 
         const matchesCity = selectedCity === 'Tümü' || normalize(salon.city_name) === normalize(selectedCity);
         const matchesDistrict = selectedDistrict === 'Tümü' || normalize(salon.district_name) === normalize(selectedDistrict);
-        const matchesType = !typeParam || salon.type_id === typeParam || salon.assigned_types?.some(t => t.id === typeParam);
+        const typeIds = selectedTypeIds.length > 0 ? selectedTypeIds : (typeParam ? [typeParam] : []);
+        const matchesType = typeIds.length === 0 ||
+            typeIds.includes(salon.type_id || '') ||
+            salon.assigned_types?.some((t: any) => typeIds.includes(t.id));
         const matchesRating = (salon.rating || 0) >= minRating;
-
         const matchesOpen = !onlyOpen || isSalonOpenNow(salon as any);
+
+        const salonMinPrice = Number((salon as any).min_price ?? 0);
+        const matchesPrice = maxPrice === null || salonMinPrice === 0 || salonMinPrice <= maxPrice;
 
         let matchesRadius = true;
         if (nearbyMode && geo.lat !== null && geo.lng !== null) {
@@ -155,7 +164,7 @@ function SearchContent() {
             }
         }
 
-        return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesRating && matchesRadius && matchesOpen;
+        return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesRating && matchesRadius && matchesOpen && matchesPrice;
     });
 
     // Sprint B (K7) — sıralama
@@ -180,7 +189,7 @@ function SearchContent() {
     // Sprint B (K1) — frontend sayfalama: filtre/sort değişince visibleCount sıfırla
     React.useEffect(() => {
         setVisibleCount(PAGE_SIZE);
-    }, [sortKey, localSearch, selectedCity, selectedDistrict, minRating, typeParam]);
+    }, [sortKey, localSearch, selectedCity, selectedDistrict, minRating, typeParam, selectedTypeIds, maxPrice, onlyOpen]);
 
     const visibleSalons = sortedSalons.slice(0, visibleCount);
     const hasMore = visibleCount < sortedSalons.length;
@@ -290,6 +299,62 @@ function SearchContent() {
                                 </label>
                             </div>
 
+                            <div className="space-y-1.5 md:col-span-2">
+                                <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">
+                                    Maksimum Fiyat {maxPrice !== null ? `(${maxPrice} ₺)` : '(filtre yok)'}
+                                </label>
+                                <input
+                                    type="range"
+                                    min={0}
+                                    max={2000}
+                                    step={50}
+                                    value={maxPrice ?? 2000}
+                                    onChange={(e) => {
+                                        const v = Number(e.target.value);
+                                        setMaxPrice(v >= 2000 ? null : v);
+                                    }}
+                                    className="w-full accent-primary"
+                                />
+                                <div className="flex justify-between text-[10px] text-text-muted font-bold">
+                                    <span>0 ₺</span>
+                                    <span>1000 ₺</span>
+                                    <span>2000+ ₺</span>
+                                </div>
+                            </div>
+
+                            {salonTypes.length > 0 && (
+                                <div className="space-y-1.5 md:col-span-2">
+                                    <label className="text-[10px] font-black text-text-muted uppercase tracking-wider ml-1">
+                                        Hizmet Tipi {selectedTypeIds.length > 0 ? `(${selectedTypeIds.length} seçili)` : ''}
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {salonTypes.map((t) => {
+                                            const active = selectedTypeIds.includes(t.id);
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedTypeIds((prev) =>
+                                                            prev.includes(t.id)
+                                                                ? prev.filter((x) => x !== t.id)
+                                                                : [...prev, t.id]
+                                                        );
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${
+                                                        active
+                                                            ? 'bg-primary text-white border-primary'
+                                                            : 'bg-white text-text-main border-border hover:border-primary'
+                                                    }`}
+                                                >
+                                                    {t.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* View Switch */}
                             <div className="space-y-1.5 flex flex-col justify-end">
                                 <div className="flex bg-gray-100 p-1 rounded-xl">
@@ -385,9 +450,11 @@ function SearchContent() {
                                     {visibleSalons.map(salon => (
                                         <div key={salon.id} className="bg-white rounded-[32px] border border-border overflow-hidden shadow-card hover:shadow-xl transition-all group">
                                             <div className="h-48 relative overflow-hidden">
-                                                <img 
-                                                    src={salon.image || '/bg-abstract.jpg'} 
+                                                <img
+                                                    src={salon.image || '/bg-abstract.jpg'}
                                                     alt={salon.name}
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                 />
                                                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-xl flex items-center gap-1 shadow-md">
@@ -481,7 +548,7 @@ function SearchContent() {
                                             onClick={() => router.push(`/salon/${salon.id}`)}
                                         >
                                             <div className="flex gap-4">
-                                                <img src={salon.image || '/bg-abstract.jpg'} className="w-20 h-20 rounded-xl object-cover" />
+                                                <img src={salon.image || '/bg-abstract.jpg'} alt={salon.name} loading="lazy" decoding="async" className="w-20 h-20 rounded-xl object-cover" />
                                                 <div className="min-w-0">
                                                     <h4 className="text-sm font-black text-text-main truncate">{salon.name}</h4>
                                                     <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-bold my-1">

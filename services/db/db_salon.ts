@@ -209,14 +209,41 @@ export const SalonDataService = {
 
   /**
    * Get salons by user membership (Owner/Staff branches)
+   * Sprint F (K12) — N+1 yerine tek join query (PostgREST resource embedding)
    */
   async getSalonsByMembership(
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
-    // First, get the salon IDs from memberships
     if (!userId || userId === "") return [];
 
+    // Tek query: memberships → salon_details join (PostgREST FK resolution).
+    // Eski N+1 (memberships fetch + ayrı salon_details fetch) yerine.
+    const { data: rows, error } = await supabase
+      .from("salon_memberships")
+      .select("salon_id, salon_details:salon_id(*)")
+      .eq("user_id", userId)
+      .eq("is_active", true);
+
+    if (error) {
+      console.warn('[getSalonsByMembership] join failed, fallback to N+1:', error.message);
+      return this._getSalonsByMembershipFallback(userId, supabase);
+    }
+
+    const details = (rows || [])
+      .map((r: any) => r.salon_details)
+      .filter(Boolean);
+
+    return details.map((s: any) => this.mapSalonDetail(s));
+  },
+
+  /**
+   * Fallback: PostgREST join çalışmazsa eski iki-query yöntemine düş.
+   */
+  async _getSalonsByMembershipFallback(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<SalonDetail[]> {
     const { data: memberships, error: memError } = await supabase
       .from("salon_memberships")
       .select("salon_id")

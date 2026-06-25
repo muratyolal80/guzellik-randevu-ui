@@ -235,10 +235,24 @@ function LoginContent() {
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                                <span className="material-symbols-outlined text-red-600 text-sm">error</span>
-                                <p className="text-red-700 text-sm">{error}</p>
-                            </div>
+                            (() => {
+                                const isDeactivated = error.includes('dondurulmuş') || error.includes('askıya');
+                                return (
+                                    <div className={`p-4 rounded-lg flex items-start gap-3 ${isDeactivated ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
+                                        <span className={`material-symbols-outlined ${isDeactivated ? 'text-amber-600' : 'text-red-600'} text-base mt-0.5`}>
+                                            {isDeactivated ? 'gpp_maybe' : 'error'}
+                                        </span>
+                                        <div className="flex-1">
+                                            <p className={`${isDeactivated ? 'text-amber-800' : 'text-red-700'} text-sm font-medium leading-relaxed`}>{error}</p>
+                                            {isDeactivated && (
+                                                <a href="mailto:destek@kuaforara.com.tr" className="inline-block mt-1 text-amber-700 text-xs font-bold underline hover:text-amber-900">
+                                                    destek@kuaforara.com.tr ile iletişime geçin →
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         )}
 
                         <button

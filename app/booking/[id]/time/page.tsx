@@ -362,6 +362,7 @@ export default function TimeSelection() {
                       <div className="text-center py-8">
                         <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
                         <p className="text-text-muted text-sm">Sabah saatlerinde müsait slot yok</p>
+                        <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya öğleden sonrayı deneyin</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -397,6 +398,7 @@ export default function TimeSelection() {
                       <div className="text-center py-8">
                         <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
                         <p className="text-text-muted text-sm">Öğleden sonra müsait slot yok</p>
+                        <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya sabahı deneyin</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">

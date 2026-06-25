@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { SalonDetail, Staff, SalonServiceDetail, Appointment } from '@/types';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { downloadIcs } from '@/lib/calendar/ics';
 
 export default function Confirmation() {
     const params = useParams();
@@ -364,6 +365,40 @@ export default function Confirmation() {
                                     <span className="material-symbols-outlined">person</span>
                                     Profilime Git
                                 </Link>
+                            )}
+
+                            {salon?.id && (
+                                <Link
+                                    href={`/salon/${salon.id}`}
+                                    className="px-8 py-3 bg-white border-2 border-emerald-300 text-emerald-700 rounded-lg font-bold hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">replay</span>
+                                    Yeni Randevu Al
+                                </Link>
+                            )}
+
+                            {appointment && appointment.start_time && (
+                                <button
+                                    onClick={() => {
+                                        const start = new Date(appointment.start_time);
+                                        const end = appointment.end_time ? new Date(appointment.end_time) : new Date(start.getTime() + 60 * 60 * 1000);
+                                        const serviceName = (services?.[0] as any)?.name || (services?.[0] as any)?.service_name || 'Randevu';
+                                        const salonName = salon?.name || 'Salon';
+                                        downloadIcs({
+                                            uid: appointment.id,
+                                            start,
+                                            end,
+                                            summary: `${serviceName} — ${salonName}`,
+                                            description: `Randevu No: ${appointment.id}\n${staff?.name ? `Uzman: ${staff.name}` : ''}`,
+                                            location: salon?.address || undefined,
+                                            organizer: salonName,
+                                        }, `randevu-${appointment.id}.ics`);
+                                    }}
+                                    className="px-8 py-3 bg-white border-2 border-primary/40 text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">calendar_add_on</span>
+                                    Takvime Ekle
+                                </button>
                             )}
 
                             <button

@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SlotService } from '@/services/slot';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * Available Slots API
  * Returns available time slots using SlotService
- * 
+ *
  * GET /api/booking/available-slots?salon_id=xxx&staff_id=xxx&service_id=xxx&date=2026-01-26
  */
 
 export async function GET(request: NextRequest) {
     try {
+        // Sprint F (R10) — rate limit (IP başına 30/dakika)
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            || request.headers.get('x-real-ip')
+            || 'unknown';
+        const rl = await rateLimit(`slots:${ip}`, 30, 60_000);
+        if (!rl.success) {
+            return NextResponse.json(
+                { success: false, error: 'Çok fazla istek. Lütfen birkaç saniye sonra tekrar deneyin.' },
+                { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.reset - Date.now()) / 1000)) } }
+            );
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const salonId = searchParams.get('salon_id');
         const staffId = searchParams.get('staff_id');

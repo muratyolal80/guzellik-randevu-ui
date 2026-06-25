@@ -48,7 +48,8 @@ export default function Register() {
             return;
         }
 
-        if (!email.includes('@')) {
+        const EMAIL_RFC = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!EMAIL_RFC.test(email)) {
             setError('Geçerli bir e-posta adresi giriniz.');
             setLoading(false);
             return;
