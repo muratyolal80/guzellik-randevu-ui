@@ -7,7 +7,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Orta** — yakın zamanda (sonraki sprint)
 - 🟢 **Düşük** — backlog
 
-**Son güncelleme:** 2026-06-01
+**Son güncelleme:** 2026-06-27
 
 ---
 
@@ -85,6 +85,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Master schema güncelleme** — DB ile sync değil ([Database](infrastructure/database.md))
 - ✅ ~~Migration tracking tablosu~~ — `_migrations` tablosu eklendi (Faz 3, New-11). Geriye dönük tüm New-XX kaydedildi.
 - ✅ ~~RLS aktif olup GRANT eksik tablolar~~ — New-14 ile tüm tablolarda `authenticated` SELECT GRANT tamamlandı, audit query `db-health-check.sql` Section 8'e eklendi.
+- ✅ ~~`otp_codes` RLS açık ama policy yok~~ — `New-20` ile `service_role_full_access` policy eklendi (2026-06-27). anon/auth erişimi yok (doğru davranış), niyet açık şekilde belgelendi.
 - 🟡 **MCP doc onboarding** — yeni geliştirici test ([MCP](infrastructure/mcp.md))
 
 ---
@@ -185,6 +186,7 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 | 2026-05-07 | Faz 3 — Geçmiş saat slot filtresi + NO_SHOW enum + _migrations tracking (3 TODO çözüldü) |
 | 2026-05-31 | New-14 — support_tickets boş `{}` hatası onarımı + 17 tabloda authenticated SELECT GRANT audit + health-check Section 8 + CLAUDE.md RLS+GRANT kuralı |
 | 2026-06-01 | **PayTR iFrame entegrasyonu (1.1.0)** — sadece abonelik için. Iyzico arşivde, provider switch ile geri dönüş mümkün. Faz 0 admin finance crash fix + Faz A-F PayTR (New-15, lib/types/routes/modal/admin settings) + payment-paytr.md belge |
+| 2026-06-27 | **Production hijyen (1.1.1)** — `otp_codes` RLS policy gap kapatıldı (`New-20`, service_role explicit policy). `docs/PROD-LAUNCH-CHECKLIST.md` eklendi (10 manuel adım rehberi). `.gitignore` 4 güvenlik kuralı + `tmp/` git-untrack. Bozuk merge commit'leri revert (yedek: `backup-broken-merge-20260627` branch). |
 
 ## Belge Güncelleme Kuralı
 

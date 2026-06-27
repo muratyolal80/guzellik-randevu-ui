@@ -4,8 +4,8 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.1.0 |
-| Son güncelleme | 01.06.2026 |
+| Sürüm | 1.1.1 |
+| Son güncelleme | 27.06.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
 | Domain | `kuaforara.com.tr` |
@@ -96,7 +96,7 @@ Her özellik aşağıdaki şablonla yazılır:
 2. 6 haneli kod oluşur (5 dk geçerli), SMS ile gönderilir
 3. Kullanıcı kodu girer → `POST /api/booking/verify-and-book`
 4. Doğru kod → randevu oluşturulur
-**Veri:** `otp_codes`
+**Veri:** `otp_codes` (RLS: sadece `service_role` erişebilir — anon/auth okuyamaz)
 **API:** [app/api/booking/send-otp](app/api/booking/send-otp), [app/api/booking/verify-and-book](app/api/booking/verify-and-book)
 **Rate limit:** Telefon başına 3/dk + IP başına 8/dk
 **Demo mode:** `OTP_DEMO_MODE=true` → her zaman `111111` kabul edilir
@@ -494,6 +494,7 @@ npm run lint          # ESLint
 | 1.0.4 | 31.05.2026 | Veri onarımı: `cities` (31/81) ve `districts` (509/975) isimlerinde UTF-8 import bozulması (`İstanbul→"??stanbul"`) düzeltildi. `cities` plate_code ile UPSERT, `districts` bozuk-form eşleştirmesiyle UPDATE — id'ler ve salon FK'leri korundu (`New-13`) |
 | 1.0.5 | 31.05.2026 | F-092 hardening: `/admin/support` sayfası "Biletler çekilemedi: `{}`" boş hatası → kök neden `support_tickets`/`ticket_messages`'ta `authenticated` rolünün SELECT/INSERT/UPDATE GRANT'larının eksik olması. `New-14` ile (a) support tablolarına kesin GRANT, (b) tüm RLS-aktif public tablolarda authenticated SELECT eksik olanları otomatik tamamlayan audit DO bloğu (17 ek tabloya GRANT verildi), (c) `db-health-check.sql` Section 8 + Section 9 (eksik GRANT audit + migration kayıt görünümü), (d) CLAUDE.md ve `docs/infrastructure/rls.md`'ye RLS+GRANT birlikte kurulum kuralı eklendi |
 | 1.1.0 | 01.06.2026 | **PayTR entegrasyonu (yeni)** — Iyzico üretim onayı alınamadığı için **PayTR iFrame API** ile salon sahibi abonelik ödemesi entegrasyonu eklendi. Yeni: `lib/payment/paytr.ts`, `types/paytr.d.ts`, `app/api/paytr/{create-token,callback,refund}`, `components/payment/PayTRPaymentModal.tsx`. DB: `New-15` ile `paytr_config`, `active_payment_provider` (PAYTR/IYZICO/NONE switch), `subscriptions.paytr_oid`, `paytr_webhooks` audit tablosu. Admin Panel > Ayarlar'a provider switch + her iki provider config formu (demo kart bilgi kartı dahil). Iyzico kodu **SİLİNMEDİ** (arşiv); admin "Aktif Sağlayıcı" toggle ile geri dönülebilir. Önceki Faz 0: admin finance crashlerinin tamiri (`FinancialReportsView` defensive guard + IIFE içindeki conditional `useState` bug'ı, history tab'ında). Kapsam: SADECE abonelik ödemesi; booking kapora yine kapsam dışı. |
+| 1.1.1 | 27.06.2026 | **Production hijyen** — (a) `New-20` ile `otp_codes` tablosunda RLS açıkken 0 policy uyarısı kapatıldı (`service_role_full_access` explicit policy; anon/auth erişimi yok, supabaseAdmin pattern korundu); (b) `docs/PROD-LAUNCH-CHECKLIST.md` eklendi — 10 manuel adım için tam rehber (İYS, NetGSM, Resend, Google OAuth, CRON_SECRET, PayTR canlı, Sentry, UptimeRobot, Turnstile, repo cleanup); (c) `.gitignore` 4 ek güvenlik kuralı (`.claude/settings.local.json`, `tmp/`, `.vsls.json`, `*.pem/key/p12/pfx`); (d) `tmp/` git takibinden çıkarıldı (32 dosya); (e) bozuk merge commit'leri (`90caace`, `b9917bd`) revert — `1bae6d7` baz alınarak `main` ve `feat-admin-panel` temizlendi (yedek: `backup-broken-merge-20260627`) |
 
 **Önemli commit'ler:**
 - `e4d2861` — Production readiness (Sentry, Resend, KVKK, IYS, JSON-LD, Lighthouse CI)
