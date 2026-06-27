@@ -10,6 +10,8 @@ import type { SalonDetail, Staff, SalonServiceDetail, Appointment } from '@/type
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { downloadIcs } from '@/lib/calendar/ics';
+import PrintTicket from '@/components/booking/PrintTicket';
+import '@/components/booking/print-ticket.css';
 
 export default function Confirmation() {
     const params = useParams();
@@ -359,7 +361,7 @@ export default function Confirmation() {
 
                             {user && (
                                 <Link
-                                    href="/profile"
+                                    href="/customer/profile"
                                     className="px-8 py-3 bg-white border-2 border-primary text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <span className="material-symbols-outlined">person</span>
@@ -412,6 +414,16 @@ export default function Confirmation() {
                     </div>
                 </div>
             </div>
+
+            {/* Yazdırma için optimize edilmiş ticket — ekranda gizli, sadece print'te görünür */}
+            <PrintTicket
+                appointment={appointment}
+                salon={salon}
+                staff={staff}
+                services={services}
+                customerName={customerName}
+                customerPhone={customerPhone}
+            />
         </Layout>
     );
 }
