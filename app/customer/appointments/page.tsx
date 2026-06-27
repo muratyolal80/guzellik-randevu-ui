@@ -196,26 +196,41 @@ export default function AppointmentsPage() {
                             <div key={apt.id} className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
                                 <div className="flex justify-between items-start">
                                     <div className="flex-1">
-                                        <h3 className="font-bold text-lg text-text-main">{apt.salon?.name || 'Salon'}</h3>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="font-bold text-lg text-text-main">{apt.salon?.name || 'Salon'}</h3>
+                                            <span className="text-[10px] font-mono font-bold text-text-muted bg-gray-50 border border-gray-100 rounded px-2 py-0.5">
+                                                #{apt.id?.substring(0, 8).toUpperCase()}
+                                            </span>
+                                        </div>
                                         <p className="text-sm text-text-secondary">{apt.salon?.address}</p>
-                                        <div className="mt-3 flex flex-wrap gap-3">
+                                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                                             <div className="flex items-center gap-2 text-sm">
-                                                <CalendarDays className="w-4 h-4 text-primary" />
+                                                <CalendarDays className="w-4 h-4 text-primary shrink-0" />
                                                 <span className="font-medium">
-                                                    {new Date(apt.start_time).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
+                                                    {new Date(apt.start_time).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm">
-                                                <Clock className="w-4 h-4 text-primary" />
+                                                <Clock className="w-4 h-4 text-primary shrink-0" />
                                                 <span className="font-medium">
                                                     {new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {apt.service?.duration_min ? ` · ${apt.service.duration_min} dk` : ''}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm">
-                                                <Scissors className="w-4 h-4 text-primary" />
-                                                <span className="font-medium">{apt.service?.global_service?.name}</span>
+                                                <Scissors className="w-4 h-4 text-primary shrink-0" />
+                                                <span className="font-medium">{apt.service?.global_service?.name || 'Hizmet'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="material-symbols-outlined text-primary text-base">person</span>
+                                                <span className="font-medium">{apt.staff?.name || 'Uzman belirtilmemiş'}</span>
                                             </div>
                                         </div>
+                                        {apt.notes && (
+                                            <div className="mt-3 text-xs text-text-secondary bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                                <span className="font-bold text-amber-700">Not:</span> {apt.notes}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${statusCfg.className}`}>
                                         {statusCfg.icon}
