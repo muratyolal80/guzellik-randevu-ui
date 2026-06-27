@@ -48,6 +48,17 @@ const ROLE_LABELS: Record<string, { label: string, icon: any, color: string, bg:
 };
 
 const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boolean }) => {
+    // Hooks MUST be declared at top before any early return (rules-of-hooks)
+    const [historyPage, setHistoryPage] = useState(1);
+    const itemsPerPage = 3;
+    const history = data?.history;
+    const totalHistoryPages = Math.ceil((history?.length || 0) / itemsPerPage);
+    const pagedHistory = useMemo(() => {
+        if (!history) return [];
+        const start = (historyPage - 1) * itemsPerPage;
+        return history.slice(start, start + itemsPerPage);
+    }, [history, historyPage]);
+
     if (loading) return (
         <div className="space-y-6 animate-pulse p-8 bg-slate-50 rounded-[32px] border-2 border-slate-100">
             <div className="h-6 w-48 bg-slate-200 rounded-md"></div>
@@ -68,18 +79,8 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
         </div>
     );
 
-    const { activeSub, usage, history, firstPurchase } = data;
+    const { activeSub, usage, firstPurchase } = data;
     const plan = activeSub?.subscription_plans;
-
-    // Local Pagination
-    const [historyPage, setHistoryPage] = useState(1);
-    const itemsPerPage = 3;
-    const totalHistoryPages = Math.ceil((history?.length || 0) / itemsPerPage);
-    const pagedHistory = useMemo(() => {
-        if (!history) return [];
-        const start = (historyPage - 1) * itemsPerPage;
-        return history.slice(start, start + itemsPerPage);
-    }, [history, historyPage]);
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">

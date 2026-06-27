@@ -55,3 +55,7 @@ tmp/
 *.key
 *.p12
 *.pfx
+
+# TypeScript build artifacts
+tsconfig.tsbuildinfo
+*.tsbuildinfo
