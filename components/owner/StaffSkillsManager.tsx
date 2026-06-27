@@ -114,7 +114,7 @@ export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
                             {staff.map(s => (
                                 <th key={s.id} className="py-3 px-4 font-bold text-text-main text-center min-w-[100px]">
                                     <div className="flex flex-col items-center gap-1">
-                                        <img src={s.photo || 'https://i.pravatar.cc/100'} className="w-8 h-8 rounded-full bg-gray-100" />
+                                        <img src={s.photo || 'https://i.pravatar.cc/100'} alt={`${s.name} profil fotoğrafı`} className="w-8 h-8 rounded-full bg-gray-100" />
                                         <span>{s.name}</span>
                                     </div>
                                 </th>
