@@ -350,12 +350,17 @@ export const MasterDataService = {
    * Get navigation menu data (for header)
    */
   async getNavMenuData(supabase: SupabaseClient = defaultSupabase) {
+<<<<<<< HEAD
     const [salonTypesResult, categoriesResult, allServicesResult] = await Promise.allSettled([
+=======
+    const [salonTypes, categories, allServices] = await Promise.all([
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       this.getSalonTypes(supabase),
       this.getServiceCategories(supabase),
       this.getAllGlobalServices(supabase),
     ]);
 
+<<<<<<< HEAD
     const salonTypes = salonTypesResult.status === 'fulfilled' ? salonTypesResult.value : [];
     const categories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
     const allServices = allServicesResult.status === 'fulfilled' ? allServicesResult.value : [];
@@ -364,6 +369,9 @@ export const MasterDataService = {
     if (categoriesResult.status === 'rejected') console.warn('getNavMenuData: service_categories failed', categoriesResult.reason?.message);
     if (allServicesResult.status === 'rejected') console.warn('getNavMenuData: global_services failed', allServicesResult.reason?.message);
 
+=======
+    // Group services by category ID
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const servicesByCatId: Record<string, string[]> = {};
     allServices.forEach((service) => {
       if (!servicesByCatId[service.category_id]) {

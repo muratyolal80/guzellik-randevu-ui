@@ -54,11 +54,14 @@ function LoginContent() {
 
     // Auto-redirect if already authenticated
     useEffect(() => {
+<<<<<<< HEAD
         const errorParam = searchParams.get('error');
         if (errorParam === 'account_deactivated') {
             setError('Hesabınız dondurulmuş veya askıya alınmıştır. Lütfen destek ile iletişime geçin.');
         }
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         if (!authLoading && isAuthenticated && user) {
             const dest = getRedirectUrl();
             console.log('Redirecting authenticated user to:', dest, 'Role:', user.role);
@@ -235,6 +238,7 @@ function LoginContent() {
                         </div>
 
                         {error && (
+<<<<<<< HEAD
                             (() => {
                                 const isDeactivated = error.includes('dondurulmuş') || error.includes('askıya');
                                 return (
@@ -253,6 +257,12 @@ function LoginContent() {
                                     </div>
                                 );
                             })()
+=======
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                                <span className="material-symbols-outlined text-red-600 text-sm">error</span>
+                                <p className="text-red-700 text-sm">{error}</p>
+                            </div>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         )}
 
                         <button

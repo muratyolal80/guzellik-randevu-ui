@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Bu randevuyu iptal etme yetkiniz yok.' }, { status: 403 });
         }
 
+<<<<<<< HEAD
         // Zaten iptal edilmiş randevu için tekrar iptal yapma
         if (appointment.status === 'CANCELLED') {
             return NextResponse.json({ error: 'Bu randevu zaten iptal edilmiş.' }, { status: 400 });
@@ -83,6 +84,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         // 3. Refund Logic
         let refundProcessed = false;
         let refundError = null;

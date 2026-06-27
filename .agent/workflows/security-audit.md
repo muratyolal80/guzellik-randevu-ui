@@ -13,11 +13,16 @@ Bu workflow, her veritabanı değişikliği veya yeni özellik geliştirme sonra
    - `initdb/` klasöründeki son migrationları inceleyin.
 
 2. **Politika Hiyerarşisini Doğrula:**
+<<<<<<< HEAD
    - **Admin (SUPER_ADMIN / ADMIN):** Tüm tablolarda tam yetki (`public.is_admin(auth.uid())`) olmalı.
+=======
+   - **Admin (SUPER_ADMIN):** Tüm tablolarda tam yetki (`role = 'SUPER_ADMIN'`) olmalı.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    - **Owner (İşletme Sahibi):** 
      - Sadece kendi `salon_id` veya `owner_id` değerine sahip satırları yönetebilmeli.
      - **DİKKAT:** `salons` ve `salon_services` tablolarında DELETE yetkisi OLMAMALI.
    - **Staff (Personel):** 
+<<<<<<< HEAD
      - Sadece kendisine atanan randevuları görmeli.
      - Salon ayarlarına ve diğer personel verilerine erişimi OLMAMALI.
    - **Customer (Müşteri):** Sadece kendi randevularını (`customer_id = auth.uid()`) ve profilini görebilmeli.
@@ -35,6 +40,19 @@ Bu workflow, her veritabanı değişikliği veya yeni özellik geliştirme sonra
    where schemaname = 'public' 
    and cmd = 'DELETE' 
    and policyname not like 'admin_%';
+=======
+     - Sadece `staff_id` kendisine atanan randevuları görmeli.
+     - Salon ayarlarına ve diğer personel verilerine erişimi OLMAMALI.
+   - **Customer (Müşteri):** Sadece kendi randevularını (`customer_id = auth.uid()`) ve profilini görebilmeli.
+
+3. **SQL Kontrolü:**
+   ```sql
+   -- RLS'in açık olduğunu kontrol et
+   select tablename, rowsecurity from pg_tables where schemaname = 'public';
+
+   -- Politikaları listele ve DELETE kısıtlarını kontrol et
+   select * from pg_policies where schemaname = 'public' and cmd = 'DELETE';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    ```
 
 4. **Test Senaryoları:**
@@ -46,4 +64,7 @@ Bu workflow, her veritabanı değişikliği veya yeni özellik geliştirme sonra
 
 5. **Kayıt:**
    - Her denetim sonucunu `task.md` içerisinde "Güvenlik Denetimi Tamamlandı" olarak işaretleyin.
+<<<<<<< HEAD
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8

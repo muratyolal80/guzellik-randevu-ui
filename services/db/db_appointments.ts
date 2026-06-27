@@ -222,6 +222,7 @@ export const AppointmentService = {
   },
 
   /**
+<<<<<<< HEAD
    * Complete appointment and record payment
    */
   async completeAppointmentWithPayment(
@@ -282,6 +283,8 @@ export const AppointmentService = {
   },
 
   /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Update appointment status (with tenant check)
    */
   async updateAppointmentStatus(

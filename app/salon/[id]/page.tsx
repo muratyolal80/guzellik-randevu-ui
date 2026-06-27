@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -916,3 +917,972 @@ export default function SalonDetailPage() {
         </Layout>
     );
 }
+=======
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Layout } from '@/components/Layout';
+import { GeminiChat } from '@/components/GeminiChat';
+import { SalonDataService, ReviewService, ServiceService, FavoriteService, GalleryService, StaffReviewService } from '@/services/db';
+import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, Appointment, StaffReview, SalonGallery } from '@/types';
+import { useAuth } from '@/context/AuthContext';
+import { useBooking } from '@/context/BookingContext';
+import GallerySlider from '@/components/GallerySlider';
+import ImageUpload from '@/components/ImageUpload';
+import Skeleton from '@/components/Skeleton';
+import Lightbox from '@/components/common/Lightbox';
+import { UserRole } from '@/types';
+import { AlertCircle } from 'lucide-react';
+
+// Dynamically import Map component with no SSR
+const SalonMap = dynamic(
+    () => import('@/components/Map/SalonMap').then((mod) => mod.SalonMap),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-text-muted text-xs">Harita yükleniyor...</p>
+                </div>
+            </div>
+        )
+    }
+);
+
+export default function SalonDetailPage() {
+    const params = useParams();
+    const router = useRouter();
+    const id = params.id as string;
+    const { user } = useAuth();
+    const { setSalon: setBookingSalon, setSelectedServices } = useBooking();
+
+    const [salon, setSalon] = useState<SalonDetail | null>(null);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [services, setServices] = useState<SalonServiceDetail[]>([]);
+    const [workingHours, setWorkingHours] = useState<SalonWorkingHours[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [togglingFavorite, setTogglingFavorite] = useState(false);
+
+    // Review Verification States
+    const [eligibleAppointments, setEligibleAppointments] = useState<Appointment[]>([]);
+    const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
+
+    // Review Form States
+    const [showReviewForm, setShowReviewForm] = useState(false);
+    const [newRating, setNewRating] = useState(0);
+    const [newComment, setNewComment] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState<'services' | 'staff-reviews'>('services');
+    const [staffReviews, setStaffReviews] = useState<StaffReview[]>([]);
+    const [loadingStaffReviews, setLoadingStaffReviews] = useState(false);
+    const [gallery, setGallery] = useState<SalonGallery[]>([]);
+    const [reviewImagesUrls, setReviewImagesUrls] = useState<string[]>([]);
+    const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+    // Lightbox for Review Images State
+    const [lightboxState, setLightboxState] = useState<{
+        isOpen: boolean;
+        images: string[];
+        currentIndex: number;
+    }>({
+        isOpen: false,
+        images: [],
+        currentIndex: 0
+    });
+
+    useEffect(() => {
+        if (activeTab === 'staff-reviews' && id) {
+            fetchStaffReviews();
+        }
+    }, [activeTab, id]);
+
+    const fetchStaffReviews = async () => {
+        try {
+            setLoadingStaffReviews(true);
+            const data = await StaffReviewService.getReviewsBySalon(id);
+            setStaffReviews((data || []).map((r: any) => ({
+                ...r,
+                user_name: String(r.user_name || 'Misafir'),
+                comment: typeof r.comment === 'object' ? JSON.stringify(r.comment) : String(r.comment || ''),
+                staff_name: typeof r.staff_name === 'object' ? (r.staff_name as any)?.name : String(r.staff_name || '')
+            })));
+        } catch (error) {
+            console.error('Error fetching staff reviews:', error);
+        } finally {
+            setLoadingStaffReviews(false);
+        }
+    };
+
+    // Group services by category
+    const groupedServices = services.reduce((acc: Record<string, SalonServiceDetail[]>, service) => {
+        const category = service.category_name || 'Diğer';
+        if (!acc[category]) {
+            acc[category] = [];
+        }
+        acc[category].push(service);
+        return acc;
+    }, {} as Record<string, SalonServiceDetail[]>);
+
+    // State for collapsible categories (default all open)
+    const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
+        Object.keys(groupedServices).reduce((acc, key) => ({ ...acc, [key]: true }), {})
+    );
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!id) return;
+            setLoading(true);
+            try {
+                // Fetch salon first — this is critical
+                const salonData = await SalonDataService.getSalonById(id);
+
+                // Fetch secondary data in parallel using allSettled so one failure doesn't break the page
+                const [reviewsResult, servicesResult, hoursResult, galleryResult] = await Promise.allSettled([
+                    ReviewService.getReviewsBySalon(id),
+                    ServiceService.getServicesBySalon(id),
+                    SalonDataService.getSalonWorkingHours(id),
+                    GalleryService.getSalonGallery(id)
+                ]);
+
+                if (salonData) {
+                    setSalon(salonData);
+                    setBookingSalon(salonData); // Store in booking context
+
+                    // Fetch favorite status if user logged in
+                    if (user) {
+                        try {
+                            const favStatus = await FavoriteService.isFavorite(user.id, salonData.id);
+                            setIsFavorite(favStatus);
+                        } catch (err) {
+                            console.error('Failed to fetch favorite status', err);
+                        }
+
+                        try {
+                            const appointments = await ReviewService.getReviewableAppointments(user.id, salonData.id);
+                            setEligibleAppointments(appointments);
+                            if (appointments.length > 0) {
+                                setSelectedAppointmentId(appointments[0].id);
+                            }
+                        } catch (err) {
+                            console.error('Failed to fetch eligible appointments', err);
+                        }
+                    }
+                }
+
+                // Safely extract data from settled promises
+                setReviews(reviewsResult.status === 'fulfilled' ? (reviewsResult.value || []) : []);
+                setServices(servicesResult.status === 'fulfilled' ? (servicesResult.value || []) : []);
+                setWorkingHours(hoursResult.status === 'fulfilled' ? (hoursResult.value || []) : []);
+                setGallery(galleryResult.status === 'fulfilled' ? (galleryResult.value || []) : []);
+
+                // Log any errors for debugging
+                if (reviewsResult.status === 'rejected') console.error('Reviews fetch failed:', reviewsResult.reason);
+                if (servicesResult.status === 'rejected') console.error('Services fetch failed:', servicesResult.reason);
+                if (hoursResult.status === 'rejected') console.error('Working hours fetch failed:', hoursResult.reason);
+                if (galleryResult.status === 'rejected') console.error('Gallery fetch failed:', galleryResult.reason);
+            } catch (error) {
+                console.error('Salon detay verisi yüklenirken hata:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [id, setBookingSalon, user]);
+
+    const handleToggleFavorite = async () => {
+        if (!user || !salon) {
+            alert("Favorilere eklemek için giriş yapmalısınız.");
+            return;
+        }
+
+        try {
+            setTogglingFavorite(true);
+            const newState = await FavoriteService.toggleFavorite(user.id, salon.id);
+            setIsFavorite(newState);
+        } catch (error) {
+            console.error("Favori işlemi sırasında hata:", error);
+        } finally {
+            setTogglingFavorite(false);
+        }
+    };
+
+    const toggleCategory = (category: string) => {
+        setOpenCategories(prev => ({ ...prev, [category]: !prev[category] }));
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !salon) return;
+
+        if (!selectedAppointmentId) {
+            alert("Lütfen değerlendirmek istediğiniz hizmeti seçiniz.");
+            return;
+        }
+
+        if (newRating === 0) {
+            alert("Lütfen bir puan seçiniz.");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const newReviewData = await ReviewService.createReview({
+                salon_id: salon.id,
+                user_id: user.id,
+                user_name: `${user.first_name || ''} ${(user.last_name || '').charAt(0)}.`.trim(),
+                user_avatar: user.avatar_url,
+                rating: newRating,
+                comment: newComment,
+                appointment_id: selectedAppointmentId
+            });
+
+            // Handle review images if any
+            let finalReviewData = { ...newReviewData, images: [] as any[] };
+            if (reviewImagesUrls.length > 0) {
+                const addedImages = await Promise.all(reviewImagesUrls.map(url =>
+                    GalleryService.addReviewImage({
+                        review_id: newReviewData.id,
+                        image_url: url
+                    })
+                ));
+                finalReviewData.images = addedImages;
+            }
+
+            setReviews([finalReviewData, ...reviews]);
+            setShowReviewForm(false);
+            setNewRating(0);
+            setNewComment('');
+            setReviewImagesUrls([]);
+
+            // Remove the reviewed appointment from eligible list
+            setEligibleAppointments(prev => prev.filter(a => a.id !== selectedAppointmentId));
+            setSelectedAppointmentId('');
+
+            // Re-fetch salon to update average header immediately
+            const updatedSalon = await SalonDataService.getSalonById(salon.id);
+            if (updatedSalon) setSalon(updatedSalon);
+
+        } catch (error: any) {
+            console.error("Yorum eklenirken hata oluştu:", {
+                message: error?.message || "Bilinmeyen hata",
+                error: error,
+                stack: error?.stack,
+                details: error?.details || error?.hint || error
+            });
+            alert(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <Layout>
+                <div className="bg-background min-h-screen">
+                    {/* Hero Skeleton */}
+                    <Skeleton className="h-[480px] w-full rounded-none" />
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <div className="lg:col-span-8">
+                                {/* Header Info Skeleton */}
+                                <div className="bg-white rounded-[32px] p-8 md:p-10 border border-border shadow-card mb-8">
+                                    <Skeleton className="h-10 w-2/3 mb-4" />
+                                    <div className="flex flex-wrap gap-4 mb-6">
+                                        <Skeleton className="h-6 w-32" />
+                                        <Skeleton className="h-6 w-48" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Skeleton className="h-10 w-32 rounded-xl" />
+                                        <Skeleton className="h-10 w-32 rounded-xl" />
+                                    </div>
+                                </div>
+
+                                {/* Tabs Skeleton */}
+                                <div className="space-y-4">
+                                    <div className="flex gap-4 border-b border-border pb-4">
+                                        <Skeleton className="h-8 w-24" />
+                                        <Skeleton className="h-8 w-32" />
+                                    </div>
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="bg-white p-6 rounded-2xl border border-border">
+                                            <div className="flex justify-between mb-4">
+                                                <Skeleton className="h-6 w-1/4" />
+                                                <Skeleton className="h-6 w-16" />
+                                            </div>
+                                            <Skeleton className="h-4 w-full mb-2" />
+                                            <Skeleton className="h-4 w-2/3" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Sidebar Skeleton */}
+                            <div className="lg:col-span-4 space-y-8">
+                                <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                                    <Skeleton className="h-8 w-1/2 mb-6" />
+                                    <Skeleton className="h-48 w-full rounded-2xl mb-6" />
+                                    <Skeleton className="h-20 w-full rounded-2xl" />
+                                </div>
+                                <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                                    <Skeleton className="h-8 w-2/3 mb-6" />
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <div key={i} className="flex justify-between mb-4">
+                                            <Skeleton className="h-4 w-20" />
+                                            <Skeleton className="h-4 w-24" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Layout>
+        );
+    }
+
+    if (!salon) {
+        return (
+            <Layout>
+                <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-6 border border-red-100 shadow-inner">
+                        <AlertCircle className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-3xl font-black text-text-main mb-4">Salon Bulunamadı</h1>
+                    <p className="text-text-secondary max-w-md mb-8">
+                        Aradığınız salon sistemde bulunamadı veya yayından kaldırılmış olabilir.
+                    </p>
+                    <Link 
+                        href="/"
+                        className="bg-primary text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                    >
+                        Ana Sayfaya Dön
+                    </Link>
+                </div>
+            </Layout>
+        );
+    }
+
+    // Calculate rating distribution for UI
+    const ratingDistribution = [5, 4, 3, 2, 1].map(star => {
+        const count = reviews.filter(r => Math.round(r.rating) === star).length;
+        const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+        return { star, count, percentage };
+    });
+
+    // Helper to format day name
+    const getDayName = (dayIdx: number) => {
+        const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+        return days[dayIdx];
+    };
+
+    return (
+        <Layout>
+            {/* Professional Hero Section */}
+            <div className="relative h-[480px] w-full group">
+                {gallery.length > 0 ? (
+                    <GallerySlider images={gallery} salonName={salon.name} />
+                ) : (
+                    <div
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
+                        style={{ backgroundImage: `url("${salon.image}")` }}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
+                    </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 z-10 pointer-events-none">
+                    <div className="flex flex-col md:flex-row items-end justify-between gap-6 pointer-events-auto">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                {salon.is_sponsored && <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full tracking-wide shadow-md">ÖNERİLEN</span>}
+                                <a href="#reviews" className="flex items-center gap-1.5 text-sm font-bold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white border border-white/20 shadow-sm hover:bg-white/30 transition-colors">
+                                    <span className="material-symbols-outlined text-base filled text-yellow-400">star</span>
+                                    {salon.rating || salon.average_rating} <span className="text-gray-300 font-normal">({reviews.length} Değerlendirme)</span>
+                                </a>
+                            </div>
+                            <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
+                            <div className="flex flex-wrap items-center gap-4 text-gray-200 text-sm font-medium">
+                                <span className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm">
+                                    <span className="material-symbols-outlined text-primary">location_on</span> {(salon.neighborhood || salon.avenue || salon.street || salon.building_no) ? `${salon.neighborhood ? `${salon.neighborhood}, ` : ''}${salon.avenue ? `${salon.avenue}, ` : ''}${salon.street ? `${salon.street} No:${salon.building_no}` : ''}` : (salon.address || `${salon.district_name}, ${salon.city_name}`)}
+                                </span>
+                                {salon.tags && salon.tags.length > 0 && (
+                                    <span className="flex items-center gap-2">
+                                        {salon.tags.map(tag => (
+                                            <span key={tag} className="text-gray-300 hover:text-white transition-colors cursor-pointer">#{tag}</span>
+                                        ))}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30 border border-white/20 backdrop-blur-md transition-all text-white font-bold group/btn shadow-lg">
+                                <span className="material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform">share</span> <span className="hidden sm:inline">Paylaş</span>
+                            </button>
+                            <button
+                                onClick={handleToggleFavorite}
+                                disabled={togglingFavorite}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl border backdrop-blur-md transition-all font-bold group/btn shadow-lg ${isFavorite ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white/20 hover:bg-white/30 border-white/20 text-white'}`}
+                            >
+                                <span className={`material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform ${isFavorite ? 'filled' : ''}`}>favorite</span>
+                                <span className="hidden sm:inline">{isFavorite ? 'Kaydedildi' : 'Kaydet'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+
+                    {/* Main Content */}
+                    <div className="lg:col-span-8 space-y-12">
+
+                        {/* About Section */}
+                        <section className="bg-white rounded-3xl p-8 border border-border shadow-card relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                            <h3 className="text-2xl font-display font-bold text-text-main mb-6 flex items-center gap-3 relative z-10">
+                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">storefront</span></span>
+                                Hakkında
+                            </h3>
+                            <p className="text-text-secondary leading-relaxed text-base relative z-10">
+                                {salon.description || `${salon.name}, İstanbul'un en prestijli lokasyonunda, uzman kadrosu ve modern ekipmanlarıyla hizmetinizde.`}
+                            </p>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-100">
+                                {(salon.features && salon.features.length > 0 ? salon.features : ['Wi-Fi', 'İkramlar', 'Otopark', 'Kredi Kartı']).map((feature, idx) => (
+                                    <div key={idx} className="flex flex-col items-center gap-3 group">
+                                        <div className="size-12 rounded-2xl bg-surface-alt border border-border flex items-center justify-center text-text-muted group-hover:text-primary group-hover:border-primary/30 group-hover:bg-primary/5 transition-all duration-300">
+                                            <span className="material-symbols-outlined text-2xl">
+                                                {feature.includes('Wi-Fi') ? 'wifi' : feature.includes('İkram') ? 'local_cafe' : feature.includes('Otopark') ? 'local_parking' : feature.includes('Kart') ? 'credit_card' : feature.includes('Klima') ? 'ac_unit' : 'star'}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-text-secondary group-hover:text-text-main transition-colors">{feature}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Tab Navigation */}
+                        <div className="flex border-b border-border mb-8">
+                            <button
+                                onClick={() => setActiveTab('services')}
+                                className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === 'services' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
+                            >
+                                Hizmetler
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('staff-reviews')}
+                                className={`px-6 py-3 font-bold text-sm border-b-2 transition-all ${activeTab === 'staff-reviews' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-primary'}`}
+                            >
+                                Uzman Yorumları
+                            </button>
+                        </div>
+
+                        {activeTab === 'services' && (
+                            <section>
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
+                                        <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined text-xl">content_cut</span></span>
+                                        Hizmetler
+                                    </h3>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {Object.entries(groupedServices).map(([category, items]) => (
+                                        <div key={category} className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                            <button
+                                                onClick={() => toggleCategory(category)}
+                                                className="w-full flex items-center justify-between p-6 bg-surface-alt hover:bg-gray-100/80 transition-colors"
+                                            >
+                                                <span className="text-lg font-black text-text-main uppercase tracking-tight">{category}</span>
+                                                <span className={`material-symbols-outlined transition-transform duration-300 ${openCategories[category] ? 'rotate-180' : ''}`}>expand_more</span>
+                                            </button>
+
+                                            {openCategories[category] && (
+                                                <div className="p-2 md:p-4 space-y-2 animate-fade-in">
+                                                    {items.map((service) => (
+                                                        <div key={service.id} className="flex items-center justify-between p-4 md:p-6 rounded-2xl hover:bg-primary/5 transition-all group border border-transparent hover:border-primary/20">
+                                                            <div className="flex-1">
+                                                                <h4 className="font-black text-text-main group-hover:text-primary transition-colors">{service.service_name}</h4>
+                                                                <p className="text-xs text-text-muted mt-1 font-bold">{service.duration_min} Dakika</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-6">
+                                                                <span className="text-lg font-black text-text-main">₺{service.price}</span>
+                                                                <Link
+                                                                    href={`/booking/${salon.id}/staff?serviceId=${service.id}`}
+                                                                    onClick={() => setSelectedServices([service])}
+                                                                    className="px-6 py-2.5 bg-primary text-white text-sm font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                                                >
+                                                                    Randevu Al
+                                                                </Link>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {activeTab === 'staff-reviews' && (
+                            <section className="animate-fade-in space-y-8">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
+                                        <span className="p-2 bg-amber-500/10 rounded-lg text-amber-600"><span className="material-symbols-outlined text-xl">reviews</span></span>
+                                        Uzman Yorumları
+                                    </h3>
+                                    {user && (
+                                        <button
+                                            onClick={() => {
+                                                // We can reuse the existing review form or create a specific one
+                                                // For simplicity, scrolling to the common review section is also an option,
+                                                // but letting them stay in the staff tab and showing a modal would be better.
+                                                // For now, let's enable showing the review form if they have eligible appointments.
+                                                if (eligibleAppointments.length > 0) {
+                                                    setShowReviewForm(true);
+                                                    const reviewsSection = document.getElementById('reviews');
+                                                    if (reviewsSection) reviewsSection.scrollIntoView({ behavior: 'smooth' });
+                                                } else {
+                                                    alert("Uzmanları değerlendirmek için tamamlanmış bir randevunuz olmalıdır.");
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">edit</span> Uzmanı Değerlendir
+                                        </button>
+                                    )}
+                                </div>
+
+                                {loadingStaffReviews ? (
+                                    <div className="space-y-4">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="bg-white p-6 rounded-3xl border border-border animate-pulse h-32" />
+                                        ))}
+                                    </div>
+                                ) : staffReviews.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {staffReviews.map((review) => (
+                                            <div key={review.id} className="bg-white p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="size-10 rounded-full bg-gray-100 overflow-hidden relative border border-border">
+                                                            {review.user_avatar ? (
+                                                                <img src={review.user_avatar} alt={review.user_name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold">
+                                                                    {review.user_name.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-text-main text-sm">{review.user_name}</p>
+                                                            <div className="flex items-center gap-1">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <span key={i} className={`material-symbols-outlined text-[14px] ${i < review.rating ? 'text-yellow-400 filled' : 'text-gray-200'}`}>star</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[10px] text-text-muted font-bold">{new Date(review.created_at!).toLocaleDateString('tr-TR')}</span>
+                                                </div>
+                                                <p className="text-sm text-text-secondary line-clamp-3 mb-4">{review.comment}</p>
+                                                <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-black text-text-muted uppercase">Uzman:</span>
+                                                        <span className="text-xs font-bold text-primary">{review.staff_name}</span>
+                                                    </div>
+                                                    {review.is_verified && (
+                                                        <span className="flex items-center gap-1 text-[10px] font-black text-green-600 uppercase tracking-tight">
+                                                            <span className="material-symbols-outlined text-[14px]">verified</span> Onaylı
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-surface-alt p-12 rounded-[32px] text-center border-2 border-dashed border-border">
+                                        <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                                            <span className="material-symbols-outlined text-3xl text-text-muted/30">forum</span>
+                                        </div>
+                                        <p className="text-text-muted font-medium">Henüz uzman bazlı yorum yapılmamış.</p>
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {/* REVIEWS SECTION */}
+                        <section id="reviews" className="scroll-mt-24">
+                            <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+                                <div className="p-8 border-b border-border">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                        <div>
+                                            <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
+                                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">rate_review</span></span>
+                                                Değerlendirmeler
+                                            </h3>
+                                            <p className="text-text-secondary text-sm mt-2 ml-14">Bu salon için {reviews.length} gerçek müşteri yorumu.</p>
+                                        </div>
+                                        {user && eligibleAppointments.length === 0 ? (
+                                            <div className="text-sm text-yellow-600 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
+                                                Yorum yapmak için tamamlanmış bir hizmetiniz bulunmalıdır.
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => user ? setShowReviewForm(!showReviewForm) : alert("Yorum yapmak için giriş yapmalısınız.")}
+                                                className={`px-6 py-3 font-bold rounded-xl transition-all flex items-center gap-2 shadow-sm ${showReviewForm ? 'bg-gray-100 text-text-main hover:bg-gray-200' : 'bg-primary text-white hover:bg-primary-hover'
+                                                    }`}
+                                            >
+                                                <span className="material-symbols-outlined">{showReviewForm ? 'close' : 'edit'}</span>
+                                                {showReviewForm ? 'Vazgeç' : 'Değerlendir'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Add Review Form */}
+                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showReviewForm ? 'max-h-[800px] opacity-100 border-b border-border' : 'max-h-0 opacity-0'}`}>
+                                    <div className="p-8 bg-gray-50">
+                                        <h4 className="text-text-main font-bold mb-4">Deneyiminizi Puanlayın</h4>
+                                        <form onSubmit={handleSubmitReview}>
+                                            {/* Appointment Selector */}
+                                            {eligibleAppointments.length > 0 && (
+                                                <div className="mb-6">
+                                                    <label className="block text-sm font-bold text-text-secondary mb-2">Hizmet Seçin</label>
+                                                    <div className="flex flex-col gap-2">
+                                                        {eligibleAppointments.map((apt) => (
+                                                            <label key={apt.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-white transition-colors ${selectedAppointmentId === apt.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-gray-200 bg-white'}`}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name="appointment"
+                                                                    value={apt.id}
+                                                                    checked={selectedAppointmentId === apt.id}
+                                                                    onChange={() => setSelectedAppointmentId(apt.id)}
+                                                                    className="w-4 h-4 text-primary focus:ring-primary"
+                                                                />
+                                                                <div className="flex-1">
+                                                                    <div className="font-bold text-text-main">{new Date(apt.start_time).toLocaleDateString()} - {new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                                    <div className="text-xs text-text-secondary">{apt.customer_name} adı ile alındı</div>
+                                                                </div>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center gap-2 mb-4">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <button
+                                                        key={star}
+                                                        type="button"
+                                                        onClick={() => setNewRating(star)}
+                                                        className="p-1 focus:outline-none transition-transform hover:scale-110"
+                                                    >
+                                                        <span className={`material-symbols-outlined text-3xl ${star <= newRating ? 'filled text-yellow-500' : 'text-gray-300 hover:text-yellow-500'}`}>star</span>
+                                                    </button>
+                                                ))}
+                                                <span className="text-text-main ml-2 font-bold">{newRating > 0 ? `${newRating} / 5` : ''}</span>
+                                            </div>
+                                            <div className="mb-4">
+                                                <textarea
+                                                    value={newComment}
+                                                    onChange={(e) => setNewComment(e.target.value)}
+                                                    placeholder="Hizmetten memnun kaldınız mı? Düşüncelerinizi yazın..."
+                                                    className="w-full bg-white border border-border rounded-xl p-4 text-text-main placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[120px] shadow-sm"
+                                                    required
+                                                ></textarea>
+                                            </div>
+
+                                            <div className="mb-6">
+                                                <label className="block text-sm font-bold text-text-main mb-3">Fotoğraf Ekle (Opsiyonel)</label>
+                                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                                                    {reviewImagesUrls.map((url, idx) => (
+                                                        <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-border group">
+                                                            <img src={url} alt="upload" className="w-full h-full object-cover" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setReviewImagesUrls(prev => prev.filter((_, i) => i !== idx))}
+                                                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <span className="material-symbols-outlined text-xs">close</span>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {reviewImagesUrls.length < 5 && (
+                                                        <div className="aspect-square">
+                                                            <ImageUpload
+                                                                bucket="reviews"
+                                                                currentImage={null}
+                                                                onUpload={(url) => setReviewImagesUrls(prev => [...prev, url])}
+                                                                label="Ekle"
+                                                                className="h-full"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-text-secondary mt-2">En fazla 5 fotoğraf ekleyebilirsiniz.</p>
+                                            </div>
+
+                                            <div className="flex justify-end gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowReviewForm(false)}
+                                                    className="px-6 py-2.5 rounded-lg border border-border text-text-secondary hover:bg-white transition-colors font-medium bg-white shadow-sm"
+                                                >
+                                                    İptal
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={submitting || newRating === 0 || !selectedAppointmentId}
+                                                    className="px-8 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                                                >
+                                                    {submitting ? 'Gönderiliyor...' : 'Yorumu Gönder'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                {/* Summary Dashboard */}
+                                <div className="p-8 grid grid-cols-1 md:grid-cols-12 gap-8 border-b border-border bg-gray-50">
+                                    <div className="md:col-span-4 flex flex-col items-center justify-center text-center p-6 bg-white rounded-2xl border border-border shadow-sm">
+                                        <span className="text-6xl font-black text-text-main leading-none">{salon.rating || salon.average_rating || 0}</span>
+                                        <div className="flex gap-1 my-3 text-yellow-400">
+                                            {[1, 2, 3, 4, 5].map(s => (
+                                                <span key={s} className={`material-symbols-outlined text-2xl ${s <= Math.round(salon.rating || salon.average_rating || 0) ? 'filled' : ''}`}>star</span>
+                                            ))}
+                                        </div>
+                                        <span className="text-text-secondary text-sm font-medium">{reviews.length} Değerlendirme</span>
+                                    </div>
+
+                                    <div className="md:col-span-8 flex flex-col justify-center gap-2">
+                                        {ratingDistribution.map((item) => (
+                                            <div key={item.star} className="flex items-center gap-3">
+                                                <span className="flex items-center gap-1 w-12 text-sm font-bold text-text-secondary">
+                                                    {item.star} <span className="material-symbols-outlined text-xs">star</span>
+                                                </span>
+                                                <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-yellow-400 rounded-full transition-all duration-1000 ease-out"
+                                                        style={{ width: `${item.percentage}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="w-8 text-right text-xs text-text-secondary">{item.count}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Reviews List */}
+                                <div className="divide-y divide-gray-100">
+                                    {reviews.length > 0 ? (
+                                        reviews.map((review) => (
+                                            <div key={review.id} className="p-8 hover:bg-gray-50 transition-colors">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="size-10 rounded-full bg-cover bg-center border border-border"
+                                                            style={{ backgroundImage: `url("${review.user_avatar || 'https://i.pravatar.cc/150?u=default'}")` }}
+                                                        ></div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <h5 className="font-bold text-text-main text-sm flex items-center gap-2">
+                                                                {(() => {
+                                                                    const nameParts = review.user_name.trim().split(' ');
+                                                                    if (nameParts.length > 1) {
+                                                                        return `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`;
+                                                                    }
+                                                                    return review.user_name;
+                                                                })()}
+                                                                {review.is_verified && (
+                                                                    <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100" title="Doğrulanmış Müşteri">
+                                                                        <span className="material-symbols-outlined text-[14px]">verified</span> Doğrulanmış
+                                                                    </span>
+                                                                )}
+                                                            </h5>
+                                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
+                                                                {(() => {
+                                                                    const rawDate = review.service_date || review.created_at || review.date;
+                                                                    if (!rawDate) return null;
+                                                                    return (
+                                                                        <span>
+                                                                            {new Date(rawDate).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                                {review.service_name && (
+                                                                    <>
+                                                                        <span className="text-gray-300">•</span>
+                                                                        <span className="text-text-main font-semibold">{review.service_name}</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <div className="flex items-center gap-0.5 bg-yellow-50 px-2 py-1 rounded text-xs font-bold text-yellow-600 border border-yellow-100 h-fit">
+                                                            {review.rating} <span className="material-symbols-outlined text-[14px] filled">star</span>
+                                                        </div>
+                                                        <span className="text-text-muted text-xs bg-gray-100 px-3 py-1 rounded-full">{new Date(review.created_at || Date.now()).toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Rating Score */}
+                                                <div className="flex gap-1 mb-3 text-yellow-400">
+                                                    {[1, 2, 3, 4, 5].map(s => (
+                                                        <span key={s} className={`material-symbols-outlined text-sm ${s <= review.rating ? 'filled' : ''}`}>star</span>
+                                                    ))}
+                                                </div>
+
+                                                <p className="text-text-main leading-relaxed mb-4">{review.comment}</p>
+
+                                                {/* Review Images */}
+                                                {review.images && review.images.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {review.images.map((img: any, idx: number) => (
+                                                            <button
+                                                                key={idx}
+                                                                className="w-20 h-20 rounded-lg overflow-hidden border border-border hover:opacity-80 transition-opacity"
+                                                                onClick={() => {
+                                                                    setLightboxState({
+                                                                        isOpen: true,
+                                                                        images: (review.images || []).map((i: any) => i.image_url),
+                                                                        currentIndex: idx
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <img src={img.image_url} alt="Review" className="w-full h-full object-cover" />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-12 text-center">
+                                            <div className="size-16 bg-surface-alt rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
+                                                <span className="material-symbols-outlined text-3xl text-gray-400">rate_review</span>
+                                            </div>
+                                            <h5 className="text-text-main font-bold mb-2">Henüz yorum yapılmamış</h5>
+                                            <p className="text-text-secondary text-sm">Bu salon için ilk değerlendirmeyi siz yapın.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="lg:col-span-4 space-y-8">
+
+                        {/* Location Card */}
+                        <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                            <h4 className="font-bold text-text-main mb-5 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">pin_drop</span> Konum
+                            </h4>
+                            <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden mb-5 relative border border-border">
+                                {salon.geo_latitude && salon.geo_longitude ? (
+                                    <SalonMap
+                                        center={{
+                                            lat: salon.geo_latitude,
+                                            lng: salon.geo_longitude
+                                        }}
+                                        salons={[{
+                                            ...salon,
+                                            coordinates: {
+                                                lat: salon.geo_latitude,
+                                                lng: salon.geo_longitude
+                                            }
+                                        }]}
+                                        hoveredSalonId={null}
+                                        onSalonHover={() => { }}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                                        <p className="text-text-muted text-sm">Konum bilgisi mevcut değil</p>
+                                    </div>
+                                )}
+                                <div className="absolute bottom-4 left-4 right-4 z-[400]">
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${salon.geo_latitude},${salon.geo_longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full bg-white/95 hover:bg-white text-text-main py-3 rounded-xl font-bold text-sm shadow-md transition-transform hover:-translate-y-1 flex items-center justify-center gap-2 backdrop-blur-md border border-100"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">directions</span> Yol Tarifi Al
+                                    </a>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 items-start">
+                                <span className="material-symbols-outlined text-primary shrink-0 mt-0.5">location_on</span>
+                                <p className="text-text-secondary text-sm leading-relaxed">
+                                    {salon.neighborhood || salon.avenue || salon.street ? (
+                                        <>
+                                            {salon.neighborhood} {salon.avenue ? `${salon.avenue} ` : ''}{salon.street} No: {salon.building_no}<br />
+                                            {salon.district_name}, {salon.city_name}
+                                        </>
+                                    ) : (
+                                        salon.address || `${salon.district_name}, ${salon.city_name}`
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Hours Card */}
+                        <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
+                            <h4 className="font-bold text-text-main mb-5 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">schedule</span> Çalışma Saatleri
+                            </h4>
+                            <div className="space-y-4 relative">
+                                <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-gray-200"></div>
+                                {workingHours.length > 0 ? (
+                                    // Map over sorted working hours (Mon-Sun or as fetched)
+                                    workingHours
+                                        .sort((a, b) => (a.day_of_week === 0 ? 7 : a.day_of_week) - (b.day_of_week === 0 ? 7 : b.day_of_week))
+                                        .map((hour, idx) => (
+                                            <div key={idx} className="flex items-center gap-4 relative z-10">
+                                                <div className={`size-4 rounded-full border-2 ${!hour.is_closed ? 'bg-green-500 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-gray-200 border-gray-300'}`}></div>
+                                                <div className="flex-1 flex justify-between items-center text-sm p-3 rounded-xl bg-gray-50 border border-gray-100">
+                                                    <span className="text-text-secondary">{getDayName(hour.day_of_week)}</span>
+                                                    <span className={`font-bold ${!hour.is_closed ? 'text-text-main' : 'text-red-500'}`}>
+                                                        {hour.is_closed ? 'Kapalı' : `${hour.start_time.substring(0, 5)} - ${hour.end_time.substring(0, 5)}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                ) : (
+                                    // Fallback if no working hours recorded
+                                    <div className="text-center py-4 text-text-muted text-sm italic">
+                                        Çalışma saatleri belirtilmemiş.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <GeminiChat />
+
+            {/* Review Lightbox */}
+            <Lightbox
+                isOpen={lightboxState.isOpen}
+                images={lightboxState.images}
+                currentIndex={lightboxState.currentIndex}
+                onClose={() => setLightboxState(prev => ({ ...prev, isOpen: false }))}
+                onNext={() => setLightboxState(prev => ({ ...prev, currentIndex: (prev.currentIndex + 1) % prev.images.length }))}
+                onPrev={() => setLightboxState(prev => ({ ...prev, currentIndex: (prev.currentIndex - 1 + prev.images.length) % prev.images.length }))}
+            />
+        </Layout>
+    );
+}
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8

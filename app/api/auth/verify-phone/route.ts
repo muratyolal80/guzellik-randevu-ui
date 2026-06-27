@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+<<<<<<< HEAD
 import { registerIYSConsent } from '@/lib/messaging/iys';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export async function POST(request: NextRequest) {
   const response = new NextResponse();
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
 
+<<<<<<< HEAD
         // Real IYS API call — non-blocking (booking flow devam eder, hata log'lanır)
         registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
           .then((res) => {
@@ -153,6 +157,11 @@ export async function POST(request: NextRequest) {
             else if (!res.success) console.error(`[IYS] register FAIL userId=${userId}: ${res.error}`);
           })
           .catch((err) => console.error('[IYS] register threw:', err?.message || err));
+=======
+        // TODO: Call actual IYS API to register consent
+        // await registerToIYS(userId, e164Phone);
+        // After success, update iys_registered = true, iys_registered_at = now()
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       }
     } else if (consent && !isNewUser) {
       // Existing user verified phone again (maybe changed phone)
@@ -177,12 +186,15 @@ export async function POST(request: NextRequest) {
           });
 
         console.log(`[IYS LOG] Existing user ${userId} verified phone. Phone: ${e164Phone}`);
+<<<<<<< HEAD
 
         registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
           .then((res) => {
             if (!res.skipped && !res.success) console.error(`[IYS] register FAIL userId=${userId}: ${res.error}`);
           })
           .catch((err) => console.error('[IYS] register threw:', err?.message || err));
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       }
     }
 

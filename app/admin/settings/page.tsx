@@ -12,6 +12,7 @@ import {
     Info,
     AlertTriangle,
     Plus,
+<<<<<<< HEAD
     Trash2,
     Mail,
     Send
@@ -19,20 +20,32 @@ import {
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank' | 'email'>('sms');
+=======
+    Trash2
+} from 'lucide-react';
+
+export default function Settings() {
+    const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank'>('sms');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     // SMS States (LocalStorage - existing)
     const [usercode, setUsercode] = useState('');
     const [password, setPassword] = useState('');
     const [header, setHeader] = useState('');
 
+<<<<<<< HEAD
     // Active Payment Provider (DB)
     const [activeProvider, setActiveProvider] = useState<'PAYTR' | 'IYZICO' | 'NONE'>('PAYTR');
 
     // iyzico States (DB) — şu an PASİF, kod arşivde, ileride aktive edilebilir
+=======
+    // iyzico States (DB)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [iyzicoMode, setIyzicoMode] = useState<'sandbox' | 'live'>('sandbox');
     const [iyzicoSandboxKeys, setIyzicoSandboxKeys] = useState({ apiKey: '', secretKey: '', baseUrl: '' });
     const [iyzicoLiveKeys, setIyzicoLiveKeys] = useState({ apiKey: '', secretKey: '', baseUrl: '' });
 
+<<<<<<< HEAD
     // PayTR States (DB) — aktif sağlayıcı
     const [paytrConfig, setPaytrConfig] = useState({
         merchant_id: '',
@@ -46,12 +59,15 @@ export default function Settings() {
         merchant_fail_url: '',
     });
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     // Platform Commission (DB)
     const [commissionRate, setCommissionRate] = useState(5);
 
     // Bank States (DB)
     const [bankAccounts, setBankAccounts] = useState<any[]>([]);
 
+<<<<<<< HEAD
     // Email/SMTP States (DB)
     const [emailConfig, setEmailConfig] = useState({
         smtp_host: '',
@@ -64,6 +80,8 @@ export default function Settings() {
     });
     const [emailTestSending, setEmailTestSending] = useState(false);
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [loading, setLoading] = useState(true);
     const [saved, setSaved] = useState(false);
 
@@ -79,9 +97,12 @@ export default function Settings() {
     const fetchDBPermissions = async () => {
         try {
             setLoading(true);
+<<<<<<< HEAD
             const providerRow = await PlatformService.getSetting('active_payment_provider');
             if (providerRow?.provider) setActiveProvider(providerRow.provider);
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const iyzicoConfig = await PlatformService.getSetting('iyzico_config');
             if (iyzicoConfig) {
                 setIyzicoMode(iyzicoConfig.mode || 'sandbox');
@@ -97,11 +118,14 @@ export default function Settings() {
                 });
             }
 
+<<<<<<< HEAD
             const paytrCfg = await PlatformService.getSetting('paytr_config');
             if (paytrCfg) {
                 setPaytrConfig(prev => ({ ...prev, ...paytrCfg }));
             }
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const commission = await PlatformService.getSetting('platform_commission_rate');
             if (commission) {
                 setCommissionRate(commission.rate || 5);
@@ -109,11 +133,14 @@ export default function Settings() {
 
             const banks = await PlatformService.getSetting('bank_accounts');
             setBankAccounts(banks || []);
+<<<<<<< HEAD
 
             const emailCfg = await PlatformService.getSetting('email_smtp_config');
             if (emailCfg) {
                 setEmailConfig(prev => ({ ...prev, ...emailCfg }));
             }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         } catch (err) {
             console.error('Settings fetch error:', err);
         } finally {
@@ -130,11 +157,18 @@ export default function Settings() {
         setTimeout(() => setSaved(false), 3000);
     };
 
+<<<<<<< HEAD
     const handleSavePayment = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             await Promise.all([
                 PlatformService.updateSetting('active_payment_provider', { provider: activeProvider }),
+=======
+    const handleSaveIyzico = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await Promise.all([
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 PlatformService.updateSetting('iyzico_config', {
                     mode: iyzicoMode,
                     sandbox_apiKey: iyzicoSandboxKeys.apiKey,
@@ -144,10 +178,16 @@ export default function Settings() {
                     live_secretKey: iyzicoLiveKeys.secretKey,
                     live_baseUrl: iyzicoLiveKeys.baseUrl,
                 }),
+<<<<<<< HEAD
                 PlatformService.updateSetting('paytr_config', paytrConfig),
                 PlatformService.updateSetting('platform_commission_rate', {
                     rate: commissionRate,
                     description: 'Randevu başı yüzde komisyon (manuel takip)'
+=======
+                PlatformService.updateSetting('platform_commission_rate', {
+                    rate: commissionRate,
+                    description: "Randevu başı yüzde komisyon"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 })
             ]);
             setSaved(true);
@@ -169,6 +209,7 @@ export default function Settings() {
     };
 
     const hasSMSConfig = usercode.length > 0 && password.length > 0 && header.length > 0;
+<<<<<<< HEAD
     const hasEmailConfig = emailConfig.smtp_host.length > 0 && emailConfig.smtp_user.length > 0;
 
     const handleSaveEmail = async (e: React.FormEvent) => {
@@ -181,6 +222,8 @@ export default function Settings() {
             alert('E-posta ayarları kaydedilirken hata oluştu.');
         }
     };
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     return (
         <AdminLayout>
@@ -209,7 +252,11 @@ export default function Settings() {
                     onClick={() => setActiveTab('payment')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'payment' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
+<<<<<<< HEAD
                     <CreditCard size={18} /> Ödeme Sağlayıcıları
+=======
+                    <CreditCard size={18} /> Ödeme (iyzico)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 </button>
                 <button
                     onClick={() => setActiveTab('bank')}
@@ -217,12 +264,15 @@ export default function Settings() {
                 >
                     <Building2 size={18} /> Banka Hesapları
                 </button>
+<<<<<<< HEAD
                 <button
                     onClick={() => setActiveTab('email')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'email' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
                     <Mail size={18} /> E-Posta (SMTP)
                 </button>
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             </div>
 
             <div className="max-w-4xl">
@@ -288,6 +338,7 @@ export default function Settings() {
 
                 {activeTab === 'payment' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
+<<<<<<< HEAD
 
                         {/* AKTIF SAĞLAYICI SEÇİMİ */}
                         <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
@@ -428,14 +479,22 @@ export default function Settings() {
 
                         {/* IYZICO KONFİGÜRASYONU (PASİF, arşivde) */}
                         <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden opacity-90">
+=======
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
                                         <CreditCard size={24} />
                                     </div>
                                     <div>
+<<<<<<< HEAD
                                         <h3 className="text-lg font-black text-text-main">Iyzico API (Arşiv)</h3>
                                         <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Onay alınırsa Booking için aktive edilebilir</p>
+=======
+                                        <h3 className="text-lg font-black text-text-main">iyzico API Yapılandırması</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Abonelik ve Ödeme Sistemi</p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     </div>
                                 </div>
                                 <select
@@ -447,7 +506,11 @@ export default function Settings() {
                                     <option value="live">Live (Canlı)</option>
                                 </select>
                             </div>
+<<<<<<< HEAD
                             <form onSubmit={handleSavePayment} className="p-8 space-y-10">
+=======
+                            <form onSubmit={handleSaveIyzico} className="p-8 space-y-10">
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 <div className="grid grid-cols-1 gap-8">
                                     {/* Modal based on iyzicoMode */}
                                     <div className="p-6 rounded-[24px] border-2 border-dashed border-border bg-surface-alt/50">
@@ -623,6 +686,7 @@ export default function Settings() {
                     </div>
                 )}
 
+<<<<<<< HEAD
                 {activeTab === 'email' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
                         <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
@@ -738,6 +802,8 @@ export default function Settings() {
                     </div>
                 )}
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 {/* Info Center */}
                 <div className="mt-12 bg-blue-50/50 rounded-3xl border border-blue-100 p-8 flex gap-6">
                     <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">

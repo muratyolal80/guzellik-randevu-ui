@@ -9,14 +9,20 @@ import { useAuth } from '@/context/AuthContext';
 import type { SalonDetail, Staff, SalonServiceDetail, Appointment } from '@/types';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+<<<<<<< HEAD
 import { downloadIcs } from '@/lib/calendar/ics';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export default function Confirmation() {
     const params = useParams();
     const searchParams = useSearchParams();
     const router = useRouter();
     const appointmentId = searchParams.get('appointmentId');
+<<<<<<< HEAD
     const smsFailed = searchParams.get('smsFailed') === '1';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const salonId = params.id as string;
 
     const {
@@ -193,6 +199,7 @@ export default function Confirmation() {
                             </div>
                             <h1 className="text-3xl font-bold text-text-main">Randevunuz Onaylandi!</h1>
                             <p className="text-text-secondary mt-2">
+<<<<<<< HEAD
                                 Randevu detaylariniz asagidadir.{smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapilmistir.'}
                             </p>
 
@@ -206,6 +213,11 @@ export default function Confirmation() {
                                 </div>
                             )}
 
+=======
+                                Randevu detaylariniz asagidadir. Telefonunuza SMS ile de bilgilendirme yapilmistir.
+                            </p>
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             {/* User Status Badge */}
                             <div className="mt-4 flex justify-center">
                                 {user ? (
@@ -367,6 +379,7 @@ export default function Confirmation() {
                                 </Link>
                             )}
 
+<<<<<<< HEAD
                             {salon?.id && (
                                 <Link
                                     href={`/salon/${salon.id}`}
@@ -401,6 +414,8 @@ export default function Confirmation() {
                                 </button>
                             )}
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             <button
                                 onClick={() => window.print()}
                                 className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

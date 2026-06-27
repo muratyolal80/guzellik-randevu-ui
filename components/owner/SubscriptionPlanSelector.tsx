@@ -157,7 +157,11 @@ function FeatureCheck({ label, enabled }: { label: string; enabled: boolean }) {
         <li className="flex items-center justify-between text-[11px] font-bold">
             <span className="text-text-muted uppercase tracking-wider">{label}</span>
             {enabled ? (
+<<<<<<< HEAD
                 <Check className="w-4 h-4 text-emerald-500" />
+=======
+                <Check className="w-4 h-4 text-green-500" />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             ) : (
                 <X className="w-4 h-4 text-red-300" />
             )}

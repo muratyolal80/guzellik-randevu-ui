@@ -42,17 +42,33 @@ export default function StaffSelection() {
       if (!id) return;
       setLoading(true);
       try {
+<<<<<<< HEAD
         // Critical fetches: salon + staff must succeed
         const [salonData, staffData] = await Promise.all([
           !bookingSalon || bookingSalon.id !== id ? SalonDataService.getSalonById(id) : Promise.resolve(bookingSalon),
           StaffService.getStaffBySalon(id)
         ]);
+=======
+        // Parallel requests: Salon, Staff, and potentially Service if rescheduling
+        const requests: Promise<any>[] = [
+          !bookingSalon || bookingSalon.id !== id ? SalonDataService.getSalonById(id) : Promise.resolve(bookingSalon),
+          StaffService.getStaffBySalon(id)
+        ];
+
+        // If we are rescheduling (have serviceId) and context is empty or mismatch, fetch service details
+        if (rescheduleServiceId && (selectedServices.length === 0 || selectedServices[0].id !== rescheduleServiceId)) {
+          requests.push(ServiceService.getServiceById(rescheduleServiceId));
+        }
+
+        const [salonData, staffData, serviceData] = await Promise.all(requests);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
         if (salonData && (!bookingSalon || bookingSalon.id !== salonData.id)) {
           setSalon(salonData);
           setBookingSalon(salonData);
         }
 
+<<<<<<< HEAD
         // Non-critical: service deep-link — failure doesn't break the page
         if (rescheduleServiceId && (selectedServices.length === 0 || selectedServices[0].id !== rescheduleServiceId)) {
           try {
@@ -69,6 +85,11 @@ export default function StaffSelection() {
         if (serviceIds.length > 0) {
           const capable = await StaffService.getStaffIdsForServices(serviceIds, id);
           capableIds = new Set(capable);
+=======
+        // Handle Service Hydration
+        if (serviceData && (selectedServices.length === 0 || selectedServices[0].id !== serviceData.id)) {
+          setSelectedServices([serviceData]);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         }
 
         // Map staff data
@@ -80,6 +101,7 @@ export default function StaffSelection() {
           isOnline: s.is_active
         }));
 
+<<<<<<< HEAD
         // Visibility rules:
         //   - Active staff
         //   - Capable of selected services (if any selected)
@@ -96,6 +118,13 @@ export default function StaffSelection() {
           if (!hasVerificationFlag) return true;
           return Boolean(s.is_email_verified || s.is_phone_verified || s.kvkk_consent);
         });
+=======
+        // Filter based on Faz 4 rules: 
+        // Verified (Email or Phone) OR KVKK Consent for unverified
+        const visibleStaff = mappedStaff.filter((s: Staff) => 
+          s.is_email_verified || s.is_phone_verified || s.kvkk_consent
+        );
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
         setStaff(visibleStaff);
 

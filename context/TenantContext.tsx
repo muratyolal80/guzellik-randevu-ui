@@ -91,6 +91,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     setSalonId(selectedSId);
                     if (selectedSId) {
                         const { data: salonData } = await supabase.from('salons').select('*').eq('id', selectedSId).single();
+<<<<<<< HEAD
                         if (!salonData) {
                             console.error('[TenantContext] Staff salon not found for id:', selectedSId);
                         } else {
@@ -99,6 +100,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             document.documentElement.style.setProperty('--primary', brandColor);
                             document.documentElement.style.setProperty('--primary-hover', `${brandColor}dd`);
                         }
+=======
+                        setSalon(salonData);
+
+                        // Essential dynamic branding: Inject primary color as CSS variable
+                        const brandColor = salonData.primary_color || '#CFA76D';
+                        document.documentElement.style.setProperty('--primary', brandColor);
+                        // Also generate subtle variations if needed
+                        document.documentElement.style.setProperty('--primary-hover', `${brandColor}dd`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     }
                 }
             }

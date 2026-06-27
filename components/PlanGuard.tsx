@@ -34,7 +34,12 @@ export default function PlanGuard({
     const currentWeight = planWeights[plan || 'STARTER'] || 0;
     const requiredWeight = planWeights[requiredPlan] || 0;
 
+<<<<<<< HEAD
     // Süresi dolmuş veya iptal edilmiş aboneliklerde erişim yok; PENDING ise geçici erişim ver
+=======
+    // Abonelik aktif değilse veya özellik paketi yetersizse erişim yok
+    const isActive = subscriptionStatus === 'ACTIVE' || subscriptionStatus === 'PENDING'; // Give temporary access for pending? Actually let's restrict if EXPIRED or CANCELLED, but also if weight is insufficient.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const hasAccess = currentWeight >= requiredWeight && (subscriptionStatus !== 'EXPIRED' && subscriptionStatus !== 'CANCELLED');
 
     if (hasAccess) {

@@ -65,6 +65,7 @@ export const SlotService = {
         }
 
         // 2. Get staff who can perform this service
+<<<<<<< HEAD
         // Filter by staff_services if specific service(s) requested
         const requestedServiceIds = serviceIds && serviceIds.length > 0
             ? serviceIds
@@ -82,6 +83,8 @@ export const SlotService = {
             }
         }
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         let staffQuery = supabase
             .from('staff')
             .select('id, name')
@@ -91,9 +94,12 @@ export const SlotService = {
         if (staffId) {
             staffQuery = staffQuery.eq('id', staffId);
         }
+<<<<<<< HEAD
         if (capableStaffIds) {
             staffQuery = staffQuery.in('id', capableStaffIds);
         }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
         const { data: staffList, error: staffError } = await staffQuery;
 
@@ -183,6 +189,7 @@ export const SlotService = {
             return [];
         }
 
+<<<<<<< HEAD
         // Sprint D (R4) — slot lock'larını da hesaba kat (5 dk TTL, başkası tutmuş)
         const { data: locks } = await supabase
             .from('slot_reservations')
@@ -193,6 +200,8 @@ export const SlotService = {
             .gte('slot_start', startOfDay.toISOString())
             .lte('slot_start', endOfDay.toISOString());
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         // 3. Generate potential slots
         const slots = this.generateTimeSlots(
             date,
@@ -203,6 +212,7 @@ export const SlotService = {
             staffName
         );
 
+<<<<<<< HEAD
         // 4. Filter out slots that conflict with existing appointments OR active slot locks
         const bookedSlots = [
             ...(appointments || []).map(appt => ({
@@ -226,6 +236,15 @@ export const SlotService = {
 
         return slots.filter(slot => {
             if (minStart && slot.startTime < minStart) return false;
+=======
+        // 4. Filter out slots that conflict with existing appointments
+        const bookedSlots = (appointments || []).map(appt => ({
+            start: new Date(appt.start_time),
+            end: new Date(appt.end_time)
+        }));
+
+        return slots.filter(slot => {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const hasConflict = bookedSlots.some(booked => {
                 return (
                     (slot.startTime >= booked.start && slot.startTime < booked.end) ||

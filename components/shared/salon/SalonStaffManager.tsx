@@ -1,10 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { useAuth } from '@/context/AuthContext';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
 import { Staff, WorkingHours, Invite } from '@/types';
+=======
+import { StaffService, SalonDataService, ServiceService } from '@/services/db';
+import { LimitEnforcer } from '@/lib/utils/limits';
+import { Staff, WorkingHours } from '@/types';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 import ImageUpload from '@/components/ImageUpload';
 import WorkingHoursEditor from './WorkingHoursEditor';
 import {
@@ -25,10 +31,14 @@ import {
     Search,
     Phone,
     ShieldCheck,
+<<<<<<< HEAD
     ShieldAlert,
     Copy,
     ExternalLink,
     MessageCircle
+=======
+    ShieldAlert
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 } from 'lucide-react';
 
 const DEFAULT_HOURS = [
@@ -47,6 +57,7 @@ interface SalonStaffManagerProps {
 
 export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [staff, setStaff] = useState<Staff[]>([]);
+<<<<<<< HEAD
     const [staffMissing, setStaffMissing] = useState<Record<string, { hours: boolean; services: boolean }>>({});
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -57,6 +68,12 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [invites, setInvites] = useState<Invite[]>([]);
     const [showInviteSuccess, setShowInviteSuccess] = useState(false);
     const [lastInviteLink, setLastInviteLink] = useState('');
+=======
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [modalType, setModalType] = useState<'add' | 'edit'>('add');
+    const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     
     const [showShiftModal, setShowShiftModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
@@ -82,6 +99,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         fetchStaff();
         fetchSalon();
         fetchServices();
+<<<<<<< HEAD
         fetchInvites();
     }, [salonId]);
 
@@ -94,6 +112,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
+=======
+    }, [salonId]);
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const fetchServices = async () => {
         try {
             const services = await ServiceService.getServicesBySalon(salonId);
@@ -117,6 +139,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setLoading(true);
             const staffList = await StaffService.getStaffBySalon(salonId);
             setStaff(staffList);
+<<<<<<< HEAD
 
             // Detect staff with missing working_hours or staff_services (single batch query)
             if (staffList.length > 0) {
@@ -136,6 +159,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 }
                 setStaffMissing(missing);
             }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         } catch (err) {
             console.error('Veri çekme hatası:', err);
         } finally {
@@ -201,7 +226,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setFormKvkkConsent(false);
             setSelectedServiceIds([]);
             setFormWorkingHours(DEFAULT_HOURS);
+<<<<<<< HEAD
             setAddMode('direct');
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setShowModal(true);
         } catch (err: any) {
             if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
@@ -241,6 +269,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         setSaving(true);
         try {
             if (modalType === 'add') {
+<<<<<<< HEAD
                 if (addMode === 'invite') {
                     if (!formEmail) {
                         alert('Davet göndermek için e-posta adresi zorunludur.');
@@ -274,6 +303,22 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     if (newMember && selectedServiceIds.length > 0) {
                         await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
                     }
+=======
+                const newMember = await StaffService.createStaff({
+                    salon_id: salonId,
+                    name: formName,
+                    email: formEmail,
+                    role: formSpecialty,
+                    photo: formPhoto,
+                    phone: formPhone,
+                    tc_no: formTcNo,
+                    kvkk_consent: formKvkkConsent,
+                    is_active: true
+                }, formWorkingHours);
+
+                if (newMember && selectedServiceIds.length > 0) {
+                    await StaffService.linkStaffToServices(newMember.id, salonId, selectedServiceIds);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 }
             } else if (editingStaffId) {
                 await StaffService.updateStaff(editingStaffId, {
@@ -358,7 +403,11 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
                         <h3 className="text-2xl font-black text-text-main tracking-tight">Personel Yönetimi</h3>
                     </div>
+<<<<<<< HEAD
                     <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi {invites.length > 0 && `• ${invites.length} bekleyen davet`}</p>
+=======
+                    <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi</p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 </div>
 
                 <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
@@ -389,6 +438,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             </div>
 
+<<<<<<< HEAD
             {/* Pending Invites Alert */}
             {invites.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -422,6 +472,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             )}
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             {/* List Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredStaff.map((member) => (
@@ -469,6 +521,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 </div>
                             </div>
 
+<<<<<<< HEAD
                             {(staffMissing[member.id]?.hours || staffMissing[member.id]?.services) && (
                                 <div className="mt-3 flex flex-wrap gap-1.5">
                                     {staffMissing[member.id]?.hours && (
@@ -494,6 +547,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 </div>
                             )}
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             <div className="mt-4 flex items-center justify-between">
                                 <div className="flex items-center gap-1 text-amber-500">
                                     <Star className="w-4 h-4 fill-current" />
@@ -560,6 +615,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-10 space-y-12">
+<<<<<<< HEAD
                             {modalType === 'add' && (
                                 <div className="flex p-1 bg-surface-alt rounded-2xl border border-border w-full max-w-sm mb-8 mx-auto shadow-inner">
                                     <button
@@ -607,6 +663,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                             ) : (
                                 <>
                                     <div className="flex flex-col lg:flex-row gap-12">
+=======
+                            <div className="flex flex-col lg:flex-row gap-12">
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 <div className="flex-shrink-0 flex flex-col items-center">
                                     <div className="w-40 h-40 md:w-52 md:h-52 rounded-[40px] overflow-hidden border-4 border-dashed border-gray-100 hover:border-primary transition-all group relative bg-surface-alt shadow-inner">
                                         <ImageUpload
@@ -793,8 +852,11 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     </div>
                                 </div>
                             )}
+<<<<<<< HEAD
                             </>
                             )}
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
                             <div className="sticky bottom-0 bg-white/80 backdrop-blur-md -mx-10 -mb-10 p-10 mt-12 border-t border-border flex items-center justify-end gap-6 shadow-[0_-20px_50px_rgba(0,0,0,0.03)] selection-none">
                                 <button
@@ -809,8 +871,13 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     disabled={saving}
                                     className={`px-12 py-5 text-white rounded-[28px] font-black shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-4 disabled:opacity-50 ${modalType === 'add' ? 'bg-primary shadow-primary/20' : 'bg-amber-500 shadow-amber-500/20'}`}
                                 >
+<<<<<<< HEAD
                                     {saving ? (addMode === 'invite' ? 'Gönderiliyor...' : 'Kaydediliyor...') : (modalType === 'add' ? (addMode === 'invite' ? 'Davet Gönder' : 'Personeli Kaydet') : 'Değişiklikleri Kaydet')}
                                     {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : (addMode === 'invite' ? <Mail className="w-6 h-6" /> : <Save className="w-6 h-6" />)}
+=======
+                                    {saving ? 'Kaydediliyor...' : (modalType === 'add' ? 'Personeli Kaydet' : 'Değişiklikleri Kaydet')}
+                                    {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 </button>
                             </div>
                         </form>
@@ -877,6 +944,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             )}
             {/* Assign Existing Staff Modal */}
+<<<<<<< HEAD
             {/* Invite Success Modal (WhatsApp / Copy / Email Share) */}
             {showInviteSuccess && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
@@ -957,6 +1025,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             )}
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             {showAssignModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-text-main/30 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-[40px] shadow-2xl border border-white/20 animate-in zoom-in duration-300">

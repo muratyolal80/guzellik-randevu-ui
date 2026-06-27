@@ -457,6 +457,7 @@ export const ProfileService = {
       .select("*", { count: 'exact' });
 
     if (options.role && options.role !== 'all') {
+<<<<<<< HEAD
       if (options.role === 'SALON_OWNER' || options.role === 'OWNER') {
         // user_role enum only has SALON_OWNER (no legacy 'OWNER' value) —
         // querying a non-existent enum value makes PostgREST reject the whole request (22P02).
@@ -464,11 +465,18 @@ export const ProfileService = {
       } else {
         query = query.eq("role", options.role);
       }
+=======
+      query = query.eq("role", options.role);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     }
 
     if (options.search) {
       const s = options.search;
+<<<<<<< HEAD
       query = query.or(`full_name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`);
+=======
+      query = query.or(`full_name.ilike."%${s}%",email.ilike."%${s}%",phone.ilike."%${s}%"`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     }
 
     if (options.sortBy) {

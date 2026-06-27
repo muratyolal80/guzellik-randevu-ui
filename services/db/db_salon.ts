@@ -121,6 +121,7 @@ export const SalonDataService = {
 
   /**
    * Get all salons with detailed information (using view)
+<<<<<<< HEAD
    * Sprint B: limit/offset/sort destek + total count
    */
   async getSalons(
@@ -205,16 +206,33 @@ export const SalonDataService = {
       console.error('[getSalonsNearby] threw:', err);
       return [];
     }
+=======
+   */
+  async getSalons(supabase: SupabaseClient = defaultSupabase): Promise<SalonDetail[]> {
+    const { data, error } = await supabase
+      .from("salon_details")
+      .select("*")
+      .eq("status", "APPROVED") // Only show approved salons
+      .order("is_sponsored", { ascending: false })
+      .order("average_rating", { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((s) => this.mapSalonDetail(s));
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
 
   /**
    * Get salons by user membership (Owner/Staff branches)
+<<<<<<< HEAD
    * Sprint F (K12) — N+1 yerine tek join query (PostgREST resource embedding)
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    */
   async getSalonsByMembership(
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
+<<<<<<< HEAD
     if (!userId || userId === "") return [];
 
     // Tek query: memberships → salon_details join (PostgREST FK resolution).
@@ -244,6 +262,11 @@ export const SalonDataService = {
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
+=======
+    // First, get the salon IDs from memberships
+    if (!userId || userId === "") return [];
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data: memberships, error: memError } = await supabase
       .from("salon_memberships")
       .select("salon_id")
@@ -451,6 +474,7 @@ export const SalonDataService = {
     }
 
     const { type_ids, primary_type_id, ...salonData } = salon;
+<<<<<<< HEAD
     const slug = (salonData as any).slug || (salonData.name.toLowerCase().trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
@@ -460,6 +484,13 @@ export const SalonDataService = {
       ...salonData,
       slug,
       type_id: primary_type_id || (salonData as any).type_id,
+=======
+
+    // Use primary_type_id as fallback for type_id for backward compatibility
+    const dbSalon = {
+      ...salonData,
+      type_id: primary_type_id || salonData.type_id,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     };
 
     let data;
@@ -1303,11 +1334,15 @@ export const GalleryService = {
       .eq("salon_id", salonId)
       .order("display_order", { ascending: true });
 
+<<<<<<< HEAD
     if (error) {
       // Gallery is non-critical; log and return empty rather than crashing the page
       console.warn(`[GalleryService] getSalonGallery error (salonId=${salonId}):`, error.message || error.code || JSON.stringify(error));
       return [];
     }
+=======
+    if (error) throw error;
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     return data || [];
   },
 

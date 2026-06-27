@@ -210,6 +210,24 @@ export default function AdminApprovalsPage() {
                 }
             }
 
+<<<<<<< HEAD
+=======
+            // Send Notification
+            if (selectedSalon?.owner_id) {
+                try {
+                    await NotificationService.sendNotification({
+                        user_id: selectedSalon.owner_id,
+                        title: 'Salon Bilgileriniz İçin Revizyon İstendi',
+                        content: `"${selectedSalon.name}" işletmeniz için şu nedenle revizyon istendi: ${reason}. Lütfen bilgilerinizi güncelleyip tekrar onaya gönderin.`,
+                        type: 'SYSTEM',
+                        link: '/owner/salons'
+                    });
+                } catch (notifErr) {
+                    console.error('Notification error:', notifErr);
+                }
+            }
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             showToast('Revizyon isteği gönderildi.', 'success');
         } catch (err) {
             console.error('Revizyon isteği hatası:', err);
@@ -460,6 +478,7 @@ export default function AdminApprovalsPage() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {loading ? (
+<<<<<<< HEAD
                                             Array.from({ length: 5 }).map((_, index) => (
                                                 <tr key={`skeleton-${index}`} className="border-b border-gray-50">
                                                     <td className="px-8 py-7">
@@ -491,6 +510,16 @@ export default function AdminApprovalsPage() {
                                                     </td>
                                                 </tr>
                                             ))
+=======
+                                            <tr>
+                                                <td colSpan={5} className="px-8 py-20 text-center">
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                        <span className="text-sm font-bold text-text-secondary uppercase tracking-widest">Veriler Senkronize Ediliyor...</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                         ) : filteredSalons.length > 0 ? (
                                             filteredSalons.map((salon) => (
                                                 <tr key={salon.id} className={`hover:bg-primary/[0.02] transition-colors group cursor-pointer ${selectedSalon?.id === salon.id ? 'bg-primary/[0.04]' : ''}`} onClick={() => handleOpenReview(salon)}>

@@ -36,10 +36,16 @@ import type {
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
+<<<<<<< HEAD
     return (
         typeof supabaseUrl === 'string' && 
         (supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1'))
     );
+=======
+  return (
+    typeof supabaseUrl === "string" && (supabaseUrl.includes("localhost:8000") || supabaseUrl.includes("127.0.0.1:8000"))
+  );
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };
 
 export const PaymentService = {
@@ -63,7 +69,10 @@ export const PaymentService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Transaction[]> {
+<<<<<<< HEAD
     if (!salonId || salonId === "") return [];
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
@@ -79,7 +88,10 @@ export const PaymentService = {
     customerId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Transaction[]> {
+<<<<<<< HEAD
     if (!customerId || customerId === "") return [];
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data, error } = await supabase
       .from("transactions")
       .select("*, salons(name)")
@@ -111,7 +123,10 @@ export const PaymentService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     if (!salonId || salonId === "") return [];
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data, error } = await supabase
       .from("payment_history")
       .select("*, subscriptions(subscription_plans(name, display_name))")
@@ -125,6 +140,7 @@ export const PaymentService = {
 
 export const SubscriptionService = {
   /**
+<<<<<<< HEAD
    * Get available plans
    * @param onlyActive If true, returns only plans where is_active is true
    */
@@ -138,6 +154,15 @@ export const SubscriptionService = {
     }
 
     const { data, error } = await query.order("sort_order", { ascending: true });
+=======
+   * Get all available plans
+   */
+  async getPlans(supabase: SupabaseClient = defaultSupabase) {
+    const { data, error } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .order("sort_order", { ascending: true });
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     if (error) throw error;
     return data;
@@ -150,7 +175,10 @@ export const SubscriptionService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     if (!salonId || salonId === "") return null;
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data: subscription, error } = await supabase
       .from("subscriptions")
       .select("*, subscription_plans(*)")
@@ -171,7 +199,10 @@ export const SubscriptionService = {
     salonId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     if (!salonId || salonId === "") return [];
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data, error } = await supabase
       .from("subscriptions")
       .select("*, subscription_plans(*)")
@@ -190,7 +221,10 @@ export const SubscriptionService = {
     ownerId: string,
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     if (!ownerId || ownerId === "") return null;
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     // Önce sahibin salonlarını bul
     const { data: salons } = await supabase
       .from("salons")
@@ -231,6 +265,7 @@ export const SubscriptionService = {
   },
 
   /**
+<<<<<<< HEAD
    * Get total resource usage for an owner across all their salons
    */
   async getOwnerUsageStats(ownerId: string, supabase: SupabaseClient = defaultSupabase) {
@@ -377,6 +412,8 @@ export const SubscriptionService = {
   },
 
   /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Get all subscriptions for an owner (across all salons)
    */
   async getOwnerSubscriptionHistory(
@@ -405,6 +442,7 @@ export const SubscriptionService = {
   /**
    * Admin: Get ALL subscriptions with salon info
    */
+<<<<<<< HEAD
   async getAllSubscriptions(
     options: { page?: number; pageSize?: number; search?: string } = {},
     supabase: SupabaseClient = defaultSupabase
@@ -485,6 +523,16 @@ export const SubscriptionService = {
     }) || [];
 
     return enriched;
+=======
+  async getAllSubscriptions(supabase: SupabaseClient = defaultSupabase) {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*), salons(name, owner_id)")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
 
   /**
@@ -509,7 +557,10 @@ export const SubscriptionService = {
     resourceType: "staff" | "branch" | "gallery_photo",
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<{ allowed: boolean; current: number; limit: number }> {
+<<<<<<< HEAD
     if (!salonId || salonId === "") return { allowed: false, current: 0, limit: 0 };
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const sub = await this.getSalonSubscription(salonId, supabase);
     let plan = sub?.subscription_plans;
 
@@ -593,7 +644,10 @@ export const SubscriptionService = {
     planId: string,
     paymentMethod: "CREDIT_CARD" | "BANK_TRANSFER",
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
+<<<<<<< HEAD
     metadata?: { senderName?: string; bankName?: string; amount?: number; receiptUrl?: string },
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     supabase: SupabaseClient = defaultSupabase,
   ) {
     if (paymentMethod === "CREDIT_CARD") {
@@ -607,14 +661,20 @@ export const SubscriptionService = {
       return data;
     }
 
+<<<<<<< HEAD
     // Default: BANK_TRANSFER flow
     const sub: any = await this.createSubscriptionRequest(
+=======
+    // Default: Just create the pending record for Bank Transfer
+    return this.createSubscriptionRequest(
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       salonId,
       planId,
       paymentMethod,
       billingCycle,
       supabase,
     );
+<<<<<<< HEAD
 
     // After creating subscription, if it is PENDING_APPROVAL, register it in payment_history
     if (sub.status === "PENDING_APPROVAL") {
@@ -637,6 +697,8 @@ export const SubscriptionService = {
     }
     
     return sub;
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
 
   /**
@@ -649,13 +711,18 @@ export const SubscriptionService = {
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     // 1. Plan ve Salon bilgilerini al
+=======
+    // Önce planın detaylarını alalım
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data: planData } = await supabase
       .from("subscription_plans")
       .select("*")
       .eq("id", planId)
       .single();
 
+<<<<<<< HEAD
     const { data: salonData } = await supabase
       .from("salons")
       .select("owner_id")
@@ -671,11 +738,27 @@ export const SubscriptionService = {
     const initialStatus = planData.price_monthly === 0 ? 'ACTIVE' : 'PENDING_APPROVAL';
 
     // 2. Abonelik talebi oluştur
+=======
+    let days = billingCycle === "YEARLY" ? 365 : 30;
+    let initialStatus = "PENDING_APPROVAL";
+    let periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    // Starter planı 3 ay (90 gün) ücretsiz deneme
+    if (planData && (planData.name === "STARTER" || planData.price_monthly === 0)) {
+       days = 90;
+       initialStatus = "ACTIVE"; // Starter matches ACTIVE in schema
+       periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data, error } = await supabase
       .from("subscriptions")
       .upsert({
         salon_id: salonId,
+<<<<<<< HEAD
         owner_id: salonData?.owner_id || null,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         plan_id: planId,
         status: initialStatus,
         payment_method: paymentMethod,
@@ -694,7 +777,10 @@ export const SubscriptionService = {
       // 1. Ödeme geçmişine kaydet
       await supabase.from("payment_history").insert({
         salon_id: salonId,
+<<<<<<< HEAD
         owner_id: salonData?.owner_id || null,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         subscription_id: data.id,
         amount: 0,
         payment_method: "TRIAL",
@@ -704,7 +790,11 @@ export const SubscriptionService = {
       });
 
       // 2. Aktivasyon yap
+<<<<<<< HEAD
       await this.activateSalonAndSubscription(
+=======
+      await SubscriptionService.activateSalonAndSubscription(
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         salonId, 
         data.id, 
         'Otomatik TRIAL Aktivasyonu',
@@ -722,10 +812,14 @@ export const SubscriptionService = {
     subscriptionId: string,
     salonId: string,
     amount: number,
+<<<<<<< HEAD
     senderName?: string,
     receiptUrl?: string,
     supabase: SupabaseClient = defaultSupabase,
     bankName?: string,
+=======
+    supabase: SupabaseClient = defaultSupabase,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   ) {
     const { data, error } = await supabase
       .from("payment_history")
@@ -737,11 +831,14 @@ export const SubscriptionService = {
         payment_type: "SUBSCRIPTION",
         status: "PENDING", // Admin confirmation needed
         bank_transfer_notified_at: new Date().toISOString(),
+<<<<<<< HEAD
         bank_transfer_proof_url: receiptUrl || null,
         metadata: {
           sender_name: senderName || 'Belirtilmedi',
           bank_name: bankName || 'Belirtilmedi'
         }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       })
       .select()
       .single();
@@ -803,15 +900,22 @@ export const SubscriptionService = {
    * This bypasses the normal payment flow.
    */
   async adminAssignSubscription(
+<<<<<<< HEAD
     target: { salonId?: string; ownerId?: string },
+=======
+    salonId: string,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     planId: string,
     billingCycle: "MONTHLY" | "YEARLY" = "MONTHLY",
     adminNote: string = "Admin tarafından manuel atandı",
     supabase: SupabaseClient = defaultSupabase,
   ) {
+<<<<<<< HEAD
     const { salonId, ownerId } = target;
     if (!salonId && !ownerId) throw new Error("salonId veya ownerId zorunludur");
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     // 1. Plan detaylarını al
     const { data: planData } = await supabase
       .from("subscription_plans")
@@ -824,6 +928,7 @@ export const SubscriptionService = {
     const days = billingCycle === "YEARLY" ? 365 : 30;
     const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
+<<<<<<< HEAD
     // 2. Owner ID'yi bul (salonId verilmişse)
     let finalOwnerId = ownerId;
     if (salonId && !finalOwnerId) {
@@ -877,6 +982,29 @@ export const SubscriptionService = {
     await supabase.from("payment_history").insert({
       salon_id: salonId || null,
       owner_id: finalOwnerId || null,
+=======
+    // 2. Aboneliği oluştur veya güncelle
+    const { data: subscription, error: subError } = await supabase
+      .from("subscriptions")
+      .upsert({
+        salon_id: salonId,
+        plan_id: planId,
+        status: "ACTIVE",
+        payment_method: "BANK_TRANSFER", // Placeholder for manual
+        billing_cycle: billingCycle,
+        current_period_start: new Date().toISOString(),
+        current_period_end: periodEnd,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'salon_id' })
+      .select()
+      .single();
+
+    if (subError) throw subError;
+
+    // 3. Ödeme geçmişine "Sistem Ataması" olarak ekle
+    await supabase.from("payment_history").insert({
+      salon_id: salonId,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       subscription_id: subscription.id,
       amount: billingCycle === "YEARLY" ? planData.price_yearly : planData.price_monthly,
       payment_method: "BANK_TRANSFER",
@@ -885,6 +1013,7 @@ export const SubscriptionService = {
       metadata: { note: adminNote, is_admin_assignment: true }
     });
 
+<<<<<<< HEAD
     // 5. Salonu ve aboneliği aktif et (eğer salonId varsa)
     if (salonId) {
       await this.activateSalonAndSubscription(
@@ -942,6 +1071,18 @@ export const SubscriptionService = {
     if (error) throw error;
     return { success: true, action: 'DELETED' };
   },
+=======
+    // 4. Salonu ve aboneliği aktif et (onaylı durumu için)
+    await this.activateSalonAndSubscription(
+      salonId,
+      subscription.id,
+      adminNote,
+      supabase
+    );
+
+    return subscription;
+  },
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };
 
 
@@ -988,6 +1129,7 @@ export const SubmerchantService = {
 
 export const FinanceService = {
   /**
+<<<<<<< HEAD
    * Admin: Get Unified Finance Records (Combines payments and subscriptions without a payment record)
    */
   async getUnifiedFinanceRecords(
@@ -1046,6 +1188,8 @@ export const FinanceService = {
   },
 
   /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Get pending bank transfer payments for Admin
    */
   async getPendingPayments(supabase: SupabaseClient = defaultSupabase) {
@@ -1077,6 +1221,7 @@ export const FinanceService = {
     if (pError) throw pError;
 
     // Case 1: Subscription Activation (Atomic RPC)
+<<<<<<< HEAD
     if (status === "SUCCESS" && payment.payment_type === "SUBSCRIPTION") {
       let subscriptionId = payment.subscription_id;
       
@@ -1100,10 +1245,18 @@ export const FinanceService = {
         const { error: rpcError } = await supabase.rpc("activate_salon_and_subscription", {
           p_salon_id: payment.salon_id,
           p_subscription_id: subscriptionId,
+=======
+    if (status === "SUCCESS" && payment.payment_type === "SUBSCRIPTION" && payment.subscription_id) {
+      try {
+        const { error: rpcError } = await supabase.rpc("activate_salon_and_subscription", {
+          p_salon_id: payment.salon_id,
+          p_subscription_id: payment.subscription_id,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
           p_admin_note: adminNote
         });
         
         if (rpcError) {
+<<<<<<< HEAD
           console.error("Activation RPC Error:", rpcError);
           throw new Error(`Aktivasyon hatası (RPC): ${rpcError.message}`);
         }
@@ -1112,6 +1265,21 @@ export const FinanceService = {
     }
 
     // Case 2: Standard Status Update (Direct ID)
+=======
+          console.error("RPC Error (Activation):", rpcError);
+          throw rpcError;
+        }
+        return { success: true, method: 'RPC' };
+      } catch (err) {
+          console.error("Activation RPC failed, attempting manual fallback for payment history:", err);
+          // Fallback: at least update the payment record
+          await supabase.from("payment_history").update({ status: 'SUCCESS' }).eq("id", paymentId);
+          throw err;
+      }
+    }
+
+    // Case 2: Standard Status Update (Manual)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { error: updateError } = await supabase
       .from("payment_history")
       .update({
@@ -1137,13 +1305,18 @@ export const FinanceService = {
             .eq('id', payment.subscription_id);
     }
     
+<<<<<<< HEAD
     return { success: true };
+=======
+    return { success: true, method: 'MANUAL' };
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
 
   /**
    * Get financial reports (Overview)
    */
   async getFinancialReports(
+<<<<<<< HEAD
     filter: { 
       salonId?: string; 
       startDate?: string; 
@@ -1161,6 +1334,12 @@ export const FinanceService = {
     const offset = (page - 1) * pageSize;
 
     let selectStr = `
+=======
+    filter: { salonId?: string; startDate?: string; endDate?: string } = {},
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    let query = supabase.from("payment_history").select(`
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       *, 
       salons(
         id, 
@@ -1170,7 +1349,11 @@ export const FinanceService = {
         address,
         cities(name),
         districts(name),
+<<<<<<< HEAD
         profiles:profiles!owner_id(full_name, email, phone)
+=======
+        profiles!owner_id(full_name, email, phone)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       ), 
       subscriptions(
         current_period_end, 
@@ -1178,6 +1361,7 @@ export const FinanceService = {
         plan_id,
         subscription_plans(*)
       )
+<<<<<<< HEAD
     `;
 
     if (filter.search) {
@@ -1250,10 +1434,39 @@ export const FinanceService = {
       transactions,
       totalCount: count || 0,
       stats,
+=======
+    `);
+
+    if (filter.salonId) query = query.eq("salon_id", filter.salonId);
+    if (filter.startDate) query = query.gte("created_at", filter.startDate);
+    if (filter.endDate) query = query.lte("created_at", filter.endDate);
+
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
+    if (error) throw error;
+
+    // Simple aggregation
+    const totalRevenue = data.reduce(
+      (acc, curr) => (curr.status === "SUCCESS" ? acc + curr.amount : acc),
+      0,
+    );
+    const successCount = data.filter((p) => p.status === "SUCCESS").length;
+
+    return {
+      transactions: data,
+      stats: {
+        totalRevenue,
+        successCount,
+        failedCount: data.filter((p) => p.status === "FAILED").length,
+        pendingCount: data.filter((p) => p.status === "PENDING").length,
+      },
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     };
   },
 
   /**
+<<<<<<< HEAD
    * Admin: Get overall finance stats
    */
   async getFinanceStats(supabase: SupabaseClient = defaultSupabase) {
@@ -1276,6 +1489,8 @@ export const FinanceService = {
   },
 
   /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Delete a payment record
    */
   async deletePayment(

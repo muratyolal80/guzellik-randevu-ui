@@ -5,6 +5,7 @@ import {
     Package, Building, Users, Image as ImageIcon, CheckCircle2,
     AlertCircle, Clock, CreditCard, Wallet, ArrowRight,
     ShieldCheck, Zap, Briefcase, Crown, Check, X,
+<<<<<<< HEAD
     History as HistoryIcon, Loader2, Landmark
 } from 'lucide-react';
 // import { toast } from 'sonner'; // No toast lib installed in package.json
@@ -14,6 +15,15 @@ import { useAuth } from '@/context/AuthContext';
 import ImageUpload from '@/components/ImageUpload';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
 import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
+=======
+    History as HistoryIcon, Loader2
+} from 'lucide-react';
+// import { toast } from 'sonner'; // No toast lib installed in package.json
+import { useActiveBranch } from '@/context/ActiveBranchContext';
+import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
+import { useTenant } from '@/context/TenantContext';
+import { useAuth } from '@/context/AuthContext';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 import { SubscriptionService, PaymentService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -43,8 +53,11 @@ export default function BillingPage() {
     const [limits, setLimits] = useState<any>(null);
     const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+<<<<<<< HEAD
     const [receiptUrl, setReceiptUrl] = useState<string>('');
     const [showPayTR, setShowPayTR] = useState(false);
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     const fetchData = async () => {
         if (!user?.id) return;
@@ -96,7 +109,11 @@ export default function BillingPage() {
     const currentActiveSub = subHistory.find(s => s.status === 'ACTIVE' || s.status === 'TRIAL' || s.status === 'PENDING');
     const isExpired = subscriptionStatus === 'EXPIRED' || subscriptionStatus === 'CANCELLED';
 
+<<<<<<< HEAD
     const handleUpgradeWithSender = async (planId: string, senderName?: string, proofUrl?: string) => {
+=======
+    const handleUpgrade = async (planId: string) => {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         if (!salonId || !activeBranch) return;
         const targetPlan = plans.find(p => p.id === planId);
         const confirm = window.confirm(`"${targetPlan?.display_name}" paketine geçiş yapmak istediğinize emin misiniz?`);
@@ -108,12 +125,16 @@ export default function BillingPage() {
                 activeBranch.id,
                 planId,
                 'BANK_TRANSFER',
+<<<<<<< HEAD
                 billingCycle,
                 {
                     senderName: senderName,
                     amount: billingCycle === 'YEARLY' ? targetPlan?.price_yearly : targetPlan?.price_monthly,
                     receiptUrl: proofUrl
                 }
+=======
+                billingCycle
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             );
             alert('Abonelik talebiniz oluşturuldu!');
             await refreshSalonId();
@@ -349,6 +370,7 @@ export default function BillingPage() {
                     />
 
                     {selectedPlanId && (
+<<<<<<< HEAD
                         <div className="mt-12 p-8 bg-white border-2 border-primary rounded-[32px] flex flex-col gap-8 animate-in slide-in-from-bottom-4 duration-500">
                             <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-border pb-8">
                                 <div>
@@ -456,6 +478,21 @@ export default function BillingPage() {
                                     </button>
                                 </div>
                             )}
+=======
+                        <div className="mt-12 p-8 bg-white border-2 border-primary rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-bottom-4 duration-500">
+                            <div>
+                                <h3 className="text-xl font-black text-text-main mb-1 uppercase tracking-tight">
+                                    {plans.find(p => p.id === selectedPlanId)?.display_name} Planını Seçtiniz
+                                </h3>
+                                <p className="text-sm text-text-secondary font-medium italic">Seçilen plan üzerinden abonelik sürecinizi başlatabilirsiniz.</p>
+                            </div>
+                            <button
+                                onClick={() => handleUpgrade(selectedPlanId)}
+                                className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest"
+                            >
+                                Aboneliği Başlat
+                            </button>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         </div>
                     )}
                 </div>
@@ -590,6 +627,7 @@ export default function BillingPage() {
                     </div>
                 </div>
             )}
+<<<<<<< HEAD
 
             <PayTRPaymentModal
                 isOpen={showPayTR && !!selectedPlanId}
@@ -599,6 +637,8 @@ export default function BillingPage() {
                 planLabel={plans.find(p => p.id === selectedPlanId)?.display_name}
                 onClose={() => setShowPayTR(false)}
             />
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         </div>
     );
 }

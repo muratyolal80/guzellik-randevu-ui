@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+<<<<<<< HEAD
 <url><loc>https://kuaforara.com.tr</loc><lastmod>2026-06-02T15:20:59.412Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://kuaforara.com.tr/admin</loc><lastmod>2026-06-02T15:20:59.414Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://kuaforara.com.tr/bookings</loc><lastmod>2026-06-02T15:20:59.414Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
@@ -25,4 +26,28 @@
 <url><loc>https://kuaforara.com.tr/staff/hours</loc><lastmod>2026-06-02T15:20:59.414Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://kuaforara.com.tr/staff/profile</loc><lastmod>2026-06-02T15:20:59.414Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://kuaforara.com.tr/staff/schedule</loc><lastmod>2026-06-02T15:20:59.414Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+=======
+<url><loc>https://kuaforara.com.tr/admin</loc><lastmod>2026-03-22T11:17:14.849Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/bookings</loc><lastmod>2026-03-22T11:17:14.851Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/appointments</loc><lastmod>2026-03-22T11:17:14.851Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/dashboard</loc><lastmod>2026-03-22T11:17:14.851Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/favorites</loc><lastmod>2026-03-22T11:17:14.851Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/notifications</loc><lastmod>2026-03-22T11:17:14.851Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/payments</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/profile</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/reviews</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/settings</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/customer/support</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/login</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/register/business</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/register/invite</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/register</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/saas</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/search</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/staff/dashboard</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/staff/hours</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/staff/profile</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://kuaforara.com.tr/staff/schedule</loc><lastmod>2026-03-22T11:17:14.852Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 </urlset>

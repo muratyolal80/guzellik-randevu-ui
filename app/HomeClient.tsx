@@ -63,6 +63,7 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
     return true;
 };
 
+<<<<<<< HEAD
 // --- Open/Closed Status Helper ---
 const getSalonOpenStatus = (salon: SalonDetail): boolean => {
     if (salon.is_closed) return false;
@@ -77,6 +78,9 @@ const getSalonOpenStatus = (salon: SalonDetail): boolean => {
 };
 
 // --- Service Icon Helper (kompakt — kart üstündeki badge için) ---
+=======
+// --- Service Icon Helper ---
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 const getServiceIcon = (serviceName: string) => {
     const lower = serviceName.toLowerCase();
     if (lower.includes('sağ') || lower.includes('fön') || lower.includes('kesim') || lower.includes('röfle') || lower.includes('ombre')) return <Scissors className="w-4 h-4" />;
@@ -91,6 +95,7 @@ const getServiceIcon = (serviceName: string) => {
     return <Star className="w-4 h-4" />;
 };
 
+<<<<<<< HEAD
 // --- Service Theme: site primary (altın) etrafında tek tonlu premium meta ---
 type ServiceTheme = {
     icon: React.ReactNode;
@@ -123,6 +128,8 @@ const getServiceTheme = (serviceName: string): ServiceTheme => {
     return { icon: big(Star), label: 'Güzellik Hizmeti' };
 };
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 export default function HomeClient() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -143,11 +150,17 @@ export default function HomeClient() {
     // Previously redirected admins/owners away from homepage. 
     // Now they can browse the landing page normally.
 
+<<<<<<< HEAD
     const handledErrorRef = useRef<string | null>(null);
     useEffect(() => {
         const errorParam = searchParams.get('error');
         if (errorParam === 'unauthorized' && handledErrorRef.current !== errorParam) {
             handledErrorRef.current = errorParam;
+=======
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'unauthorized') {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setShowUnauthorizedError(true);
             setTimeout(() => setShowUnauthorizedError(false), 5000);
             router.replace('/');
@@ -209,7 +222,11 @@ export default function HomeClient() {
             setLoading(true);
             try {
                 const results = await Promise.allSettled([
+<<<<<<< HEAD
                     SalonDataService.getAllSalons(),
+=======
+                    SalonDataService.getSalons(),
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     MasterDataService.getSalonTypes(),
                     MasterDataService.getAllGlobalServices(),
                     MasterDataService.getCities()
@@ -513,10 +530,17 @@ export default function HomeClient() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+<<<<<<< HEAD
                                         <button onClick={() => setViewMode('split')} aria-label="Harita ile birlikte göster" className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
                                             <MapIcon className="w-3 h-3" />
                                         </button>
                                         <button onClick={() => setViewMode('wide')} aria-label="Sadece liste görünümü" className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+=======
+                                        <button onClick={() => setViewMode('split')} className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+                                            <MapIcon className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => setViewMode('wide')} className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                             <LayoutGrid className="w-3 h-3" />
                                         </button>
                                     </div>
@@ -536,6 +560,7 @@ export default function HomeClient() {
                                 </div>
                             ) : (
                                 <div className={viewMode === 'wide' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-5'}>
+<<<<<<< HEAD
                                     {visibleSalons.map(salon => {
                                         const isOpen = getSalonOpenStatus(salon);
                                         return (
@@ -577,12 +602,85 @@ export default function HomeClient() {
                                                 </div>
                                                 <div className="pt-3 flex items-center justify-between border-t border-gray-50 mt-2">
                                                     <span className="text-[10px] text-text-muted font-bold uppercase tracking-wide">Başlayan fiyatlar</span>
+=======
+                                    {visibleSalons.map(salon => (
+                                        <Link
+                                            href={`/salon/${salon.id}`}
+                                            key={salon.id}
+                                            className="group block bg-white border border-border p-4 rounded-3xl hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
+                                            onMouseEnter={() => setHoveredSalonId(salon.id)}
+                                            onMouseLeave={() => setHoveredSalonId(null)}
+                                        >
+                                            <div className="relative mb-4 overflow-hidden rounded-2xl aspect-[16/9]">
+                                                <img src={salon.image || '/placeholder-salon.jpg'} alt={salon.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                <div className="absolute top-3 right-3 flex flex-col gap-2">
+                                                    <div className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm border border-white/50">
+                                                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                        <span className="text-[10px] font-black">{salon.rating || 0}</span>
+                                                    </div>
+                                                    {(() => {
+                                                        const isClosedFlag = salon.is_closed;
+                                                        if (isClosedFlag) return (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+
+                                                        const now = new Date();
+                                                        const currentDay = now.getDay();
+                                                        const currentDayMapped = currentDay === 0 ? 7 : currentDay;
+                                                        const currentTime = now.getHours() * 60 + now.getMinutes();
+
+                                                        const todayHours = salon.working_hours?.find(wh => wh.day_of_week === currentDayMapped);
+
+                                                        if (!todayHours || todayHours.is_closed) return (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+
+                                                        const [startH, startM] = todayHours.start_time.split(':').map(Number);
+                                                        const [endH, endM] = todayHours.end_time.split(':').map(Number);
+                                                        const startTotal = startH * 60 + startM;
+                                                        const endTotal = endH * 60 + endM;
+
+                                                        const isOpen = currentTime >= startTotal && currentTime < endTotal;
+
+                                                        return isOpen ? (
+                                                            <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Açık</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm text-white">
+                                                                <Clock className="w-3 h-3" />
+                                                                <span className="text-[10px] font-black">Kapalı</span>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h3 className="font-bold text-text-main group-hover:text-primary transition-colors truncate">{salon.name}</h3>
+                                                <div className="flex items-center gap-1 text-text-muted">
+                                                    <MapPin className="w-3 h-3" />
+                                                    <p className="text-[10px] font-bold">{salon.district}, {salon.city}</p>
+                                                </div>
+                                                <div className="pt-2 flex items-center justify-between border-t border-gray-50 mt-2">
+                                                    <span className="text-[10px] text-text-muted font-bold uppercase">Başlayan fiyatlar</span>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                     <span className="text-sm font-black text-primary">₺{salon.startPrice || '---'}</span>
                                                 </div>
                                             </div>
                                         </Link>
+<<<<<<< HEAD
                                         );
                                     })}
+=======
+                                    ))}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     {filteredSalons.length === 0 && (
                                         <div className="text-center py-20">
                                             <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -744,6 +842,7 @@ export default function HomeClient() {
                         </div>
                     </section>
 
+<<<<<<< HEAD
                     {/* Stats / Social Proof Bar */}
                     <section className="bg-white border-y border-gray-100 py-10">
                         <div className="max-w-[1400px] mx-auto px-4">
@@ -764,6 +863,8 @@ export default function HomeClient() {
                         </div>
                     </section>
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     {/* Featured Salons Area */}
                     <section className="py-20 bg-white">
                         <div className="max-w-[1400px] mx-auto px-4">
@@ -778,6 +879,7 @@ export default function HomeClient() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+<<<<<<< HEAD
                                 {salons.slice(0, 4).map((salon) => {
                                     const isOpen = getSalonOpenStatus(salon);
                                     return (
@@ -830,6 +932,46 @@ export default function HomeClient() {
                                         </Link>
                                     );
                                 })}
+=======
+                                {salons.slice(0, 4).map((salon) => (
+                                    <Link href={`/salon/${salon.id}`} key={salon.id} className="group flex flex-col h-full bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500">
+                                        <div className="relative aspect-[4/3] overflow-hidden">
+                                            <img src={salon.image || '/placeholder-salon.jpg'} alt={salon.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            {salon.is_sponsored && (
+                                                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[9px] font-black uppercase text-primary border border-white">Öne Çıkan</div>
+                                            )}
+                                            <button
+                                                onClick={(e) => handleToggleFavorite(e, salon.id)}
+                                                className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-red-500 transition-all border border-white/30"
+                                            >
+                                                <Heart className={`w-5 h-5 ${userFavorites.includes(salon.id) ? 'fill-red-500 text-red-500' : ''}`} />
+                                            </button>
+                                            <div className="absolute bottom-4 left-4 right-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                                                <div className="w-full bg-white text-text-main py-2.5 rounded-xl text-center font-black text-sm shadow-xl">Hemen Randevu Al</div>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 flex-1 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-2 gap-2">
+                                                    <h3 className="font-bold text-text-main group-hover:text-primary transition-colors leading-tight line-clamp-1">{salon.name}</h3>
+                                                    <div className="flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-lg text-amber-700 text-xs font-black border border-amber-100 shrink-0">
+                                                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                                        {salon.rating || '5.0'}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 text-text-muted mb-4">
+                                                    <MapPin className="w-3 h-3" />
+                                                    <span className="text-[10px] font-bold">{salon.district}, {salon.city}</span>
+                                                </div>
+                                            </div>
+                                            <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                                                <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Başlangıç</span>
+                                                <span className="text-lg font-black text-primary">₺{salon.startPrice}</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             </div>
                         </div>
                     </section>
@@ -863,6 +1005,7 @@ export default function HomeClient() {
                         </div>
                     </section>
 
+<<<<<<< HEAD
                     {/* Popular Services — Monochrome Premium */}
                     <section className="py-24 bg-white relative overflow-hidden">
                         {/* Subtle dekoratif çizgi pattern */}
@@ -930,6 +1073,35 @@ export default function HomeClient() {
                                     className="inline-flex items-center gap-2 px-6 py-3 bg-text-main text-white rounded-xl text-sm font-bold hover:bg-primary transition-colors"
                                 >
                                     Tüm Hizmetleri Gör <ArrowRight className="w-4 h-4" />
+=======
+                    {/* Popular Services Section */}
+                    <section className="py-20 bg-white">
+                        <div className="max-w-[1400px] mx-auto px-4">
+                            <div className="text-center mb-16">
+                                <span className="text-primary font-bold text-xs uppercase tracking-[0.2em] mb-4 block">Hizmetlerimiz</span>
+                                <h2 className="text-4xl font-black text-text-main">Popüler Hizmetler</h2>
+                                <div className="w-16 h-1 bg-primary mx-auto mt-6 rounded-full" />
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {popularServices.map((service, idx) => (
+                                    <Link
+                                        key={idx}
+                                        href={`/?search=${encodeURIComponent(service)}&mode=service`}
+                                        className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-primary hover:shadow-xl transition-all group"
+                                    >
+                                        <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shrink-0">
+                                            {getServiceIcon(service)}
+                                        </div>
+                                        <span className="text-text-main font-bold text-sm truncate">{service}</span>
+                                    </Link>
+                                ))}
+                            </div>
+
+                            <div className="mt-16 text-center">
+                                <Link href="/?type=all" className="inline-flex items-center gap-3 px-8 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-black text-text-main hover:bg-white hover:border-primary hover:shadow-xl transition-all group">
+                                    Tüm Hizmetleri Görüntüle <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 </Link>
                             </div>
                         </div>

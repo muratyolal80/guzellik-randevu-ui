@@ -323,9 +323,15 @@ export const NotificationService = {
       user_id: notification.user_id,
       salon_id: notification.salon_id,
       title: notification.title,
+<<<<<<< HEAD
       message: notification.content,
       type: notification.type,
       action_url: notification.link,
+=======
+      content: notification.content,
+      type: notification.type,
+      link: notification.link,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       is_read: false,
       created_at: new Date().toISOString(),
     };

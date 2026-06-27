@@ -10,8 +10,11 @@ import { useAuth } from '@/context/AuthContext';
 import { CampaignService } from '@/services/db';
 import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
 import { Ticket, Tag, CheckCircle2, XCircle, Users, AlertCircle } from 'lucide-react';
+<<<<<<< HEAD
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export default function BookingUserInfoPage() {
   const params = useParams();
@@ -68,7 +71,10 @@ export default function BookingUserInfoPage() {
   const [countdown, setCountdown] = useState(0);
   const [isNewUser, setIsNewUser] = useState(false);
   const [consentGiven, setConsentGiven] = useState(true);
+<<<<<<< HEAD
   const [legalModal, setLegalModal] = useState<null | 'kvkk' | 'tei'>(null);
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
   // Coupon & Discount states
   const [couponCode, setCouponCode] = useState('');
@@ -144,10 +150,16 @@ export default function BookingUserInfoPage() {
         setDemoMode(data.demoMode || false);
 
         if (data.demoMode) {
+<<<<<<< HEAD
           // Demo mode: SMS gönderilmez. Kodu otomatik doldur, kullanıcı sadece "Doğrula" tıklasın.
           const demoCode = data.demoCode || '111111';
           setOtp(demoCode);
           // setError'a düşürmüyoruz; UI'da "Demo modu" rozeti gösteriliyor.
+=======
+          // Demo mode message improvement: Show the actual generated code
+          const demoCode = data.demoCode || '111111';
+          setError(`DEMO MODU AKTİF: Lütfen doğrulama kodu olarak "${demoCode}" giriniz.`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         }
       } else {
         setError(data.error || 'SMS gönderilemedi');
@@ -299,8 +311,12 @@ export default function BookingUserInfoPage() {
           window.location.href = data.paymentUrl;
         } else {
           router.refresh();
+<<<<<<< HEAD
           const smsFailed = data?.smsDelivered === false ? '&smsFailed=1' : '';
           router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}${smsFailed}`);
+=======
+          router.push(`/booking/${id}/confirm?appointmentId=${data.appointmentId}`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         }
       } else {
         if (response.status === 409 || data.error?.includes('dolu')) {
@@ -408,10 +424,15 @@ export default function BookingUserInfoPage() {
                       </label>
                       <input
                         type="tel"
+<<<<<<< HEAD
                         inputMode="numeric"
                         autoComplete="tel-national"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+=======
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         placeholder="0xxx xxx xx xx"
                         maxLength={11}
                         className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -454,6 +475,7 @@ export default function BookingUserInfoPage() {
                     </div>
 
                     <div>
+<<<<<<< HEAD
                       <label className="block text-text-main text-sm font-bold mb-2 flex items-center gap-2">
                         Doğrulama Kodu *
                         {demoMode && (
@@ -467,6 +489,13 @@ export default function BookingUserInfoPage() {
                         type="tel"
                         inputMode="numeric"
                         autoComplete="one-time-code"
+=======
+                      <label className="block text-text-main text-sm font-bold mb-2">
+                        Doğrulama Kodu *
+                      </label>
+                      <input
+                        type="text"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         value={otp}
                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                         placeholder="6 haneli kod"
@@ -486,6 +515,7 @@ export default function BookingUserInfoPage() {
                         />
                       </div>
                       <label htmlFor="consent" className="text-sm text-text-secondary select-none">
+<<<<<<< HEAD
                         <button
                           type="button"
                           onClick={(e) => { e.preventDefault(); setLegalModal('kvkk'); }}
@@ -502,6 +532,9 @@ export default function BookingUserInfoPage() {
                           Ticari Elektronik İleti
                         </button>
                         {' '}iznini okudum, onaylıyorum.
+=======
+                        <span className="font-semibold text-text-main">Aydınlatma Metni</span> ve <span className="font-semibold text-text-main">Ticari Elektronik İleti</span> iznini okudum, onaylıyorum.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                       </label>
                     </div>
 
@@ -741,6 +774,7 @@ export default function BookingUserInfoPage() {
           </div>
         </div>
       </div>
+<<<<<<< HEAD
       <LegalConsentModal
         open={legalModal === 'kvkk'}
         title="Kişisel Verilerin Korunması — Aydınlatma Metni"
@@ -753,6 +787,8 @@ export default function BookingUserInfoPage() {
         content={TICARI_ELEKTRONIK_ILETI_ONAYI}
         onClose={() => setLegalModal(null)}
       />
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     </Layout>
   );
 }

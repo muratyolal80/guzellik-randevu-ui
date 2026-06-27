@@ -5,8 +5,12 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
+<<<<<<< HEAD
 import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
 import { SubscriptionService, PaymentService, SalonDataService, FinanceService, ProfileService } from '@/services/db';
+=======
+import { SubscriptionService, PaymentService, SalonDataService } from '@/services/db';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -34,12 +38,17 @@ import {
     Check,
     History as HistoryIcon,
     ChevronRight,
+<<<<<<< HEAD
     Star,
     UploadCloud,
     Info
 } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
 import { useSearchParams } from 'next/navigation';
+=======
+    Star
+} from 'lucide-react';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,7 +119,11 @@ type ActiveTab = 'OVERVIEW' | 'UPGRADE' | 'SUBSCRIPTIONS' | 'HISTORY';
 
 function ProgressSteps({ step }: { step: 1 | 2 }) {
     const steps = [
+<<<<<<< HEAD
         { n: 1, label: 'İşletme Sahibi Seç' },
+=======
+        { n: 1, label: 'Salon / İşletme Seç' },
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         { n: 2, label: 'Paket & Ödeme' },
     ];
     return (
@@ -132,14 +145,22 @@ function ProgressSteps({ step }: { step: 1 | 2 }) {
     );
 }
 
+<<<<<<< HEAD
 // ─── Step 1: Owner Select ─────────────────────────────────────────────────────
 
 function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => void }) {
     const [owners, setOwners]   = useState<any[]>([]);
+=======
+// ─── Step 1: Salon Select ─────────────────────────────────────────────────────
+
+function SalonSelectStep({ onSelect }: { onSelect: (salon: any, sub: any) => void }) {
+    const [salons, setSalons]   = useState<any[]>([]);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [loading, setLoading] = useState(true);
     const [query, setQuery]     = useState('');
 
     useEffect(() => {
+<<<<<<< HEAD
         const fetchOwners = async () => {
             try {
                 // Fetch all users with OWNER or SALON_OWNER role
@@ -177,6 +198,37 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
         return (
             o.full_name?.toLowerCase().includes(q) ||
             o.email?.toLowerCase().includes(q)
+=======
+        (async () => {
+            try {
+                const data = await SalonDataService.getAllSalonsForAdmin();
+                // For each salon, fetch their active subscription in parallel (batch)
+                const enriched = await Promise.all(
+                    data.map(async (s: any) => {
+                        try {
+                            const sub = await SubscriptionService.getSalonSubscription(s.id);
+                            return { ...s, activeSub: sub };
+                        } catch {
+                            return { ...s, activeSub: null };
+                        }
+                    })
+                );
+                setSalons(enriched);
+            } catch (err) {
+                console.error('Salon list error:', err);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
+    const filtered = salons.filter(s => {
+        const q = query.toLowerCase();
+        return (
+            s.name?.toLowerCase().includes(q) ||
+            s.owner_name?.toLowerCase().includes(q) ||
+            s.owner_email?.toLowerCase().includes(q)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         );
     });
 
@@ -184,7 +236,11 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
                 {[...Array(6)].map((_, i) => (
+<<<<<<< HEAD
                     <div key={i} className="h-40 bg-gray-100 rounded-[32px]" />
+=======
+                    <div key={i} className="h-40 bg-gray-100 rounded-[28px]" />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 ))}
             </div>
         );
@@ -198,7 +254,11 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                 <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
+<<<<<<< HEAD
                     placeholder="Owner adı veya e-postası ile ara…"
+=======
+                    placeholder="Salon adı veya owner e-postası ile ara…"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     className="w-full pl-11 pr-4 py-3.5 bg-white border border-border rounded-2xl text-sm font-medium text-text-main focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all"
                 />
                 {query && (
@@ -210,12 +270,18 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
 
             {filtered.length === 0 ? (
                 <div className="bg-white rounded-[32px] border border-border p-16 text-center">
+<<<<<<< HEAD
                     <User className="w-12 h-12 text-text-muted mx-auto mb-4" />
                     <h3 className="font-black text-text-main">İşletme Sahibi Bulunamadı</h3>
+=======
+                    <Building2 className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                    <h3 className="font-black text-text-main">Salon Bulunamadı</h3>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     <p className="text-sm text-text-secondary mt-1">Arama kriterlerinizi değiştirin.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<<<<<<< HEAD
                     {filtered.map((owner) => {
                         const hasActive = !!owner.activeSub;
                         const displayName = owner.full_name || owner.email?.split('@')[0] || 'Bilinmeyen Kullanıcı';
@@ -282,6 +348,55 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                                     </div>
                                 </div>
                             </div>
+=======
+                    {filtered.map((salon) => {
+                        const sub  = salon.activeSub;
+                        const plan = sub?.subscription_plans;
+                        const ss   = salonStatusLabel[salon.status] ?? { label: salon.status, cls: 'bg-gray-100 text-gray-500' };
+                        return (
+                            <button
+                                key={salon.id}
+                                onClick={() => onSelect(salon, sub)}
+                                className="text-left bg-white border-2 border-border rounded-[28px] p-6 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:scale-[1.01] transition-all duration-200 group"
+                            >
+                                {/* Header */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center">
+                                        <Building2 className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${ss.cls}`}>
+                                            {ss.label}
+                                        </span>
+                                        {plan && (
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${statusLabel[sub?.status]?.cls ?? 'bg-gray-100 text-gray-500'}`}>
+                                                {plan.display_name}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <h3 className="font-black text-text-main text-sm uppercase tracking-tight mb-1 group-hover:text-primary transition-colors">
+                                    {salon.name}
+                                </h3>
+                                {salon.city_name && (
+                                    <p className="text-[11px] text-text-muted font-medium mb-3">{salon.city_name}{salon.district_name ? ` / ${salon.district_name}` : ''}</p>
+                                )}
+
+                                {/* Owner info */}
+                                {salon.owner_name && (
+                                    <div className="flex items-center gap-2 text-[11px] text-text-secondary font-medium">
+                                        <User className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <span className="truncate">{salon.owner_name}</span>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 flex items-center justify-end text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="text-[11px] font-black uppercase tracking-widest">Seç</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </div>
+                            </button>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         );
                     })}
                 </div>
@@ -321,12 +436,18 @@ function ProgressBar({ label, icon, current, max }: { label: string; icon: React
 export default function AdminPurchasePage() {
     const { showToast } = useToast();
 
+<<<<<<< HEAD
     const searchParams = useSearchParams();
     const urlPlanId = searchParams.get('plan');
 
     // Step 1 state
     const [step, setStep]             = useState<1 | 2>(1);
     const [selectedOwner, setSelectedOwner] = useState<any>(null);
+=======
+    // Step 1 state
+    const [step, setStep]             = useState<1 | 2>(1);
+    const [selectedSalon, setSelectedSalon] = useState<any>(null);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [currentSub, setCurrentSub] = useState<any>(null);
 
     // Step 2 state
@@ -339,12 +460,18 @@ export default function AdminPurchasePage() {
 
     // Payment state
     const [billingCycle, setBillingCycle]     = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+<<<<<<< HEAD
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(urlPlanId);
     const [paymentMethod, setPaymentMethod]   = useState<'BANK_TRANSFER' | 'CREDIT_CARD' | 'CASH'>('BANK_TRANSFER');
+=======
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const [paymentMethod, setPaymentMethod]   = useState<'BANK_TRANSFER' | 'CREDIT_CARD'>('BANK_TRANSFER');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [immediateActivate, setImmediateActivate] = useState(true); // Super admin default: true
     const [purchasing, setPurchasing]         = useState(false);
     const [hasPendingPayment, setHasPendingPayment] = useState(false);
 
+<<<<<<< HEAD
     // Bank Transfer Detail states
     const [manualSenderName, setManualSenderName] = useState('');
     const [manualBankName, setManualBankName]     = useState('');
@@ -387,24 +514,68 @@ export default function AdminPurchasePage() {
             setHasPendingPayment(pending);
         } catch (err) {
             console.error('Load owner data error:', err);
+=======
+    // ── Step 2 data load ─────────────────────────────────────────────────────
+    const loadSalonData = useCallback(async (salonId: string, ownerId?: string) => {
+        setLoading(true);
+        try {
+            const [plansData, payHistoryData, subHistoryData] = await Promise.all([
+                SubscriptionService.getPlans(),
+                PaymentService.getSalonPaymentHistory(salonId),
+                ownerId
+                    ? SubscriptionService.getOwnerSubscriptionHistory(ownerId)
+                    : SubscriptionService.getSalonSubscriptionHistory(salonId),
+            ]);
+            setPlans(plansData || []);
+            setPayHistory(payHistoryData || []);
+            setSubHistory(subHistoryData || []);
+
+            const [brRes, stRes, galRes] = await Promise.all([
+                SubscriptionService.checkLimit(salonId, 'branch'),
+                SubscriptionService.checkLimit(salonId, 'staff'),
+                SubscriptionService.checkLimit(salonId, 'gallery_photo'),
+            ]);
+            setLimits({
+                branches: { current: brRes.current, max: brRes.limit },
+                staff:    { current: stRes.current, max: stRes.limit },
+                gallery:  { current: galRes.current, max: galRes.limit },
+            });
+
+            // Check for pending payments in history
+            const pending = payHistoryData?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION');
+            setHasPendingPayment(pending);
+        } catch (err) {
+            console.error('Load salon data error:', err);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             showToast('Veriler yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
     }, [showToast]);
 
+<<<<<<< HEAD
     // ── Owner selected ────────────────────────────────────────────────────────
     const handleOwnerSelect = (owner: any, sub: any) => {
         setSelectedOwner(owner);
+=======
+    // ── Salon selected ────────────────────────────────────────────────────────
+    const handleSalonSelect = (salon: any, sub: any) => {
+        setSelectedSalon(salon);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         setCurrentSub(sub);
         setStep(2);
         setActiveTab('OVERVIEW');
         setSelectedPlanId(null);
+<<<<<<< HEAD
         loadOwnerData(owner.id);
+=======
+        loadSalonData(salon.id, salon.owner_id);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     };
 
     // ── Purchase handler ──────────────────────────────────────────────────────
     const handlePurchase = async () => {
+<<<<<<< HEAD
         if (!selectedOwner || !selectedPlanId) return;
         const plan = plans.find(p => p.id === selectedPlanId);
 
@@ -445,14 +616,47 @@ export default function AdminPurchasePage() {
                 showToast(
                     (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH')
                         ? 'İşlem talebi oluşturuldu! Finans > Onaylar ekranından onaylayabilirsiniz.'
+=======
+        if (!selectedSalon || !selectedPlanId) return;
+        const plan = plans.find(p => p.id === selectedPlanId);
+        if (!window.confirm(`"${plan?.display_name}" paketini "${selectedSalon.name}" salonu için başlatmak istiyor musunuz?`)) return;
+
+        setPurchasing(true);
+        try {
+            if (immediateActivate && (paymentMethod === 'BANK_TRANSFER' || selectedPlanId === 'free')) {
+                // Admin fast-track: bypass PENDING status
+                await SubscriptionService.adminAssignSubscription(
+                    selectedSalon.id,
+                    selectedPlanId,
+                    billingCycle,
+                    "Admin tarafından anında satın alındı ve aktifleştirildi."
+                );
+                showToast('Paket başarıyla atanmış ve tüm sistemlerde aktif edilmiştir!', 'success');
+            } else {
+                // Standard flow (potential PENDING or iyzico)
+                await SubscriptionService.subscribe(
+                    selectedSalon.id,
+                    selectedPlanId,
+                    paymentMethod,
+                    billingCycle,
+                );
+                showToast(
+                    paymentMethod === 'BANK_TRANSFER'
+                        ? 'Havale talebi oluşturuldu! Finans > Onaylar ekranından onaylayabilirsiniz.'
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         : 'Abonelik başlatıldı!',
                     'success'
                 );
             }
             
             // Reload data & switch to overview
+<<<<<<< HEAD
             await loadOwnerData(selectedOwner.id);
             const freshSub = await SubscriptionService.getOwnerActiveSubscription(selectedOwner.id);
+=======
+            await loadSalonData(selectedSalon.id, selectedSalon.owner_id);
+            const freshSub = await SubscriptionService.getSalonSubscription(selectedSalon.id);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setCurrentSub(freshSub);
             setActiveTab('OVERVIEW');
             setSelectedPlanId(null);
@@ -467,7 +671,11 @@ export default function AdminPurchasePage() {
     // ── Reset back to step 1 ──────────────────────────────────────────────────
     const handleBack = () => {
         setStep(1);
+<<<<<<< HEAD
         setSelectedOwner(null);
+=======
+        setSelectedSalon(null);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         setCurrentSub(null);
         setActiveTab('OVERVIEW');
         setSelectedPlanId(null);
@@ -482,17 +690,28 @@ export default function AdminPurchasePage() {
 
     return (
         <AdminLayout>
+<<<<<<< HEAD
             <Breadcrumbs items={[{ label: 'Operasyon & Onay' }, { label: 'Paket Tanımlama (Atama-Ödeme Geçmişi)' }]} />
+=======
+            <Breadcrumbs items={[{ label: 'Operasyon & Onay' }, { label: 'Paket Satın Al' }]} />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
             <div className="max-w-7xl mx-auto py-8">
                 {/* Page Header */}
                 <div className="flex items-end justify-between mb-10 gap-4">
                     <div>
                         <h1 className="text-4xl font-black text-text-main tracking-tight uppercase">
+<<<<<<< HEAD
                             Paket Tanımlama <span className="text-primary">(Atama-Ödeme Geçmişi)</span>
                         </h1>
                         <p className="text-text-secondary font-medium mt-1">
                             Bir işletme sahibi (owner) seçin ve o kullanıcı adına manuel paket tanımlaması yapın veya ödeme geçmişini inceleyin.
+=======
+                            Paket <span className="text-primary">Satın Al</span>
+                        </h1>
+                        <p className="text-text-secondary font-medium mt-1">
+                            Bir salon seçin ve o salon adına paket aboneliği başlatın.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         </p>
                     </div>
                     {step === 2 && (
@@ -501,7 +720,11 @@ export default function AdminPurchasePage() {
                             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-border text-sm font-black text-text-secondary hover:text-primary hover:border-primary/30 transition-all"
                         >
                             <ArrowLeft className="w-4 h-4" />
+<<<<<<< HEAD
                             Sahibi Değiştir
+=======
+                            Salon Değiştir
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         </button>
                     )}
                 </div>
@@ -509,6 +732,7 @@ export default function AdminPurchasePage() {
                 {/* Progress */}
                 <ProgressSteps step={step} />
 
+<<<<<<< HEAD
                 {/* ─── Step 1: Owner Choose ──────────────────────────────── */}
                 {step === 1 && (
                     <OwnerSelectStep onSelect={handleOwnerSelect} />
@@ -519,10 +743,23 @@ export default function AdminPurchasePage() {
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
 
                         {/* Selected Owner Info Bar */}
+=======
+                {/* ─── Step 1: Salon Choose ──────────────────────────────── */}
+                {step === 1 && (
+                    <SalonSelectStep onSelect={handleSalonSelect} />
+                )}
+
+                {/* ─── Step 2: Billing ──────────────────────────────────── */}
+                {step === 2 && selectedSalon && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+
+                        {/* Selected Salon Info Bar */}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                         <div className="bg-text-main text-white p-6 rounded-[28px] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
                             <div className="relative z-10 flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+<<<<<<< HEAD
                                     <User className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
@@ -583,6 +820,35 @@ export default function AdminPurchasePage() {
                                     <div className="px-6 py-3 rounded-2xl bg-black text-white border border-red-500/30 flex items-center gap-3">
                                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                                         <span className="text-xs font-black uppercase tracking-widest">Abonelik Bulunamadı</span>
+=======
+                                    <Building2 className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-0.5">Seçili Salon</p>
+                                    <h2 className="font-black text-xl tracking-tight">{selectedSalon.name}</h2>
+                                    <div className="flex flex-wrap items-center gap-3 mt-1">
+                                        {selectedSalon.owner_name && (
+                                            <span className="flex items-center gap-1.5 text-[11px] text-white/70 font-medium">
+                                                <User className="w-3 h-3" /> {selectedSalon.owner_name}
+                                            </span>
+                                        )}
+                                        {selectedSalon.city_name && (
+                                            <span className="text-[11px] text-white/70 font-medium">
+                                                📍 {selectedSalon.city_name}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="relative z-10 flex flex-wrap gap-2">
+                                {currentSub ? (
+                                    <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${statusLabel[currentSub.status]?.cls ?? 'bg-white/10 text-white'}`}>
+                                        <span>Mevcut: {currentSub.subscription_plans?.display_name}</span>
+                                    </div>
+                                ) : (
+                                    <div className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-500/20 text-red-300 border border-red-500/20">
+                                        Aktif Abonelik Yok
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     </div>
                                 )}
                             </div>
@@ -695,8 +961,13 @@ export default function AdminPurchasePage() {
                                             <Package className="w-8 h-8" />
                                         </div>
                                         <div>
+<<<<<<< HEAD
                                             <h3 className="text-xl font-black text-text-main">Bu Kullanıcı İçin Aktif Paket Yok</h3>
                                             <p className="text-text-secondary font-medium text-sm mt-1 max-w-sm">İşletme sahibini aktif hale getirmek için hemen bir paket başlatın.</p>
+=======
+                                            <h3 className="text-xl font-black text-text-main">Bu Salon İçin Aktif Paket Yok</h3>
+                                            <p className="text-text-secondary font-medium text-sm mt-1 max-w-sm">Salonu aktif hale getirmek için hemen bir paket başlatın.</p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                         </div>
                                         <button
                                             onClick={() => setActiveTab('UPGRADE')}
@@ -740,7 +1011,11 @@ export default function AdminPurchasePage() {
                                                     {plan?.display_name} Planı Seçildi
                                                 </h3>
                                                 <p className="text-sm text-text-secondary font-medium mt-0.5">
+<<<<<<< HEAD
                                                     {selectedOwner.full_name || selectedOwner.email} kullanıcısı için ödeme yöntemini seçin.
+=======
+                                                    {selectedSalon.name} salonu için ödeme yöntemini seçin.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                 </p>
                                             </div>
 
@@ -759,7 +1034,11 @@ export default function AdminPurchasePage() {
                                                             {
                                                                 id: 'CREDIT_CARD',
                                                                 label: 'Kredi / Banka Kartı',
+<<<<<<< HEAD
                                                                 desc: 'PayTR iFrame · 3D Secure',
+=======
+                                                                desc: 'Anlık iyzico entegrasyonu',
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                                 icon: CreditCard,
                                                                 color: 'purple'
                                                             },
@@ -771,7 +1050,13 @@ export default function AdminPurchasePage() {
                                                                 color: 'emerald'
                                                             }
                                                         ] as const).map(m => {
+<<<<<<< HEAD
                                                             const isSelected = paymentMethod === m.id;
+=======
+                                                            // CASH maps to BANK_TRANSFER in backend but shown separately
+                                                            const backendMethod = m.id === 'CASH' ? 'BANK_TRANSFER' : m.id;
+                                                            const isSelected = paymentMethod === backendMethod && (m.id !== 'CASH' || paymentMethod === 'BANK_TRANSFER');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                             const colorMap: Record<string, string> = {
                                                                 blue: 'bg-blue-50 border-blue-200 text-blue-700',
                                                                 purple: 'bg-purple-50 border-purple-200 text-purple-700',
@@ -780,17 +1065,30 @@ export default function AdminPurchasePage() {
                                                             return (
                                                                 <button
                                                                     key={m.id}
+<<<<<<< HEAD
                                                                     onClick={() => setPaymentMethod(m.id)}
                                                                     className={`relative flex flex-col items-start p-5 rounded-2xl border-2 transition-all duration-300 ${isSelected
                                                                         ? `${colorMap[m.color]} shadow-lg shadow-black/5 scale-[1.02]`
                                                                         : 'border-border bg-white hover:border-primary/20'}`}
                                                                 >
                                                                     {isSelected && (
+=======
+                                                                    onClick={() => setPaymentMethod(backendMethod as 'BANK_TRANSFER' | 'CREDIT_CARD')}
+                                                                    className={`relative flex flex-col items-start p-5 rounded-2xl border-2 transition-all duration-300 ${paymentMethod === backendMethod
+                                                                        ? `${colorMap[m.color]} shadow-lg shadow-black/5 scale-[1.02]`
+                                                                        : 'border-border bg-white hover:border-primary/20'}`}
+                                                                >
+                                                                    {paymentMethod === backendMethod && (
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                                         <div className="absolute top-3 right-3 w-5 h-5 bg-primary rounded-full flex items-center justify-center animate-in zoom-in duration-300">
                                                                             <Check className="w-3 h-3 text-white" />
                                                                         </div>
                                                                     )}
+<<<<<<< HEAD
                                                                     <m.icon className={`w-8 h-8 mb-3 transition-colors ${isSelected ? '' : 'text-text-muted'}`} />
+=======
+                                                                    <m.icon className={`w-8 h-8 mb-3 transition-colors ${paymentMethod === backendMethod ? '' : 'text-text-muted'}`} />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                                     <p className="font-black text-sm text-text-main leading-tight tracking-tight">{m.label}</p>
                                                                     <p className="text-[11px] text-text-muted font-medium mt-1 uppercase tracking-widest">{m.desc}</p>
                                                                 </button>
@@ -798,6 +1096,7 @@ export default function AdminPurchasePage() {
                                                         })}
                                                     </div>
 
+<<<<<<< HEAD
                                                     {/* Manual Payment Details Form */}
                                                     {paymentMethod === 'BANK_TRANSFER' && !immediateActivate && (
                                                         <div className="bg-blue-50/50 border-2 border-blue-100 p-6 md:p-8 rounded-[28px] space-y-6 animate-in slide-in-from-top-4 duration-500">
@@ -847,6 +1146,10 @@ export default function AdminPurchasePage() {
 
                                                     {/* Admin Fast-track Toggle */}
                                                     {(paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH') && (
+=======
+                                                    {/* Admin Fast-track Toggle */}
+                                                    {paymentMethod === 'BANK_TRANSFER' && (
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                         <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[24px] flex items-center justify-between group hover:border-emerald-200 transition-colors">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
@@ -925,7 +1228,11 @@ export default function AdminPurchasePage() {
                                             </div>
 
                                             {/* Info note */}
+<<<<<<< HEAD
                                             {!isFree && (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH') && (
+=======
+                                            {!isFree && paymentMethod === 'BANK_TRANSFER' && (
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                 <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4 text-[12px] text-blue-800 font-medium">
                                                     <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                                                     <span>Havale/EFT yönteminde abonelik, Finans → Ödeme Onayları ekranından onaylandıktan sonra aktif olacaktır.</span>
@@ -942,13 +1249,21 @@ export default function AdminPurchasePage() {
                             <div className="bg-white rounded-[36px] border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                                 <div className="p-8 border-b border-border">
                                     <h3 className="text-xl font-black text-text-main">Tüm Paket Geçmişi</h3>
+<<<<<<< HEAD
                                     <p className="text-sm font-medium text-text-secondary italic mt-1">Bu kullanıcıya ait tüm abonelik kayıtları.</p>
+=======
+                                    <p className="text-sm font-medium text-text-secondary italic mt-1">Bu salona ait tüm abonelik kayıtları.</p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead className="bg-gray-50 border-b border-border">
                                             <tr>
+<<<<<<< HEAD
                                                 {['Paket', 'Periyot', 'Başlangıç', 'Bitiş', 'Durum'].map(h => (
+=======
+                                                {['Paket', 'Başlangıç', 'Bitiş', 'Durum'].map(h => (
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                     <th key={h} className="px-8 py-4 text-[10px] font-black text-text-muted uppercase tracking-widest">{h}</th>
                                                 ))}
                                             </tr>
@@ -963,6 +1278,7 @@ export default function AdminPurchasePage() {
                                                                 <PlanIcon name={sub.subscription_plans?.name} />
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-main block">{sub.subscription_plans?.display_name}</span>
+<<<<<<< HEAD
                                                                     <span className="text-[10px] font-medium text-text-muted uppercase">{selectedOwner.full_name || 'Owner'}</span>
                                                                 </div>
                                                             </div>
@@ -972,6 +1288,12 @@ export default function AdminPurchasePage() {
                                                                 {sub.billing_cycle === 'YEARLY' ? 'Yıllık' : 'Aylık'}
                                                             </span>
                                                         </td>
+=======
+                                                                    <span className="text-[10px] font-medium text-text-muted uppercase">{sub.salons?.name || selectedSalon?.name}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                         <td className="px-8 py-5 text-sm font-medium text-text-secondary">
                                                             {sub.current_period_start ? format(new Date(sub.current_period_start), 'dd MMM yyyy', { locale: tr }) : '-'}
                                                         </td>
@@ -985,8 +1307,13 @@ export default function AdminPurchasePage() {
                                                 );
                                             }) : (
                                                 <tr>
+<<<<<<< HEAD
                                                     <td colSpan={5} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
                                                         Bu kullanıcıya ait paket geçmişi bulunmuyor.
+=======
+                                                    <td colSpan={4} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
+                                                        Bu salona ait paket geçmişi bulunmuyor.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                     </td>
                                                 </tr>
                                             )}
@@ -997,6 +1324,7 @@ export default function AdminPurchasePage() {
                         )}
 
                         {/* ─ HISTORY ─ */}
+<<<<<<< HEAD
                         {!loading && activeTab === 'HISTORY' && (() => {
                             const itemsPerPage = 3;
                             const totalPages = Math.ceil(payHistory.length / itemsPerPage);
@@ -1150,10 +1478,75 @@ export default function AdminPurchasePage() {
                                 </div>
                             );
                         })()}
+=======
+                        {!loading && activeTab === 'HISTORY' && (
+                            <div className="bg-white rounded-[36px] border border-border overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                                <div className="p-8 border-b border-border/50 flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center text-text-main">
+                                        <CreditCard className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-text-main">Ödeme Geçmişi</h2>
+                                        <p className="text-sm font-medium text-text-secondary">Bu salona ait tüm finansal işlemler.</p>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="bg-surface-alt/50 border-b border-border text-[10px] font-black tracking-widest uppercase text-text-muted">
+                                                {['Tarih', 'Açıklama', 'Yöntem', 'Tutar', 'Durum'].map(h => (
+                                                    <th key={h} className={`px-8 py-4 ${h === 'Durum' ? 'text-right' : ''}`}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/50">
+                                            {payHistory.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="px-8 py-16 text-center text-text-muted italic text-xs uppercase tracking-widest">
+                                                        Henüz bir ödeme işlemi bulunmuyor.
+                                                    </td>
+                                                </tr>
+                                            ) : payHistory.map((payment) => {
+                                                const psSt: Record<string, string> = {
+                                                    SUCCESS: 'text-emerald-500 bg-emerald-50',
+                                                    PENDING: 'text-amber-500 bg-amber-50',
+                                                    FAILED:  'text-red-500 bg-red-50',
+                                                };
+                                                return (
+                                                    <tr key={payment.id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-8 py-5 text-sm font-bold text-text-secondary">
+                                                            {format(new Date(payment.created_at), 'dd MMM yyyy, HH:mm', { locale: tr })}
+                                                        </td>
+                                                        <td className="px-8 py-5 font-bold text-sm text-text-main">
+                                                            {payment.payment_type === 'SUBSCRIPTION' ? 'Abonelik Satın Alma' : 'İşlem'}
+                                                        </td>
+                                                        <td className="px-8 py-5">
+                                                            <span className="px-3 py-1 bg-surface-alt rounded-lg text-[10px] font-black uppercase text-text-secondary tracking-wider">
+                                                                {payment.payment_method === 'BANK_TRANSFER' ? 'Havale / EFT' : payment.payment_method === 'CREDIT_CARD' ? 'Kredi Kartı' : payment.payment_method}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-8 py-5 font-black text-text-main">
+                                                            {(payment.amount / 100).toLocaleString('tr-TR')} ₺
+                                                        </td>
+                                                        <td className="px-8 py-5 text-right">
+                                                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${psSt[payment.status] ?? 'text-gray-500 bg-gray-50'}`}>
+                                                                {payment.status === 'SUCCESS' ? 'Başarılı' : payment.status === 'PENDING' ? 'Bekliyor' : 'Başarısız'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
                     </div>
                 )}
             </div>
+<<<<<<< HEAD
 
             <PayTRPaymentModal
                 isOpen={showPayTR && !!selectedPlanId && !!selectedOwner}
@@ -1163,6 +1556,8 @@ export default function AdminPurchasePage() {
                 planLabel={plans.find(p => p.id === selectedPlanId)?.display_name}
                 onClose={() => setShowPayTR(false)}
             />
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         </AdminLayout>
     );
 }

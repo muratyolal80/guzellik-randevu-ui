@@ -5,12 +5,15 @@ import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Store, ShieldCheck, CheckCircle2 } from 'lucide-react';
+<<<<<<< HEAD
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 import { createBrowserClient } from '@supabase/ssr';
 import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 const KVKK_VERSION = 'v1.0';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export default function BusinessRegister() {
     const { signUp, loading: authLoading } = useAuth();
@@ -20,10 +23,13 @@ export default function BusinessRegister() {
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+<<<<<<< HEAD
     const [kvkkAccepted, setKvkkAccepted] = useState(false);
     const [marketingAccepted, setMarketingAccepted] = useState(false);
     const [showKvkkModal, setShowKvkkModal] = useState(false);
     const [showMarketingModal, setShowMarketingModal] = useState(false);
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -39,6 +45,7 @@ export default function BusinessRegister() {
             return;
         }
 
+<<<<<<< HEAD
         const pwCheck = validatePassword(password);
         if (!pwCheck.valid) {
             setError(`Şifre: ${pwCheck.errors.join(', ')}.`);
@@ -77,6 +84,14 @@ export default function BusinessRegister() {
             }
 
             setSuccess(true);
+=======
+        try {
+            // Register with SALON_OWNER role
+            await signUp(email, password, firstName, lastName, 'SALON_OWNER');
+            setSuccess(true);
+
+            // Redirect to onboarding
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setTimeout(() => {
                 router.push('/owner/onboarding');
             }, 2000);
@@ -154,6 +169,7 @@ export default function BusinessRegister() {
                                 </div>
                                 <div>
                                     <label className="label-sm">ŞİFRE</label>
+<<<<<<< HEAD
                                     <input type="password" className="input-field" placeholder="En az 8 karakter" value={password} onChange={e => setPassword(e.target.value)} />
                                     <p className="mt-1 text-[11px] text-text-muted px-1">{PASSWORD_HINT_TR}</p>
                                 </div>
@@ -199,6 +215,9 @@ export default function BusinessRegister() {
                                             {' '}gönderilmesine onay veriyorum. Opsiyonel.
                                         </span>
                                     </label>
+=======
+                                    <input type="password" className="input-field" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 </div>
 
                                 {error && (
@@ -209,11 +228,22 @@ export default function BusinessRegister() {
 
                                 <button
                                     type="submit"
+<<<<<<< HEAD
                                     disabled={loading || !kvkkAccepted}
+=======
+                                    disabled={loading}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     className="w-full h-14 bg-primary text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/25 hover:bg-primary-hover transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70"
                                 >
                                     {loading ? 'HESAP OLUŞTURULUYOR...' : 'KAYIT OL VE BAŞLA'}
                                 </button>
+<<<<<<< HEAD
+=======
+
+                                <p className="text-[10px] text-center text-text-muted px-4 leading-relaxed font-bold uppercase tracking-wider">
+                                    KAYIT OLARAK KULLANIM KOŞULLARI VE GİZLİLİK POLİTİKASINI KABUL ETMİŞ SAYILIRSINIZ.
+                                </p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             </form>
                         )}
                     </div>
@@ -251,6 +281,7 @@ export default function BusinessRegister() {
                 }
                 `}</style>
             </div>
+<<<<<<< HEAD
 
             <LegalConsentModal
                 open={showKvkkModal}
@@ -264,6 +295,8 @@ export default function BusinessRegister() {
                 content={TICARI_ELEKTRONIK_ILETI_ONAYI}
                 onClose={() => setShowMarketingModal(false)}
             />
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         </Layout>
     );
 }

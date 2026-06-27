@@ -32,7 +32,10 @@ import type {
   DiscountType,
   PaymentMethod,
   PaymentStatus,
+<<<<<<< HEAD
   UserRole,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
 
@@ -60,6 +63,7 @@ export const StaffService = {
 
     if (homeError) throw homeError;
 
+<<<<<<< HEAD
     // Merge and Deduplicate
     const allStaff = [...(homeStaff || [])];
 
@@ -84,6 +88,27 @@ export const StaffService = {
     } catch {
       // staff_branches does not exist yet — skip branch assignment lookup
     }
+=======
+    // 2. Get staff assigned via staff_branches
+    const { data: assignedStaffMap, error: assignedError } = await supabase
+      .from("staff_branches")
+      .select("staff(*)")
+      .eq("salon_id", salonId);
+
+    if (assignedError) throw assignedError;
+
+    // Merge and Deduplicate
+    const allStaff = [...(homeStaff || [])];
+    const assigned = (assignedStaffMap || [])
+      .map((item: any) => item.staff)
+      .filter((s) => s && s.is_active);
+
+    assigned.forEach((s) => {
+      if (!allStaff.find((existing) => existing.id === s.id)) {
+        allStaff.push(s);
+      }
+    });
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   },
@@ -318,6 +343,7 @@ export const StaffService = {
   },
 
   /**
+<<<<<<< HEAD
    * Returns the staff IDs capable of performing at least one of the given services.
    * Used by booking flow to filter "Uzmanını Seç" by selected service.
    */
@@ -371,6 +397,8 @@ export const StaffService = {
   },
 
   /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Sync staff services (Delete old, Insert new)
    */
   async updateStaffServices(
@@ -439,6 +467,7 @@ export const StaffService = {
     if (error) throw error;
     return data || [];
   },
+<<<<<<< HEAD
 
   /**
    * Create an email invitation for a new staff member
@@ -540,6 +569,8 @@ export const StaffService = {
 
     if (error) throw error;
   },
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };
 
 export const ServiceService = {

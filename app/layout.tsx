@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
 import { CookieBanner } from '@/components/CookieBanner';
@@ -32,6 +33,15 @@ export const viewport: Viewport = {
   themeColor: '#C59F59',
   width: 'device-width',
   initialScale: 1,
+=======
+import type { Metadata } from 'next';
+import { Providers } from './providers';
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: 'Güzellik Randevu',
+  description: "Türkiye'nin en kapsamlı kişisel bakım ve güzellik platformu",
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };
 
 export default function RootLayout({
@@ -61,8 +71,13 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background text-text-main" suppressHydrationWarning>
+<<<<<<< HEAD
         <Providers>{children}</Providers>
         <CookieBanner />
+=======
+
+        <Providers>{children}</Providers>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       </body>
     </html>
   );

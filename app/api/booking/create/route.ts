@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
+<<<<<<< HEAD
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { sendEmail, renderAppointmentConfirmation } from '@/lib/messaging/email';
 
@@ -26,6 +27,10 @@ export async function POST(request: NextRequest) {
   const ipLimit = await rateLimit(`booking:${ip}`, 5, 60_000);
   if (!ipLimit.success) return rateLimitResponse(ipLimit.reset);
 
+=======
+
+export async function POST(request: NextRequest) {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -45,10 +50,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' }, { status: 401 });
     }
 
+<<<<<<< HEAD
     if (!checkBookingRateLimit(user.id)) {
       return NextResponse.json({ error: 'Çok fazla randevu isteği. Lütfen 1 dakika bekleyin.' }, { status: 429 });
     }
 
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const body = await request.json();
     const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId, participantCount = 1, depositAmount = 0 } = body;
 
@@ -104,6 +112,7 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true)
         .single();
 
+<<<<<<< HEAD
       if (couponError || !coupon) {
         return NextResponse.json({ error: 'Kupon kodu geçersiz veya bu salon için geçerli değil.' }, { status: 400 });
       }
@@ -127,6 +136,28 @@ export async function POST(request: NextRequest) {
         }
       } else {
         discountAmount = coupon.discount_value;
+=======
+      if (coupon && !couponError) {
+        // Check usage limit
+        if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+          console.warn('Coupon usage limit reached');
+        } else if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+          console.warn('Coupon expired');
+        } else if (coupon.min_purchase_amount && service.price < coupon.min_purchase_amount) {
+          console.warn('Minimum purchase amount not met');
+        } else {
+          // Valid coupon!
+          validCoupon = coupon;
+          if (coupon.discount_type === 'PERCENTAGE') {
+            discountAmount = (basePrice * coupon.discount_value) / 100;
+            if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+              discountAmount = coupon.max_discount_amount;
+            }
+          } else {
+            discountAmount = coupon.discount_value;
+          }
+        }
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       }
     }
 
@@ -360,8 +391,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. Send SMS Notification
+<<<<<<< HEAD
     let smsDelivered = true;
     let smsError: string | null = null;
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     try {
       const smsMessage = paymentUrl
         ? `Sayin ${customerName}, randevunuz olusturuldu. Odemenizi tamamlamak icin: ${paymentUrl}`
@@ -369,6 +403,7 @@ export async function POST(request: NextRequest) {
 
       const cleanPhone = user.phone?.replace('+90', '') || '';
       await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
+<<<<<<< HEAD
     } catch (smsErr: any) {
       console.error('SMS Notification failed:', smsErr);
       smsDelivered = false;
@@ -401,14 +436,21 @@ export async function POST(request: NextRequest) {
       }
     } catch (emailErr) {
       console.error('Email Notification failed:', emailErr);
+=======
+    } catch (smsErr) {
+      console.error('SMS Notification failed:', smsErr);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     }
 
     return NextResponse.json({
       success: true,
       appointmentId: appointment.id,
       paymentUrl,
+<<<<<<< HEAD
       smsDelivered,
       smsError,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       message: 'Randevu başarıyla oluşturuldu!',
     });
 
