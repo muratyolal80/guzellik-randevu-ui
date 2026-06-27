@@ -1,8 +1,67 @@
 'use client';
 
+<<<<<<< HEAD
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import type { SalonDetail, Staff, SalonServiceDetail, CampaignRule } from '@/types';
+
+// ── sessionStorage persistence ──────────────────────────────────────────────
+// Booking state'i sayfa yenileme sonrası kaybolmasın diye sessionStorage'a yazılır.
+// Tab kapatılırsa otomatik temizlenir. 2 saat TTL — eski randevu denemesi karışmasın.
+const STORAGE_KEY = 'booking-state-v1';
+const TTL_MS = 2 * 60 * 60 * 1000; // 2 saat
+
+interface PersistedState {
+  salonId?: string;
+  selectedServices: SalonServiceDetail[];
+  selectedStaff: Staff | null;
+  selectedDate: string | null;
+  selectedTime: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string;
+  participantCount: number;
+  appointmentId: string | null;
+  savedAt: number;
+}
+
+function loadPersistedState(salonId?: string): Partial<PersistedState> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    // TTL kontrolü
+    if (Date.now() - parsed.savedAt > TTL_MS) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    // Farklı salon için kaydedilmiş state'i kullanma
+    if (salonId && parsed.salonId && parsed.salonId !== salonId) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedState(state: Omit<PersistedState, 'savedAt'>) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, savedAt: Date.now() }));
+  } catch {
+    // quota exceeded vs — sessizce geç
+  }
+}
+
+function clearPersistedState() {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+}
+
+=======
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import type { SalonDetail, Staff, SalonServiceDetail, CampaignRule } from '@/types';
 
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 interface BookingContextType {
   // Salon info
   salon: SalonDetail | null;
@@ -55,6 +114,25 @@ import { SalonDataService } from '@/services/db';
 // ... interface unchanged ...
 
 export function BookingProvider({ children, salonId }: { children: ReactNode; salonId?: string }) {
+<<<<<<< HEAD
+  // İlk render'da sessionStorage'dan oku (yenileme sonrası state restore)
+  const persisted = typeof window !== 'undefined' ? loadPersistedState(salonId) : null;
+
+  const [salon, setSalon] = useState<SalonDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<SalonServiceDetail[]>(persisted?.selectedServices || []);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(persisted?.selectedStaff || null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(persisted?.selectedDate || null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(persisted?.selectedTime || null);
+  const [customerName, setCustomerName] = useState(persisted?.customerName || '');
+  const [customerPhone, setCustomerPhone] = useState(persisted?.customerPhone || '');
+  const [customerNotes, setCustomerNotes] = useState(persisted?.customerNotes || '');
+  const [participantCount, setParticipantCount] = useState(persisted?.participantCount ?? 1);
+  const [appointmentId, setAppointmentId] = useState<string | null>(persisted?.appointmentId || null);
+
+  // İlk render'da persisted state restore edildi mi takibi — salonId değiştiğinde reset etmemek için
+  const restoredFromStorage = useRef(!!persisted);
+=======
   const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedServices, setSelectedServices] = useState<SalonServiceDetail[]>([]);
@@ -66,6 +144,7 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
   const [customerNotes, setCustomerNotes] = useState('');
   const [participantCount, setParticipantCount] = useState(1);
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
   // Campaigns
   const [campaignRules, setCampaignRules] = useState<CampaignRule[]>([]);
@@ -74,6 +153,20 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
 
   const basePrice = selectedServices.reduce((acc, s) => acc + (s.price || 0), 0);
 
+<<<<<<< HEAD
+  // Fetch campaigns for the salon (non-critical — silently skip on permission/missing-table errors)
+  React.useEffect(() => {
+    if (salon?.id) {
+      const fetchRules = async () => {
+        try {
+          const { CampaignService } = await import('@/services/db');
+          const rules = await CampaignService.getSalonCampaignRules(salon.id);
+          setCampaignRules(rules.filter(r => r.is_active));
+        } catch (err: any) {
+          console.warn('Campaign rules fetch failed:', err?.message || err?.code || err);
+          setCampaignRules([]);
+        }
+=======
   // Fetch campaigns for the salon
   React.useEffect(() => {
     if (salon?.id) {
@@ -81,6 +174,7 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
         const { CampaignService } = await import('@/services/db');
         const rules = await CampaignService.getSalonCampaignRules(salon.id);
         setCampaignRules(rules.filter(r => r.is_active));
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       };
       fetchRules();
     }
@@ -133,6 +227,24 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
       const fetchSalon = async () => {
         setLoading(true);
         try {
+<<<<<<< HEAD
+          // Salon değişti — persisted state başka salona aitse temizle
+          // restoredFromStorage true ise: sayfa yenileme — state korunur
+          if (!restoredFromStorage.current) {
+            setSalon(null);
+            setSelectedServices([]);
+            setSelectedStaff(null);
+            setSelectedDate(null);
+            setSelectedTime(null);
+            setCustomerName('');
+            setCustomerPhone('');
+            setCustomerNotes('');
+            setAppointmentId(null);
+          }
+          restoredFromStorage.current = false; // sonraki salonId değişimlerinde reset
+
+          // Fetch full salon details
+=======
           // Reset previous state when salonId changes
           setSalon(null); // Clear previous salon data
           setSelectedServices([]);
@@ -146,6 +258,7 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
 
           // Fetch full salon details including category/services if needed, 
           // but getSalonById is the main entry point
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
           const data = await SalonDataService.getSalonById(salonId);
           if (data) {
             setSalon(data);
@@ -160,6 +273,38 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
     }
   }, [salonId]);
 
+<<<<<<< HEAD
+  // ── State değiştiğinde sessionStorage'a yaz (debounce yok — state nadiren değişir) ──
+  React.useEffect(() => {
+    // Hiçbir seçim yoksa storage'ı kirletme
+    const hasAnySelection =
+      selectedServices.length > 0 || selectedStaff || selectedDate || selectedTime ||
+      customerName || customerPhone || appointmentId;
+
+    if (!hasAnySelection) {
+      clearPersistedState();
+      return;
+    }
+
+    savePersistedState({
+      salonId,
+      selectedServices,
+      selectedStaff,
+      selectedDate,
+      selectedTime,
+      customerName,
+      customerPhone,
+      customerNotes,
+      participantCount,
+      appointmentId,
+    });
+  }, [
+    salonId, selectedServices, selectedStaff, selectedDate, selectedTime,
+    customerName, customerPhone, customerNotes, participantCount, appointmentId,
+  ]);
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   // Calculate final price
   const totalPrice = Math.max(0, basePrice - discountAmount);
 
@@ -178,6 +323,10 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
     setCampaignRules([]);
     setActiveCampaign(null);
     setDiscountAmount(0);
+<<<<<<< HEAD
+    clearPersistedState();
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   };
 
   const addService = (service: SalonServiceDetail) => {

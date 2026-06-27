@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'OWNER' | 'ADMIN' | 'SUPER_ADMIN';
+=======
 export type UserRole = 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'SALON_OWNER' | 'ADMIN' | 'SUPER_ADMIN';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 export type SalonPlan = 'STARTER' | 'PRO' | 'BUSINESS' | 'ELITE';
 
 export type Permission =
@@ -44,11 +48,12 @@ export interface Favorite {
 export interface Notification {
   id: string;
   user_id: string;
+  salon_id?: string; // Added to match new DB schema
   title: string;
-  content: string; // Renamed from message to content to match my service logic
+  content: string; 
   type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'APPOINTMENT' | 'REVIEW' | 'SYSTEM' | 'REMINDER' | 'PROMOTION' | 'BOOKING';
   is_read: boolean;
-  link?: string; // Renamed from action_url to link
+  link?: string; 
   created_at: string;
 }
 
@@ -152,7 +157,7 @@ export interface Salon {
   created_at?: string;
   updated_at?: string;
   owner_id?: string;
-  status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status?: 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'DELETED' | 'PASSIVE';
   rejected_reason?: string;
   plan?: SalonPlan;
   deposit_rate?: number;

@@ -130,8 +130,17 @@ export default function ProfilePage() {
                                         <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                         <input
                                             type="tel"
+<<<<<<< HEAD
+                                            inputMode="numeric"
+                                            autoComplete="tel-national"
+                                            maxLength={11}
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
+                                            placeholder="0xxx xxx xx xx"
+=======
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                                         />
                                     </div>

@@ -32,6 +32,10 @@ import type {
   DiscountType,
   PaymentMethod,
   PaymentStatus,
+<<<<<<< HEAD
+  UserRole,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
 
@@ -59,6 +63,32 @@ export const StaffService = {
 
     if (homeError) throw homeError;
 
+<<<<<<< HEAD
+    // Merge and Deduplicate
+    const allStaff = [...(homeStaff || [])];
+
+    // 2. Get staff assigned via staff_branches (table may not exist yet — non-critical)
+    try {
+      const { data: assignedStaffMap, error: assignedError } = await supabase
+        .from("staff_branches")
+        .select("staff(*)")
+        .eq("salon_id", salonId);
+
+      if (!assignedError) {
+        const assigned = (assignedStaffMap || [])
+          .map((item: any) => item.staff)
+          .filter((s: any) => s && s.is_active);
+
+        assigned.forEach((s: any) => {
+          if (!allStaff.find((existing) => existing.id === s.id)) {
+            allStaff.push(s);
+          }
+        });
+      }
+    } catch {
+      // staff_branches does not exist yet — skip branch assignment lookup
+    }
+=======
     // 2. Get staff assigned via staff_branches
     const { data: assignedStaffMap, error: assignedError } = await supabase
       .from("staff_branches")
@@ -78,6 +108,7 @@ export const StaffService = {
         allStaff.push(s);
       }
     });
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   },
@@ -312,6 +343,62 @@ export const StaffService = {
   },
 
   /**
+<<<<<<< HEAD
+   * Returns the staff IDs capable of performing at least one of the given services.
+   * Used by booking flow to filter "Uzmanını Seç" by selected service.
+   */
+  async getStaffIdsForServices(
+    salonServiceIds: string[],
+    salonId?: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (salonServiceIds.length === 0) return [];
+    let q = supabase
+      .from("staff_services")
+      .select("staff_id")
+      .in("salon_service_id", salonServiceIds);
+    if (salonId) q = q.eq("salon_id", salonId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
+  },
+
+  /**
+   * Returns the subset of staffIds that have at least one working_hours row.
+   * Used to badge incomplete staff in the owner panel.
+   */
+  async getStaffHoursPresence(
+    staffIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (staffIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from("working_hours")
+      .select("staff_id")
+      .in("staff_id", staffIds);
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
+  },
+
+  /**
+   * Returns the subset of staffIds that have at least one staff_services row.
+   */
+  async getStaffServicesPresence(
+    staffIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    if (staffIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from("staff_services")
+      .select("staff_id")
+      .in("staff_id", staffIds);
+    if (error) throw error;
+    return Array.from(new Set((data || []).map((r: { staff_id: string }) => r.staff_id)));
+  },
+
+  /**
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    * Sync staff services (Delete old, Insert new)
    */
   async updateStaffServices(
@@ -364,6 +451,126 @@ export const StaffService = {
       .eq("salon_id", salonId);
     if (error) throw error;
   },
+
+  /**
+   * Get all branches a staff is assigned to
+   */
+  async getStaffBranches(
+    staffId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("staff_branches")
+      .select("*, salons(*)")
+      .eq("staff_id", staffId);
+
+    if (error) throw error;
+    return data || [];
+  },
+<<<<<<< HEAD
+
+  /**
+   * Create an email invitation for a new staff member
+   */
+  async createStaffInvite(
+    salonId: string,
+    email: string,
+    role: UserRole = "STAFF",
+    inviterId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite> {
+    // Check limit first
+    const limitResult = await SubscriptionService.checkLimit(salonId, "staff", supabase);
+    if (!limitResult.allowed) throw new Error(`SUBSCRIPTION_LIMIT_REACHED:STAFF:${limitResult.limit}`);
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days valid
+
+    const { data, error } = await supabase
+      .from("invites")
+      .insert({
+        salon_id: salonId,
+        email: email,
+        role: role,
+        token: token,
+        status: "PENDING",
+        inviter_id: inviterId,
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Accept an email invitation via token
+   */
+  async acceptStaffInvite(
+    token: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<boolean> {
+    const { data, error } = await supabase.rpc("accept_staff_invite", {
+      p_token: token,
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get invite by token (public check before login)
+   */
+  async getInviteByToken(
+    token: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite | null> {
+    const { data, error } = await supabase
+      .from("invites")
+      .select("*, salon:salons(name)")
+      .eq("token", token)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Get pending invites for a salon
+   */
+  async getPendingInvites(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Invite[]> {
+    const { data, error } = await supabase
+      .from("invites")
+      .select("*")
+      .eq("salon_id", salonId)
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Cancel an invite
+   */
+  async cancelInvite(
+    inviteId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("invites")
+      .update({ status: "CANCELLED" })
+      .eq("id", inviteId);
+
+    if (error) throw error;
+  },
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };
 
 export const ServiceService = {

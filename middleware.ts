@@ -1,10 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+<<<<<<< HEAD
+const dev = process.env.NODE_ENV === 'development'
+
+export async function middleware(request: NextRequest) {
+    if (dev) console.log('--- Proxy execution start ---', request.nextUrl.pathname, request.headers.get('host'));
+=======
 export async function middleware(request: NextRequest) {
     console.log('--- Proxy execution start ---');
     console.log('Path:', request.nextUrl.pathname);
     console.log('Host:', request.headers.get('host'));
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     // 1. Initialize Response
     let response = NextResponse.next({
@@ -36,10 +43,20 @@ export async function middleware(request: NextRequest) {
     )
 
     // 2. Refresh session
+<<<<<<< HEAD
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // AuthSessionMissingError is the normal/expected result for anonymous visitors —
+    // logging it as an error on every public request is just noise. Only surface real failures
+    // (e.g. AuthRetryableFetchError when the auth server is unreachable).
+    if (authError && authError.name !== 'AuthSessionMissingError') {
+        console.error('Auth Error in Proxy:', authError);
+    }
+=======
     console.log('Refreshing session...');
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError) console.error('Auth Error in Proxy:', authError);
     console.log('User detected:', user?.id || 'none');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     // 3. Subdomain / Multi-tenant Routing
     const url = request.nextUrl.clone();
@@ -63,11 +80,18 @@ export async function middleware(request: NextRequest) {
     if (!isMainDomain && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next') && !url.pathname.includes('.')) {
         const subdomain = host.split('.')[0];
         if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
+<<<<<<< HEAD
+            if (dev) console.log('Rewriting to subdomain:', subdomain);
+            return NextResponse.rewrite(new URL(`/salon-slug/${subdomain}${url.pathname}`, request.url));
+        }
+    }
+=======
             console.log('Rewriting to subdomain:', subdomain);
             return NextResponse.rewrite(new URL(`/salon-slug/${subdomain}${url.pathname}`, request.url));
         }
     }
     console.log('No rewrite needed. isMainDomain:', isMainDomain);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     // 4. Role-Based Route Protection Logic
     const pathname = request.nextUrl.pathname;
@@ -86,6 +110,36 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(loginUrl);
         }
 
+<<<<<<< HEAD
+        // Fetch user role ONLY for protected routes.
+        // Prefer app_metadata (JWT-embedded, no DB hit) if set; fall back to DB query.
+        let userRole = '';
+        if (user.id && user.id !== "") {
+            const cachedRole = (user.app_metadata?.role as string | undefined)?.toUpperCase();
+
+            if (cachedRole) {
+                userRole = cachedRole;
+                // Deactivation flag is stored in app_metadata (set by admin actions)
+                if (user.app_metadata?.is_active === false) {
+                    await supabase.auth.signOut();
+                    const loginUrl = new URL('/login', request.url);
+                    loginUrl.searchParams.set('error', 'account_deactivated');
+                    return NextResponse.redirect(loginUrl);
+                }
+            } else {
+                try {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+
+                    userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
+                } catch (err) {
+                    if (dev) console.error('Middleware: Error fetching profile:', err);
+                    userRole = 'CUSTOMER';
+                }
+=======
         // Fetch user role ONLY for protected routes
         let userRole = '';
         if (user.id && user.id !== "") {
@@ -99,6 +153,7 @@ export async function middleware(request: NextRequest) {
             } catch (err) {
                 console.error('Middleware: Error fetching profile:', err);
                 userRole = 'CUSTOMER';
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             }
         } else {
             userRole = 'CUSTOMER';
@@ -131,15 +186,31 @@ export async function middleware(request: NextRequest) {
             let subscription: any = null;
 
             try {
+<<<<<<< HEAD
+                // Single query: salon + subscription via join (avoids sequential DB calls)
+                const { data: salonData } = await supabase
+                    .from('salons')
+                    .select('id, status, subscriptions(status)')
+=======
                 const { data: salonData } = await supabase
                     .from('salons')
                     .select('id, status')
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     .eq('owner_id', user.id)
                     .maybeSingle();
 
                 salon = salonData;
 
                 if (!salon) {
+<<<<<<< HEAD
+                    return NextResponse.redirect(new URL('/owner/onboarding', request.url));
+                }
+
+                const subs = (salonData as any)?.subscriptions;
+                subscription = Array.isArray(subs) ? subs[0] : subs;
+            } catch (err) {
+                if (dev) console.error('Middleware: Error fetching salon/subscription:', err);
+=======
                     // If no salon found, force onboarding
                     return NextResponse.redirect(new URL('/owner/onboarding', request.url));
                 }
@@ -154,6 +225,7 @@ export async function middleware(request: NextRequest) {
                 subscription = subData;
             } catch (err) {
                 console.error('Middleware: Error fetching salon/subscription:', err);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             }
 
             if (salon && (salon.status === 'PENDING_APPROVAL' || (subscription && subscription.status === 'PENDING_APPROVAL'))) {
@@ -184,10 +256,19 @@ export async function middleware(request: NextRequest) {
     }
 
 
+<<<<<<< HEAD
+=======
     console.log('--- Proxy execution end ---');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     return response;
 }
 
 export const config = {
+<<<<<<< HEAD
+    // Skip middleware (and its auth/getUser network call) for Next internals and static assets.
+    // Includes manifest.webmanifest, icons, robots.txt, sitemap*.xml — these must not trigger auth.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest|txt|xml|json|woff|woff2|ttf)$).*)'],
+=======
     matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 };

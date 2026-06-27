@@ -9,12 +9,20 @@ import { useAuth } from '@/context/AuthContext';
 import type { SalonDetail, Staff, SalonServiceDetail, Appointment } from '@/types';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+<<<<<<< HEAD
+import { downloadIcs } from '@/lib/calendar/ics';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export default function Confirmation() {
     const params = useParams();
     const searchParams = useSearchParams();
     const router = useRouter();
     const appointmentId = searchParams.get('appointmentId');
+<<<<<<< HEAD
+    const smsFailed = searchParams.get('smsFailed') === '1';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const salonId = params.id as string;
 
     const {
@@ -191,9 +199,25 @@ export default function Confirmation() {
                             </div>
                             <h1 className="text-3xl font-bold text-text-main">Randevunuz Onaylandi!</h1>
                             <p className="text-text-secondary mt-2">
+<<<<<<< HEAD
+                                Randevu detaylariniz asagidadir.{smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapilmistir.'}
+                            </p>
+
+                            {smsFailed && (
+                                <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-left">
+                                    <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
+                                        <p className="text-xs text-amber-700 mt-0.5">Randevunuz oluşturuldu fakat onay SMS'i gönderilemedi. Randevu bilgilerinizi bu sayfadan kontrol edip not alın. Salonu telefonla aramanızda fayda var.</p>
+                                    </div>
+                                </div>
+                            )}
+
+=======
                                 Randevu detaylariniz asagidadir. Telefonunuza SMS ile de bilgilendirme yapilmistir.
                             </p>
 
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             {/* User Status Badge */}
                             <div className="mt-4 flex justify-center">
                                 {user ? (
@@ -355,6 +379,43 @@ export default function Confirmation() {
                                 </Link>
                             )}
 
+<<<<<<< HEAD
+                            {salon?.id && (
+                                <Link
+                                    href={`/salon/${salon.id}`}
+                                    className="px-8 py-3 bg-white border-2 border-emerald-300 text-emerald-700 rounded-lg font-bold hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">replay</span>
+                                    Yeni Randevu Al
+                                </Link>
+                            )}
+
+                            {appointment && appointment.start_time && (
+                                <button
+                                    onClick={() => {
+                                        const start = new Date(appointment.start_time);
+                                        const end = appointment.end_time ? new Date(appointment.end_time) : new Date(start.getTime() + 60 * 60 * 1000);
+                                        const serviceName = (services?.[0] as any)?.name || (services?.[0] as any)?.service_name || 'Randevu';
+                                        const salonName = salon?.name || 'Salon';
+                                        downloadIcs({
+                                            uid: appointment.id,
+                                            start,
+                                            end,
+                                            summary: `${serviceName} — ${salonName}`,
+                                            description: `Randevu No: ${appointment.id}\n${staff?.name ? `Uzman: ${staff.name}` : ''}`,
+                                            location: salon?.address || undefined,
+                                            organizer: salonName,
+                                        }, `randevu-${appointment.id}.ics`);
+                                    }}
+                                    className="px-8 py-3 bg-white border-2 border-primary/40 text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">calendar_add_on</span>
+                                    Takvime Ekle
+                                </button>
+                            )}
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             <button
                                 onClick={() => window.print()}
                                 className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"

@@ -106,11 +106,16 @@ export default function BranchSelector() {
                                                 {branch.district_name || branch.city_name || 'Konum yok'}
                                             </p>
                                             {branch.status && branch.status !== 'APPROVED' && (
-                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${branch.status === 'SUBMITTED'
-                                                        ? 'bg-amber-50 text-amber-700'
-                                                        : 'bg-red-50 text-red-700'
-                                                    }`}>
-                                                    {branch.status === 'SUBMITTED' ? 'Onay Bekliyor' : 'Reddedildi'}
+                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                                    branch.status === 'SUBMITTED' ? 'bg-amber-50 text-amber-700' :
+                                                    branch.status === 'SUSPENDED' ? 'bg-gray-100 text-gray-600' :
+                                                    branch.status === 'REVISION_REQUESTED' ? 'bg-blue-50 text-blue-700' :
+                                                    'bg-red-50 text-red-700'
+                                                }`}>
+                                                    {branch.status === 'SUBMITTED' ? 'Onay Bekliyor' : 
+                                                     branch.status === 'SUSPENDED' ? 'Pasif' :
+                                                     branch.status === 'REVISION_REQUESTED' ? 'Revizyon Gerekli' :
+                                                     'Reddedildi'}
                                                 </span>
                                             )}
                                         </div>

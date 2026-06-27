@@ -39,6 +39,9 @@
   "exclude": [
     "node_modules",
     "supabase",
-    "supabase-project"
+    "supabase-project",
+    "claude-skills",
+    ".tmp",
+    ".tmp-claude-skills"
   ]
 }

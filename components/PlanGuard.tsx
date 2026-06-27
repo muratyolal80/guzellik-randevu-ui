@@ -5,9 +5,11 @@ import { useTenant } from '@/context/TenantContext';
 import { AlertTriangle, Lock } from 'lucide-react';
 import Link from 'next/link';
 
+import { SalonPlan } from '@/types';
+
 interface PlanGuardProps {
     children: React.ReactNode;
-    requiredPlan: 'PRO' | 'ENTERPRISE';
+    requiredPlan: SalonPlan;
     fallback?: React.ReactNode;
     featureName?: string;
 }
@@ -18,20 +20,27 @@ export default function PlanGuard({
     fallback,
     featureName
 }: PlanGuardProps) {
-    const { plan, loading } = useTenant();
+    const { plan, subscriptionStatus, loading } = useTenant();
 
     if (loading) return null;
 
-    const planWeights = {
-        'FREE': 0,
+    const planWeights: Record<string, number> = {
+        'STARTER': 0,
         'PRO': 1,
-        'ENTERPRISE': 2
+        'BUSINESS': 2,
+        'ELITE': 3
     };
 
-    const currentWeight = planWeights[plan as keyof typeof planWeights] || 0;
-    const requiredWeight = planWeights[requiredPlan];
+    const currentWeight = planWeights[plan || 'STARTER'] || 0;
+    const requiredWeight = planWeights[requiredPlan] || 0;
 
-    const hasAccess = currentWeight >= requiredWeight;
+<<<<<<< HEAD
+    // Süresi dolmuş veya iptal edilmiş aboneliklerde erişim yok; PENDING ise geçici erişim ver
+=======
+    // Abonelik aktif değilse veya özellik paketi yetersizse erişim yok
+    const isActive = subscriptionStatus === 'ACTIVE' || subscriptionStatus === 'PENDING'; // Give temporary access for pending? Actually let's restrict if EXPIRED or CANCELLED, but also if weight is insufficient.
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
+    const hasAccess = currentWeight >= requiredWeight && (subscriptionStatus !== 'EXPIRED' && subscriptionStatus !== 'CANCELLED');
 
     if (hasAccess) {
         return <>{children}</>;
@@ -51,7 +60,7 @@ export default function PlanGuard({
                 Bu özelliğe erişmek için <span className="text-primary font-black">{requiredPlan}</span> veya üzeri bir plana geçmeniz gerekmektedir.
             </p>
             <Link
-                href="/owner/settings/billing"
+                href="/owner/packages"
                 className="px-8 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.05] transition-all"
             >
                 Planı Yükselt

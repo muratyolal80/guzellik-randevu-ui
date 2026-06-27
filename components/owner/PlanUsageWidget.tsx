@@ -93,7 +93,7 @@ export default function PlanUsageWidget({ salonId }: PlanUsageWidgetProps) {
                     </div>
                 </div>
                 {usage.plan_name === 'STARTER' && (
-                    <Link href="/owner/settings/billing" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
+                    <Link href="/owner/packages" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
                         YÜKSELT <ChevronRight className="w-3 h-3" />
                     </Link>
                 )}

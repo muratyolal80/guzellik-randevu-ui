@@ -63,7 +63,24 @@ const isValidLatLng = (lat: any, lng: any): boolean => {
     return true;
 };
 
+<<<<<<< HEAD
+// --- Open/Closed Status Helper ---
+const getSalonOpenStatus = (salon: SalonDetail): boolean => {
+    if (salon.is_closed) return false;
+    const now = new Date();
+    const currentDayMapped = now.getDay() === 0 ? 7 : now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const todayHours = salon.working_hours?.find(wh => wh.day_of_week === currentDayMapped);
+    if (!todayHours || todayHours.is_closed) return false;
+    const [startH, startM] = todayHours.start_time.split(':').map(Number);
+    const [endH, endM] = todayHours.end_time.split(':').map(Number);
+    return currentTime >= startH * 60 + startM && currentTime < endH * 60 + endM;
+};
+
+// --- Service Icon Helper (kompakt — kart üstündeki badge için) ---
+=======
 // --- Service Icon Helper ---
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 const getServiceIcon = (serviceName: string) => {
     const lower = serviceName.toLowerCase();
     if (lower.includes('sağ') || lower.includes('fön') || lower.includes('kesim') || lower.includes('röfle') || lower.includes('ombre')) return <Scissors className="w-4 h-4" />;
@@ -78,6 +95,41 @@ const getServiceIcon = (serviceName: string) => {
     return <Star className="w-4 h-4" />;
 };
 
+<<<<<<< HEAD
+// --- Service Theme: site primary (altın) etrafında tek tonlu premium meta ---
+type ServiceTheme = {
+    icon: React.ReactNode;
+    label: string;
+};
+
+const getServiceTheme = (serviceName: string): ServiceTheme => {
+    const lower = serviceName.toLowerCase();
+    const big = (Icon: React.ElementType) => <Icon className="w-6 h-6" strokeWidth={1.5} />;
+
+    if (lower.includes('sağ') || lower.includes('fön') || lower.includes('kesim') || lower.includes('röfle') || lower.includes('ombre'))
+        return { icon: big(Scissors), label: 'Saç & Stil' };
+    if (lower.includes('tırnak') || lower.includes('oje') || lower.includes('manikür') || lower.includes('pedikür') || lower.includes('jel'))
+        return { icon: big(Sparkles), label: 'Tırnak Bakımı' };
+    if (lower.includes('makyaj') || lower.includes('kirpik') || lower.includes('kaş') || lower.includes('lifting'))
+        return { icon: big(Smile), label: 'Makyaj & Güzellik' };
+    if (lower.includes('masaj') || lower.includes('spa'))
+        return { icon: big(Flower2), label: 'Masaj & SPA' };
+    if (lower.includes('cilt') || lower.includes('bakım') || lower.includes('peeling'))
+        return { icon: big(Waves), label: 'Cilt Bakımı' };
+    if (lower.includes('lazer') || lower.includes('epilasyon') || lower.includes('ağda'))
+        return { icon: big(Zap), label: 'Lazer & Epilasyon' };
+    if (lower.includes('sakal') || lower.includes('tıraş'))
+        return { icon: big(Scissors), label: 'Berber Hizmeti' };
+    if (lower.includes('solaryum'))
+        return { icon: big(Sun), label: 'Solaryum' };
+    if (lower.includes('diyet') || lower.includes('zayıflama'))
+        return { icon: big(Activity), label: 'Sağlık & Form' };
+
+    return { icon: big(Star), label: 'Güzellik Hizmeti' };
+};
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 export default function HomeClient() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -98,9 +150,17 @@ export default function HomeClient() {
     // Previously redirected admins/owners away from homepage. 
     // Now they can browse the landing page normally.
 
+<<<<<<< HEAD
+    const handledErrorRef = useRef<string | null>(null);
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'unauthorized' && handledErrorRef.current !== errorParam) {
+            handledErrorRef.current = errorParam;
+=======
     useEffect(() => {
         const errorParam = searchParams.get('error');
         if (errorParam === 'unauthorized') {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setShowUnauthorizedError(true);
             setTimeout(() => setShowUnauthorizedError(false), 5000);
             router.replace('/');
@@ -162,7 +222,11 @@ export default function HomeClient() {
             setLoading(true);
             try {
                 const results = await Promise.allSettled([
+<<<<<<< HEAD
+                    SalonDataService.getAllSalons(),
+=======
                     SalonDataService.getSalons(),
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     MasterDataService.getSalonTypes(),
                     MasterDataService.getAllGlobalServices(),
                     MasterDataService.getCities()
@@ -466,10 +530,17 @@ export default function HomeClient() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+<<<<<<< HEAD
+                                        <button onClick={() => setViewMode('split')} aria-label="Harita ile birlikte göster" className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+                                            <MapIcon className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => setViewMode('wide')} aria-label="Sadece liste görünümü" className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+=======
                                         <button onClick={() => setViewMode('split')} className={`p-1 rounded ${viewMode === 'split' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
                                             <MapIcon className="w-3 h-3" />
                                         </button>
                                         <button onClick={() => setViewMode('wide')} className={`p-1 rounded ${viewMode === 'wide' ? 'bg-white shadow text-primary' : 'text-gray-400'}`}>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                             <LayoutGrid className="w-3 h-3" />
                                         </button>
                                     </div>
@@ -489,6 +560,49 @@ export default function HomeClient() {
                                 </div>
                             ) : (
                                 <div className={viewMode === 'wide' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-5'}>
+<<<<<<< HEAD
+                                    {visibleSalons.map(salon => {
+                                        const isOpen = getSalonOpenStatus(salon);
+                                        return (
+                                        <Link
+                                            href={`/salon/${salon.id}`}
+                                            key={salon.id}
+                                            className="group block bg-white border border-border rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-0.5 transition-all duration-300"
+                                            onMouseEnter={() => setHoveredSalonId(salon.id)}
+                                            onMouseLeave={() => setHoveredSalonId(null)}
+                                        >
+                                            <div className="relative overflow-hidden aspect-[16/9]">
+                                                <img src={salon.image || '/placeholder-salon.jpg'} alt={salon.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+
+                                                {/* Favorite — top left */}
+                                                <button
+                                                    onClick={(e) => handleToggleFavorite(e, salon.id)}
+                                                    className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow hover:scale-110 transition-all"
+                                                >
+                                                    <Heart className={`w-4 h-4 ${userFavorites.includes(salon.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                                                </button>
+
+                                                {/* Rating + Status — top right */}
+                                                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
+                                                    <div className="flex items-center gap-1 bg-amber-500/95 backdrop-blur-sm px-2 py-1 rounded-full shadow">
+                                                        <Star className="w-3 h-3 fill-white text-white" />
+                                                        <span className="text-white text-[10px] font-black">{salon.rating || '5.0'}</span>
+                                                    </div>
+                                                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full shadow backdrop-blur-sm ${isOpen ? 'bg-green-500/95' : 'bg-red-500/95'}`}>
+                                                        <Clock className="w-3 h-3 text-white" />
+                                                        <span className="text-white text-[10px] font-black">{isOpen ? 'Açık' : 'Kapalı'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-4 space-y-1">
+                                                <h3 className="font-bold text-text-main group-hover:text-primary transition-colors truncate">{salon.name}</h3>
+                                                <div className="flex items-center gap-1 text-text-muted">
+                                                    <MapPin className="w-3 h-3 shrink-0" />
+                                                    <p className="text-[11px] font-semibold">{salon.district}, {salon.city}</p>
+                                                </div>
+                                                <div className="pt-3 flex items-center justify-between border-t border-gray-50 mt-2">
+                                                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-wide">Başlayan fiyatlar</span>
+=======
                                     {visibleSalons.map(salon => (
                                         <Link
                                             href={`/salon/${salon.id}`}
@@ -556,11 +670,17 @@ export default function HomeClient() {
                                                 </div>
                                                 <div className="pt-2 flex items-center justify-between border-t border-gray-50 mt-2">
                                                     <span className="text-[10px] text-text-muted font-bold uppercase">Başlayan fiyatlar</span>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                                     <span className="text-sm font-black text-primary">₺{salon.startPrice || '---'}</span>
                                                 </div>
                                             </div>
                                         </Link>
+<<<<<<< HEAD
+                                        );
+                                    })}
+=======
                                     ))}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     {filteredSalons.length === 0 && (
                                         <div className="text-center py-20">
                                             <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -722,6 +842,29 @@ export default function HomeClient() {
                         </div>
                     </section>
 
+<<<<<<< HEAD
+                    {/* Stats / Social Proof Bar */}
+                    <section className="bg-white border-y border-gray-100 py-10">
+                        <div className="max-w-[1400px] mx-auto px-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-0 lg:divide-x lg:divide-gray-100">
+                                {[
+                                    { icon: <Store className="w-6 h-6" />, value: '500+', label: 'Onaylı Salon' },
+                                    { icon: <Heart className="w-6 h-6" />, value: '50.000+', label: 'Mutlu Müşteri' },
+                                    { icon: <Clock className="w-6 h-6" />, value: '7/24', label: 'Anında Destek' },
+                                    { icon: <Star className="w-6 h-6" />, value: '%100', label: 'En İyi Fiyat' },
+                                ].map((stat, i) => (
+                                    <div key={i} className="flex flex-col items-center text-center px-4 gap-2">
+                                        <div className="text-primary mb-1">{stat.icon}</div>
+                                        <span className="text-3xl font-black text-text-main">{stat.value}</span>
+                                        <span className="text-sm text-text-muted font-semibold">{stat.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     {/* Featured Salons Area */}
                     <section className="py-20 bg-white">
                         <div className="max-w-[1400px] mx-auto px-4">
@@ -736,6 +879,60 @@ export default function HomeClient() {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+<<<<<<< HEAD
+                                {salons.slice(0, 4).map((salon) => {
+                                    const isOpen = getSalonOpenStatus(salon);
+                                    return (
+                                        <Link href={`/salon/${salon.id}`} key={salon.id} className="group flex flex-col h-full bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl hover:shadow-primary/8 hover:-translate-y-1 transition-all duration-500">
+                                            <div className="relative aspect-[4/3] overflow-hidden">
+                                                <img src={salon.image || '/placeholder-salon.jpg'} alt={salon.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+
+                                                {/* Favorite Button — top left */}
+                                                <button
+                                                    onClick={(e) => handleToggleFavorite(e, salon.id)}
+                                                    className="absolute top-4 left-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-md hover:scale-110 transition-all duration-300"
+                                                >
+                                                    <Heart className={`w-5 h-5 transition-all ${userFavorites.includes(salon.id) ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-400'}`} />
+                                                </button>
+
+                                                {/* Rating + Status — top right stacked */}
+                                                <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5 items-end">
+                                                    <div className="flex items-center gap-1 bg-amber-500/95 backdrop-blur-sm px-2.5 py-1.5 rounded-full shadow-md">
+                                                        <Star className="w-3 h-3 fill-white text-white" />
+                                                        <span className="text-white text-xs font-black">{salon.rating || '5.0'}</span>
+                                                    </div>
+                                                    <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full shadow-md backdrop-blur-sm ${isOpen ? 'bg-green-500/95' : 'bg-red-500/95'}`}>
+                                                        <Clock className="w-3 h-3 text-white" />
+                                                        <span className="text-white text-xs font-black">{isOpen ? 'Açık' : 'Kapalı'}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Slide-up CTA overlay */}
+                                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out">
+                                                    <div className="p-5 pt-10">
+                                                        <div className="w-full bg-primary text-white py-3 rounded-2xl text-center font-black text-sm shadow-xl tracking-wide">
+                                                            Randevu Al
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-5 flex-1 flex flex-col justify-between">
+                                                <div>
+                                                    <h3 className="font-bold text-text-main group-hover:text-primary transition-colors leading-tight line-clamp-1 text-base mb-1">{salon.name}</h3>
+                                                    <div className="flex items-center gap-1 text-text-muted">
+                                                        <MapPin className="w-3 h-3 shrink-0" />
+                                                        <span className="text-[11px] font-semibold">{salon.district}, {salon.city}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="pt-4 border-t border-gray-50 flex items-center justify-between mt-4">
+                                                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Başlangıç</span>
+                                                    <span className="text-xl font-black text-primary">₺{salon.startPrice}</span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    );
+                                })}
+=======
                                 {salons.slice(0, 4).map((salon) => (
                                     <Link href={`/salon/${salon.id}`} key={salon.id} className="group flex flex-col h-full bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500">
                                         <div className="relative aspect-[4/3] overflow-hidden">
@@ -774,6 +971,7 @@ export default function HomeClient() {
                                         </div>
                                     </Link>
                                 ))}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             </div>
                         </div>
                     </section>
@@ -807,6 +1005,75 @@ export default function HomeClient() {
                         </div>
                     </section>
 
+<<<<<<< HEAD
+                    {/* Popular Services — Monochrome Premium */}
+                    <section className="py-24 bg-white relative overflow-hidden">
+                        {/* Subtle dekoratif çizgi pattern */}
+                        <div
+                            className="absolute inset-0 opacity-[0.025] pointer-events-none"
+                            style={{ backgroundImage: 'radial-gradient(circle, #C59F59 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+                        />
+
+                        <div className="max-w-[1400px] mx-auto px-4 relative">
+                            {/* Bölüm başlığı */}
+                            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12 pb-8 border-b border-gray-100">
+                                <div>
+                                    <span className="inline-flex items-center gap-2 text-primary font-bold text-[11px] uppercase tracking-[0.2em] mb-3">
+                                        <span className="w-6 h-px bg-primary" /> Hizmetlerimiz
+                                    </span>
+                                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-black text-text-main leading-[1.1]">
+                                        Popüler Hizmetler
+                                    </h2>
+                                    <p className="text-text-secondary mt-3 max-w-md text-sm md:text-base">En çok tercih edilen güzellik ve bakım hizmetleri.</p>
+                                </div>
+                                <Link
+                                    href="/?type=all"
+                                    className="hidden md:inline-flex items-center gap-2 text-sm font-bold text-text-main hover:text-primary transition-colors group"
+                                >
+                                    <span className="border-b border-text-main group-hover:border-primary pb-0.5">Tümünü Gör</span>
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                </Link>
+                            </div>
+
+                            {/* Hizmet grid'i */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                                {popularServices.map((service, idx) => {
+                                    const theme = getServiceTheme(service);
+                                    return (
+                                        <Link
+                                            key={idx}
+                                            href={`/?search=${encodeURIComponent(service)}&mode=service`}
+                                            className="group relative bg-white rounded-2xl p-5 border border-gray-100 hover:border-primary/40 hover:shadow-[0_8px_30px_rgba(197,159,89,0.12)] hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+                                        >
+                                            {/* Sol kenar altın aksent — hover'da büyür */}
+                                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-primary group-hover:h-12 transition-all duration-300 rounded-r-full" />
+
+                                            {/* Sağ üst köşe ikon */}
+                                            <div className="flex items-start justify-between mb-6">
+                                                <div className="w-11 h-11 rounded-xl bg-primary/[0.06] text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                                                    {theme.icon}
+                                                </div>
+                                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-300" />
+                                            </div>
+
+                                            {/* Servis adı + kategori */}
+                                            <h3 className="text-text-main font-bold text-[15px] leading-snug mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+                                                {service}
+                                            </h3>
+                                            <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">{theme.label}</p>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Mobilde alt CTA */}
+                            <div className="mt-10 text-center md:hidden">
+                                <Link
+                                    href="/?type=all"
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-text-main text-white rounded-xl text-sm font-bold hover:bg-primary transition-colors"
+                                >
+                                    Tüm Hizmetleri Gör <ArrowRight className="w-4 h-4" />
+=======
                     {/* Popular Services Section */}
                     <section className="py-20 bg-white">
                         <div className="max-w-[1400px] mx-auto px-4">
@@ -834,6 +1101,7 @@ export default function HomeClient() {
                             <div className="mt-16 text-center">
                                 <Link href="/?type=all" className="inline-flex items-center gap-3 px-8 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-black text-text-main hover:bg-white hover:border-primary hover:shadow-xl transition-all group">
                                     Tüm Hizmetleri Görüntüle <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 </Link>
                             </div>
                         </div>

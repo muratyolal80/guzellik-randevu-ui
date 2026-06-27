@@ -1,0 +1,42 @@
+{
+  "common": {
+    "loading": "Yükleniyor...",
+    "error": "Bir hata oluştu",
+    "retry": "Tekrar Dene",
+    "cancel": "Vazgeç",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "close": "Kapat",
+    "search": "Ara"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "salons": "Salonlar",
+    "appointments": "Randevularım",
+    "profile": "Profilim",
+    "login": "Giriş Yap",
+    "register": "Kayıt Ol",
+    "logout": "Çıkış Yap"
+  },
+  "booking": {
+    "selectService": "Hizmet Seç",
+    "selectStaff": "Uzman Seç",
+    "selectTime": "Zaman Seç",
+    "confirm": "Onayla",
+    "openNow": "Açık",
+    "closedNow": "Kapalı",
+    "duration": "Süre",
+    "price": "Fiyat",
+    "totalPrice": "Toplam Fiyat",
+    "bookNow": "Randevu Al"
+  },
+  "salon": {
+    "about": "Hakkında",
+    "services": "Hizmetler",
+    "staff": "Uzmanlar",
+    "reviews": "Değerlendirmeler",
+    "workingHours": "Çalışma Saatleri",
+    "location": "Konum"
+  }
+}

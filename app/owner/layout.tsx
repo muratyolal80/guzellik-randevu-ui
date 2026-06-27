@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
+import { useTenant } from '@/context/TenantContext';
 import BranchSelector from '@/components/owner/BranchSelector';
+import SubscriptionBanner from '@/components/owner/SubscriptionBanner';
 import {
     LayoutDashboard,
     Calendar,
@@ -20,25 +22,61 @@ import {
     Ticket,
     Briefcase,
     Database,
-    Wallet
+    Wallet,
+    Package,
+    ChevronDown,
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
     const pathname = usePathname();
     const { user } = useAuth();
+    const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['Genel', 'İşletme Yönetimi', 'Operasyon', 'Müşteri ve Pazarlama', 'Finans']);
 
-    const menuItems = [
-        { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
-        { name: 'Salonlarım', path: '/owner/salons', icon: Store },
-        { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
-        { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
-        { name: 'Personel Yönetimi', path: '/owner/staff', icon: Briefcase },
-        { name: 'Müşterilerim', path: '/owner/customers', icon: Users },
-        { name: 'Kaynak Yönetimi', path: '/owner/resources', icon: Database },
-        { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
-        { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
-        { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
-        { name: 'Salon Ayarları', path: '/owner/settings', icon: Settings },
+    const toggleGroup = (groupName: string) => {
+        setExpandedGroups(prev =>
+            prev.includes(groupName)
+                ? prev.filter(g => g !== groupName)
+                : [...prev, groupName]
+        );
+    };
+
+    const menuGroups = [
+        {
+            name: 'Genel',
+            items: [
+                { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
+                { name: 'Paket ve Abonelik', path: '/owner/packages', icon: Package },
+            ]
+        },
+        {
+            name: 'İşletme Yönetimi',
+            items: [
+                { name: 'Salonlarım', path: '/owner/salons', icon: Store },
+                { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
+            ]
+        },
+        {
+            name: 'Operasyon',
+            items: [
+                { name: 'Hizmet Yönetimi', path: '/owner/services', icon: Scissors },
+                { name: 'Personel Yönetimi', path: '/owner/staff', icon: Briefcase },
+                { name: 'Kaynak Yönetimi', path: '/owner/resources', icon: Database },
+            ]
+        },
+        {
+            name: 'Müşteri ve Pazarlama',
+            items: [
+                { name: 'Müşterilerim', path: '/owner/customers', icon: Users },
+                { name: 'Kampanyalar', path: '/owner/campaigns', icon: Ticket },
+            ]
+        },
+        {
+            name: 'Finans',
+            items: [
+                { name: 'Finansal Yönetim', path: '/owner/finance', icon: Wallet },
+                { name: 'Finansal Raporlar', path: '/owner/reports', icon: TrendingUp },
+            ]
+        }
     ];
 
     return (
@@ -55,20 +93,51 @@ const OwnerSidebar: React.FC = () => {
                 </div>
             </div>
 
-            <nav className="flex flex-col gap-1.5 flex-1">
-                {menuItems.map(item => (
-                    <Link
-                        key={item.path}
-                        href={item.path}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${pathname.startsWith(item.path)
-                            ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
-                            : 'text-text-secondary hover:bg-gray-50 hover:translate-x-1'
-                            }`}
-                    >
-                        <item.icon className="w-4 h-4" />
-                        {item.name}
-                    </Link>
-                ))}
+            <nav className="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2">
+                {menuGroups.map(group => {
+                    const isExpanded = expandedGroups.includes(group.name);
+                    return (
+                        <div key={group.name} className="flex flex-col gap-1">
+                            <button
+                                onClick={() => toggleGroup(group.name)}
+<<<<<<< HEAD
+                                className="flex items-center justify-between px-4 py-3 w-full text-left group/header hover:bg-gray-50/50 rounded-2xl transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover/header:bg-primary transition-colors" />
+                                    <p className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] group-hover/header:text-primary transition-colors">
+                                        {group.name}
+                                    </p>
+                                </div>
+                                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isExpanded ? '' : '-rotate-90 opacity-40'}`} />
+=======
+                                className="flex items-center justify-between px-4 py-2 w-full text-left group/header"
+                            >
+                                <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] opacity-70 group-hover/header:text-primary transition-colors">
+                                    {group.name}
+                                </p>
+                                <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-300 ${isExpanded ? '' : '-rotate-90 opacity-40'}`} />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
+                            </button>
+                            
+                            <div className={`flex flex-col gap-1 transition-all duration-300 origin-top overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+                                {group.items.map(item => (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all group ${pathname.startsWith(item.path)
+                                            ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
+                                            : 'text-text-secondary hover:bg-gray-50 hover:text-primary hover:translate-x-1'
+                                            }`}
+                                    >
+                                        <item.icon className={`w-4 h-4 ${pathname.startsWith(item.path) ? 'text-white' : 'text-text-muted group-hover:text-primary transition-colors'}`} />
+                                        {item.name}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
             </nav>
 
             <div className="pt-4 border-t border-border mt-auto">
@@ -96,9 +165,11 @@ const OwnerSidebar: React.FC = () => {
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
     const { user, isOwner, loading } = useAuth();
+    const { subscriptionStatus, loading: tenantLoading } = useTenant();
     const router = useRouter();
+    const pathname = usePathname();
 
-    if (loading) {
+    if (loading || tenantLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -127,12 +198,38 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         );
     }
 
+    const isBillingPage = pathname === '/owner/packages';
+    const isDashboard = pathname === '/owner/dashboard';
+    const isExpired = subscriptionStatus === 'EXPIRED' || subscriptionStatus === 'CANCELLED';
+
+    // Block content if expired, unless they are on the billing page to renew
+    const renderContent = () => {
+        if (isExpired && !isBillingPage && !isDashboard) {
+            return (
+                <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
+                    <div className="w-24 h-24 mb-6 rounded-3xl bg-red-50 flex items-center justify-center border border-red-100">
+                        <Wallet className="w-10 h-10 text-red-500" />
+                    </div>
+                    <h2 className="text-3xl font-black text-text-main tracking-tight mb-2">Aboneliğiniz Sona Erdi</h2>
+                    <p className="text-text-secondary font-medium max-w-md mx-auto mb-8">
+                        Sistemi kullanmaya devam edebilmek için aboneliğinizi yenilemeniz gerekmektedir. Yönetim özellikleri askıya alınmıştır.
+                    </p>
+                    <Link href="/owner/packages" className="px-10 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                        Hemen Yenile
+                    </Link>
+                </div>
+            );
+        }
+        return children;
+    };
+
     return (
         <Layout>
             <div className="flex bg-gray-50 min-h-[calc(100vh-64px)]">
                 <OwnerSidebar />
                 <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-x-hidden">
-                    {children}
+                    <SubscriptionBanner />
+                    {renderContent()}
                 </main>
             </div>
         </Layout>

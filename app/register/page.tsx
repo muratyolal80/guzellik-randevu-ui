@@ -5,6 +5,15 @@ import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Store } from 'lucide-react';
+<<<<<<< HEAD
+import LegalConsentModal from '@/components/common/LegalConsentModal';
+import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
+import { createBrowserClient } from '@supabase/ssr';
+import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
+
+const KVKK_VERSION = 'v1.0';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 export default function Register() {
     const { signUp, signInWithGoogle, isAuthenticated, loading: authLoading } = useAuth();
@@ -15,6 +24,13 @@ export default function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+<<<<<<< HEAD
+    const [kvkkAccepted, setKvkkAccepted] = useState(false);
+    const [marketingAccepted, setMarketingAccepted] = useState(false);
+    const [showKvkkModal, setShowKvkkModal] = useState(false);
+    const [showMarketingModal, setShowMarketingModal] = useState(false);
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -38,14 +54,25 @@ export default function Register() {
             return;
         }
 
+<<<<<<< HEAD
+        const EMAIL_RFC = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!EMAIL_RFC.test(email)) {
+=======
         if (!email.includes('@')) {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setError('Geçerli bir e-posta adresi giriniz.');
             setLoading(false);
             return;
         }
 
+<<<<<<< HEAD
+        const pwCheck = validatePassword(password);
+        if (!pwCheck.valid) {
+            setError(`Şifre: ${pwCheck.errors.join(', ')}.`);
+=======
         if (password.length < 6) {
             setError('Şifre en az 6 karakter olmalıdır.');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setLoading(false);
             return;
         }
@@ -56,11 +83,46 @@ export default function Register() {
             return;
         }
 
+<<<<<<< HEAD
+        if (!kvkkAccepted) {
+            setError('KVKK Aydınlatma Metni onayı zorunludur.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const result = await signUp(email, password, firstName, lastName);
+
+            // Persist KVKK + marketing consent metadata after signUp succeeded
+            try {
+                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+                const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+                const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+                const userId = result?.user?.id;
+                if (userId) {
+                    const nowIso = new Date().toISOString();
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            kvkk_accepted_at: nowIso,
+                            kvkk_version: KVKK_VERSION,
+                            marketing_opt_in: marketingAccepted,
+                            marketing_opt_in_at: marketingAccepted ? nowIso : null,
+                        })
+                        .eq('id', userId);
+                }
+            } catch (consentErr) {
+                console.warn('Consent metadata write failed (non-blocking):', consentErr);
+            }
+
+            setSuccess(true);
+=======
         try {
             await signUp(email, password, firstName, lastName);
             setSuccess(true);
             // User is automatically logged in after registration
             // Redirect to dashboard page
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             setTimeout(() => {
                 router.push('/customer/dashboard');
             }, 1500);
@@ -179,9 +241,16 @@ export default function Register() {
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     disabled={loading || success}
+<<<<<<< HEAD
+                                    placeholder="En az 8 karakter"
+                                    className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
+                                />
+                                <p className="mt-1 text-[11px] text-text-muted">{PASSWORD_HINT_TR}</p>
+=======
                                     placeholder="En az 6 karakter"
                                     className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none disabled:opacity-50"
                                 />
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             </div>
 
                             <div>
@@ -196,6 +265,52 @@ export default function Register() {
                                 />
                             </div>
 
+<<<<<<< HEAD
+                            <div className="space-y-3 pt-2">
+                                <label className="flex items-start gap-2 cursor-pointer text-xs text-text-secondary leading-relaxed">
+                                    <input
+                                        type="checkbox"
+                                        checked={kvkkAccepted}
+                                        onChange={e => setKvkkAccepted(e.target.checked)}
+                                        disabled={loading || success}
+                                        className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+                                        aria-required="true"
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowKvkkModal(true)}
+                                            className="text-primary font-bold hover:underline"
+                                        >
+                                            KVKK Aydınlatma Metni
+                                        </button>
+                                        'ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum. <span className="text-red-500">*</span>
+                                    </span>
+                                </label>
+
+                                <label className="flex items-start gap-2 cursor-pointer text-xs text-text-secondary leading-relaxed">
+                                    <input
+                                        type="checkbox"
+                                        checked={marketingAccepted}
+                                        onChange={e => setMarketingAccepted(e.target.checked)}
+                                        disabled={loading || success}
+                                        className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowMarketingModal(true)}
+                                            className="text-primary font-bold hover:underline"
+                                        >
+                                            Ticari Elektronik İleti
+                                        </button>
+                                        {' '}gönderilmesine onay veriyorum (kampanya, fırsat, hatırlatma SMS/email). Opsiyonel.
+                                    </span>
+                                </label>
+                            </div>
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             {error && (
                                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                                     <p className="text-red-700 text-sm">{error}</p>
@@ -204,7 +319,11 @@ export default function Register() {
 
                             <button
                                 type="submit"
+<<<<<<< HEAD
+                                disabled={loading || success || !kvkkAccepted}
+=======
                                 disabled={loading || success}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 className="w-full h-12 bg-primary text-white font-bold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {loading ? (
@@ -242,6 +361,22 @@ export default function Register() {
                     </div>
                 </div>
             </div>
+<<<<<<< HEAD
+
+            <LegalConsentModal
+                open={showKvkkModal}
+                title="KVKK Aydınlatma Metni"
+                content={KVKK_AYDINLATMA_METNI}
+                onClose={() => setShowKvkkModal(false)}
+            />
+            <LegalConsentModal
+                open={showMarketingModal}
+                title="Ticari Elektronik İleti Onayı"
+                content={TICARI_ELEKTRONIK_ILETI_ONAYI}
+                onClose={() => setShowMarketingModal(false)}
+            />
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         </Layout>
     );
 }

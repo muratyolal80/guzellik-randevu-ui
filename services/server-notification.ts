@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+<<<<<<< HEAD
+import { sendEmail } from '@/lib/messaging/email';
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
 // Server-side Supabase client (using Service Role Key for CRON jobs)
 // WARNING: Only use this in server-side API routes, never expose on client!
@@ -57,10 +61,30 @@ export const NotificationService = {
 
                 if (job.channel === 'SMS') {
                     success = await this.sendSmsViaNetgsm(job.recipient, job.content);
+<<<<<<< HEAD
+                } else if (job.channel === 'EMAIL') {
+                    // Sprint E (R5) — Resend tabanlı email gönderim
+                    const subject = job.subject || job.title || 'Güzellik Randevu — Bildirim';
+                    const html = job.html_content || `<p>${(job.content || '').replace(/\n/g, '<br>')}</p>`;
+                    const result = await sendEmail({
+                        to: job.recipient,
+                        subject,
+                        html,
+                        text: job.content || undefined,
+                    });
+                    success = result.success;
+                    if (!result.success && result.error) {
+                        throw new Error(result.error);
+                    }
+                } else {
+                    console.warn(`[queue] unknown channel: ${job.channel}`);
+                    success = true; // unknown -> skip without retry
+=======
                 } else {
                     // Email not implemented yet
                     console.warn('Email channel not implemented');
                     success = true; // Skip
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 }
 
                 // Update status

@@ -132,15 +132,47 @@ export default function OwnerDashboard() {
     return (
         <div className="space-y-10 animate-fade-in pb-20">
             {activeBranch.status !== 'APPROVED' && (
-                <div className={`p-4 rounded-3xl flex items-center justify-between gap-4 border ${activeBranch.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-800' : 'bg-amber-50 border-amber-100 text-amber-800'}`}>
-                    <div className="flex items-center gap-3">
-                        {activeBranch.status === 'REJECTED' ? <XCircle className="w-5 h-5 text-red-600" /> : <AlertCircle className="w-5 h-5 text-amber-600" />}
-                        <div className="text-sm font-bold">
-                            {activeBranch.status === 'REJECTED'
-                                ? 'Salon başvurunuz reddedildi. Neden: ' + (activeBranch.rejected_reason || 'Belirtilmedi')
-                                : 'Salonunuz şu an onay bekliyor. Onaylandıktan sonra müşterilere görünür olacaktır.'}
+                <div className={`p-5 rounded-[32px] flex items-center justify-between gap-5 border shadow-sm ${
+                    activeBranch.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-800' :
+                    activeBranch.status === 'SUSPENDED' ? 'bg-gray-50 border-gray-200 text-gray-700' :
+                    activeBranch.status === 'REVISION_REQUESTED' ? 'bg-orange-50 border-orange-100 text-orange-800' :
+                    'bg-amber-50 border-amber-100 text-amber-800'
+                }`}>
+                    <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                            activeBranch.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                            activeBranch.status === 'SUSPENDED' ? 'bg-gray-200 text-gray-600' :
+                            activeBranch.status === 'REVISION_REQUESTED' ? 'bg-orange-100 text-orange-600' :
+                            'bg-amber-100 text-amber-600'
+                        }`}>
+                            {activeBranch.status === 'REJECTED' ? <XCircle className="w-6 h-6" /> : 
+                             activeBranch.status === 'SUSPENDED' ? <AlertCircle className="w-6 h-6" /> :
+                             activeBranch.status === 'REVISION_REQUESTED' ? <AlertCircle className="w-6 h-6" /> :
+                             <ShieldCheck className="w-6 h-6" />}
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-base font-black tracking-tight uppercase">
+                                {activeBranch.status === 'REJECTED' ? 'Başvuru Reddedildi' : 
+                                 activeBranch.status === 'SUSPENDED' ? 'Salon Pasif Durumda' :
+                                 activeBranch.status === 'REVISION_REQUESTED' ? 'Revizyon Gerekli' :
+                                 'Onay Bekleniyor'}
+                            </p>
+                            <p className="text-sm font-bold opacity-80">
+                                {activeBranch.status === 'REJECTED' ? (activeBranch.rejected_reason || 'Başvurunuz uygun görülmemiştir.') : 
+                                 activeBranch.status === 'SUSPENDED' ? 'Salonunuz şu an pasif durumdadır. İşlem yapmak için lütfen aktivasyon isteği gönderin.' :
+                                 activeBranch.status === 'REVISION_REQUESTED' ? (activeBranch.rejected_reason || 'Lütfen istenen düzeltmeleri yapın.') :
+                                 'Profiliniz kontrol ediliyor. Onaylandıktan sonra hizmetleriniz görünür olacaktır.'}
+                            </p>
                         </div>
                     </div>
+                    {(activeBranch.status === 'REJECTED' || activeBranch.status === 'REVISION_REQUESTED' || activeBranch.status === 'SUSPENDED') && (
+                        <Link 
+                            href="/owner/salons" 
+                            className="px-6 py-3 bg-white border border-current rounded-2xl text-xs font-black shadow-sm shrink-0 hover:scale-[1.02] transition-transform"
+                        >
+                            {activeBranch.status === 'SUSPENDED' ? 'Aktivasyon Sayfasına Git' : 'Süreci Yönet'}
+                        </Link>
+                    )}
                 </div>
             )}
 
@@ -204,11 +236,25 @@ export default function OwnerDashboard() {
                     <div className="overflow-x-auto relative">
                         {activeBranch.status !== 'APPROVED' && (
                             <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center text-center p-8">
-                                <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-600 mb-4 shadow-sm border border-amber-100">
-                                    <ShieldCheck className="w-6 h-6" />
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 shadow-sm border ${
+                                    activeBranch.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-600' :
+                                    activeBranch.status === 'SUSPENDED' ? 'bg-gray-50 border-gray-200 text-gray-600' :
+                                    'bg-amber-50 border-amber-100 text-amber-600'
+                                }`}>
+                                    {activeBranch.status === 'REJECTED' ? <XCircle className="w-6 h-6" /> : 
+                                     activeBranch.status === 'SUSPENDED' ? <AlertCircle className="w-6 h-6" /> :
+                                     <ShieldCheck className="w-6 h-6" />}
                                 </div>
-                                <h4 className="text-lg font-black text-text-main mb-1">Onay Bekleniyor</h4>
-                                <p className="text-xs font-bold text-text-secondary max-w-xs">İşletmeniz onaylandıktan sonra randevu trafiği burada listelenecektir.</p>
+                                <h4 className="text-lg font-black text-text-main mb-1">
+                                    {activeBranch.status === 'REJECTED' ? 'Erişim Kısıtlı' : 
+                                     activeBranch.status === 'SUSPENDED' ? 'Salon Pasif' :
+                                     'Onay Bekleniyor'}
+                                </h4>
+                                <p className="text-xs font-bold text-text-secondary max-w-xs">
+                                    {activeBranch.status === 'REJECTED' ? 'Başvurunuz reddedildiği için veriler dondurulmuştur.' : 
+                                     activeBranch.status === 'SUSPENDED' ? 'Salon pasif durumdayken randevu trafiği izlenemez.' :
+                                     'İşletmeniz onaylandıktan sonra randevu trafiği burada listelenecektir.'}
+                                </p>
                             </div>
                         )}
                         <table className="w-full text-left">

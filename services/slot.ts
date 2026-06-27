@@ -65,6 +65,26 @@ export const SlotService = {
         }
 
         // 2. Get staff who can perform this service
+<<<<<<< HEAD
+        // Filter by staff_services if specific service(s) requested
+        const requestedServiceIds = serviceIds && serviceIds.length > 0
+            ? serviceIds
+            : (serviceId ? [serviceId] : null);
+
+        let capableStaffIds: string[] | null = null;
+        if (requestedServiceIds) {
+            const { data: capable } = await supabase
+                .from('staff_services')
+                .select('staff_id')
+                .in('salon_service_id', requestedServiceIds);
+            capableStaffIds = Array.from(new Set((capable || []).map(r => r.staff_id)));
+            if (capableStaffIds.length === 0) {
+                return [];
+            }
+        }
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         let staffQuery = supabase
             .from('staff')
             .select('id, name')
@@ -74,6 +94,12 @@ export const SlotService = {
         if (staffId) {
             staffQuery = staffQuery.eq('id', staffId);
         }
+<<<<<<< HEAD
+        if (capableStaffIds) {
+            staffQuery = staffQuery.in('id', capableStaffIds);
+        }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
         const { data: staffList, error: staffError } = await staffQuery;
 
@@ -163,6 +189,19 @@ export const SlotService = {
             return [];
         }
 
+<<<<<<< HEAD
+        // Sprint D (R4) — slot lock'larını da hesaba kat (5 dk TTL, başkası tutmuş)
+        const { data: locks } = await supabase
+            .from('slot_reservations')
+            .select('slot_start, slot_end')
+            .eq('salon_id', salonId)
+            .eq('staff_id', staffId)
+            .gt('expires_at', new Date().toISOString())
+            .gte('slot_start', startOfDay.toISOString())
+            .lte('slot_start', endOfDay.toISOString());
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         // 3. Generate potential slots
         const slots = this.generateTimeSlots(
             date,
@@ -173,6 +212,31 @@ export const SlotService = {
             staffName
         );
 
+<<<<<<< HEAD
+        // 4. Filter out slots that conflict with existing appointments OR active slot locks
+        const bookedSlots = [
+            ...(appointments || []).map(appt => ({
+                start: new Date(appt.start_time),
+                end: new Date(appt.end_time)
+            })),
+            ...((locks || []) as any[]).map(l => ({
+                start: new Date(l.slot_start),
+                end: new Date(l.slot_end)
+            })),
+        ];
+
+        // 5. Filter out past slots if the requested date is today.
+        //    "Now + 15 dk buffer" altındaki slotlar booking yapılamaz hale gelir.
+        const now = new Date();
+        const isToday =
+            date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() === now.getDate();
+        const minStart = isToday ? new Date(now.getTime() + 15 * 60 * 1000) : null;
+
+        return slots.filter(slot => {
+            if (minStart && slot.startTime < minStart) return false;
+=======
         // 4. Filter out slots that conflict with existing appointments
         const bookedSlots = (appointments || []).map(appt => ({
             start: new Date(appt.start_time),
@@ -180,6 +244,7 @@ export const SlotService = {
         }));
 
         return slots.filter(slot => {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const hasConflict = bookedSlots.some(booked => {
                 return (
                     (slot.startTime >= booked.start && slot.startTime < booked.end) ||

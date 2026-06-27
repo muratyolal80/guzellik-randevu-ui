@@ -52,6 +52,40 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Bu randevuyu iptal etme yetkiniz yok.' }, { status: 403 });
         }
 
+<<<<<<< HEAD
+        // Zaten iptal edilmiş randevu için tekrar iptal yapma
+        if (appointment.status === 'CANCELLED') {
+            return NextResponse.json({ error: 'Bu randevu zaten iptal edilmiş.' }, { status: 400 });
+        }
+
+        // Tamamlanmış randevu iptal edilemez
+        if (appointment.status === 'COMPLETED') {
+            return NextResponse.json({ error: 'Tamamlanmış randevular iptal edilemez.' }, { status: 400 });
+        }
+
+        // ── Cancellation Policy Enforcement ─────────────────────────────────
+        // Hard lock: randevuya çok az kala iptal yasak (default 1 saat).
+        // .env'den CANCELLATION_HARD_LOCK_MINUTES ile değiştirilebilir.
+        const hardLockMinutes = Number(process.env.CANCELLATION_HARD_LOCK_MINUTES || 60);
+        const minutesUntilStart =
+            (new Date(appointment.start_time).getTime() - Date.now()) / 60000;
+
+        if (minutesUntilStart < hardLockMinutes) {
+            const hoursLeft = Math.max(0, Math.floor(minutesUntilStart / 60));
+            const minsLeft = Math.max(0, Math.floor(minutesUntilStart % 60));
+            return NextResponse.json(
+                {
+                    error: `Randevunuza ${hoursLeft > 0 ? hoursLeft + ' saat ' : ''}${minsLeft} dakika kalmış. Bu süre içinde iptal yapılamaz, lütfen salonu doğrudan arayın.`,
+                    code: 'CANCELLATION_LOCKED',
+                    hardLockMinutes,
+                    minutesUntilStart: Math.floor(minutesUntilStart),
+                },
+                { status: 400 },
+            );
+        }
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         // 3. Refund Logic
         let refundProcessed = false;
         let refundError = null;

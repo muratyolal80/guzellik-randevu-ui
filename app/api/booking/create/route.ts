@@ -3,8 +3,34 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
+<<<<<<< HEAD
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { sendEmail, renderAppointmentConfirmation } from '@/lib/messaging/email';
+
+const bookingRateLimit = new Map<string, { count: number; resetTime: number }>();
+
+function checkBookingRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = bookingRateLimit.get(userId);
+  if (!entry || now > entry.resetTime) {
+    bookingRateLimit.set(userId, { count: 1, resetTime: now + 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 10) return false;
+  entry.count += 1;
+  return true;
+}
 
 export async function POST(request: NextRequest) {
+  // IP tabanlı rate limit (5 istek / 60 sn) — bot/spam koruması, user-id limitiyle birlikte çalışır
+  const ip = getClientIp(request);
+  const ipLimit = await rateLimit(`booking:${ip}`, 5, 60_000);
+  if (!ipLimit.success) return rateLimitResponse(ipLimit.reset);
+
+=======
+
+export async function POST(request: NextRequest) {
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,6 +50,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' }, { status: 401 });
     }
 
+<<<<<<< HEAD
+    if (!checkBookingRateLimit(user.id)) {
+      return NextResponse.json({ error: 'Çok fazla randevu isteği. Lütfen 1 dakika bekleyin.' }, { status: 429 });
+    }
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const body = await request.json();
     const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId, participantCount = 1, depositAmount = 0 } = body;
 
@@ -79,6 +112,31 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true)
         .single();
 
+<<<<<<< HEAD
+      if (couponError || !coupon) {
+        return NextResponse.json({ error: 'Kupon kodu geçersiz veya bu salon için geçerli değil.' }, { status: 400 });
+      }
+      if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+        return NextResponse.json({ error: 'Bu kuponun kullanım limiti dolmuştur.' }, { status: 400 });
+      }
+      if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
+        return NextResponse.json({ error: 'Bu kuponun süresi dolmuştur.' }, { status: 400 });
+      }
+      if (coupon.min_purchase_amount && basePrice < coupon.min_purchase_amount) {
+        return NextResponse.json({
+          error: `Bu kupon için minimum ${coupon.min_purchase_amount}₺ tutarında hizmet seçimi gereklidir.`
+        }, { status: 400 });
+      }
+
+      validCoupon = coupon;
+      if (coupon.discount_type === 'PERCENTAGE') {
+        discountAmount = (basePrice * coupon.discount_value) / 100;
+        if (coupon.max_discount_amount && discountAmount > coupon.max_discount_amount) {
+          discountAmount = coupon.max_discount_amount;
+        }
+      } else {
+        discountAmount = coupon.discount_value;
+=======
       if (coupon && !couponError) {
         // Check usage limit
         if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
@@ -99,6 +157,7 @@ export async function POST(request: NextRequest) {
             discountAmount = coupon.discount_value;
           }
         }
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       }
     }
 
@@ -332,6 +391,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. Send SMS Notification
+<<<<<<< HEAD
+    let smsDelivered = true;
+    let smsError: string | null = null;
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     try {
       const smsMessage = paymentUrl
         ? `Sayin ${customerName}, randevunuz olusturuldu. Odemenizi tamamlamak icin: ${paymentUrl}`
@@ -339,14 +403,54 @@ export async function POST(request: NextRequest) {
 
       const cleanPhone = user.phone?.replace('+90', '') || '';
       await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
+<<<<<<< HEAD
+    } catch (smsErr: any) {
+      console.error('SMS Notification failed:', smsErr);
+      smsDelivered = false;
+      smsError = smsErr?.message || 'unknown';
+    }
+
+    // 9. Send Email Confirmation (best-effort, hata ana akışı bozmaz)
+    try {
+      if (user.email) {
+        const { data: salonInfo } = await supabaseAdmin
+          .from('salons')
+          .select('name, neighborhood, district_id, city_id')
+          .eq('id', salonId)
+          .single();
+        const { data: staffInfo } = await supabaseAdmin
+          .from('staff')
+          .select('name')
+          .eq('id', staffId)
+          .maybeSingle();
+
+        const tpl = renderAppointmentConfirmation({
+          customerName: customerName || (user.email?.split('@')[0] ?? 'Müşterimiz'),
+          salonName: salonInfo?.name || 'Salonumuz',
+          serviceName: (service as any)?.global_services?.[0]?.name || (service as any)?.service_name || 'Hizmet',
+          staffName: staffInfo?.name || 'Uzman',
+          startTime,
+          appointmentId: appointment.id,
+        });
+        await sendEmail({ to: user.email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+      }
+    } catch (emailErr) {
+      console.error('Email Notification failed:', emailErr);
+=======
     } catch (smsErr) {
       console.error('SMS Notification failed:', smsErr);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     }
 
     return NextResponse.json({
       success: true,
       appointmentId: appointment.id,
       paymentUrl,
+<<<<<<< HEAD
+      smsDelivered,
+      smsError,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
       message: 'Randevu başarıyla oluşturuldu!',
     });
 

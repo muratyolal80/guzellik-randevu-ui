@@ -21,6 +21,11 @@ export default function TimeSelection() {
     setSalon: setBookingSalon,
     selectedServices,
     selectedStaff: bookingStaff,
+<<<<<<< HEAD
+    selectedDate: persistedDate,
+    selectedTime: persistedTime,
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
     appointmentId,
@@ -33,8 +38,23 @@ export default function TimeSelection() {
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
   const [services, setServices] = useState<SalonServiceDetail[]>(selectedServices);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
+  // sessionStorage'dan restore — yenileme sonrası kullanıcı seçimini görür
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(persistedTime);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (persistedDate) {
+      const d = new Date(persistedDate);
+      // Bugünden geçmiş tarihi restore etme
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (d >= today) return d;
+    }
+    return new Date();
+  });
+=======
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   const [dateOffset, setDateOffset] = useState(0);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -59,12 +79,24 @@ export default function TimeSelection() {
         const data = await response.json();
 
         if (data.success) {
+<<<<<<< HEAD
+          const slots = data.slots || [];
+          setAvailableTimeSlots(slots);
+          // Restore edilen slot artık uygun değilse temizle
+          // (kullanıcı yenileme sonrası başka tarih seçtiyse vb.)
+          setSelectedSlot(prev => (prev && slots.includes(prev) ? prev : null));
+        } else {
+          console.error('❌ API Error:', data.error);
+          setAvailableTimeSlots([]);
+          setSelectedSlot(null);
+=======
           // Map available slots for the UI
           // We'll trust the API to only return valid strings
           setAvailableTimeSlots(data.slots || []);
         } else {
           console.error('❌ API Error:', data.error);
           setAvailableTimeSlots([]);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         }
       } catch (error) {
         console.error('❌ Fetch Error:', error);
@@ -77,6 +109,20 @@ export default function TimeSelection() {
     fetchAvailableSlots();
   }, [selectedDate, staff?.id, id, selectedServices]);
 
+<<<<<<< HEAD
+  // Guard: hizmet seçimi yoksa adım 1'e yönlendir (kullanıcı direkt URL ile gelmiş veya
+  // sessionStorage temizlenmiş olabilir)
+  useEffect(() => {
+    if (selectedServices.length === 0 && !loading) {
+      const t = setTimeout(() => {
+        router.replace(`/salon/${id}`);
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [selectedServices.length, loading, id, router]);
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -336,6 +382,10 @@ export default function TimeSelection() {
                       <div className="text-center py-8">
                         <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
                         <p className="text-text-muted text-sm">Sabah saatlerinde müsait slot yok</p>
+<<<<<<< HEAD
+                        <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya öğleden sonrayı deneyin</p>
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -343,7 +393,11 @@ export default function TimeSelection() {
                           <button
                             key={time}
                             onClick={() => setSelectedSlot(time)}
+<<<<<<< HEAD
+                            className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
+=======
                             className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                           >
                             {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
@@ -371,6 +425,10 @@ export default function TimeSelection() {
                       <div className="text-center py-8">
                         <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
                         <p className="text-text-muted text-sm">Öğleden sonra müsait slot yok</p>
+<<<<<<< HEAD
+                        <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya sabahı deneyin</p>
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -378,7 +436,11 @@ export default function TimeSelection() {
                           <button
                             key={time}
                             onClick={() => setSelectedSlot(time)}
+<<<<<<< HEAD
+                            className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
+=======
                             className={`group relative py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary'}`}
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                           >
                             {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>

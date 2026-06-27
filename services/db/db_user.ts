@@ -433,4 +433,120 @@ export const ProfileService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Admin: Get all profiles with advanced filtering and pagination
+   */
+  async adminGetProfiles(
+    options: {
+      search?: string;
+      role?: string;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+      page?: number;
+      pageSize?: number;
+    } = {},
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 10;
+    const offset = (page - 1) * pageSize;
+
+    let query = supabase
+      .from("profiles")
+      .select("*", { count: 'exact' });
+
+    if (options.role && options.role !== 'all') {
+<<<<<<< HEAD
+      if (options.role === 'SALON_OWNER' || options.role === 'OWNER') {
+        // user_role enum only has SALON_OWNER (no legacy 'OWNER' value) —
+        // querying a non-existent enum value makes PostgREST reject the whole request (22P02).
+        query = query.eq("role", 'SALON_OWNER');
+      } else {
+        query = query.eq("role", options.role);
+      }
+=======
+      query = query.eq("role", options.role);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
+    }
+
+    if (options.search) {
+      const s = options.search;
+<<<<<<< HEAD
+      query = query.or(`full_name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`);
+=======
+      query = query.or(`full_name.ilike."%${s}%",email.ilike."%${s}%",phone.ilike."%${s}%"`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
+    }
+
+    if (options.sortBy) {
+      query = query.order(options.sortBy, { ascending: options.sortOrder === 'asc' });
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    // Pagination
+    query = query.range(offset, offset + pageSize - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    
+    return {
+      profiles: (data || []).map(u => ({
+        ...u,
+        is_active: u.is_active ?? true
+      })) as Profile[],
+      totalCount: count || 0
+    };
+  },
+
+  /**
+   * Admin: Update profile (Full control)
+   */
+  async adminUpdateProfile(
+    userId: string,
+    updates: Partial<Profile>,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Admin: Hard Delete user and all associated data (Cascade)
+   */
+  async adminHardDelete(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    // Call the RPC for cascading delete
+    const { error: rpcError } = await supabase.rpc("admin_delete_user_cascade", { 
+        target_user_id: userId 
+    });
+    
+    if (rpcError) throw rpcError;
+  },
+
+  /**
+   * Admin: Toggle user active/passive status
+   */
+  async adminToggleActive(
+    userId: string,
+    isActive: boolean,
+    supabase: SupabaseClient = defaultSupabase,
+  ) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) throw error;
+  }
 };

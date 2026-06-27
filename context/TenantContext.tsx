@@ -10,11 +10,13 @@ import { supabase } from '@/lib/supabase';
 interface TenantContextType {
     salonId: string | null;
     salon: any | null;
-    plan: 'FREE' | 'PRO' | 'ENTERPRISE' | null;
-    setPlan: (plan: 'FREE' | 'PRO' | 'ENTERPRISE') => void;
+    plan: string | null;
+    setPlan: (plan: string) => void;
     primaryColor: string;
     loading: boolean;
     refreshSalonId: () => Promise<void>;
+    subscriptionStatus: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED' | 'TRIAL' | null;
+    planDetails: any | null;
 }
 
 const TenantContext = createContext<TenantContextType>({
@@ -24,7 +26,9 @@ const TenantContext = createContext<TenantContextType>({
     setPlan: () => { },
     primaryColor: '#CFA76D',
     loading: true,
-    refreshSalonId: async () => { }
+    refreshSalonId: async () => { },
+    subscriptionStatus: null,
+    planDetails: null
 });
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -32,6 +36,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [salonId, setSalonId] = useState<string | null>(null);
     const [salon, setSalon] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+    const [subscriptionStatus, setSubscriptionStatus] = useState<'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED' | 'TRIAL' | null>(null);
+    const [planDetails, setPlanDetails] = useState<any | null>(null);
 
     const refreshSalonId = async () => {
         if (!user || (!isOwner && !isStaff)) {
@@ -42,6 +48,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         try {
             setLoading(true);
+
+            let selectedSId = null;
 
             if (isOwner) {
                 // Get salons owned by this user
@@ -54,14 +62,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     if (error.code !== 'PGRST116') {
                         console.error('[TenantContext] Error fetching owner salons:', error);
                     }
-                    setSalonId(null);
-                    setSalon(null);
                 } else {
                     const savedBranchId = typeof window !== 'undefined' ? localStorage.getItem(`active_branch_${user.id}`) : null;
                     const exists = data?.find(s => s.id === savedBranchId);
                     const selectedSalon = exists || data?.[0] || null;
 
-                    setSalonId(selectedSalon?.id || null);
+                    selectedSId = selectedSalon?.id || null;
+                    setSalonId(selectedSId);
                     setSalon(selectedSalon);
 
                     if (selectedSalon) {
@@ -79,13 +86,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 if (error) {
                     console.error('[TenantContext] Error fetching staff salon details:', error);
-                    setSalonId(null);
-                    setSalon(null);
                 } else {
-                    const sId = data?.[0]?.salon_id || null;
-                    setSalonId(sId);
-                    if (sId) {
-                        const { data: salonData } = await supabase.from('salons').select('*').eq('id', sId).single();
+                    selectedSId = data?.[0]?.salon_id || null;
+                    setSalonId(selectedSId);
+                    if (selectedSId) {
+                        const { data: salonData } = await supabase.from('salons').select('*').eq('id', selectedSId).single();
+<<<<<<< HEAD
+                        if (!salonData) {
+                            console.error('[TenantContext] Staff salon not found for id:', selectedSId);
+                        } else {
+                            setSalon(salonData);
+                            const brandColor = salonData.primary_color || '#CFA76D';
+                            document.documentElement.style.setProperty('--primary', brandColor);
+                            document.documentElement.style.setProperty('--primary-hover', `${brandColor}dd`);
+                        }
+=======
                         setSalon(salonData);
 
                         // Essential dynamic branding: Inject primary color as CSS variable
@@ -93,9 +108,46 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         document.documentElement.style.setProperty('--primary', brandColor);
                         // Also generate subtle variations if needed
                         document.documentElement.style.setProperty('--primary-hover', `${brandColor}dd`);
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     }
                 }
             }
+            
+            // Fetch subscription details if we have a selected salon
+            if (selectedSId) {
+                const { data: subData } = await supabase
+                    .from('subscriptions')
+                    .select('*, subscription_plans(*)')
+                    .eq('salon_id', selectedSId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                
+                let activeSub = subData;
+
+                // Eğer bu salona ait özel bir abonelik yoksa (örn. yeni açıldıysa) VEYA süresi dolduysa
+                // ama owner'ın BAŞKA BİR salonunda aktif bir MASTER paketi varsa onu kullandır (Eğer limitleri yetiyorsa)
+                // Şimdilik owner seviyesindeki genel paketi "kurtarıcı" olarak alalım.
+                if (isOwner && (!activeSub || (activeSub.status !== 'ACTIVE' && activeSub.status !== 'TRIAL' && activeSub.status !== 'PENDING'))) {
+                    const { SubscriptionService } = await import('@/services/db');
+                    const ownerSub = await SubscriptionService.getOwnerActiveSubscription(user.id);
+                    if (ownerSub) {
+                        activeSub = ownerSub; // Diğer şubenin paketi geçerli sayılıyor (multi-branch destekli paketler için)
+                    }
+                }
+
+                if (activeSub) {
+                    setSubscriptionStatus(activeSub.status);
+                    setPlanDetails(activeSub.subscription_plans);
+                    // Force the plan name to be up to date in the salon object
+                    setSalon((prev: any) => prev ? { ...prev, plan: activeSub.subscription_plans?.name || 'STARTER' } : null);
+                } else {
+                    // Fallback to defaults
+                    setSubscriptionStatus(null);
+                    setPlanDetails(null);
+                }
+            }
+
         } catch (err) {
             console.error('[TenantContext] Unexpected error:', err);
             setSalonId(null);
@@ -113,11 +165,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         <TenantContext.Provider value={{
             salonId,
             salon,
-            plan: salon?.plan || 'FREE',
-            setPlan: (newPlan: 'FREE' | 'PRO' | 'ENTERPRISE') => setSalon((prev: any) => prev ? { ...prev, plan: newPlan } : null),
+            plan: salon?.plan || 'STARTER',
+            setPlan: (newPlan: string) => setSalon((prev: any) => prev ? { ...prev, plan: newPlan } : null),
             primaryColor: salon?.primary_color || '#CFA76D',
             loading,
-            refreshSalonId
+            refreshSalonId,
+            subscriptionStatus,
+            planDetails
         }}>
             {children}
         </TenantContext.Provider>

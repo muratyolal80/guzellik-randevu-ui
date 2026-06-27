@@ -121,6 +121,92 @@ export const SalonDataService = {
 
   /**
    * Get all salons with detailed information (using view)
+<<<<<<< HEAD
+   * Sprint B: limit/offset/sort destek + total count
+   */
+  async getSalons(
+    supabase: SupabaseClient = defaultSupabase,
+    options?: {
+      limit?: number;
+      offset?: number;
+      sort?: 'rating_desc' | 'rating_asc' | 'newest' | 'sponsored';
+      withCount?: boolean;
+    }
+  ): Promise<{ data: SalonDetail[]; total: number | null }> {
+    const limit = Math.max(1, Math.min(options?.limit ?? 20, 100));
+    const offset = Math.max(0, options?.offset ?? 0);
+    const sort = options?.sort ?? 'sponsored';
+
+    let q = supabase
+      .from("salon_details")
+      .select("*", options?.withCount ? { count: 'exact' } : undefined)
+      .eq("status", "APPROVED");
+
+    if (sort === 'rating_desc') {
+      q = q.order("average_rating", { ascending: false });
+    } else if (sort === 'rating_asc') {
+      q = q.order("average_rating", { ascending: true });
+    } else if (sort === 'newest') {
+      q = q.order("created_at", { ascending: false });
+    } else {
+      q = q.order("is_sponsored", { ascending: false }).order("average_rating", { ascending: false });
+    }
+
+    q = q.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+    return {
+      data: (data || []).map((s: any) => this.mapSalonDetail(s)),
+      total: typeof count === 'number' ? count : null,
+    };
+  },
+
+  /**
+   * Backwards-compatible alias: tüm salonları çek (limit yok).
+   * Sayfalama destekleyen yeni getSalons'a yönlendirilir.
+   */
+  async getAllSalons(supabase: SupabaseClient = defaultSupabase): Promise<SalonDetail[]> {
+    const { data: page1 } = await this.getSalons(supabase, { limit: 100, offset: 0 });
+    return page1;
+  },
+
+  /**
+   * Sprint C (K2) — PostGIS ST_DWithin ile konum bazlı arama.
+   * RPC salons_within_radius çağrılır (New-17 migration ile gelir).
+   */
+  async getSalonsNearby(
+    centerLat: number,
+    centerLng: number,
+    radiusKm = 10,
+    supabase: SupabaseClient = defaultSupabase
+  ): Promise<Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    image?: string;
+    city_name?: string;
+    district_name?: string;
+    average_rating?: number;
+    is_sponsored?: boolean;
+    distance_km: number;
+  }>> {
+    try {
+      const { data, error } = await supabase.rpc('salons_within_radius', {
+        center_lat: centerLat,
+        center_lng: centerLng,
+        radius_km: radiusKm,
+      });
+      if (error) {
+        console.error('[getSalonsNearby] RPC error:', error.message);
+        return [];
+      }
+      return (data || []) as any[];
+    } catch (err) {
+      console.error('[getSalonsNearby] threw:', err);
+      return [];
+    }
+=======
    */
   async getSalons(supabase: SupabaseClient = defaultSupabase): Promise<SalonDetail[]> {
     const { data, error } = await supabase
@@ -132,18 +218,55 @@ export const SalonDataService = {
 
     if (error) throw error;
     return (data || []).map((s) => this.mapSalonDetail(s));
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
 
   /**
    * Get salons by user membership (Owner/Staff branches)
+<<<<<<< HEAD
+   * Sprint F (K12) — N+1 yerine tek join query (PostgREST resource embedding)
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
    */
   async getSalonsByMembership(
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SalonDetail[]> {
+<<<<<<< HEAD
+    if (!userId || userId === "") return [];
+
+    // Tek query: memberships → salon_details join (PostgREST FK resolution).
+    // Eski N+1 (memberships fetch + ayrı salon_details fetch) yerine.
+    const { data: rows, error } = await supabase
+      .from("salon_memberships")
+      .select("salon_id, salon_details:salon_id(*)")
+      .eq("user_id", userId)
+      .eq("is_active", true);
+
+    if (error) {
+      console.warn('[getSalonsByMembership] join failed, fallback to N+1:', error.message);
+      return this._getSalonsByMembershipFallback(userId, supabase);
+    }
+
+    const details = (rows || [])
+      .map((r: any) => r.salon_details)
+      .filter(Boolean);
+
+    return details.map((s: any) => this.mapSalonDetail(s));
+  },
+
+  /**
+   * Fallback: PostgREST join çalışmazsa eski iki-query yöntemine düş.
+   */
+  async _getSalonsByMembershipFallback(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<SalonDetail[]> {
+=======
     // First, get the salon IDs from memberships
     if (!userId || userId === "") return [];
 
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const { data: memberships, error: memError } = await supabase
       .from("salon_memberships")
       .select("salon_id")
@@ -318,9 +441,11 @@ export const SalonDataService = {
       duration_min: number;
     }[],
     supabase: SupabaseClient = defaultSupabase,
+    bypassLimitCheck: boolean = false,
   ): Promise<Salon> {
     // Enforcement: Check branch limit for the owner
     // If owner already has a salon, check its plan's branch limit
+    // Admin can bypass this check by passing bypassLimitCheck: true
     const { data: existingSalons } = await supabase
       .from("salons")
       .select("id, status")
@@ -328,7 +453,7 @@ export const SalonDataService = {
 
     let hijackedSalonId: string | null = null;
 
-    if (existingSalons && existingSalons.length > 0) {
+    if (!bypassLimitCheck && existingSalons && existingSalons.length > 0) {
       const limitResult = await SubscriptionService.checkLimit(
         existingSalons[0].id,
         "branch",
@@ -349,11 +474,23 @@ export const SalonDataService = {
     }
 
     const { type_ids, primary_type_id, ...salonData } = salon;
+<<<<<<< HEAD
+    const slug = (salonData as any).slug || (salonData.name.toLowerCase().trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') + '-' + Math.random().toString(36).substring(2, 7));
+
+    const dbSalon = {
+      ...salonData,
+      slug,
+      type_id: primary_type_id || (salonData as any).type_id,
+=======
 
     // Use primary_type_id as fallback for type_id for backward compatibility
     const dbSalon = {
       ...salonData,
       type_id: primary_type_id || salonData.type_id,
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     };
 
     let data;
@@ -542,7 +679,7 @@ export const SalonDataService = {
   },
 
   /**
-   * Delete salon
+   * Delete salon (Hard delete)
    */
   async deleteSalon(
     id: string,
@@ -551,6 +688,62 @@ export const SalonDataService = {
     const { error } = await supabase.from("salons").delete().eq("id", id);
 
     if (error) throw error;
+  },
+
+  /**
+   * Soft delete salon (Set status to DELETED)
+   */
+  async softDeleteSalon(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("salons")
+      .update({ status: "DELETED", updated_at: new Date().toISOString() })
+      .eq("id", id);
+      
+    if (error) throw error;
+  },
+
+  /**
+   * General purpose status update
+   */
+  async setSalonStatus(
+    id: string,
+    status: Salon["status"],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("salons")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+      
+    if (error) throw error;
+  },
+
+  /**
+   * Suspend a salon (Owner action) and cancel its active subscription
+   */
+  async suspendSalonAndCancelSubscription(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    // 1. Mark salon as SUSPENDED
+    const { error: salonError } = await supabase
+      .from("salons")
+      .update({ status: "SUSPENDED" })
+      .eq("id", id);
+      
+    if (salonError) throw salonError;
+
+    // 2. Cancel active/trial subscriptions for this salon
+    const { error: subError } = await supabase
+      .from("subscriptions")
+      .update({ status: "CANCELLED" })
+      .eq("salon_id", id)
+      .in("status", ["ACTIVE", "TRIAL", "PENDING"]);
+
+    if (subError) throw subError;
   },
 
   /**
@@ -668,6 +861,18 @@ export const SalonDataService = {
   ): Promise<void> {
     await this.updateSalonStatus(id, "SUSPENDED", reason, supabase);
   },
+ 
+  /**
+   * Admin: Deactivate a salon (Passive)
+   */
+  async deactivateSalon(
+    id: string,
+    reason?: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    await this.updateSalonStatus(id, "PASSIVE", reason, supabase);
+  },
+ 
 
   /**
    * Owner: Submit salon for approval
@@ -1129,7 +1334,15 @@ export const GalleryService = {
       .eq("salon_id", salonId)
       .order("display_order", { ascending: true });
 
+<<<<<<< HEAD
+    if (error) {
+      // Gallery is non-critical; log and return empty rather than crashing the page
+      console.warn(`[GalleryService] getSalonGallery error (salonId=${salonId}):`, error.message || error.code || JSON.stringify(error));
+      return [];
+    }
+=======
     if (error) throw error;
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     return data || [];
   },
 

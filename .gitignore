@@ -34,3 +34,14 @@ supabase-project
 
 # Backups
 db_backups/
+<<<<<<< HEAD
+
+# MCP config (contains DB password)
+.mcp.json
+
+# Third-party skill repo clones (kullanıcı /plugin marketplace ile çekti, repo'ya commit etmiyoruz)
+claude-skills/
+.tmp/
+.tmp-claude-skills/
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8

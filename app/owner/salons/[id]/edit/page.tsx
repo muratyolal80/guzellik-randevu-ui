@@ -21,7 +21,8 @@ import {
     XCircle,
     ChevronLeft,
     Layout,
-    CheckCircle
+    CheckCircle,
+    Ban
 } from 'lucide-react';
 import Link from 'next/link';
 import SalonGalleryManager from '@/components/shared/salon/SalonGalleryManager';
@@ -340,9 +341,20 @@ export default function EditSalonPage() {
                                                 }`}></span>
                                         </div>
                                         <span className="text-[10px] font-black uppercase tracking-widest antialiased">
-                                            {salon?.status === 'APPROVED' ? 'Sistemde Aktif' : 'Onay Bekliyor'}
+                                            {salon?.status === 'APPROVED' ? 'Sistemde Aktif' : 
+                                             salon?.status === 'SUSPENDED' ? 'Pasif' :
+                                             salon?.status === 'REJECTED' ? 'Reddedildi' :
+                                             salon?.status === 'REVISION_REQUESTED' ? 'Revizyon Gerekli' :
+                                             'Onay Bekliyor'}
                                         </span>
                                     </div>
+                                    
+                                    {salon?.status === 'SUSPENDED' && (
+                                        <div className="px-3 py-1 bg-red-100 border border-red-200 text-red-700 rounded-full flex items-center gap-2 animate-pulse">
+                                            <Ban className="w-3 h-3" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Düzenleme Kapalı</span>
+                                        </div>
+                                    )}
 
                                     {salon?.status === 'APPROVED' && (
                                         <div className="hidden sm:flex px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full items-center gap-2">
@@ -355,7 +367,7 @@ export default function EditSalonPage() {
                         </div>
 
                         <div className="hidden md:flex items-center gap-3">
-                            {activeTab === 'profile' && (
+                            {activeTab === 'profile' && salon?.status !== 'SUSPENDED' && (
                                 <button
                                     onClick={handleUpdateProfile}
                                     disabled={saving}
@@ -388,7 +400,7 @@ export default function EditSalonPage() {
             </div>
 
             {/* Mobile Save Button (Sticky Bottom) */}
-            {activeTab === 'profile' && (
+            {activeTab === 'profile' && salon?.status !== 'SUSPENDED' && (
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-lg border-t border-border z-40 md:hidden animate-slide-up">
                     <button
                         onClick={handleUpdateProfile}
@@ -403,7 +415,29 @@ export default function EditSalonPage() {
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeTab === 'profile' && (
+                {salon?.status === 'SUSPENDED' && (
+                    <div className="bg-white p-8 md:p-12 rounded-[40px] border-2 border-red-100 shadow-xl mb-8 flex flex-col items-center text-center space-y-6 animate-in fade-in zoom-in-95">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500 shadow-inner">
+                            <Ban className="w-10 h-10" />
+                        </div>
+                        <div className="max-w-md">
+                            <h2 className="text-2xl font-black text-text-main mb-2">Bu Salon Şu An Pasif Durumda</h2>
+                            <p className="text-text-secondary font-medium">
+                                Pasif durumdaki salonlarda düzenleme yapılamaz. Yeniden aktif etmek için lütfen 
+                                <Link href="/owner/salons" className="text-primary font-black mx-1 hover:underline">Salonlarım</Link> 
+                                sayfasından aktivasyon isteği gönderin.
+                            </p>
+                        </div>
+                        <Link 
+                            href="/owner/salons"
+                            className="px-8 py-3 bg-gray-100 text-text-main rounded-2xl font-black text-sm hover:bg-gray-200 transition-all flex items-center gap-2"
+                        >
+                            <ChevronLeft className="w-4 h-4" /> Salon Listesine Dön
+                        </Link>
+                    </div>
+                )}
+
+                {activeTab === 'profile' && salon?.status !== 'SUSPENDED' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
                         {/* Left Column - Main Info */}
                         <div className="lg:col-span-2 space-y-8 md:space-y-12">

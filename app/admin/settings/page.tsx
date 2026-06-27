@@ -12,28 +12,76 @@ import {
     Info,
     AlertTriangle,
     Plus,
+<<<<<<< HEAD
+    Trash2,
+    Mail,
+    Send
+} from 'lucide-react';
+
+export default function Settings() {
+    const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank' | 'email'>('sms');
+=======
     Trash2
 } from 'lucide-react';
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank'>('sms');
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     // SMS States (LocalStorage - existing)
     const [usercode, setUsercode] = useState('');
     const [password, setPassword] = useState('');
     const [header, setHeader] = useState('');
 
+<<<<<<< HEAD
+    // Active Payment Provider (DB)
+    const [activeProvider, setActiveProvider] = useState<'PAYTR' | 'IYZICO' | 'NONE'>('PAYTR');
+
+    // iyzico States (DB) — şu an PASİF, kod arşivde, ileride aktive edilebilir
+=======
     // iyzico States (DB)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [iyzicoMode, setIyzicoMode] = useState<'sandbox' | 'live'>('sandbox');
     const [iyzicoSandboxKeys, setIyzicoSandboxKeys] = useState({ apiKey: '', secretKey: '', baseUrl: '' });
     const [iyzicoLiveKeys, setIyzicoLiveKeys] = useState({ apiKey: '', secretKey: '', baseUrl: '' });
 
+<<<<<<< HEAD
+    // PayTR States (DB) — aktif sağlayıcı
+    const [paytrConfig, setPaytrConfig] = useState({
+        merchant_id: '',
+        merchant_key: '',
+        merchant_salt: '',
+        test_mode: 1 as 0 | 1,
+        debug_on: 1 as 0 | 1,
+        currency: 'TL' as 'TL' | 'EUR' | 'USD' | 'GBP' | 'RUB',
+        callback_url: '',
+        merchant_ok_url: '',
+        merchant_fail_url: '',
+    });
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     // Platform Commission (DB)
     const [commissionRate, setCommissionRate] = useState(5);
 
     // Bank States (DB)
     const [bankAccounts, setBankAccounts] = useState<any[]>([]);
 
+<<<<<<< HEAD
+    // Email/SMTP States (DB)
+    const [emailConfig, setEmailConfig] = useState({
+        smtp_host: '',
+        smtp_port: '587',
+        smtp_user: '',
+        smtp_pass: '',
+        from_address: '',
+        from_name: 'Güzellik Randevu',
+        encryption: 'TLS' as 'TLS' | 'SSL' | 'NONE',
+    });
+    const [emailTestSending, setEmailTestSending] = useState(false);
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     const [loading, setLoading] = useState(true);
     const [saved, setSaved] = useState(false);
 
@@ -49,6 +97,12 @@ export default function Settings() {
     const fetchDBPermissions = async () => {
         try {
             setLoading(true);
+<<<<<<< HEAD
+            const providerRow = await PlatformService.getSetting('active_payment_provider');
+            if (providerRow?.provider) setActiveProvider(providerRow.provider);
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const iyzicoConfig = await PlatformService.getSetting('iyzico_config');
             if (iyzicoConfig) {
                 setIyzicoMode(iyzicoConfig.mode || 'sandbox');
@@ -64,6 +118,14 @@ export default function Settings() {
                 });
             }
 
+<<<<<<< HEAD
+            const paytrCfg = await PlatformService.getSetting('paytr_config');
+            if (paytrCfg) {
+                setPaytrConfig(prev => ({ ...prev, ...paytrCfg }));
+            }
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             const commission = await PlatformService.getSetting('platform_commission_rate');
             if (commission) {
                 setCommissionRate(commission.rate || 5);
@@ -71,6 +133,14 @@ export default function Settings() {
 
             const banks = await PlatformService.getSetting('bank_accounts');
             setBankAccounts(banks || []);
+<<<<<<< HEAD
+
+            const emailCfg = await PlatformService.getSetting('email_smtp_config');
+            if (emailCfg) {
+                setEmailConfig(prev => ({ ...prev, ...emailCfg }));
+            }
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
         } catch (err) {
             console.error('Settings fetch error:', err);
         } finally {
@@ -87,10 +157,18 @@ export default function Settings() {
         setTimeout(() => setSaved(false), 3000);
     };
 
+<<<<<<< HEAD
+    const handleSavePayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await Promise.all([
+                PlatformService.updateSetting('active_payment_provider', { provider: activeProvider }),
+=======
     const handleSaveIyzico = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             await Promise.all([
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 PlatformService.updateSetting('iyzico_config', {
                     mode: iyzicoMode,
                     sandbox_apiKey: iyzicoSandboxKeys.apiKey,
@@ -100,9 +178,16 @@ export default function Settings() {
                     live_secretKey: iyzicoLiveKeys.secretKey,
                     live_baseUrl: iyzicoLiveKeys.baseUrl,
                 }),
+<<<<<<< HEAD
+                PlatformService.updateSetting('paytr_config', paytrConfig),
+                PlatformService.updateSetting('platform_commission_rate', {
+                    rate: commissionRate,
+                    description: 'Randevu başı yüzde komisyon (manuel takip)'
+=======
                 PlatformService.updateSetting('platform_commission_rate', {
                     rate: commissionRate,
                     description: "Randevu başı yüzde komisyon"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 })
             ]);
             setSaved(true);
@@ -124,6 +209,21 @@ export default function Settings() {
     };
 
     const hasSMSConfig = usercode.length > 0 && password.length > 0 && header.length > 0;
+<<<<<<< HEAD
+    const hasEmailConfig = emailConfig.smtp_host.length > 0 && emailConfig.smtp_user.length > 0;
+
+    const handleSaveEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await PlatformService.updateSetting('email_smtp_config', emailConfig);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            alert('E-posta ayarları kaydedilirken hata oluştu.');
+        }
+    };
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
 
     return (
         <AdminLayout>
@@ -152,7 +252,11 @@ export default function Settings() {
                     onClick={() => setActiveTab('payment')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'payment' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
+<<<<<<< HEAD
+                    <CreditCard size={18} /> Ödeme Sağlayıcıları
+=======
                     <CreditCard size={18} /> Ödeme (iyzico)
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 </button>
                 <button
                     onClick={() => setActiveTab('bank')}
@@ -160,6 +264,15 @@ export default function Settings() {
                 >
                     <Building2 size={18} /> Banka Hesapları
                 </button>
+<<<<<<< HEAD
+                <button
+                    onClick={() => setActiveTab('email')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'email' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                >
+                    <Mail size={18} /> E-Posta (SMTP)
+                </button>
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             </div>
 
             <div className="max-w-4xl">
@@ -225,15 +338,163 @@ export default function Settings() {
 
                 {activeTab === 'payment' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
+<<<<<<< HEAD
+
+                        {/* AKTIF SAĞLAYICI SEÇİMİ */}
                         <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+                            <div className="p-8 border-b border-border bg-gradient-to-r from-amber-50 to-white">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                                        <ShieldCheck size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-text-main">Aktif Ödeme Sağlayıcısı</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Sadece seçili sağlayıcı runtime'da çalışır</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {(['PAYTR','IYZICO','NONE'] as const).map(p => {
+                                    const labels: Record<typeof p, { title: string; desc: string; color: string }> = {
+                                        PAYTR:  { title: 'PayTR (Aktif önerilen)', desc: 'iFrame API · Demo kartlarla test', color: 'emerald' },
+                                        IYZICO: { title: 'Iyzico (Pasif/Arşiv)',     desc: 'Sandbox · Onay alınınca aktif olur', color: 'purple' },
+                                        NONE:   { title: 'Yok (Sadece havale)',      desc: 'Kredi kartı UI gizlenir',          color: 'slate' },
+                                    } as any;
+                                    const c = labels[p];
+                                    const selected = activeProvider === p;
+                                    return (
+                                        <button
+                                            key={p}
+                                            type="button"
+                                            onClick={() => setActiveProvider(p)}
+                                            className={`text-left p-5 rounded-2xl border-2 transition-all ${selected
+                                                ? `bg-${c.color}-50 border-${c.color}-300 shadow-lg scale-[1.02]`
+                                                : 'bg-white border-border hover:border-primary/30'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className={`w-3 h-3 rounded-full ${selected ? `bg-${c.color}-500` : 'bg-gray-300'}`} />
+                                                <span className="text-sm font-black text-text-main">{c.title}</span>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{c.desc}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* PAYTR KONFİGÜRASYONU */}
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+                            <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                                        <CreditCard size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-text-main">PayTR iFrame API</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Abonelik ödemesi · Demo modu test_mode=1</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${paytrConfig.test_mode === 1 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                        {paytrConfig.test_mode === 1 ? 'TEST MODU' : 'CANLI MOD'}
+                                    </span>
+                                </div>
+                            </div>
+                            <form onSubmit={handleSavePayment} className="p-8 space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Merchant ID</label>
+                                        <input
+                                            type="text"
+                                            value={paytrConfig.merchant_id}
+                                            onChange={(e) => setPaytrConfig({ ...paytrConfig, merchant_id: e.target.value })}
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-white focus:border-primary outline-none font-bold font-mono text-sm"
+                                            placeholder="123456"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Test Mode</label>
+                                        <select
+                                            value={paytrConfig.test_mode}
+                                            onChange={(e) => setPaytrConfig({ ...paytrConfig, test_mode: Number(e.target.value) as 0 | 1 })}
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-white focus:border-primary outline-none font-bold"
+                                        >
+                                            <option value={1}>Test (Demo kartlarla)</option>
+                                            <option value={0}>Canlı (Gerçek ödeme)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Merchant Key</label>
+                                        <input
+                                            type="password"
+                                            value={paytrConfig.merchant_key}
+                                            onChange={(e) => setPaytrConfig({ ...paytrConfig, merchant_key: e.target.value })}
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-white focus:border-primary outline-none font-bold font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Merchant Salt</label>
+                                        <input
+                                            type="password"
+                                            value={paytrConfig.merchant_salt}
+                                            onChange={(e) => setPaytrConfig({ ...paytrConfig, merchant_salt: e.target.value })}
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-white focus:border-primary outline-none font-bold font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Callback URL (Bildirim URL)</label>
+                                        <input
+                                            type="text"
+                                            value={paytrConfig.callback_url}
+                                            onChange={(e) => setPaytrConfig({ ...paytrConfig, callback_url: e.target.value })}
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-white focus:border-primary outline-none font-bold text-sm"
+                                            placeholder="https://kuaforara.com.tr/api/paytr/callback"
+                                        />
+                                        <p className="text-[10px] text-text-muted mt-2 ml-1 italic">Bu URL'i PayTR Mağaza Paneli &gt; Ayarlar &gt; Bildirim URL kısmına da yazmanız gerekir.</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6">
+                                    <div className="flex items-start gap-3">
+                                        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-black text-blue-900 uppercase">Demo Kartlar (test_mode=1 iken)</p>
+                                            <ul className="text-[11px] font-mono text-blue-800 space-y-1">
+                                                <li>4355 0843 5508 4358 — Ad: PAYTR TEST — Son: 12/30 — CVV: 000</li>
+                                                <li>5406 6754 0667 5403 — Ad: PAYTR TEST — Son: 12/30 — CVV: 000</li>
+                                                <li>9792 0303 9444 0796 — Ad: PAYTR TEST — Son: 12/30 — CVV: 000</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 border-t border-border flex justify-end">
+                                    <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
+                                        <Save size={20} /> Tüm Ödeme Ayarlarını Kaydet
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* IYZICO KONFİGÜRASYONU (PASİF, arşivde) */}
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden opacity-90">
+=======
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
                                         <CreditCard size={24} />
                                     </div>
                                     <div>
+<<<<<<< HEAD
+                                        <h3 className="text-lg font-black text-text-main">Iyzico API (Arşiv)</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Onay alınırsa Booking için aktive edilebilir</p>
+=======
                                         <h3 className="text-lg font-black text-text-main">iyzico API Yapılandırması</h3>
                                         <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Abonelik ve Ödeme Sistemi</p>
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                     </div>
                                 </div>
                                 <select
@@ -245,7 +506,11 @@ export default function Settings() {
                                     <option value="live">Live (Canlı)</option>
                                 </select>
                             </div>
+<<<<<<< HEAD
+                            <form onSubmit={handleSavePayment} className="p-8 space-y-10">
+=======
                             <form onSubmit={handleSaveIyzico} className="p-8 space-y-10">
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                                 <div className="grid grid-cols-1 gap-8">
                                     {/* Modal based on iyzicoMode */}
                                     <div className="p-6 rounded-[24px] border-2 border-dashed border-border bg-surface-alt/50">
@@ -421,6 +686,124 @@ export default function Settings() {
                     </div>
                 )}
 
+<<<<<<< HEAD
+                {activeTab === 'email' && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
+                        <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+                            <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600">
+                                        <Mail size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-text-main">E-Posta SMTP Yapılandırması</h3>
+                                        <p className="text-xs text-text-secondary font-bold uppercase tracking-wider">Davetiye ve Bildirim Gönderimi</p>
+                                    </div>
+                                </div>
+                                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${hasEmailConfig ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {hasEmailConfig ? 'Yapılandırıldı' : 'Konfigürasyon Eksik'}
+                                </div>
+                            </div>
+                            <form onSubmit={handleSaveEmail} className="p-8 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">SMTP Sunucu (Host)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_host}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_host: e.target.value })}
+                                            placeholder="smtp.gmail.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Port</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_port}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: e.target.value })}
+                                            placeholder="587"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Kullanıcı Adı</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_user}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_user: e.target.value })}
+                                            placeholder="noreply@salonunuz.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Şifre / App Password</label>
+                                        <input
+                                            type="password"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.smtp_pass}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, smtp_pass: e.target.value })}
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Gönderen E-Posta</label>
+                                        <input
+                                            type="email"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.from_address}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, from_address: e.target.value })}
+                                            placeholder="bilgi@salonunuz.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Gönderen Adı</label>
+                                        <input
+                                            type="text"
+                                            className="w-full h-12 px-5 rounded-2xl border border-border bg-surface-alt focus:bg-white focus:border-primary outline-none transition-all font-bold"
+                                            value={emailConfig.from_name}
+                                            onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })}
+                                            placeholder="Güzellik Randevu"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-2 ml-1">Şifreleme</label>
+                                        <div className="flex gap-3">
+                                            {(['TLS', 'SSL', 'NONE'] as const).map(enc => (
+                                                <button
+                                                    key={enc}
+                                                    type="button"
+                                                    onClick={() => setEmailConfig({ ...emailConfig, encryption: enc })}
+                                                    className={`px-6 py-3 rounded-xl text-sm font-black transition-all border ${emailConfig.encryption === enc ? 'bg-primary text-white border-primary shadow-md' : 'bg-surface-alt text-text-muted border-border hover:border-primary/40'}`}
+                                                >
+                                                    {enc === 'NONE' ? 'Yok' : enc}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info */}
+                                <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                                    <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 font-bold leading-relaxed">
+                                        Gmail kullanıyorsanız <strong>App Password</strong> oluşturmanız gerekir. Normal şifreniz çalışmaz.
+                                        SMTP ayarları yapılandırıldığında, personel davetleri otomatik olarak e-posta ile de gönderilebilir hale gelecektir.
+                                    </p>
+                                </div>
+
+                                <div className="pt-6 border-t border-border flex justify-end gap-4">
+                                    <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
+                                        <Save size={20} /> E-Posta Ayarlarını Kaydet
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                 {/* Info Center */}
                 <div className="mt-12 bg-blue-50/50 rounded-3xl border border-blue-100 p-8 flex gap-6">
                     <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">

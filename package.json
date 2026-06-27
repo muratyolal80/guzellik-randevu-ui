@@ -8,7 +8,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+<<<<<<< HEAD
+    "postbuild": "next-sitemap --config next-sitemap.config.cjs",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+=======
     "postbuild": "next-sitemap --config next-sitemap.config.cjs"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.20",
@@ -16,8 +23,16 @@
     "@fullcalendar/react": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
     "@google/genai": "^1.34.0",
+<<<<<<< HEAD
+    "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
+=======
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     "date-fns": "^4.1.0",
     "iyzipay": "^2.0.65",
     "lucide-react": "^0.562.0",
@@ -26,7 +41,13 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-leaflet": "^5.0.0",
+<<<<<<< HEAD
+    "react-loading-skeleton": "^3.5.0",
+    "recharts": "^3.7.0",
+    "resend": "^6.12.3"
+=======
     "recharts": "^3.7.0"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
@@ -35,6 +56,10 @@
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+<<<<<<< HEAD
+    "@vitest/coverage-v8": "^4.1.5",
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
     "autoprefixer": "^10.4.23",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
@@ -42,6 +67,11 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
+<<<<<<< HEAD
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
+=======
     "typescript": "^5.9.3"
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
   }
 }

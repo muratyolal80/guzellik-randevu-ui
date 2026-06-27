@@ -48,8 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (error) {
                 // Handle "not found" error - profile might not be created yet by trigger
                 if (error.code === 'PGRST116' && retryCount < 3) {
+<<<<<<< HEAD
+                    // Profile may not yet exist (DB trigger lag after sign-up)
+                    const PROFILE_CREATION_RETRY_DELAY_MS = 500;
+                    await new Promise(resolve => setTimeout(resolve, PROFILE_CREATION_RETRY_DELAY_MS));
+=======
                     // Profile not found, retry
                     await new Promise(resolve => setTimeout(resolve, 500));
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     return fetchProfile(userId, retryCount + 1);
                 }
 
@@ -131,6 +137,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Set user with profile data or fallback to session data
                 if (profile) {
+<<<<<<< HEAD
+                    // --- Pasif Kullanıcı Kontrolü ---
+                    if (profile.is_active === false) {
+                        console.warn('[AuthContext] Inactive user detected during refresh, signing out');
+                        await supabase.auth.signOut();
+                        setUser(null);
+                        return;
+                    }
+
+=======
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     // Update user with profile data, ensuring phone is set if available in session but not profile
                     setUser({
                         ...profile,
@@ -177,10 +194,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     router.refresh();
                 }
 
+<<<<<<< HEAD
+                    if (session?.user) {
+                        let profile = await fetchProfile(session.user.id);
+                        
+                        // --- Pasif Kullanıcı Kontrolü ---
+                        if (profile && profile.is_active === false) {
+                            console.warn('[AuthContext] Inactive user detected during auth change, signing out');
+                            await supabase.auth.signOut();
+                            setUser(null);
+                            return;
+                        }
+
+                        // If profile still doesn't exist after retries, try to create it manually
+=======
                 if (session?.user) {
                     let profile = await fetchProfile(session.user.id);
 
                     // If profile still doesn't exist after retries, try to create it manually
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
                     if (!profile) {
                         profile = await createProfileManually(session.user);
                     }
@@ -223,12 +255,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             throw new Error(error.message);
         }
 
+<<<<<<< HEAD
+            if (data.user) {
+                // Fetch profile immediately to return it for redirection logic
+                // This avoids race conditions where state hasn't updated yet
+                const profile = await fetchProfile(data.user.id);
+
+                // --- Pasif Kullanıcı Kontrolü ---
+                if (profile && profile.is_active === false) {
+                    console.warn('[AuthContext] Inactive user detected during login, signing out');
+                    await supabase.auth.signOut();
+                    throw new Error('Hesabınız dondurulmuş veya askıya alınmıştır. Lütfen destek ile iletişime geçin.');
+                }
+
+                // If profile is missing, fallback to basic user data structure like in refreshUser
+=======
         if (data.user) {
             // Fetch profile immediately to return it for redirection logic
             // This avoids race conditions where state hasn't updated yet
             const profile = await fetchProfile(data.user.id);
 
             // If profile is missing, fallback to basic user data structure like in refreshUser
+>>>>>>> ddf287bab222644b77b8b129f7ecabcd4d3010d8
             if (!profile) {
                 return {
                     id: data.user.id,

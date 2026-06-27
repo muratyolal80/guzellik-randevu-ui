@@ -117,7 +117,7 @@ export default function OwnerReports() {
                         <span className="text-[10px] font-black text-text-muted uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-border shadow-sm">Hacim Bazlı</span>
                     </div>
                     <div className="p-10 space-y-6">
-                        {reportData.serviceStats.length > 0 ? reportData.serviceStats.map((stat, idx) => (
+                        {reportData.serviceStats.length > 0 ? reportData.serviceStats.map((stat: any, idx: number) => (
                             <div key={idx} className="space-y-2">
                                 <div className="flex justify-between items-end">
                                     <span className="text-sm font-black text-text-main">{stat.name}</span>
