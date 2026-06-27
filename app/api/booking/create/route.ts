@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
             salon_service_id: serviceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
-            status: 'CONFIRMED', // Mode A: auto-confirm (slot uygunluğu booking flow'da kontrol edilir)
+            status: 'PENDING', // Mode B: salon onayı bekler (staff/owner approve eder)
             notes: (notes || '') + ` [${appointmentId} nolu randevudan planlandı]`,
             deposit_amount: depositAmount,
           })
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
             salon_service_id: serviceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
-            status: 'CONFIRMED', // Mode A: auto-confirm (reschedule sonrası da onaylı kalır)
+            status: 'PENDING', // Mode B: salon onayı bekler (reschedule sonrası yeniden onay)
             notes: notes || '',
             coupon_code: validCoupon?.code || null,
             campaign_rule_id: campaignRuleId || null,
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
           salon_service_id: serviceId,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
-          status: 'CONFIRMED', // Mode A: auto-confirm (yeni randevu, slot zaten kontrol edildi)
+          status: 'PENDING', // Mode B: salon onayı bekler (yeni randevu PENDING başlar)
           notes: notes || '',
           coupon_code: validCoupon?.code || null,
           campaign_rule_id: campaignRuleId || null,

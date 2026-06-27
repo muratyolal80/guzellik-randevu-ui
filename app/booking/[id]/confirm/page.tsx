@@ -190,12 +190,21 @@ export default function Confirmation() {
                 <div className="w-full max-w-[900px]">
                     <div className="bg-white rounded-xl border border-border p-6 lg:p-10 shadow-card text-center">
                         <div className="mb-6">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <span className="material-symbols-outlined text-5xl text-green-600">check_circle</span>
+                            {/* Status'a göre dinamik başlık + ikon */}
+                            <div className={`w-20 h-20 ${appointment?.status === 'CONFIRMED' ? 'bg-green-100' : 'bg-amber-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                                <span className={`material-symbols-outlined text-5xl ${appointment?.status === 'CONFIRMED' ? 'text-green-600' : 'text-amber-600'}`}>
+                                    {appointment?.status === 'CONFIRMED' ? 'check_circle' : 'hourglass_top'}
+                                </span>
                             </div>
-                            <h1 className="text-3xl font-bold text-text-main">Randevunuz Onaylandi!</h1>
+                            <h1 className="text-3xl font-bold text-text-main">
+                                {appointment?.status === 'CONFIRMED'
+                                    ? 'Randevunuz Onaylandı!'
+                                    : 'Randevu Başvurunuz Alındı'}
+                            </h1>
                             <p className="text-text-secondary mt-2">
-                                Randevu detaylariniz asagidadir.{smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapilmistir.'}
+                                {appointment?.status === 'CONFIRMED'
+                                    ? `Randevu detaylarınız aşağıdadır.${smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapılmıştır.'}`
+                                    : `Salonun onayı bekleniyor. Onaylandığında size SMS ile bilgi verilecek.${smsFailed ? '' : ' Başvurunuz salona iletildi.'}`}
                             </p>
 
                             {smsFailed && (
@@ -416,8 +425,16 @@ export default function Confirmation() {
             </div>
 
             {/* Yazdırma için optimize edilmiş ticket — ekranda gizli, sadece print'te görünür */}
+            {/* appointment henüz yüklenmediyse BookingContext'ten enriched fallback obje üret */}
             <PrintTicket
-                appointment={appointment}
+                appointment={appointment || (selectedDate && selectedTime ? {
+                    id: searchParams.get('appointmentId') || 'pending',
+                    start_time: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+                    end_time: new Date(new Date(`${selectedDate}T${selectedTime}:00`).getTime() + 60 * 60 * 1000).toISOString(),
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    status: 'PENDING',
+                } as any : null)}
                 salon={salon}
                 staff={staff}
                 services={services}

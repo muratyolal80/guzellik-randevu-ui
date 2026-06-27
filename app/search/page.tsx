@@ -71,9 +71,19 @@ function SearchContent() {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
     // Sprint C (K2) — Konum bazlı arama
+    // Default 3 km (sıkı "yakındaki"); sonuç yoksa kullanıcı genişletir
     const geo = useGeolocation();
-    const [radiusKm, setRadiusKm] = useState<5 | 10 | 25 | 50>(10);
+    const [radiusKm, setRadiusKm] = useState<3 | 5 | 10 | 25 | 50>(3);
     const [nearbyMode, setNearbyMode] = useState(false);
+
+    // URL ?nearby=1 ile gelinince otomatik geo.request() tetikle
+    const nearbyParam = searchParams.get('nearby');
+    React.useEffect(() => {
+        if (nearbyParam === '1' && geo.status === 'idle') {
+            geo.request();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nearbyParam]);
 
     const handleNearbyToggle = () => {
         if (nearbyMode) {
@@ -405,9 +415,10 @@ function SearchContent() {
                                     {nearbyMode && (
                                         <select
                                             value={radiusKm}
-                                            onChange={(e) => setRadiusKm(Number(e.target.value) as 5 | 10 | 25 | 50)}
+                                            onChange={(e) => setRadiusKm(Number(e.target.value) as 3 | 5 | 10 | 25 | 50)}
                                             className="px-3 py-2 bg-white border border-border rounded-xl text-sm font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
                                         >
+                                            <option value={3}>3 km (yürüme)</option>
                                             <option value={5}>5 km</option>
                                             <option value={10}>10 km</option>
                                             <option value={25}>25 km</option>
