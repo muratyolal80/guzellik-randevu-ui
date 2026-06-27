@@ -285,13 +285,16 @@ export default function BookingUserInfoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          appointmentId: appointmentId || undefined, // Send appointmentId if updating
+          // appointmentId: context > URL fallback (race condition korumalı)
+          appointmentId: appointmentId || qAppointmentId || undefined,
           customerName: fullName,
           email: email.trim() || undefined,
           notes,
-          salonId: salon!.id,
-          staffId: selectedStaff!.id,
-          serviceId: selectedServices[0].id,
+          salonId: salon?.id || id,
+          // staffId: context.selectedStaff.id > URL qStaffId (reschedule akışı için)
+          staffId: selectedStaff?.id || qStaffId || undefined,
+          // serviceId: context > URL fallback
+          serviceId: selectedServices[0]?.id || qServiceId || undefined,
           startTime: startDateTime.toISOString(),
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
           campaignRuleId: activeCampaign?.id,

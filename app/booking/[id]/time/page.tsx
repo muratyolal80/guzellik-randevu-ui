@@ -22,6 +22,7 @@ export default function TimeSelection() {
     selectedServices,
     setSelectedServices,
     selectedStaff: bookingStaff,
+    setSelectedStaff: setBookingStaff,
     selectedDate: persistedDate,
     selectedTime: persistedTime,
     setSelectedDate: setBookingDate,
@@ -184,23 +185,26 @@ export default function TimeSelection() {
           setServices([]);
         }
 
-        // Use booking context staff if available
+        // Use booking context staff if available; ALWAYS persist to context
+        // (user-info `selectedStaff!.id` non-null assertion'a göre).
         if (bookingStaff) {
           setStaff(bookingStaff);
         } else if (staffId && staffId !== 'any') {
           const staffData = await StaffService.getStaffById(staffId);
           if (staffData) {
-            setStaff({
+            const mapped = {
               ...staffData,
               image: staffData.photo || `https://i.pravatar.cc/150?u=${staffData.id}`,
               role: staffData.specialty || 'Uzman',
               rating: 4.5,
               isOnline: staffData.is_active
-            });
+            };
+            setStaff(mapped);
+            setBookingStaff(mapped);  // ← context'i de doldur, user-info kullanır
           }
         } else {
           // "Any staff" option
-          setStaff({
+          const anyStaff = {
             id: 'any',
             salon_id: id,
             name: 'Herhangi Bir Personel',
@@ -211,7 +215,9 @@ export default function TimeSelection() {
             rating: 0,
             image: 'https://i.pravatar.cc/150?u=any',
             isOnline: false
-          });
+          };
+          setStaff(anyStaff);
+          setBookingStaff(anyStaff);  // ← Any Staff de context'e gider
         }
       } catch (error) {
         console.error('Error fetching data:', error);
