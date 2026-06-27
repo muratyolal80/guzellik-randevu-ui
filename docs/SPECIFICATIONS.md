@@ -4,7 +4,7 @@
 
 | Alan | Değer |
 |------|-------|
-| Sürüm | 1.1.1 |
+| Sürüm | 1.1.2 |
 | Son güncelleme | 27.06.2026 |
 | Sahip | Murat Yolal |
 | Repo | `guzellik-randevu-ui` |
@@ -70,6 +70,23 @@ Her özellik aşağıdaki şablonla yazılır:
 | `SUPER_ADMIN` | Tüm sistem yönetimi | `/admin/*` |
 
 **Uygulama:** [middleware.ts](middleware.ts) → URL path bazlı redirect + `is_active=false` kullanıcılarda otomatik logout.
+
+### 2.1 Test Hesapları (lokal / geliştirme)
+
+> Aşağıdaki hesaplar **self-hosted lokal DB** içindir; test ekibi panelleri denerken kullanır. Şifreler DB'deki bcrypt hash'ine karşı doğrulanmıştır. **Production'da geçerli değildir.**
+
+| Rol | E-posta | Şifre | Panel |
+|-----|---------|-------|-------|
+| `SUPER_ADMIN` | `admin@demo.com` | `password123` | `/admin/*` |
+| `SALON_OWNER` | `owner@demo.com` | `password123` | `/owner/*` |
+| `STAFF` | `staff@demo.com` | `password123` | `/staff/*` |
+| `CUSTOMER` | `customer@demo.com` | `password123` | `/customer/*` |
+
+**Notlar:**
+
+- `UserRole` tipi 6 rol tanımlar; lokal DB'de yalnızca yukarıdaki 4'ü doludur (`MANAGER` ve `ADMIN` için seed kaydı yoktur).
+- Telefon/OTP ile giriş test edilirken `OTP_DEMO_MODE=true` olduğundan doğrulama kodu **her zaman `111111`** kabul edilir, SMS gönderilmez.
+- Hesap kaynağı: `initdb/archive/old/11-demo-users.sql` (auth.users + profiles seed).
 
 ---
 
@@ -494,6 +511,7 @@ npm run lint          # ESLint
 | 1.0.4 | 31.05.2026 | Veri onarımı: `cities` (31/81) ve `districts` (509/975) isimlerinde UTF-8 import bozulması (`İstanbul→"??stanbul"`) düzeltildi. `cities` plate_code ile UPSERT, `districts` bozuk-form eşleştirmesiyle UPDATE — id'ler ve salon FK'leri korundu (`New-13`) |
 | 1.0.5 | 31.05.2026 | F-092 hardening: `/admin/support` sayfası "Biletler çekilemedi: `{}`" boş hatası → kök neden `support_tickets`/`ticket_messages`'ta `authenticated` rolünün SELECT/INSERT/UPDATE GRANT'larının eksik olması. `New-14` ile (a) support tablolarına kesin GRANT, (b) tüm RLS-aktif public tablolarda authenticated SELECT eksik olanları otomatik tamamlayan audit DO bloğu (17 ek tabloya GRANT verildi), (c) `db-health-check.sql` Section 8 + Section 9 (eksik GRANT audit + migration kayıt görünümü), (d) CLAUDE.md ve `docs/infrastructure/rls.md`'ye RLS+GRANT birlikte kurulum kuralı eklendi |
 | 1.1.0 | 01.06.2026 | **PayTR entegrasyonu (yeni)** — Iyzico üretim onayı alınamadığı için **PayTR iFrame API** ile salon sahibi abonelik ödemesi entegrasyonu eklendi. Yeni: `lib/payment/paytr.ts`, `types/paytr.d.ts`, `app/api/paytr/{create-token,callback,refund}`, `components/payment/PayTRPaymentModal.tsx`. DB: `New-15` ile `paytr_config`, `active_payment_provider` (PAYTR/IYZICO/NONE switch), `subscriptions.paytr_oid`, `paytr_webhooks` audit tablosu. Admin Panel > Ayarlar'a provider switch + her iki provider config formu (demo kart bilgi kartı dahil). Iyzico kodu **SİLİNMEDİ** (arşiv); admin "Aktif Sağlayıcı" toggle ile geri dönülebilir. Önceki Faz 0: admin finance crashlerinin tamiri (`FinancialReportsView` defensive guard + IIFE içindeki conditional `useState` bug'ı, history tab'ında). Kapsam: SADECE abonelik ödemesi; booking kapora yine kapsam dışı. |
+| 1.1.2 | 27.06.2026 | **Test hesapları + MCP doküman senkronu** — (a) §2.1 "Test Hesapları" eklendi: rol bazlı lokal giriş bilgileri (admin/owner/staff/customer@demo.com, hepsi `password123`, bcrypt hash'ine karşı doğrulandı) test ekibi için; (b) `docs/infrastructure/mcp.md` gerçek doğrulanmış yapıyla güncellendi — postgres MCP bağlantısı `5432` (pooler, "Tenant or user not found") yerine doğrudan `54322`'ye sabitlendi, `supabase` MCP self-hosted için `@supabase/mcp-server-postgrest`'e geçti, yeni özel `supabase-storage` MCP (`scripts/mcp/supabase-storage-mcp.mjs`) eklendi (resim bucket upload/download/list/delete/move/copy + signed URL); tüm MCP kayıtları tek `.mcp.json`'da |
 | 1.1.1 | 27.06.2026 | **Production hijyen** — (a) `New-20` ile `otp_codes` tablosunda RLS açıkken 0 policy uyarısı kapatıldı (`service_role_full_access` explicit policy; anon/auth erişimi yok, supabaseAdmin pattern korundu); (b) `docs/PROD-LAUNCH-CHECKLIST.md` eklendi — 10 manuel adım için tam rehber (İYS, NetGSM, Resend, Google OAuth, CRON_SECRET, PayTR canlı, Sentry, UptimeRobot, Turnstile, repo cleanup); (c) `.gitignore` 4 ek güvenlik kuralı (`.claude/settings.local.json`, `tmp/`, `.vsls.json`, `*.pem/key/p12/pfx`); (d) `tmp/` git takibinden çıkarıldı (32 dosya); (e) bozuk merge commit'leri (`90caace`, `b9917bd`) revert — `1bae6d7` baz alınarak `main` ve `feat-admin-panel` temizlendi (yedek: `backup-broken-merge-20260627`) |
 
 **Önemli commit'ler:**
