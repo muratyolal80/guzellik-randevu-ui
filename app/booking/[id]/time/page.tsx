@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { SalonDataService, StaffService, ServiceService } from '@/services/db';
+import { SalonDataService, StaffService, ServiceService, AppointmentService } from '@/services/db';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { GeminiChat } from '@/components/GeminiChat';
@@ -27,10 +27,21 @@ export default function TimeSelection() {
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
     appointmentId,
+    setAppointmentId,
     totalPrice: contextTotalPrice,
     discountAmount: contextDiscountAmount,
     activeCampaign
   } = useBooking();
+
+  // Yeniden Planla akışı: /time?appointmentId=X URL'den açıldıysa context'i kur.
+  // Aksi halde user-info'ya appointmentId boş geçer → backend YENİ randevu oluşturur
+  // (mevcudu güncellemek yerine) → çift kayıt sorunu.
+  const urlAppointmentId = searchParams.get('appointmentId');
+  useEffect(() => {
+    if (urlAppointmentId && urlAppointmentId !== appointmentId) {
+      setAppointmentId(urlAppointmentId);
+    }
+  }, [urlAppointmentId, appointmentId, setAppointmentId]);
 
   // Recovery: BookingContext boşsa (örn. hard refresh, geri tuşu sonrası) URL'deki
   // serviceId'den restore et. Aksi halde aşağıdaki guard /salon/{id}'ye yönlendirir.
@@ -47,6 +58,29 @@ export default function TimeSelection() {
         .finally(() => setRecovering(false));
     }
   }, [selectedServices.length, urlServiceId, recovering, setSelectedServices]);
+
+  // Reschedule Recovery: /time?appointmentId=X URL'inden gelinmişse serviceId yok.
+  // Mevcut randevudan service_id'yi çek, selectedServices'a doldur → guard
+  // /salon/{id}'ye yönlendirmez ve kullanıcı tarih/saat değiştirebilir.
+  useEffect(() => {
+    if (
+      urlAppointmentId &&
+      selectedServices.length === 0 &&
+      !urlServiceId &&
+      !recovering
+    ) {
+      setRecovering(true);
+      AppointmentService.getAppointmentById(urlAppointmentId)
+        .then(async (appt) => {
+          if (appt?.salon_service_id) {
+            const svc = await ServiceService.getServiceById(appt.salon_service_id);
+            if (svc) setSelectedServices([svc]);
+          }
+        })
+        .catch((err) => console.warn('Reschedule recovery failed:', err))
+        .finally(() => setRecovering(false));
+    }
+  }, [urlAppointmentId, selectedServices.length, urlServiceId, recovering, setSelectedServices]);
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
@@ -110,15 +144,22 @@ export default function TimeSelection() {
   }, [selectedDate, staff?.id, id, selectedServices]);
 
   // Guard: hizmet seçimi yoksa adım 1'e yönlendir.
-  // URL'de serviceId varsa recovery effect bunu çözmeye çalışır — onun bitmesini bekle.
+  // URL'de serviceId veya appointmentId varsa recovery effect bunu çözmeye çalışır;
+  // recovering tamamlanana kadar bekle.
   useEffect(() => {
-    if (selectedServices.length === 0 && !loading && !recovering && !urlServiceId) {
+    if (
+      selectedServices.length === 0 &&
+      !loading &&
+      !recovering &&
+      !urlServiceId &&
+      !urlAppointmentId
+    ) {
       const t = setTimeout(() => {
         router.replace(`/salon/${id}`);
       }, 100);
       return () => clearTimeout(t);
     }
-  }, [selectedServices.length, loading, id, router, recovering, urlServiceId]);
+  }, [selectedServices.length, loading, id, router, recovering, urlServiceId, urlAppointmentId]);
 
   // Fetch data
   useEffect(() => {
@@ -253,7 +294,9 @@ export default function TimeSelection() {
     if (staff?.id) params.set('staffId', staff.id);
     params.set('date', dateStr);
     params.set('time', selectedSlot);
-    if (appointmentId) params.set('appointmentId', appointmentId);
+    // appointmentId fallback: önce context, sonra URL — race condition koruması
+    const apptId = appointmentId || urlAppointmentId;
+    if (apptId) params.set('appointmentId', apptId);
 
     router.push(`/booking/${id}/user-info?${params.toString()}`);
   };
