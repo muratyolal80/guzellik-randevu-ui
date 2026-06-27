@@ -62,10 +62,11 @@ export const DashboardService = {
       0,
     ).toISOString();
 
+    // Hem CONFIRMED hem PENDING say — /customer/appointments upcoming tab ile tutarlı
     const upcomingQuery = supabase
       .from("appointments")
       .select("*", { count: "exact", head: true })
-      .eq("status", "CONFIRMED")
+      .in("status", ["CONFIRMED", "PENDING"])
       .gt("start_time", new Date().toISOString())
       .eq("customer_id", userId);
 
@@ -107,7 +108,7 @@ export const DashboardService = {
       `,
       )
       .gt("start_time", new Date().toISOString())
-      .eq("status", "CONFIRMED")
+      .in("status", ["CONFIRMED", "PENDING"])
       .eq("customer_id", userId)
       .order("start_time", { ascending: true })
       .limit(1)
