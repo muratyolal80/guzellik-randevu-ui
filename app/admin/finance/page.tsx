@@ -19,9 +19,11 @@ import {
     Trash2,
     AlertTriangle,
     ShoppingCart,
-    Plus
+    Plus,
+    RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
+import RefundModal, { RefundableTransaction } from '@/components/Admin/RefundModal';
 
 export default function FinanceAdmin() {
     const { showToast } = useToast();
@@ -31,6 +33,7 @@ export default function FinanceAdmin() {
     const [reports, setReports] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [refundTarget, setRefundTarget] = useState<RefundableTransaction | null>(null);
 
     useEffect(() => {
         loadData();
@@ -151,6 +154,7 @@ export default function FinanceAdmin() {
                         <FinancialReportsView
                             reports={reports}
                             formatCurrency={formatCurrency}
+                            onRefund={(tr) => setRefundTarget(tr)}
                         />
                     ) : (
                         <GhostSubscriptionsList 
@@ -161,6 +165,15 @@ export default function FinanceAdmin() {
                     )}
                 </div>
             )}
+
+            <RefundModal
+                transaction={refundTarget}
+                onClose={() => setRefundTarget(null)}
+                onSuccess={() => {
+                    showToast('İade başarıyla tamamlandı.', 'success');
+                    loadData();
+                }}
+            />
         </AdminLayout>
     );
 }
@@ -233,9 +246,15 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
     );
 }
 
-function FinancialReportsView({ reports, formatCurrency }: any) {
+function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: any, formatCurrency: any, onRefund?: (tr: RefundableTransaction) => void }) {
     const stats = reports?.stats ?? { totalRevenue: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
     const transactions = reports?.transactions ?? [];
+
+    const isRefundable = (tr: any) =>
+        tr.status === 'SUCCESS' &&
+        tr.amount > 0 &&
+        (tr.metadata?.provider || '').toUpperCase() === 'PAYTR' &&
+        !!tr.metadata?.merchant_oid;
 
     return (
         <div className="space-y-10">
@@ -269,6 +288,7 @@ function FinancialReportsView({ reports, formatCurrency }: any) {
                                 <th className="px-8 py-4 text-[11px] font-black text-text-muted uppercase tracking-widest">Yöntem</th>
                                 <th className="px-8 py-4 text-[11px] font-black text-text-muted uppercase tracking-widest">Tutar</th>
                                 <th className="px-8 py-4 text-[11px] font-black text-text-muted uppercase tracking-widest">Durum</th>
+                                <th className="px-8 py-4 text-[11px] font-black text-text-muted uppercase tracking-widest text-right">İşlem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -296,6 +316,21 @@ function FinancialReportsView({ reports, formatCurrency }: any) {
                                     </td>
                                     <td className="px-8 py-6">
                                         <StatusBadge status={tr.status} />
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        {isRefundable(tr) && onRefund ? (
+                                            <button
+                                                onClick={() => onRefund(tr as RefundableTransaction)}
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition"
+                                                title="PayTR üzerinden iade et"
+                                            >
+                                                <RotateCcw size={12} /> İade Et
+                                            </button>
+                                        ) : tr.payment_type === 'REFUND' ? (
+                                            <span className="text-[10px] font-bold text-gray-400 italic">İade Kaydı</span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-gray-400">—</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

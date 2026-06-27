@@ -16,8 +16,10 @@ import {
     TrendingUp,
     AlertCircle,
     Users,
-    Database
+    Database,
+    Settings2
 } from 'lucide-react';
+import ServiceResourceLinkModal from '@/components/owner/ServiceResourceLinkModal';
 
 interface SalonServicesManagerProps {
     salonId: string;
@@ -37,6 +39,7 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
     const [newDuration, setNewDuration] = useState(30);
     const [newMaxParticipants, setNewMaxParticipants] = useState(1);
     const [newRequiresResource, setNewRequiresResource] = useState(false);
+    const [resourceLinkTarget, setResourceLinkTarget] = useState<SalonServiceDetail | null>(null);
 
     // Smart Defaults: Update price/duration when global service is selected
     useEffect(() => {
@@ -324,12 +327,28 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                         </div>
 
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={() => setResourceLinkTarget(service)}
+                                className="p-3 hover:bg-primary/10 rounded-xl text-primary transition-colors"
+                                title="Kaynak gereksinimi"
+                            >
+                                <Settings2 className="w-4 h-4" />
+                            </button>
                             <button onClick={() => handleEdit(service)} className="p-3 hover:bg-gray-100 rounded-xl text-text-secondary transition-colors"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => handleDelete(service.id)} className="p-3 hover:bg-red-50 rounded-xl text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
                     </div>
                 ))}
             </div>
+
+            {resourceLinkTarget && (
+                <ServiceResourceLinkModal
+                    serviceId={resourceLinkTarget.id}
+                    salonId={salonId}
+                    serviceName={resourceLinkTarget.service_name}
+                    onClose={() => setResourceLinkTarget(null)}
+                />
+            )}
         </div>
     );
 }

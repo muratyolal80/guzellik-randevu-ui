@@ -20,6 +20,7 @@ export default function TimeSelection() {
     salon: bookingSalon,
     setSalon: setBookingSalon,
     selectedServices,
+    setSelectedServices,
     selectedStaff: bookingStaff,
     selectedDate: persistedDate,
     selectedTime: persistedTime,
@@ -30,6 +31,22 @@ export default function TimeSelection() {
     discountAmount: contextDiscountAmount,
     activeCampaign
   } = useBooking();
+
+  // Recovery: BookingContext boşsa (örn. hard refresh, geri tuşu sonrası) URL'deki
+  // serviceId'den restore et. Aksi halde aşağıdaki guard /salon/{id}'ye yönlendirir.
+  const urlServiceId = searchParams.get('serviceId');
+  const [recovering, setRecovering] = useState(false);
+  useEffect(() => {
+    if (selectedServices.length === 0 && urlServiceId && !recovering) {
+      setRecovering(true);
+      ServiceService.getServiceById(urlServiceId)
+        .then((svc) => {
+          if (svc) setSelectedServices([svc]);
+        })
+        .catch((err) => console.warn('Time page service recovery failed:', err))
+        .finally(() => setRecovering(false));
+    }
+  }, [selectedServices.length, urlServiceId, recovering, setSelectedServices]);
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
@@ -92,16 +109,16 @@ export default function TimeSelection() {
     fetchAvailableSlots();
   }, [selectedDate, staff?.id, id, selectedServices]);
 
-  // Guard: hizmet seçimi yoksa adım 1'e yönlendir (kullanıcı direkt URL ile gelmiş veya
-  // sessionStorage temizlenmiş olabilir)
+  // Guard: hizmet seçimi yoksa adım 1'e yönlendir.
+  // URL'de serviceId varsa recovery effect bunu çözmeye çalışır — onun bitmesini bekle.
   useEffect(() => {
-    if (selectedServices.length === 0 && !loading) {
+    if (selectedServices.length === 0 && !loading && !recovering && !urlServiceId) {
       const t = setTimeout(() => {
         router.replace(`/salon/${id}`);
       }, 100);
       return () => clearTimeout(t);
     }
-  }, [selectedServices.length, loading, id, router]);
+  }, [selectedServices.length, loading, id, router, recovering, urlServiceId]);
 
   // Fetch data
   useEffect(() => {
