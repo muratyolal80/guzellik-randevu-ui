@@ -260,12 +260,72 @@ export const StaffService = {
   /**
    * Delete staff member
    */
+  /**
+   * Hard delete staff. Eğer personelin randevusu (appointments FK NO ACTION)
+   * varsa hata fırlatır → çağıran taraf deactivateStaff'a düşmeli.
+   *
+   * Hatayı normalize eder: Supabase boş `{}` döndürdüğünde anlamlı mesajla
+   * yeniden fırlatır + appointmentCount bilgisi ekler.
+   */
   async deleteStaff(
     id: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<void> {
+    // Önce ilişkili randevuları say (FK constraint NO ACTION)
+    const { count: apptCount, error: countErr } = await supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("staff_id", id);
+
+    if (!countErr && (apptCount ?? 0) > 0) {
+      const err: any = new Error(
+        `Bu personel ${apptCount} randevuya bağlı; silmek yerine pasif yapın.`,
+      );
+      err.code = "STAFF_HAS_APPOINTMENTS";
+      err.appointmentCount = apptCount;
+      throw err;
+    }
+
     const { error } = await supabase.from("staff").delete().eq("id", id);
 
+    if (error) {
+      // Boş `{}` veya FK violation kodlarını anlamlı mesaja çevir
+      const code = (error as any).code;
+      if (code === "23503" || !error.message) {
+        const wrap: any = new Error(
+          "Bu personel başka kayıtlara bağlı; pasif yapmayı deneyin.",
+        );
+        wrap.code = "STAFF_HAS_APPOINTMENTS";
+        wrap.originalError = error;
+        throw wrap;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Soft delete — is_active = false. Randevuları korunur, listede gizlenir.
+   * Sahip/admin tarafından geri açılabilir.
+   */
+  async deactivateStaff(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("staff")
+      .update({ is_active: false })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async activateStaff(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("staff")
+      .update({ is_active: true })
+      .eq("id", id);
     if (error) throw error;
   },
 
