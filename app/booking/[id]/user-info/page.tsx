@@ -85,12 +85,25 @@ export default function BookingUserInfoPage() {
     }
   }, [countdown]);
 
-  // Redirect if required data is missing
+  // Redirect if required data is missing.
+  // URL fallback: time page query string'inde date/time/staffId/serviceId
+  // taşır — context geç dolarsa bile guard yanlış yönlendirme yapmasın.
+  const qDate = searchParams.get('date');
+  const qTime = searchParams.get('time');
+  const qStaffId = searchParams.get('staffId'); // 'any' veya gerçek id
+  const qServiceId = searchParams.get('serviceId');
   useEffect(() => {
-    if (!salon || selectedServices.length === 0 || !selectedStaff || !selectedDate || !selectedTime) {
+    const hasSalon = !!salon;
+    const hasService = selectedServices.length > 0 || !!qServiceId;
+    // Staff: object (selectedStaff) VEYA URL'de id (qStaffId) yeterli — 'any' dahil
+    const hasStaff = !!selectedStaff || !!qStaffId;
+    const hasDate = !!selectedDate || !!qDate;
+    const hasTime = !!selectedTime || !!qTime;
+    if (!hasSalon || !hasService || !hasStaff || !hasDate || !hasTime) {
       router.push(`/booking/${id}/time`);
     }
-  }, [salon, selectedServices, selectedStaff, selectedDate, selectedTime, id, router]);
+  }, [salon, selectedServices, selectedStaff, selectedDate, selectedTime,
+      qDate, qTime, qStaffId, qServiceId, id, router]);
 
   // Auto-fill user data and skip OTP if logged in
   useEffect(() => {
