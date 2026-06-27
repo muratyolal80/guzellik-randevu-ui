@@ -82,6 +82,12 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 - 🟡 **Geo-distance arama** — PostGIS ST_DWithin ([Maps](integrations/maps.md))
 
 ### Altyapı
+- 🔴 **Coolify deployment guide** — `docs/infrastructure/coolify-deployment.md` yazılacak (Next.js + self-hosted Supabase + Postgres dump/restore + Storage migration + DNS/SSL + env mapping) — kullanıcı acil ihtiyaç
+- 🟡 **React Compiler cleanup** — `useEffect` missing deps × 47, `set-state-in-effect` × 3, `<img>` → next/Image × 30, custom fonts × 3 — `chore/react-compiler-cleanup` branch
+- 🟡 **Admin header overflow** — sağ üst düğme grubu sayfayı sağa kaydırıyor (responsive bug) — kullanıcı ekran görüntüsü paylaşacak
+- 🟡 **Test coverage 38 → 70+** — PayTR token + callback verify, slot-lock, rate-limit, notification queue, password complexity, KVKK consent
+- 🟡 **Multi-resource booking UI** — `New-19` RPC hazır, UI eksik (owner panelde hizmete kaynak atama + booking flow'unda otomatik atama)
+- 🟡 **PayTR refund admin UI** — `/api/paytr/refund` hazır, admin butonu eksik
 - 🟡 **Master schema güncelleme** — DB ile sync değil ([Database](infrastructure/database.md))
 - ✅ ~~Migration tracking tablosu~~ — `_migrations` tablosu eklendi (Faz 3, New-11). Geriye dönük tüm New-XX kaydedildi.
 - ✅ ~~RLS aktif olup GRANT eksik tablolar~~ — New-14 ile tüm tablolarda `authenticated` SELECT GRANT tamamlandı, audit query `db-health-check.sql` Section 8'e eklendi.
@@ -187,6 +193,8 @@ Bu belge tüm modül ve entegrasyon belgelerindeki **TODO** maddelerini birleşt
 | 2026-05-31 | New-14 — support_tickets boş `{}` hatası onarımı + 17 tabloda authenticated SELECT GRANT audit + health-check Section 8 + CLAUDE.md RLS+GRANT kuralı |
 | 2026-06-01 | **PayTR iFrame entegrasyonu (1.1.0)** — sadece abonelik için. Iyzico arşivde, provider switch ile geri dönüş mümkün. Faz 0 admin finance crash fix + Faz A-F PayTR (New-15, lib/types/routes/modal/admin settings) + payment-paytr.md belge |
 | 2026-06-27 | **Production hijyen (1.1.1)** — `otp_codes` RLS policy gap kapatıldı (`New-20`, service_role explicit policy). `docs/PROD-LAUNCH-CHECKLIST.md` eklendi (10 manuel adım rehberi). `.gitignore` 4 güvenlik kuralı + `tmp/` git-untrack. Bozuk merge commit'leri revert (yedek: `backup-broken-merge-20260627` branch). |
+| 2026-06-27 | **MCP doc + test hesapları (1.1.2)** — SPECIFICATIONS §2.1 lokal test hesapları, MCP topolojisi gerçek kuruluma göre güncellendi (postgres `54322` doğrudan, supabase-storage özel MCP `scripts/mcp/supabase-storage-mcp.mjs`), `docs/MANUAL-TEST-CASES.md` QA belgesi eklendi |
+| 2026-06-27 | **ESLint 9 + rules-of-hooks fix** — `next lint` Next.js 16'da kaldırıldı; `eslint.config.mjs` flat config (`eslint-config-next/core-web-vitals`). `app/admin/users/page.tsx`'te hooks erken return öncesine taşındı (kritik bug). React Compiler kuralları warning'e alındı (84 hijyen warning kalan, ayrı temizlik branch'i için) |
 
 ## Belge Güncelleme Kuralı
 
