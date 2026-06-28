@@ -201,7 +201,7 @@ export const StaffService = {
     if (staffData.email && !staffData.user_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, role")
         .eq("email", staffData.email)
         .single();
 
@@ -210,11 +210,21 @@ export const StaffService = {
           .from("staff")
           .update({ user_id: profile.id })
           .eq("id", data.id);
-        // Optionally update user role to STAFF
-        await supabase
-          .from("profiles")
-          .update({ role: "STAFF" })
-          .eq("id", profile.id);
+
+        // ROLE UPGRADE KURALI — asla DOWNGRADE etme:
+        //   CUSTOMER → STAFF: OK (upgrade)
+        //   STAFF: değişiklik yok (idempotent)
+        //   SALON_OWNER/MANAGER/ADMIN/SUPER_ADMIN → STAFF: YASAK
+        //     (Owner kendisini kendi salonuna staff eklerse rolünü kaybeder)
+        const currentRole = (profile as any).role;
+        const safeToUpgrade = currentRole === "CUSTOMER" || !currentRole;
+        if (safeToUpgrade) {
+          await supabase
+            .from("profiles")
+            .update({ role: "STAFF" })
+            .eq("id", profile.id);
+        }
+        // Aksi halde: profile.role korunur (owner hâlâ owner, admin hâlâ admin)
       }
     }
 

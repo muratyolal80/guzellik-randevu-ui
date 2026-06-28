@@ -417,6 +417,54 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 </div>
             </div>
 
+            {/* Tek Kişilik İşletme — Sahip Kendini Personel Olarak Ekle */}
+            {staff.length === 0 && user && (
+                <div className="bg-gradient-to-r from-primary/5 to-amber-50 border border-primary/20 rounded-[24px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start md:items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shrink-0 shadow-sm">
+                            <UserPlus className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-lg font-black text-text-main">Tek başına çalışıyorsan</h4>
+                            <p className="text-sm text-text-secondary">
+                                Kendini personel olarak ekle; müşteriler senin için randevu alabilsin.
+                                Profil bilgilerin otomatik kullanılır.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            if (!user?.id) return;
+                            try {
+                                setSaving(true);
+                                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Salon Sahibi';
+                                await StaffService.createStaff({
+                                    salon_id: salonId,
+                                    name: fullName,
+                                    email: user.email,
+                                    role: 'Salon Sahibi / Stilist',
+                                    phone: user.phone,
+                                    user_id: user.id,
+                                    is_active: true,
+                                    is_email_verified: true,
+                                    is_phone_verified: !!user.phone,
+                                    kvkk_consent: true,
+                                });
+                                window.location.reload();
+                            } catch (err: any) {
+                                alert('Eklenemedi: ' + (err?.message || 'hata'));
+                            } finally {
+                                setSaving(false);
+                            }
+                        }}
+                        disabled={saving}
+                        className="px-6 py-3 bg-primary text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all whitespace-nowrap disabled:opacity-50"
+                    >
+                        Kendimi Personel Olarak Ekle
+                    </button>
+                </div>
+            )}
+
             {/* Pending Invites Alert */}
             {invites.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-[24px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
