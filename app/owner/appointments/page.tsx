@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService } from '@/services/db';
 import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
+import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -71,6 +72,9 @@ export default function OwnerAppointmentsPage() {
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [actingId, setActingId] = useState<string | null>(null);
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [rebookSlot, setRebookSlot] = useState<Date | undefined>(undefined);
+    const [rebookStaff, setRebookStaff] = useState<string | undefined>(undefined);
 
     const applyPreset = (preset: string) => {
         setDatePreset(preset);
@@ -403,6 +407,21 @@ export default function OwnerAppointmentsPage() {
                 isOpen={isDetailOpen}
                 onClose={() => setIsDetailOpen(false)}
                 appointment={selectedAppointment}
+                onSuccess={fetchData}
+                onRebook={(apt) => {
+                    setIsDetailOpen(false);
+                    setRebookSlot(new Date(apt.start_time));
+                    setRebookStaff(apt.staff_id);
+                    setIsAddOpen(true);
+                }}
+            />
+
+            <AddAppointmentModal
+                isOpen={isAddOpen}
+                onClose={() => setIsAddOpen(false)}
+                salonId={activeBranch.id}
+                preselectedDate={rebookSlot}
+                preselectedStaffId={rebookStaff}
                 onSuccess={fetchData}
             />
         </div>

@@ -50,6 +50,8 @@ export default function OwnerMasterCalendar() {
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [preselectedSlot, setPreselectedSlot] = useState<Date | undefined>(undefined);
+    const [preselectedStaff, setPreselectedStaff] = useState<string | undefined>(undefined);
     const [selectedStaffId, setSelectedStaffId] = useState<string | 'all'>('all');
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -178,6 +180,24 @@ export default function OwnerMasterCalendar() {
         }
     };
 
+    // Takvimde boş bir slota ÇİFT TIKLAYINCA o tarih/saatle randevu ekleme aç.
+    const lastSlotClick = useRef<{ t: number; ms: number }>({ t: 0, ms: 0 });
+    const openAddModal = (date?: Date, staffId?: string) => {
+        setPreselectedSlot(date);
+        setPreselectedStaff(staffId);
+        setIsAddModalOpen(true);
+    };
+    const handleDateClick = (arg: any) => {
+        const now = Date.now();
+        const ms = arg.date.getTime();
+        if (now - lastSlotClick.current.t < 450 && lastSlotClick.current.ms === ms) {
+            openAddModal(arg.date);
+            lastSlotClick.current = { t: 0, ms: 0 };
+        } else {
+            lastSlotClick.current = { t: now, ms };
+        }
+    };
+
     if (branchLoading) return (
         <div className="flex items-center justify-center min-h-[400px]">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -207,7 +227,7 @@ export default function OwnerMasterCalendar() {
                             <CalendarDays className="w-8 h-8 text-primary" />
                             Akıllı Takvim
                         </h1>
-                        <p className="text-text-secondary font-medium mt-1.5">Tüm personelin randevularını tek ekrandan yönetin, sürükleyip bırakın, onaylayın.</p>
+                        <p className="text-text-secondary font-medium mt-1.5">Tüm personelin randevularını tek ekrandan yönetin · boş bir saate <span className="font-black text-primary">çift tıklayarak</span> randevu ekleyin · sürükleyip taşıyın.</p>
                     </div>
                     <div className="flex items-center gap-3 w-full lg:w-auto">
                         <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl border border-border flex-1 lg:flex-none">
@@ -224,7 +244,7 @@ export default function OwnerMasterCalendar() {
                             </select>
                         </div>
                         <button
-                            onClick={() => setIsAddModalOpen(true)}
+                            onClick={() => openAddModal()}
                             className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl text-xs font-black shadow-lg hover:shadow-primary/20 hover:scale-[1.02] transition-all whitespace-nowrap"
                         >
                             <Plus className="w-4 h-4" /> Yeni Randevu
@@ -408,6 +428,7 @@ export default function OwnerMasterCalendar() {
                     allDaySlot={false}
                     eventDrop={handleEventDrop}
                     eventClick={handleEventClick}
+                    dateClick={handleDateClick}
                     datesSet={handleDatesSet}
                     height="auto"
                 />
@@ -418,6 +439,8 @@ export default function OwnerMasterCalendar() {
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 salonId={activeBranch.id}
+                preselectedDate={preselectedSlot}
+                preselectedStaffId={preselectedStaff ?? (selectedStaffId !== 'all' ? selectedStaffId : undefined)}
                 onSuccess={refetch}
             />
 
@@ -427,6 +450,10 @@ export default function OwnerMasterCalendar() {
                 onClose={() => setIsDetailModalOpen(false)}
                 appointment={selectedAppointment}
                 onSuccess={refetch}
+                onRebook={(apt) => {
+                    setIsDetailModalOpen(false);
+                    openAddModal(new Date(apt.start_time), apt.staff_id);
+                }}
             />
         </div>
     );

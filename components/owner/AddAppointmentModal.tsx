@@ -61,6 +61,23 @@ export function AddAppointmentModal({
         }
     }, [isOpen, salonId]);
 
+    // Takvimde çift tıklanan slot/personel ile formu önceden doldur.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (preselectedDate) {
+            const y = preselectedDate.getFullYear();
+            const m = String(preselectedDate.getMonth() + 1).padStart(2, '0');
+            const d = String(preselectedDate.getDate()).padStart(2, '0');
+            setSelectedDate(`${y}-${m}-${d}`);
+            if (preselectedDate.getHours() !== 0 || preselectedDate.getMinutes() !== 0) {
+                const hh = String(preselectedDate.getHours()).padStart(2, '0');
+                const mm = String(preselectedDate.getMinutes()).padStart(2, '0');
+                setSelectedTime(`${hh}:${mm}`);
+            }
+        }
+        if (preselectedStaffId) setSelectedStaffId(preselectedStaffId);
+    }, [isOpen, preselectedDate, preselectedStaffId]);
+
     const fetchData = async () => {
         try {
             const [staffList, servicesList, hoursList] = await Promise.all([

@@ -11,7 +11,8 @@ Randevu CRUD, takvim görünümü, hatırlatma, iptal/yeniden zamanlama. Hem mü
 
 ## Aktif Özellikler
 - ✅ **Randevu oluşturma** — booking flow ile (bkz [Booking modülü](booking.md))
-- ✅ **Randevu durumu** — `PENDING / CONFIRMED / CANCELLED / COMPLETED`
+- ✅ **Randevu durumu** — `PENDING / CONFIRMED / CANCELLED / COMPLETED / NO_SHOW`
+- ✅ **Aksiyon izi (kim/ne zaman)** — `confirmed_by/confirmed_at`, `completed_by/completed_at`, `cancelled_by/cancelled_at`, `cancellation_reason` kolonları her aksiyonu işleyen kullanıcıyı `profiles(id)` FK ile saklar. Owner takvim detay modal'ında Aktivite Geçmişi olarak görüntülenir. Hızlı UI render için `audit_logs`'a ek olarak satır içi kolonlar tutulur. Migration: `initdb/New-26-Appointment-Action-Tracking.sql`.
 - ✅ **Çakışma engeli (DB)** — `appointments_no_overlap_per_staff` GIST exclusion constraint
 - ✅ **Randevu iptal** — `/api/booking/cancel` (auth gerekli)
 - ✅ **Randevu yeniden zamanla** — booking flow'a query param ile geri dön
@@ -43,6 +44,9 @@ Randevu CRUD, takvim görünümü, hatırlatma, iptal/yeniden zamanlama. Hem mü
 | `iyzico_payment_id`, `refund_status`, `refund_amount` | Iyzico |
 | `campaign_rule_id`, `coupon_code`, `discount_amount` | İndirim |
 | `reminder_sent` | Cron işaretler |
+| `confirmed_by`, `confirmed_at` | Mode B onay sırasında set (profiles FK) |
+| `completed_by`, `completed_at` | Tamamlandı / NO_SHOW işaretleyen kullanıcı |
+| `cancelled_by`, `cancelled_at`, `cancellation_reason` | İptal/red eden kullanıcı + sebep |
 | `created_at`, `updated_at` | Zaman damgaları |
 
 **İlişkili tablolar:** `appointment_coupons`, `staff_reviews`, `reviews`, `transactions`
@@ -61,6 +65,9 @@ Randevu CRUD, takvim görünümü, hatırlatma, iptal/yeniden zamanlama. Hem mü
 | `/api/booking/verify-and-book` | POST | OTP ile anonim randevu |
 | `/api/booking/cancel` | POST | İptal (status=CANCELLED) |
 | `/api/booking/get-busy-slots` | GET | UI gri slot için |
+| `/api/appointments/[id]/confirm` | POST | Mode B onay (PENDING → CONFIRMED), `confirmed_by/confirmed_at` set |
+| `/api/appointments/[id]/reject` | POST | Salon reddi (CANCELLED), `cancelled_by/cancelled_at/cancellation_reason` set + SMS |
+| `/api/appointments/[id]/complete` | POST | CONFIRMED → COMPLETED veya `{isNoShow:true}` ile NO_SHOW; `completed_by/completed_at` set |
 | `/api/cron/reminders` | GET | Cron endpoint (24 saat öncesi SMS) |
 
 ## Test Adımları
