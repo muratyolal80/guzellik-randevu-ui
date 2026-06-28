@@ -900,56 +900,51 @@ export const SalonDataService = {
     const existing = await this.getSalonWorkingHours(salonId, supabase);
     if (existing && existing.length > 0) return existing;
 
+    // Akıllı default: salonun type_name'ine göre preset seç.
+    // Berber → 08:00-21:00, hafta sonu kapalı değil
+    // Kuaför → 09:00-19:00, Cumartesi 09:00-22:00
+    // Güzellik Merkezi → 10:00-20:00, Pazar kapalı
+    // Diğer → 09:00-20:00, Pazar kapalı (eski default)
+    const { data: salon } = await supabase
+      .from("salons")
+      .select("type_id, salon_types:salon_types(name, slug)")
+      .eq("id", salonId)
+      .maybeSingle();
+
+    const typeName = (salon?.salon_types as any)?.name?.toLowerCase() || "";
+    const typeSlug = (salon?.salon_types as any)?.slug?.toLowerCase() || "";
+
+    let weekday = { start: "09:00", end: "20:00" };
+    let saturday = { start: "09:00", end: "20:00", closed: false };
+    let sunday = { start: "00:00", end: "00:00", closed: true };
+
+    if (typeName.includes("berber") || typeSlug.includes("berber")) {
+      weekday = { start: "08:00", end: "21:00" };
+      saturday = { start: "08:00", end: "21:00", closed: false };
+      sunday = { start: "10:00", end: "18:00", closed: false };
+    } else if (typeName.includes("kuaför") || typeSlug.includes("kuafor")) {
+      weekday = { start: "09:00", end: "19:00" };
+      saturday = { start: "09:00", end: "22:00", closed: false };
+      sunday = { start: "00:00", end: "00:00", closed: true };
+    } else if (
+      typeName.includes("güzellik") ||
+      typeName.includes("estetik") ||
+      typeSlug.includes("guzellik") ||
+      typeSlug.includes("spa")
+    ) {
+      weekday = { start: "10:00", end: "20:00" };
+      saturday = { start: "10:00", end: "20:00", closed: false };
+      sunday = { start: "00:00", end: "00:00", closed: true };
+    }
+
     const defaultHours = [
-      {
-        salon_id: salonId,
-        day_of_week: 1,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 2,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 3,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 4,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 5,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 6,
-        start_time: "09:00",
-        end_time: "20:00",
-        is_closed: false,
-      },
-      {
-        salon_id: salonId,
-        day_of_week: 0,
-        start_time: "00:00",
-        end_time: "00:00",
-        is_closed: true,
-      },
+      { salon_id: salonId, day_of_week: 0, start_time: sunday.start, end_time: sunday.end, is_closed: sunday.closed },
+      { salon_id: salonId, day_of_week: 1, start_time: weekday.start, end_time: weekday.end, is_closed: false },
+      { salon_id: salonId, day_of_week: 2, start_time: weekday.start, end_time: weekday.end, is_closed: false },
+      { salon_id: salonId, day_of_week: 3, start_time: weekday.start, end_time: weekday.end, is_closed: false },
+      { salon_id: salonId, day_of_week: 4, start_time: weekday.start, end_time: weekday.end, is_closed: false },
+      { salon_id: salonId, day_of_week: 5, start_time: weekday.start, end_time: weekday.end, is_closed: false },
+      { salon_id: salonId, day_of_week: 6, start_time: saturday.start, end_time: saturday.end, is_closed: saturday.closed },
     ];
 
     const { data, error } = await supabase

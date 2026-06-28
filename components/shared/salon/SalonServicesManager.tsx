@@ -20,6 +20,8 @@ import {
     Settings2
 } from 'lucide-react';
 import ServiceResourceLinkModal from '@/components/owner/ServiceResourceLinkModal';
+import BulkAddServicesModal from '@/components/shared/salon/BulkAddServicesModal';
+import { Sparkles } from 'lucide-react';
 
 interface SalonServicesManagerProps {
     salonId: string;
@@ -40,6 +42,7 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
     const [newMaxParticipants, setNewMaxParticipants] = useState(1);
     const [newRequiresResource, setNewRequiresResource] = useState(false);
     const [resourceLinkTarget, setResourceLinkTarget] = useState<SalonServiceDetail | null>(null);
+    const [showBulkAdd, setShowBulkAdd] = useState(false);
 
     // Smart Defaults: Update price/duration when global service is selected
     useEffect(() => {
@@ -147,16 +150,25 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                     <h3 className="text-lg font-black text-text-main">Hizmet Listesi</h3>
                     <p className="text-xs text-text-secondary mt-1">{services.length} farklı işlem sunuyorsunuz.</p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingService(null);
-                        setNewServiceId('');
-                        setShowAdd(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
-                >
-                    <Plus className="w-5 h-5" /> Yeni Hizmet Ekle
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        onClick={() => setShowBulkAdd(true)}
+                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-black shadow-lg shadow-amber-200 hover:scale-[1.02] transition-all"
+                        title="Salon tipine özel önerilen standart hizmetleri tek tıkla ekle"
+                    >
+                        <Sparkles className="w-5 h-5" /> Standart Hizmetleri Ekle
+                    </button>
+                    <button
+                        onClick={() => {
+                            setEditingService(null);
+                            setNewServiceId('');
+                            setShowAdd(true);
+                        }}
+                        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                    >
+                        <Plus className="w-5 h-5" /> Yeni Hizmet Ekle
+                    </button>
+                </div>
             </div>
 
             {/* Add Service Modal */}
@@ -347,6 +359,17 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                     salonId={salonId}
                     serviceName={resourceLinkTarget.service_name}
                     onClose={() => setResourceLinkTarget(null)}
+                />
+            )}
+
+            {showBulkAdd && (
+                <BulkAddServicesModal
+                    salonId={salonId}
+                    existingGlobalServiceIds={services
+                        .map((s) => s.global_service_id)
+                        .filter(Boolean) as string[]}
+                    onClose={() => setShowBulkAdd(false)}
+                    onAdded={() => fetchData()}
                 />
             )}
         </div>

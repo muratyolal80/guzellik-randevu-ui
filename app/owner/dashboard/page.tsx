@@ -29,6 +29,7 @@ import OwnerAnalyticsCharts from '@/components/owner/OwnerAnalyticsCharts';
 import PlanGuard from '@/components/PlanGuard';
 import PlanUsageWidget from '@/components/owner/PlanUsageWidget';
 import PendingAppointmentsCard from '@/components/appointments/PendingAppointmentsCard';
+import OwnerQuickActions from '@/components/owner/OwnerQuickActions';
 import AIInsights from '@/components/owner/AIInsights';
 
 export default function OwnerDashboard() {
@@ -218,6 +219,9 @@ export default function OwnerDashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 space-y-8">
+                    {/* Quick Actions */}
+                    <OwnerQuickActions salonId={activeBranch.id} salonStatus={activeBranch.status} />
+
                     {/* Mode B — Salon onayı bekleyen randevular (PENDING) */}
                     {activeBranch.status === 'APPROVED' && (
                         <PendingAppointmentsCard salonId={activeBranch.id} />

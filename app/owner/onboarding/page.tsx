@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   SalonDataService,
@@ -42,6 +42,17 @@ const AdminSalonMap = dynamic(
   () => import("@/components/Admin/AdminSalonMap"),
   { ssr: false },
 );
+
+// İki coğrafi nokta arası mesafe (km) — adres/konum tutarlılık kontrolü için.
+function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLon = ((bLon - aLon) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
 
 const STEPS = [
   { id: 1, title: "Paket Seçimi", icon: ShieldCheck, desc: "Abonelik planınızı belirleyin" },
@@ -526,7 +537,42 @@ export default function OnboardingWizard() {
   // State for map loading indicator
   const [mapLoading, setMapLoading] = useState(false);
 
+  // Adres ↔ Konum senkronizasyonu
+  // autoSync: açıkken il/ilçe/adres değişince pin otomatik bulunur; kapalıyken
+  // koordinatlar tamamen manuel (örn. Excel'den elle giriş).
+  const [autoSync, setAutoSync] = useState(true);
+  // Seçilen il/ilçe'nin geocode'lanmış merkezi — tutarlılık kontrolünün referansı.
+  const [refPoint, setRefPoint] = useState<{ lat: number; lon: number } | null>(null);
+  // Enlem/Boylam alanlarının düzenlenebilir metin tamponu (blur'da commit edilir).
+  const [latText, setLatText] = useState("");
+  const [lonText, setLonText] = useState("");
+
+  // Koordinat dışarıdan değişince (harita tıklama, geocode) metin alanlarını eşitle.
+  // Kullanıcı yazarken salonData değişmediği için tampon ezilmez.
+  useEffect(() => {
+    setLatText(salonData.geo_latitude?.toFixed(6) ?? "");
+    setLonText(salonData.geo_longitude?.toFixed(6) ?? "");
+  }, [salonData.geo_latitude, salonData.geo_longitude]);
+
+  const commitCoord = (axis: "lat" | "lon", raw: string) => {
+    const v = parseFloat(raw.replace(",", "."));
+    const valid =
+      !Number.isNaN(v) && (axis === "lat" ? v >= -90 && v <= 90 : v >= -180 && v <= 180);
+    if (valid) {
+      setSalonData((prev: any) => ({
+        ...prev,
+        [axis === "lat" ? "geo_latitude" : "geo_longitude"]: v,
+      }));
+    } else {
+      // Geçersiz girişte mevcut değere geri dön.
+      const current = axis === "lat" ? salonData.geo_latitude : salonData.geo_longitude;
+      (axis === "lat" ? setLatText : setLonText)(current?.toFixed(6) ?? "");
+    }
+  };
+
   const handleAddressBlur = async () => {
+    // autoSync kapalıyken adres yazımı pini hareket ettirmez (manuel mod).
+    if (!autoSync) return;
     // Don't geocode if we don't have a city
     if (!salonData.city_id) return;
 
@@ -579,6 +625,70 @@ export default function OnboardingWizard() {
       setMapLoading(false);
     }
   };
+
+  // İl/ilçe seçimi değişince: o bölgeyi geocode et → referans noktası kur.
+  // autoSync açıksa pini de oraya taşı (asıl "il seçince harita gelmiyordu" düzeltmesi).
+  useEffect(() => {
+    if (!salonData.city_id) {
+      setRefPoint(null);
+      return;
+    }
+    const cityName = cities.find((c) => c.id === salonData.city_id)?.name;
+    const districtName = districts.find((d) => d.id === salonData.district_id)?.name;
+    if (!cityName) return;
+
+    const query = districtName
+      ? `${districtName}, ${cityName}, Türkiye`
+      : `${cityName}, Türkiye`;
+
+    let cancelled = false;
+    (async () => {
+      setMapLoading(true);
+      try {
+        const result = await GeocodingService.searchAddress(query);
+        if (cancelled || !result) return;
+        setRefPoint({ lat: result.lat, lon: result.lon });
+        if (autoSync) {
+          setSalonData((prev: any) => ({
+            ...prev,
+            geo_latitude: result.lat,
+            geo_longitude: result.lon,
+          }));
+        }
+      } finally {
+        if (!cancelled) setMapLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [salonData.city_id, salonData.district_id, cities, districts, autoSync]);
+
+  // Tutarlılık kontrolü: işaretli pin, seçilen il/ilçe merkezinden ne kadar uzak?
+  // İlçe seçiliyse dar (~35 km), sadece il ise geniş (~120 km) eşik.
+  const coordWarning = useMemo(() => {
+    if (!refPoint || !salonData.city_id) return null;
+    const d = distanceKm(
+      salonData.geo_latitude,
+      salonData.geo_longitude,
+      refPoint.lat,
+      refPoint.lon,
+    );
+    const threshold = salonData.district_id ? 35 : 120;
+    if (d <= threshold) return null;
+    const cityName = cities.find((c) => c.id === salonData.city_id)?.name;
+    const districtName = districts.find((d) => d.id === salonData.district_id)?.name;
+    const loc = [districtName, cityName].filter(Boolean).join(" / ");
+    return `İşaretlediğiniz konum, seçtiğiniz "${loc}" ile uyuşmuyor olabilir (~${Math.round(d)} km uzakta). Adresi ya da harita pinini kontrol edin.`;
+  }, [
+    refPoint,
+    salonData.geo_latitude,
+    salonData.geo_longitude,
+    salonData.city_id,
+    salonData.district_id,
+    cities,
+    districts,
+  ]);
 
   const handleNext = async () => {
     // Step 1: Subscription Validation
@@ -1046,7 +1156,7 @@ export default function OnboardingWizard() {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-8 animate-in slide-in-from-right duration-300">
             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
@@ -1195,31 +1305,70 @@ export default function OnboardingWizard() {
               </div>
             </div>
 
-            {/* Coordinate Display */}
+            {/* Adres ↔ Konum senkron anahtarı */}
+            <div className="flex items-center justify-between gap-4 p-4 bg-surface-alt border border-border rounded-2xl">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-text-main">
+                    Adresten konumu otomatik bul
+                  </p>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                    Açık: il/ilçe/adres değiştikçe pin otomatik gider. Kapalı: enlem/boylamı
+                    elle girersiniz (örn. Excel verisi).
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoSync}
+                onClick={() => setAutoSync((v) => !v)}
+                className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${autoSync ? "bg-primary" : "bg-gray-300"}`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${autoSync ? "translate-x-5" : ""}`}
+                />
+              </button>
+            </div>
+
+            {/* Adres–konum tutarsızlık uyarısı */}
+            {coordWarning && (
+              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <Info className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs font-bold text-amber-800 leading-relaxed">
+                  {coordWarning}
+                </p>
+              </div>
+            )}
+
+            {/* Koordinatlar (elle düzenlenebilir) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div className="group">
                 <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
                   <MapPin className="w-3.5 h-3.5" /> Enlem (Latitude)
                 </label>
-                <div className="relative">
-                  <input
-                    className="w-full px-6 py-4.5 bg-gray-100/50 border border-border rounded-2xl font-black text-text-muted outline-none cursor-default"
-                    readOnly
-                    value={salonData.geo_latitude.toFixed(6)}
-                  />
-                </div>
+                <input
+                  className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                  inputMode="decimal"
+                  placeholder="41.008200"
+                  value={latText}
+                  onChange={(e) => setLatText(e.target.value)}
+                  onBlur={() => commitCoord("lat", latText)}
+                />
               </div>
               <div className="group">
                 <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
                   <MapPin className="w-3.5 h-3.5" /> Boylam (Longitude)
                 </label>
-                <div className="relative">
-                  <input
-                    className="w-full px-6 py-4.5 bg-gray-100/50 border border-border rounded-2xl font-black text-text-muted outline-none cursor-default"
-                    readOnly
-                    value={salonData.geo_longitude.toFixed(6)}
-                  />
-                </div>
+                <input
+                  className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl font-black text-text-main outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all"
+                  inputMode="decimal"
+                  placeholder="28.978400"
+                  value={lonText}
+                  onChange={(e) => setLonText(e.target.value)}
+                  onBlur={() => commitCoord("lon", lonText)}
+                />
               </div>
             </div>
 

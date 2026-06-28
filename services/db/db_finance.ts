@@ -544,10 +544,15 @@ export const SubscriptionService = {
         .eq("id", salonId)
         .maybeSingle();
       if (currentSalon?.owner_id) {
+        // Yalnızca AKTİF şubeleri say; pasifleştirilmiş/silinmiş salonlar
+        // limiti doldurmamalı (kullanıcı bir salonu pasif edip yenisini açabilir).
+        // NOT: Bu uygulamada owner "pasif etme" salonu SUSPENDED yapar (UI'da "Pasif"
+        // olarak gösterilir); PASSIVE/DELETED ile birlikte bunu da hariç tutuyoruz.
         const { count } = await supabase
           .from("salons")
           .select("*", { count: "exact", head: true })
-          .eq("owner_id", currentSalon.owner_id);
+          .eq("owner_id", currentSalon.owner_id)
+          .not("status", "in", "(DELETED,PASSIVE,SUSPENDED)");
         current = count || 0;
       } else {
         current = 1;
