@@ -57,7 +57,12 @@ export async function middleware(request: NextRequest) {
         'kuaforara.com.tr',
         'www.kuaforara.com.tr',
         'kuaforara.com.tr:3000',
-        'api.kuaforara.com.tr'
+        'api.kuaforara.com.tr',
+        // Staging ortamı (salonara.com.tr) — aynı kod tabanı, ayrı ortam.
+        // Eklenmezse middleware "salonara"yı salon subdomain'i sanıp /salon-slug/salonara'ya yönlendirir.
+        'salonara.com.tr',
+        'www.salonara.com.tr',
+        'api.salonara.com.tr'
     ];
     const isMainDomain = mainDomains.includes(host);
 
