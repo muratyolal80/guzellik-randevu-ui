@@ -13,6 +13,60 @@ import { downloadIcs } from '@/lib/calendar/ics';
 import PrintTicket from '@/components/booking/PrintTicket';
 import '@/components/booking/print-ticket.css';
 
+function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
+    const [loading, setLoading] = React.useState(false);
+    const [result, setResult] = React.useState<{ ok: boolean; msg: string } | null>(null);
+
+    const resend = async () => {
+        if (!appointmentId) return;
+        setLoading(true);
+        setResult(null);
+        try {
+            const r = await fetch(`/api/appointments/${appointmentId}/resend-sms`, { method: 'POST' });
+            const data = await r.json();
+            if (r.ok && data.success) {
+                setResult({ ok: true, msg: 'SMS yeniden gönderildi. Telefonu kontrol edin.' });
+            } else {
+                setResult({ ok: false, msg: data.error || 'Gönderilemedi.' });
+            }
+        } catch (e: any) {
+            setResult({ ok: false, msg: e?.message || 'Ağ hatası.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col gap-2 text-left">
+            <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                <div className="flex-1">
+                    <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                        Randevunuz oluşturuldu fakat SMS gönderiminde sorun yaşandı. Aşağıdaki butonla
+                        tekrar deneyebilir veya bu sayfanın çıktısını alarak salonu arayabilirsiniz.
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={resend}
+                    disabled={loading || !appointmentId}
+                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                >
+                    <span className="material-symbols-outlined text-base">sms</span>
+                    {loading ? 'Gönderiliyor...' : 'SMS Tekrar Gönder'}
+                </button>
+                {result && (
+                    <span className={`text-xs font-bold ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {result.msg}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function Confirmation() {
     const params = useParams();
     const searchParams = useSearchParams();
@@ -208,13 +262,7 @@ export default function Confirmation() {
                             </p>
 
                             {smsFailed && (
-                                <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-left">
-                                    <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
-                                    <div>
-                                        <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
-                                        <p className="text-xs text-amber-700 mt-0.5">Randevunuz oluşturuldu fakat onay SMS'i gönderilemedi. Randevu bilgilerinizi bu sayfadan kontrol edip not alın. Salonu telefonla aramanızda fayda var.</p>
-                                    </div>
-                                </div>
+                                <SmsResendPanel appointmentId={searchParams.get('appointmentId') || appointment?.id || ''} />
                             )}
 
                             {/* User Status Badge */}

@@ -67,9 +67,17 @@ export async function POST(request: NextRequest) {
     let userId: string;
     let finalEmail: string = userEmail;
 
-    // Check if user exists by phone OR email
-    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = users.find(u => u.phone === e164Phone || u.email === userEmail);
+    // Check if user exists by phone OR email — direct indexed query
+    // (listUsers() tüm kullanıcıları çeker, 100K+ rakamla katastrof + enumeration riski)
+    const { data: phoneOrEmailRows } = await supabaseAdmin
+      .schema('auth')
+      .from('users')
+      .select('id, email, phone')
+      .or(`phone.eq.${e164Phone},email.eq.${userEmail}`)
+      .limit(1);
+    const existingUser = phoneOrEmailRows && phoneOrEmailRows.length > 0
+      ? phoneOrEmailRows[0]
+      : null;
 
     if (existingUser) {
       // User exists - use existing ID and Email

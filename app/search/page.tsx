@@ -511,19 +511,63 @@ function SearchContent() {
                                         <AlertCircle className="w-10 h-10 text-text-muted" />
                                     </div>
                                     <h3 className="text-xl font-black text-text-main">Sonuç Bulunamadı</h3>
-                                    <p className="text-text-muted max-w-sm">
-                                        Aradığınız kriterlere uygun salon bulunamadı. Lütfen filtreleri değiştirmeyi deneyin.
-                                    </p>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedCity('Tümü');
-                                            setLocalSearch('');
-                                            setMinRating(0);
-                                        }}
-                                        className="text-primary font-black text-sm hover:underline"
-                                    >
-                                        Tüm Filtreleri Temizle
-                                    </button>
+                                    {nearbyMode ? (
+                                        <>
+                                            <p className="text-text-muted max-w-sm">
+                                                {radiusKm} km içinde uygun salon yok. Aramayı genişletmek ister misin?
+                                            </p>
+                                            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                                                {radiusKm < 5 && (
+                                                    <button
+                                                        onClick={() => setRadiusKm(5)}
+                                                        className="px-4 py-2 bg-primary text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-primary-hover transition"
+                                                    >
+                                                        5 km'e Genişlet
+                                                    </button>
+                                                )}
+                                                {radiusKm < 10 && (
+                                                    <button
+                                                        onClick={() => setRadiusKm(10)}
+                                                        className="px-4 py-2 bg-primary text-white font-black text-xs uppercase tracking-widest rounded-xl hover:bg-primary-hover transition"
+                                                    >
+                                                        10 km'e Genişlet
+                                                    </button>
+                                                )}
+                                                {radiusKm < 25 && (
+                                                    <button
+                                                        onClick={() => setRadiusKm(25)}
+                                                        className="px-4 py-2 bg-white border-2 border-primary text-primary font-black text-xs uppercase tracking-widest rounded-xl hover:bg-primary/5 transition"
+                                                    >
+                                                        25 km'e Genişlet
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => { setNearbyMode(false); geo.reset(); }}
+                                                    className="text-text-muted font-bold text-xs hover:underline ml-2"
+                                                >
+                                                    Tüm salonları göster
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-text-muted max-w-sm">
+                                                Aradığınız kriterlere uygun salon bulunamadı. Lütfen filtreleri değiştirmeyi deneyin.
+                                            </p>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedCity('Tümü');
+                                                    setLocalSearch('');
+                                                    setMinRating(0);
+                                                    setSelectedTypeIds([]);
+                                                    setMaxPrice(null);
+                                                }}
+                                                className="text-primary font-black text-sm hover:underline"
+                                            >
+                                                Tüm Filtreleri Temizle
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
