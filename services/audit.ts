@@ -24,48 +24,50 @@ export interface AuditLogEntry {
 
 export const AuditService = {
     /**
-     * Log an audit entry. Hata oluşursa sessizce warn'a düşer — audit critical değil,
-     * UI akışını engellememeli.
+     * Log an audit entry via server-side /api/audit/log endpoint.
+     *
+     * Server route service_role ile çalışır → RLS race condition'larından
+     * etkilenmez. UI catch'siz çağırabilir; hata sessiz warn'a düşer.
+     *
+     * Eski şema (table_name/record_id/old/new_values) korunur — backend
+     * uygun formata map'ler.
      */
     async log(entry: AuditLogEntry): Promise<void> {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const userId = entry.user_id || user?.id;
-
-            // Audit kaydı user_id zorunlu (RLS policy: WITH CHECK user_id = auth.uid())
-            if (!userId) {
-                console.warn('[AuditService] skipped: no user_id (anonymous action)');
-                return;
-            }
-
-            // salon_id şu an NOT NULL — yoksa boş UUID (00000000...) ile platform-level kayıt
-            const salonId = entry.salon_id || '00000000-0000-0000-0000-000000000000';
-
             const changes =
                 entry.old_values || entry.new_values
                     ? {
                           old: entry.old_values || null,
                           new: entry.new_values || null,
-                          description: entry.description,
                       }
-                    : entry.description
-                      ? { description: entry.description }
-                      : null;
+                    : null;
 
-            const { error } = await supabase.from('audit_logs').insert({
-                salon_id: salonId,
-                user_id: userId,
-                action: entry.action,
-                resource_type: entry.table_name,
-                resource_id: entry.record_id,
-                changes,
-                user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            if (typeof window === 'undefined') {
+                // SSR/Server context — fetch yerine direct insert (admin)
+                console.warn('[AuditService] called from server — skipping (use API route directly)');
+                return;
+            }
+
+            const res = await fetch('/api/audit/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    salon_id: entry.salon_id,
+                    action: entry.action,
+                    resource_type: entry.table_name,
+                    resource_id: entry.record_id,
+                    changes,
+                    description: entry.description,
+                }),
             });
 
-            if (error) {
-                // Boş {} veya RLS hatasını sessiz warn'a indir — audit non-critical
-                const msg = error.message || error.code || 'unknown';
-                console.warn('[AuditService] insert failed (silent):', msg, error);
+            if (!res.ok) {
+                let detail = '';
+                try {
+                    const j = await res.json();
+                    detail = j?.error || '';
+                } catch { }
+                console.warn(`[AuditService] log failed (silent) ${res.status}: ${detail}`);
             }
         } catch (err: any) {
             console.warn('[AuditService] threw (silent):', err?.message || err);

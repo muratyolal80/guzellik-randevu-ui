@@ -67,6 +67,7 @@ export const SupportService = {
     subject: string,
     category: string,
     message: string,
+    priority: string = "NORMAL",
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<SupportTicket> {
     const { data: ticket, error: ticketError } = await supabase
@@ -76,6 +77,7 @@ export const SupportService = {
         subject,
         category,
         message,
+        priority,
         status: "OPEN",
       })
       .select()

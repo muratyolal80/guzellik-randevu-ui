@@ -124,13 +124,18 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
     const markerRef = React.useRef<L.Marker>(null);
 
     useEffect(() => {
-        if (markerRef.current) {
-            if (isHovered) {
-                markerRef.current.openTooltip();
-            } else {
-                markerRef.current.closeTooltip();
+        // Leaflet marker'ın iç position'u (`_leaflet_pos`) DOM mount sonrası bir microtask
+        // sonra hazır oluyor. RaF + try/catch ile race condition'ı yumuşat (klasik leaflet bug).
+        const raf = requestAnimationFrame(() => {
+            try {
+                if (!markerRef.current) return;
+                if (isHovered) markerRef.current.openTooltip();
+                else markerRef.current.closeTooltip();
+            } catch {
+                // Marker unmount edildiyse veya position henüz set değilse sessiz geç
             }
-        }
+        });
+        return () => cancelAnimationFrame(raf);
     }, [isHovered]);
 
     if (!isValidLatLng(salon.coordinates?.lat, salon.coordinates?.lng)) {
@@ -207,8 +212,6 @@ export const SalonMap: React.FC<SalonMapProps> = ({ center, salons, hoveredSalon
     const validCenter = isValidLatLng(center.lat, center.lng)
         ? { lat: Number(center.lat), lng: Number(center.lng) }
         : { lat: 41.0082, lng: 28.9784 }; // Istanbul as fallback
-
-    console.log('SalonMap received center:', center, 'validCenter:', validCenter);
 
     return (
         <MapContainer center={[validCenter.lat, validCenter.lng]} zoom={12} scrollWheelZoom={true} className="h-full w-full outline-none z-0" attributionControl={false}>
