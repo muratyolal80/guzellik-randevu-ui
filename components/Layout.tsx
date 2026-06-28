@@ -187,6 +187,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </Link>
           )}
 
+          {/* Guest acquisition: anonim ve customer'a "İşletmeni Ekle" CTA */}
+          {!isBooking && !isOwner && !isAdmin && user?.role !== 'STAFF' && (
+            <Link
+              href="/register/business"
+              className="hidden lg:flex items-center justify-center gap-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-full shadow-lg shadow-amber-200 transition-all hover:scale-105 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-base">store</span>
+              İşletmeni Ekle
+            </Link>
+          )}
+
           {/* User Menu Component */}
           <UserMenu />
 
@@ -352,10 +363,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <div>
               <h4 className="text-text-main font-bold mb-6">İşletmeler İçin</h4>
               <ul className="space-y-3 text-sm text-text-secondary">
-                <li><a href="#" className="hover:text-primary transition-colors">İşletme Ekle</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Yönetim Paneli</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Başarı Hikayeleri</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Destek</a></li>
+                <li><Link href="/register/business" className="hover:text-primary transition-colors font-bold">İşletmenizi Ekleyin</Link></li>
+                <li><Link href={isOwner || isAdmin ? "/owner/dashboard" : "/login"} className="hover:text-primary transition-colors">Yönetim Paneli</Link></li>
+                <li><Link href="/business/success-stories" className="hover:text-primary transition-colors">Başarı Hikayeleri</Link></li>
+                <li><Link href="/customer/support" className="hover:text-primary transition-colors">Destek</Link></li>
               </ul>
             </div>
           </div>

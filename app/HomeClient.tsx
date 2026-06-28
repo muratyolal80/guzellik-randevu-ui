@@ -934,6 +934,68 @@ export default function HomeClient() {
                             </div>
                         </div>
                     </section>
+
+                    {/* Salon Sahibi Acquisition Banner */}
+                    {!user || (user.role !== 'SALON_OWNER' && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') ? (
+                        <section className="container mx-auto px-4 mt-16 mb-12">
+                            <div className="relative overflow-hidden rounded-[40px] bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-8 md:p-12 shadow-2xl shadow-amber-200">
+                                <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full" />
+                                <div className="absolute -right-32 -bottom-32 w-96 h-96 bg-white/5 rounded-full" />
+
+                                <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-white">
+                                    <div className="space-y-5">
+                                        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest w-fit">
+                                            <span className="material-symbols-outlined text-base">storefront</span>
+                                            Salon mu işletiyorsun?
+                                        </div>
+                                        <h2 className="text-3xl md:text-4xl font-black tracking-tight font-display">
+                                            İşletmeni 14 günde<br />
+                                            <span className="text-amber-100">dijitalleştir</span>
+                                        </h2>
+                                        <p className="text-sm md:text-base font-medium opacity-95 leading-relaxed max-w-md">
+                                            Online randevu, personel yönetimi, müşteri analizi ve KVKK uyumlu sistem.
+                                            Aylık yüzlerce yeni müşteri seninle buluşsun.
+                                        </p>
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <Link
+                                                href="/register/business"
+                                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-orange-600 font-black text-sm rounded-2xl shadow-lg hover:scale-105 transition-all"
+                                            >
+                                                <span className="material-symbols-outlined">add_business</span>
+                                                İşletmeni Ekle — Ücretsiz
+                                            </Link>
+                                            <Link
+                                                href="/login"
+                                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/15 backdrop-blur-sm text-white border border-white/40 font-bold text-sm rounded-2xl hover:bg-white/25 transition-all"
+                                            >
+                                                Demo Paneli Gör
+                                            </Link>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 md:gap-4">
+                                        {[
+                                            { icon: 'event_available', label: 'Online Randevu', desc: '7/24 müşteri alımı' },
+                                            { icon: 'groups', label: 'Personel Takibi', desc: 'Mesai + performans' },
+                                            { icon: 'insights', label: 'Akıllı Analiz', desc: 'AI destekli içgörü' },
+                                            { icon: 'verified_user', label: 'KVKK Uyumlu', desc: 'Yasal güvence' },
+                                        ].map((item) => (
+                                            <div
+                                                key={item.label}
+                                                className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
+                                            >
+                                                <span className="material-symbols-outlined text-2xl opacity-90">
+                                                    {item.icon}
+                                                </span>
+                                                <p className="text-sm font-black mt-2">{item.label}</p>
+                                                <p className="text-[11px] font-bold opacity-80 mt-0.5">{item.desc}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    ) : null}
                 </div>
             )}
             <GeminiChat />
