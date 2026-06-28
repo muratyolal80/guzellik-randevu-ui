@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { Key } from 'lucide-react';
+import StaffCredentialModal from '@/components/owner/StaffCredentialModal';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
 import { Staff, WorkingHours, Invite } from '@/types';
@@ -145,6 +147,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
 
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [allOwnerStaff, setAllOwnerStaff] = useState<Staff[]>([]);
+    const [credentialTarget, setCredentialTarget] = useState<Staff | null>(null);
     const [assigningLoading, setAssigningLoading] = useState(false);
 
     const handleOpenAssignExisting = async () => {
@@ -518,18 +521,32 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 <div className="flex flex-col gap-2">
                                     <button
                                         onClick={() => handleOpenEdit(member)}
+                                        title="Bilgileri düzenle"
                                         className="p-2.5 bg-gray-50 hover:bg-primary/10 rounded-xl text-text-muted hover:text-primary transition-all shadow-sm"
                                     >
                                         <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleOpenShifts(member)}
+                                        title="Mesai saatleri"
                                         className="p-2.5 bg-gray-50 hover:bg-amber-50 rounded-xl text-text-muted hover:text-amber-600 transition-all shadow-sm"
                                     >
                                         <Clock className="w-4 h-4" />
                                     </button>
                                     <button
+                                        onClick={() => setCredentialTarget(member)}
+                                        title={member.user_id ? 'Şifre yönetimi / Login kapat' : 'Login hesabı oluştur'}
+                                        className={`p-2.5 rounded-xl transition-all shadow-sm ${
+                                            member.user_id
+                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                                : 'bg-gray-50 text-text-muted hover:bg-blue-50 hover:text-blue-600'
+                                        }`}
+                                    >
+                                        <Key className="w-4 h-4" />
+                                    </button>
+                                    <button
                                         onClick={() => handleDeleteStaff(member.id)}
+                                        title="Personeli sil"
                                         className="p-2.5 bg-gray-50 hover:bg-red-50 rounded-xl text-text-muted hover:text-red-500 transition-all shadow-sm"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -542,6 +559,14 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 <div className="flex items-center gap-1.5 text-text-muted text-xs font-black uppercase tracking-widest bg-gray-50 w-fit px-2 py-1 rounded-lg">
                                     <Briefcase className="w-3.5 h-3.5 opacity-60" />
                                     {member.role || member.specialty || 'Uzman'}
+                                </div>
+                                {/* Login durumu rozeti */}
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest w-fit px-2 py-0.5 rounded-md mt-1.5"
+                                    style={{
+                                        background: member.user_id ? '#ecfdf5' : '#f3f4f6',
+                                        color: member.user_id ? '#047857' : '#6b7280',
+                                    }}>
+                                    {member.user_id ? '🔑 Login aktif' : '👤 Sadece görünüm'}
                                 </div>
                             </div>
 
@@ -1092,6 +1117,24 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Login hesap yönetimi modali */}
+            {credentialTarget && (
+                <StaffCredentialModal
+                    staffId={credentialTarget.id}
+                    staffName={credentialTarget.name}
+                    hasAccount={!!credentialTarget.user_id}
+                    onClose={() => setCredentialTarget(null)}
+                    onUpdated={() => {
+                        // Tüm listeyi yenile (user_id link değişti)
+                        if (salonId) {
+                            StaffService.getStaffBySalon(salonId).then((list: any[]) => {
+                                setStaff(list as any);
+                            }).catch(() => { });
+                        }
+                    }}
+                />
             )}
         </div>
     );
