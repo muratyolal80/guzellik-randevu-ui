@@ -297,15 +297,19 @@ export const AppointmentService = {
     salonId?: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Appointment> {
-    // Onaylama/iptal işleminde KİM ve NE ZAMAN bilgisini iz olarak tut.
+    // Durum değiştiren KİM + NE ZAMAN izi — kanonik kolonlar (confirmed/completed/cancelled_by).
+    // profiles(id) FK'lı olduklarından actor = auth.uid() (owner/personel profil id'si).
     const updatePayload: Record<string, unknown> = { status };
-    if (status === "CONFIRMED" || status === "CANCELLED") {
+    if (status === "CONFIRMED" || status === "CANCELLED" || status === "COMPLETED") {
       const { data: sessionData } = await supabase.auth.getSession();
       const actorId = sessionData?.session?.user?.id || null;
       const nowIso = new Date().toISOString();
       if (status === "CONFIRMED") {
-        updatePayload.approved_by = actorId;
-        updatePayload.approved_at = nowIso;
+        updatePayload.confirmed_by = actorId;
+        updatePayload.confirmed_at = nowIso;
+      } else if (status === "COMPLETED") {
+        updatePayload.completed_by = actorId;
+        updatePayload.completed_at = nowIso;
       } else {
         updatePayload.cancelled_by = actorId;
         updatePayload.cancelled_at = nowIso;
