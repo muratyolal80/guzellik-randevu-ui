@@ -21,6 +21,23 @@ import {
 } from 'lucide-react';
 import BranchSelector from './owner/BranchSelector';
 
+// Salon tipi slug → iş temalı material-symbol ikonu.
+// (salon_types.icon DB'de boş olduğundan slug bazlı, anlamlı fallback.)
+const SALON_TYPE_ICONS: Record<string, string> = {
+  berber: 'content_cut',
+  kuafor: 'styler',
+  guzellik: 'spa',
+  makyaj: 'face',
+  tirnak: 'brush',
+  spa: 'self_care',
+  terapi: 'healing',
+  solaryum: 'wb_sunny',
+  dovme: 'draw',
+};
+
+const salonTypeIcon = (type: SalonType): string =>
+  type.icon || SALON_TYPE_ICONS[type.slug] || 'storefront';
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, signOut, isAdmin, isOwner } = useAuth();
   const pathname = usePathname();
@@ -55,7 +72,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-surface/90 backdrop-blur-md shadow-sm">
-        {/* ÜST SATIR: Logo + Aksiyonlar (Search, CTA, Login/Register) */}
+        {/* ÜST SATIR: Logo + Aksiyonlar (Search, CTA, Login / Register) */}
         <div className="flex items-center justify-between whitespace-nowrap px-4 md:px-6 py-3">
         <div className="flex items-center gap-4 shrink-0">
           <Link href="/" className="flex items-center gap-2 group">
@@ -134,7 +151,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
         {/* ALT SATIR: Salonlar + Kategori Navigasyonu (sadece desktop) */}
         <div className="hidden lg:block border-t border-border/60 bg-surface/95">
-          <nav className="flex items-center gap-1 px-4 md:px-6 overflow-x-auto no-scrollbar">
+          {/* NOT: overflow-x-auto KULLANMA — bir eksen auto olunca CSS overflow-y'yi de
+              auto'ya zorlar ve aşağı açılan dropdown panelleri nav kutusuna hapsolup
+              kırpılır ("arkada açılıyor" + sürükleyince kayma). flex-wrap ile çöz. */}
+          <nav className="flex flex-wrap items-center gap-x-1 gap-y-0.5 px-4 md:px-6">
             {/* 1. Salonlar Dropdown (Salon Types) */}
             <div className="relative group px-3 py-2 shrink-0">
               <Link
@@ -154,8 +174,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <Link
                       key={type.id}
                       href={`/?type=${type.slug}`}
-                      className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
                     >
+                      <span className="material-symbols-outlined text-[18px] text-primary/70">{salonTypeIcon(type)}</span>
                       {type.name}
                     </Link>
                   ))}
@@ -174,8 +195,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <div key={cat.id} className="relative group px-2 py-2 shrink-0">
                     <Link
                       href={`/?search=${encodeURIComponent(cat.name)}`}
-                      className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-0.5 whitespace-nowrap"
+                      className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-1 whitespace-nowrap"
                     >
+                      <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
                       {cat.name}
                       <span className="material-symbols-outlined text-[16px]">expand_more</span>
                     </Link>
@@ -203,8 +225,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <Link
                   key={cat.id}
                   href={`/?search=${encodeURIComponent(cat.name)}`}
-                  className="px-2 py-2 text-sm font-medium text-text-secondary hover:text-primary transition-colors whitespace-nowrap shrink-0"
+                  className="px-2 py-2 text-sm font-medium text-text-secondary hover:text-primary transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
                 >
+                  <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
                   {cat.name}
                 </Link>
               );
@@ -278,7 +301,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-secondary hover:text-primary font-medium transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                        <span className="material-symbols-outlined text-[20px] text-primary/70">{salonTypeIcon(type)}</span>
                         {type.name}
                       </Link>
                     ))}
@@ -296,7 +319,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-[20px] text-text-muted">content_cut</span>
+                          <span className="material-symbols-outlined text-[20px] text-primary/70">{cat.icon || 'spa'}</span>
                           {cat.name}
                         </span>
                         <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-text-muted">{servicesByCat[cat.id]?.length || 0}</span>

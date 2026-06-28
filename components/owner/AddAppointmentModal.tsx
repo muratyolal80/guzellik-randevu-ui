@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { StaffService, ServiceService, AppointmentService } from '@/services/db';
+import { StaffService, ServiceService, AppointmentService, SalonDataService } from '@/services/db';
 import { AuditService } from '@/services/audit';
 import {
     Users,
@@ -40,6 +40,7 @@ export function AddAppointmentModal({
 }: AddAppointmentModalProps) {
     const [staff, setStaff] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
+    const [workingHours, setWorkingHours] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Form state
@@ -62,12 +63,14 @@ export function AddAppointmentModal({
 
     const fetchData = async () => {
         try {
-            const [staffList, servicesList] = await Promise.all([
+            const [staffList, servicesList, hoursList] = await Promise.all([
                 StaffService.getStaffBySalon(salonId),
-                ServiceService.getServicesBySalon(salonId)
+                ServiceService.getServicesBySalon(salonId),
+                SalonDataService.getSalonWorkingHours(salonId).catch(() => [])
             ]);
             setStaff(staffList);
             setServices(servicesList);
+            setWorkingHours(hoursList || []);
         } catch (err) {
             console.error('Error fetching data:', err);
         }
@@ -92,6 +95,28 @@ export function AddAppointmentModal({
                 return;
             }
 
+            // Çalışma günü doğrulaması: salon o gün kapalıysa randevu oluşturma + net uyarı.
+            // working_hours.day_of_week konvansiyonu: 1=Pazartesi ... 7=Pazar (Pazar=7).
+            const jsDay = new Date(selectedDate).getDay(); // 0=Pazar..6=Cumartesi
+            const dow = jsDay === 0 ? 7 : jsDay;
+            const dayHours = workingHours.find((h: any) => h.day_of_week === dow);
+            const dayNames = ['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+            if (!dayHours || dayHours.is_closed) {
+                setError(`Seçilen gün (${dayNames[dow]}) salon kapalı — çalışma günü olmayan bir güne randevu oluşturulamaz. Lütfen başka bir gün seçin.`);
+                setLoading(false);
+                return;
+            }
+            // Saat, çalışma saatleri dışındaysa uyar.
+            if (dayHours.start_time && dayHours.end_time) {
+                const startHM = dayHours.start_time.substring(0, 5);
+                const endHM = dayHours.end_time.substring(0, 5);
+                if (selectedTime < startHM || selectedTime >= endHM) {
+                    setError(`Seçilen saat çalışma saatleri (${startHM}–${endHM}) dışında. Lütfen bu aralıkta bir saat seçin.`);
+                    setLoading(false);
+                    return;
+                }
+            }
+
             const [hours, minutes] = selectedTime.split(':').map(Number);
             const startTime = new Date(selectedDate);
             startTime.setHours(hours, minutes, 0, 0);
@@ -109,7 +134,7 @@ export function AddAppointmentModal({
                     customer_phone: customerPhone,
                     start_time: startTime.toISOString(),
                     end_time: endTime.toISOString(),
-                    status: 'CONFIRMED',
+                    status: 'PENDING',
                     notes: notes || null
                 })
                 .select()

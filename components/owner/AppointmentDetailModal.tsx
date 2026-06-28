@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, User, Phone, Tag, CheckCircle2, XCircle, AlertCircle, Trash2, Printer } from 'lucide-react';
 import { Appointment } from '@/types';
 import { AppointmentService } from '@/services/db';
+import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
@@ -16,8 +17,28 @@ interface AppointmentDetailModalProps {
 
 export default function AppointmentDetailModal({ isOpen, onClose, appointment, onSuccess }: AppointmentDetailModalProps) {
     const [loading, setLoading] = useState(false);
+    const [actorNames, setActorNames] = useState<{ approver?: string; canceller?: string }>({});
+
+    // Onaylayan / iptal eden kişilerin isimlerini çöz (approved_by / cancelled_by → profiles).
+    useEffect(() => {
+        const ids = [appointment?.approved_by, appointment?.cancelled_by].filter(Boolean) as string[];
+        if (ids.length === 0) { setActorNames({}); return; }
+        supabase.from('profiles').select('id, first_name, last_name').in('id', ids).then(({ data }) => {
+            const nameOf = (id?: string) => {
+                const p = data?.find((x: any) => x.id === id);
+                return p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : '';
+            };
+            setActorNames({
+                approver: nameOf(appointment?.approved_by),
+                canceller: nameOf(appointment?.cancelled_by),
+            });
+        });
+    }, [appointment?.id, appointment?.approved_by, appointment?.cancelled_by]);
 
     if (!isOpen || !appointment) return null;
+
+    const fmtDateTime = (d?: string) =>
+        d ? format(new Date(d), 'd MMM yyyy · HH:mm', { locale: tr }) : '';
 
     const handleStatusUpdate = async (status: Appointment['status']) => {
         try {
@@ -91,6 +112,15 @@ export default function AppointmentDetailModal({ isOpen, onClose, appointment, o
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-border">
+                                <Calendar className="w-5 h-5 text-primary mt-1" />
+                                <div>
+                                    <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">TARİH</p>
+                                    <p className="text-sm font-black text-text-main">
+                                        {format(new Date(appointment.start_time), 'd MMM yyyy', { locale: tr })}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-border">
                                 <Clock className="w-5 h-5 text-primary mt-1" />
                                 <div>
                                     <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">SAAT</p>
@@ -99,22 +129,48 @@ export default function AppointmentDetailModal({ isOpen, onClose, appointment, o
                                     </p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-border">
                                 <Tag className="w-5 h-5 text-primary mt-1" />
                                 <div>
                                     <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">PERSONEL</p>
-                                    <p className="text-sm font-black text-text-main">{appointment.staff_name || 'Atanmamış'}</p>
+                                    <p className="text-sm font-black text-text-main">{appointment.staff_name || appointment.staff?.name || 'Atanmamış'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-border">
+                                <CheckCircle2 className="w-5 h-5 text-primary mt-1" />
+                                <div>
+                                    <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">HİZMET</p>
+                                    <p className="text-sm font-black text-text-main">
+                                        {appointment.service?.global_service?.name || appointment.title?.split('·')[1]?.trim() || 'Hizmet Detayı Yok'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-border">
-                            <CheckCircle2 className="w-5 h-5 text-primary mt-1" />
-                            <div>
-                                <p className="text-[10px] font-black text-text-muted uppercase tracking-wider">HİZMET</p>
-                                <p className="text-sm font-black text-text-main">{appointment.title.split('-')[1]?.trim() || 'Hizmet Detayı Yok'}</p>
+                        {/* Onay / İptal izi — kim, ne zaman */}
+                        {(appointment.approved_at || appointment.cancelled_at) && (
+                            <div className="space-y-2">
+                                {appointment.approved_at && (
+                                    <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-700">
+                                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                        <p className="text-xs font-bold">
+                                            {actorNames.approver ? `${actorNames.approver} onayladı` : 'Onaylandı'} · {fmtDateTime(appointment.approved_at)}
+                                        </p>
+                                    </div>
+                                )}
+                                {appointment.cancelled_at && (
+                                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100 text-red-600">
+                                        <XCircle className="w-4 h-4 shrink-0" />
+                                        <p className="text-xs font-bold">
+                                            {actorNames.canceller ? `${actorNames.canceller} iptal etti` : 'İptal edildi'} · {fmtDateTime(appointment.cancelled_at)}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Action Buttons */}

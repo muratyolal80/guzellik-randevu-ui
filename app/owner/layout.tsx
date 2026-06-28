@@ -25,6 +25,7 @@ import {
     Wallet,
     Package,
     ChevronDown,
+    ClipboardList,
 } from 'lucide-react';
 
 const OwnerSidebar: React.FC = () => {
@@ -53,6 +54,7 @@ const OwnerSidebar: React.FC = () => {
             items: [
                 { name: 'Salonlarım', path: '/owner/salons', icon: Store },
                 { name: 'Saha Takvimi', path: '/owner/calendar', icon: Calendar },
+                { name: 'Randevular', path: '/owner/appointments', icon: ClipboardList },
             ]
         },
         {

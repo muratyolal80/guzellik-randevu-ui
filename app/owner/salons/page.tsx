@@ -18,11 +18,28 @@ import {
     LayoutGrid,
     PowerOff,
     Ban,
-    Trash2
+    Trash2,
+    FileEdit,
+    Clock3,
+    Lock
 } from 'lucide-react';
 import Link from 'next/link';
 
-type TabType = 'ACTIVE' | 'PASSIVE';
+type TabType = 'ACTIVE' | 'PENDING' | 'DRAFT' | 'REJECTED' | 'PASSIVE';
+
+// Salon yaşam döngüsü sekmeleri. Her sekme bir veya daha fazla DB status'una karşılık gelir.
+//   DRAFT      → bilgi girişi tamamlanmamış taslak
+//   SUBMITTED  → admin onayına gönderilmiş (PENDING eşanlamlı tutuldu)
+//   APPROVED   → admin onayladı, sistemde aktif
+//   REJECTED / REVISION_REQUESTED → admin reddetti / revizyon istedi
+//   SUSPENDED / PASSIVE → sahibi pasife aldı
+const SALON_TABS: { key: TabType; label: string; icon: React.ElementType; statuses: string[] }[] = [
+    { key: 'ACTIVE',   label: 'Aktif',         icon: CheckCircle2, statuses: ['APPROVED'] },
+    { key: 'PENDING',  label: 'Onay Bekliyor', icon: Clock3,       statuses: ['SUBMITTED', 'PENDING'] },
+    { key: 'DRAFT',    label: 'Taslak',        icon: FileEdit,     statuses: ['DRAFT'] },
+    { key: 'REJECTED', label: 'Reddedildi',    icon: XCircle,      statuses: ['REJECTED', 'REVISION_REQUESTED'] },
+    { key: 'PASSIVE',  label: 'Pasif',         icon: PowerOff,     statuses: ['SUSPENDED', 'PASSIVE'] },
+];
 
 export default function OwnerSalonsPage() {
     const { user } = useAuth();
@@ -81,10 +98,13 @@ export default function OwnerSalonsPage() {
                 return { label: 'Pasif', color: 'text-gray-600', bg: 'bg-gray-100', icon: Ban };
             case 'DELETED':
                 return { label: 'Silindi', color: 'text-red-700', bg: 'bg-red-100', icon: Trash2 };
+            case 'DRAFT':
+                return { label: 'Taslak', color: 'text-gray-600', bg: 'bg-gray-100', icon: FileEdit };
             case 'SUBMITTED':
-                return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: AlertCircle };
+            case 'PENDING':
+                return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock3 };
             default:
-                return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: AlertCircle };
+                return { label: 'Onay Bekliyor', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock3 };
         }
     };
 
@@ -109,33 +129,26 @@ export default function OwnerSalonsPage() {
         }
     };
 
-    const handleDelete = async (salonId: string) => {
-        const confirmText = 'Bu salonu tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm veriler (personel, hizmetler, geçmiş randevular) silinecektir.';
-        if (!confirm(confirmText)) return;
-
-        const finalConfirm = prompt('Silmek için "SIL" yazın:');
-        if (finalConfirm !== 'SIL') return;
-
-        try {
-            // We use hard delete as requested for "full silme"
-            await SalonDataService.deleteSalon(salonId);
-            alert('Salon başarıyla silindi.');
-            fetchSalons();
-        } catch (error: any) {
-            console.error('Delete error:', error);
-            alert('Silme işlemi sırasında bir hata oluştu: ' + error.message);
-        }
+    // Güvenlik politikası: Salon KALICI silme yalnızca yöneticiye aittir.
+    // (CLAUDE.md — owner 'salons' tablosunda DELETE yapamaz; pasife alma yapılır.)
+    // Owner'a silme yerine doğru yolu açıklayan bir bilgilendirme gösterilir.
+    const handleDeleteInfo = () => {
+        alert(
+            'Salonu kalıcı olarak silme işlemi yalnızca platform yöneticisi tarafından yapılabilir.\n\n' +
+            '• Salonunuzu kullanım dışı bırakmak isterseniz "Pasife Al"ı kullanın (randevulara kapanır, dilediğinizde tekrar aktive edebilirsiniz).\n' +
+            '• Kalıcı silme gerekiyorsa Destek üzerinden talep oluşturun; yönetici verileri kontrol edip işlemi gerçekleştirir.'
+        );
     };
 
-    // Filter salons based on active tab and exclude deleted ones
-    const filteredSalons = salons.filter(salon => {
-        if (salon.status === 'DELETED') return false;
-        if (activeTab === 'ACTIVE') {
-            return (salon.status as any) !== 'SUSPENDED' && (salon.status as any) !== 'PASSIVE';
-        } else {
-            return (salon.status as any) === 'SUSPENDED' || (salon.status as any) === 'PASSIVE';
-        }
-    });
+    // Filter salons by the active lifecycle tab (DELETED her zaman gizli).
+    const currentTab = SALON_TABS.find(t => t.key === activeTab) ?? SALON_TABS[0];
+    const filteredSalons = salons.filter(
+        salon => salon.status !== 'DELETED' && currentTab.statuses.includes(salon.status as string)
+    );
+    const tabCount = (key: TabType): number => {
+        const t = SALON_TABS.find(x => x.key === key);
+        return t ? salons.filter(s => t.statuses.includes(s.status as string)).length : 0;
+    };
 
     if (loading) {
         return (
@@ -173,40 +186,32 @@ export default function OwnerSalonsPage() {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-2 p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-fit border border-gray-200">
-                <button
-                    onClick={() => setActiveTab('ACTIVE')}
-                    className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-                        activeTab === 'ACTIVE'
-                            ? 'bg-white text-primary shadow-sm border border-gray-100'
-                            : 'text-text-secondary hover:text-text-main'
-                    }`}
-                >
-                    <CheckCircle2 className={`w-4 h-4 ${activeTab === 'ACTIVE' ? 'text-primary' : 'text-gray-400'}`} />
-                    Aktif Salonlarım
-                    <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
-                        activeTab === 'ACTIVE' ? 'bg-primary/10 text-primary' : 'bg-gray-200 text-gray-500'
-                    }`}>
-                        {salons.filter(s => s.status !== 'SUSPENDED').length}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('PASSIVE')}
-                    className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-                        activeTab === 'PASSIVE'
-                            ? 'bg-white text-gray-700 shadow-sm border border-gray-100'
-                            : 'text-text-secondary hover:text-text-main'
-                    }`}
-                >
-                    <PowerOff className={`w-4 h-4 ${activeTab === 'PASSIVE' ? 'text-gray-700' : 'text-gray-400'}`} />
-                    Pasif Salonlarım
-                    <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
-                        activeTab === 'PASSIVE' ? 'bg-gray-200 text-gray-700' : 'bg-gray-200 text-gray-500'
-                    }`}>
-                        {salons.filter(s => s.status === 'SUSPENDED').length}
-                    </span>
-                </button>
+            {/* Tabs — salon yaşam döngüsü */}
+            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-fit border border-gray-200">
+                {SALON_TABS.map((tab) => {
+                    const isActive = activeTab === tab.key;
+                    const count = tabCount(tab.key);
+                    const Icon = tab.icon;
+                    return (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`px-4 md:px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                                isActive
+                                    ? 'bg-white text-primary shadow-sm border border-gray-100'
+                                    : 'text-text-secondary hover:text-text-main'
+                            }`}
+                        >
+                            <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
+                            {tab.label}
+                            <span className={`ml-0.5 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                isActive ? 'bg-primary/10 text-primary' : 'bg-gray-200 text-gray-500'
+                            }`}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Salons Grid */}
@@ -285,11 +290,11 @@ export default function OwnerSalonsPage() {
                                                         <PowerOff className="w-4 h-4 md:w-5 md:h-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDelete(salon.id)}
-                                                        className="w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100"
-                                                        title="Salonu Tamamen Sil"
+                                                        onClick={handleDeleteInfo}
+                                                        className="w-10 h-10 md:w-11 md:h-11 shrink-0 flex items-center justify-center bg-gray-50 text-gray-400 rounded-xl hover:bg-gray-100 hover:text-gray-600 transition-colors border border-border"
+                                                        title="Kalıcı silme yalnızca yönetici tarafından yapılır"
                                                     >
-                                                        <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                                                        <Lock className="w-4 h-4 md:w-5 md:h-5" />
                                                     </button>
                                                 </>
                                             )}
@@ -302,21 +307,27 @@ export default function OwnerSalonsPage() {
                 ) : (
                     <div className="col-span-full py-20 bg-white rounded-[40px] border-2 border-dashed border-border flex flex-col items-center justify-center text-center space-y-4">
                         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400">
-                            {activeTab === 'ACTIVE' ? <Store className="w-8 h-8" /> : <PowerOff className="w-8 h-8" />}
+                            <currentTab.icon className="w-8 h-8" />
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-text-main">
-                                {activeTab === 'ACTIVE' ? "Henüz aktif bir salonunuz yok" : "Pasif salonunuz bulunmuyor"}
+                                {`${currentTab.label} durumunda salon yok`}
                             </h3>
                             <p className="text-text-secondary text-sm max-w-sm mx-auto">
-                                {activeTab === 'ACTIVE' 
-                                    ? "Hemen ilk salonunuzu ekleyerek randevu almaya başlayabilirsiniz." 
-                                    : "Pasif hale getirilen salonlar burada listelenir."}
+                                {activeTab === 'ACTIVE'
+                                    ? "Onaylanmış (aktif) salonlarınız burada listelenir."
+                                    : activeTab === 'PENDING'
+                                    ? "Yönetici onayına gönderdiğiniz salonlar burada bekler."
+                                    : activeTab === 'DRAFT'
+                                    ? "Bilgi girişi tamamlanmamış taslak salonlar burada görünür."
+                                    : activeTab === 'REJECTED'
+                                    ? "Reddedilen veya revizyon istenen salonlar burada listelenir."
+                                    : "Pasife aldığınız salonlar burada listelenir."}
                             </p>
                         </div>
                         {activeTab === 'ACTIVE' && (
                             <Link href="/owner/onboarding" className="px-8 py-3 bg-primary text-white font-bold rounded-2xl shadow-lg hover:bg-primary-hover transition-all">
-                                İlk Salonu Ekle
+                                Yeni Salon Ekle
                             </Link>
                         )}
                     </div>

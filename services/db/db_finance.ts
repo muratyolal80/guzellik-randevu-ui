@@ -548,11 +548,13 @@ export const SubscriptionService = {
         // limiti doldurmamalı (kullanıcı bir salonu pasif edip yenisini açabilir).
         // NOT: Bu uygulamada owner "pasif etme" salonu SUSPENDED yapar (UI'da "Pasif"
         // olarak gösterilir); PASSIVE/DELETED ile birlikte bunu da hariç tutuyoruz.
+        // DRAFT da henüz yayında olmayan, onboarding'i süren salondur → canlı bir
+        // şube slotu işgal etmez (yoksa tamamlanmakta olan taslak kendi limitini doldurur).
         const { count } = await supabase
           .from("salons")
           .select("*", { count: "exact", head: true })
           .eq("owner_id", currentSalon.owner_id)
-          .not("status", "in", "(DELETED,PASSIVE,SUSPENDED)");
+          .not("status", "in", "(DELETED,PASSIVE,SUSPENDED,DRAFT)");
         current = count || 0;
       } else {
         current = 1;
@@ -836,10 +838,31 @@ export const SubscriptionService = {
       finalOwnerId = salon?.owner_id;
     }
 
+    // 2b. salon_id'yi çöz. KRİTİK: tüm abonelik sorguları (getOwnerSubscriptionHistory,
+    //     getSalonSubscription, checkLimit) ve owner RLS'i (owner_see_own_subscription)
+    //     salon_id TABANLI. salon_id=null bir abonelik hem owner'a hem ekranlara GÖRÜNMEZ
+    //     (orphan). Bu yüzden salonId verilmediyse owner'ın salonuna bağla.
+    let finalSalonId: string | null = salonId || null;
+    if (!finalSalonId && finalOwnerId) {
+      const { data: ownerSalons } = await supabase
+        .from('salons')
+        .select('id, status')
+        .eq('owner_id', finalOwnerId)
+        .not('status', 'eq', 'DELETED')
+        .order('created_at', { ascending: true });
+      if (ownerSalons && ownerSalons.length > 0) {
+        // Tercih sırası: APPROVED (canlı) > SUBMITTED (onayda) > en eski salon
+        finalSalonId =
+          ownerSalons.find((s: any) => s.status === 'APPROVED')?.id ||
+          ownerSalons.find((s: any) => s.status === 'SUBMITTED')?.id ||
+          ownerSalons[0].id;
+      }
+    }
+
     // 3. Aboneliği oluştur veya güncelle
     let existingSub = null;
-    if (salonId) {
-       const { data } = await supabase.from('subscriptions').select('id').eq('salon_id', salonId).maybeSingle();
+    if (finalSalonId) {
+       const { data } = await supabase.from('subscriptions').select('id').eq('salon_id', finalSalonId).maybeSingle();
        existingSub = data;
     } else if (finalOwnerId) {
        const { data } = await supabase.from('subscriptions').select('id').eq('owner_id', finalOwnerId).maybeSingle();
@@ -847,7 +870,7 @@ export const SubscriptionService = {
     }
 
     const subPayload = {
-      salon_id: salonId || null,
+      salon_id: finalSalonId,
       owner_id: finalOwnerId || null,
       plan_id: planId,
       status: "ACTIVE",
@@ -880,7 +903,7 @@ export const SubscriptionService = {
 
     // 4. Ödeme geçmişine "Sistem Ataması" olarak ekle
     await supabase.from("payment_history").insert({
-      salon_id: salonId || null,
+      salon_id: finalSalonId,
       owner_id: finalOwnerId || null,
       subscription_id: subscription.id,
       amount: billingCycle === "YEARLY" ? planData.price_yearly : planData.price_monthly,

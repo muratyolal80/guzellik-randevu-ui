@@ -320,14 +320,16 @@ export const NotificationService = {
     notification: Omit<Notification, "id" | "created_at" | "is_read">,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Notification> {
-    // Map TypeScript field names to actual DB column names
+    // notifications tablosunun GERÇEK kolonları: content, link (message/action_url DEĞİL).
+    // Eski eşleme yanlış kolon adlarına yazıyordu → 'content' NOT NULL ihlali + bilinmeyen
+    // kolon → insert her zaman boş "{}" hatasıyla patlıyordu (admin onayında bildirim gitmiyordu).
     const dbPayload = {
       user_id: notification.user_id,
-      salon_id: notification.salon_id,
+      salon_id: notification.salon_id ?? null,
       title: notification.title,
-      message: notification.content,
+      content: notification.content,
       type: notification.type,
-      action_url: notification.link,
+      link: notification.link ?? null,
       is_read: false,
       created_at: new Date().toISOString(),
     };
@@ -376,6 +378,13 @@ export const AuditLogService = {
   }): Promise<void> {
     const { supabase: passedSupabase, ...logData } = log as any;
     const client = passedSupabase || defaultSupabase;
+
+    // audit_logs salon-kapsamlıdır (salon_id NOT NULL). Salon bağlamı olmayan
+    // işlemlerde (ör. müşterinin kendi profilini/doğum tarihini güncellemesi)
+    // salon_id boş gelir → NOT NULL ihlali → sessiz boş "{}" hatası. Bu tür
+    // işlemleri loglamak anlamsız; salon_id yoksa sessizce atla.
+    if (!logData.salon_id) return;
+
     const { error } = await client.from("audit_logs").insert(logData);
 
     if (error) {

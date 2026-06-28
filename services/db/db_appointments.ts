@@ -34,7 +34,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
 } from "@/types";
-import { AuditLogService } from "./db_support";
+import { AuditLogService, NotificationService } from "./db_support";
 import { ServiceService } from "./db_staff";
 import { ResourceService } from "./db_resource";
 
@@ -77,7 +77,14 @@ export const AppointmentService = {
   ): Promise<Appointment[]> {
     let query = supabase
       .from("appointments")
-      .select("*")
+      .select(`
+        *,
+        staff:staff_id ( id, name ),
+        service:salon_service_id (
+          id, duration_min, price,
+          global_service:global_service_id ( id, name )
+        )
+      `)
       .eq("salon_id", salonId);
 
     if (startDate) {
@@ -290,7 +297,22 @@ export const AppointmentService = {
     salonId?: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Appointment> {
-    let query = supabase.from("appointments").update({ status }).eq("id", id);
+    // Onaylama/iptal işleminde KİM ve NE ZAMAN bilgisini iz olarak tut.
+    const updatePayload: Record<string, unknown> = { status };
+    if (status === "CONFIRMED" || status === "CANCELLED") {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const actorId = sessionData?.session?.user?.id || null;
+      const nowIso = new Date().toISOString();
+      if (status === "CONFIRMED") {
+        updatePayload.approved_by = actorId;
+        updatePayload.approved_at = nowIso;
+      } else {
+        updatePayload.cancelled_by = actorId;
+        updatePayload.cancelled_at = nowIso;
+      }
+    }
+
+    let query = supabase.from("appointments").update(updatePayload).eq("id", id);
 
     if (salonId) {
       query = query.eq("salon_id", salonId);
@@ -311,6 +333,28 @@ export const AppointmentService = {
       }).catch((err) =>
         console.error("[AuditLog] Failed to log status update:", err),
       );
+    }
+
+    // Müşteriye bildirim gönder (yalnızca üye müşteri = customer_id varsa).
+    if ((status === "CONFIRMED" || status === "CANCELLED") && data?.customer_id) {
+      const dt = new Date(data.start_time).toLocaleString("tr-TR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      NotificationService.sendNotification(
+        {
+          user_id: data.customer_id,
+          salon_id: salonId,
+          title: status === "CONFIRMED" ? "Randevunuz Onaylandı" : "Randevunuz İptal Edildi",
+          content:
+            status === "CONFIRMED"
+              ? `${dt} tarihli randevunuz onaylandı. Sizi bekliyoruz!`
+              : `${dt} tarihli randevunuz iptal edildi.`,
+          type: "APPOINTMENT",
+          link: "/appointments",
+        },
+        supabase,
+      ).catch((err) => console.error("[Bildirim] Randevu durumu gönderilemedi:", err));
     }
 
     return data;

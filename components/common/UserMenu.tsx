@@ -37,11 +37,27 @@ export const UserMenu: React.FC = () => {
         );
     }
 
-    const displayName = user.first_name
-        ? `${user.first_name} ${user.last_name || ''}`.trim()
-        : ((user as any).user_metadata?.first_name ? `${(user as any).user_metadata.first_name} ${(user as any).user_metadata.last_name || ''}`.trim() : user.email?.split('@')[0] || 'Kullanıcı');
+    // OTP ile kayıtta auth email'i sentetik olabiliyor: "<telefon>@pending.user".
+    // Bunu split edip "5323334455" gösterMEK yerine; önce ismi, yoksa temiz formatlı
+    // telefonu göster (isim profile'da; flaky oturumda yüklenmezse telefona düşeriz).
+    const meta = (user as any).user_metadata || {};
+    const rawEmail = user.email || '';
+    const isSyntheticEmail = rawEmail === '' || rawEmail.endsWith('@pending.user');
+    const formatPhone = (p?: string) => {
+        if (!p) return '';
+        const d = p.replace(/\D/g, '').replace(/^90/, '');
+        return d.length === 10
+            ? `0${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 8)} ${d.slice(8)}`
+            : p;
+    };
+    const displayName =
+        (user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') ||
+        (meta.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : '') ||
+        (!isSyntheticEmail ? rawEmail.split('@')[0] : '') ||
+        formatPhone(user.phone) ||
+        'Müşteri';
 
-    const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${displayName}&background=random`;
+    const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
 
     const handleSignOut = async () => {
         await signOut();
@@ -71,7 +87,7 @@ export const UserMenu: React.FC = () => {
                 <div className="p-2">
                     <div className="px-4 py-2 border-b border-gray-100 mb-2 md:hidden">
                         <p className="text-sm font-bold text-gray-900 truncate">{displayName}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{isSyntheticEmail ? formatPhone(user.phone) : rawEmail}</p>
                     </div>
 
                     {/* Role Based Links */}

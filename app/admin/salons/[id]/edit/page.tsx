@@ -139,6 +139,20 @@ export default function AdminEditSalonPage() {
         }
     };
 
+    // Otomatik konum güncelleme (debounced) — şehir/ilçe/adres değişince haritayı senkronla.
+    // Owner salon düzenleme ekranındaki davranışın aynısı.
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (!formData.city_id || !formData.district_id) return;
+            // En az şehir + ilçe + bir adres parçası varsa otomatik geocode.
+            if (formData.neighborhood || formData.avenue || formData.street) {
+                handleGeocode(false);
+            }
+        }, 800);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.city_id, formData.district_id, formData.neighborhood, formData.avenue, formData.street]);
+
     const fetchMasterData = async () => {
         try {
             const [citiesData, typesData] = await Promise.all([
@@ -318,17 +332,129 @@ export default function AdminEditSalonPage() {
                                                 className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
                                             />
                                         </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Sokak</label>
+                                            <input
+                                                type="text"
+                                                value={formData.street}
+                                                onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Kapı No</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.building_no}
+                                                    onChange={(e) => setFormData({ ...formData, building_no: e.target.value })}
+                                                    className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Daire No</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.apartment_no}
+                                                    onChange={(e) => setFormData({ ...formData, apartment_no: e.target.value })}
+                                                    className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">İşletme Telefonu</label>
+                                            <input
+                                                type="tel"
+                                                value={formData.phone}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                placeholder="0212 000 00 00"
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">İşletme Tipi</label>
+                                            <select
+                                                value={formData.primary_type_id}
+                                                onChange={(e) => setFormData({ ...formData, primary_type_id: e.target.value, type_id: e.target.value })}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold"
+                                            >
+                                                <option value="">Seçiniz</option>
+                                                {salonTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Açıklama</label>
+                                            <textarea
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                rows={3}
+                                                placeholder="İşletme hakkında kısa tanıtım..."
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold resize-none"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="bg-white p-8 rounded-3xl border border-border shadow-sm">
-                                    <h3 className="text-lg font-black mb-6">Konum (Harita)</h3>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-black">Konum (Harita)</h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleGeocode(false)}
+                                            disabled={isGeocoding || !formData.city_id || !formData.district_id}
+                                            className="text-[11px] font-black uppercase tracking-widest text-primary hover:underline disabled:opacity-40"
+                                        >
+                                            {isGeocoding ? 'Bulunuyor...' : 'Adresten Konumu Güncelle'}
+                                        </button>
+                                    </div>
+                                    {/* Manuel adres arama */}
+                                    <div className="flex gap-2 mb-4">
+                                        <input
+                                            type="text"
+                                            value={manualSearchQuery}
+                                            onChange={(e) => setManualSearchQuery(e.target.value)}
+                                            placeholder="Adres ara (örn: Bağdat Caddesi, Maltepe)"
+                                            className="flex-1 px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold text-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => manualSearchQuery && handleGeocode(true, manualSearchQuery)}
+                                            disabled={isGeocoding || !manualSearchQuery}
+                                            className="px-5 py-3 bg-primary text-white rounded-xl font-black text-sm disabled:opacity-40 whitespace-nowrap"
+                                        >
+                                            Bul
+                                        </button>
+                                    </div>
                                     <div className="h-[400px] rounded-2xl overflow-hidden border border-border relative z-0">
                                         <AdminSalonMap
                                             center={[formData.geo_latitude, formData.geo_longitude]}
                                             markerPosition={{ lat: formData.geo_latitude, lng: formData.geo_longitude }}
                                             onLocationSelect={(lat, lng) => setFormData({ ...formData, geo_latitude: lat, geo_longitude: lng })}
                                         />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-text-muted mt-2">Haritaya tıklayarak veya işaretçiyi sürükleyerek konumu elle ayarlayabilirsiniz.</p>
+                                    {/* Manuel enlem/boylam (admin tam kontrol) */}
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Enlem (Lat)</label>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={formData.geo_latitude}
+                                                onChange={(e) => setFormData({ ...formData, geo_latitude: parseFloat(e.target.value) || 0 })}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-text-muted uppercase mb-2 block">Boylam (Lng)</label>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={formData.geo_longitude}
+                                                onChange={(e) => setFormData({ ...formData, geo_longitude: parseFloat(e.target.value) || 0 })}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-border rounded-xl font-bold text-sm"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

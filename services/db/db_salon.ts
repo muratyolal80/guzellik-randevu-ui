@@ -431,18 +431,29 @@ export const SalonDataService = {
     let hijackedSalonId: string | null = null;
 
     if (!bypassLimitCheck && existingSalons && existingSalons.length > 0) {
-      const limitResult = await SubscriptionService.checkLimit(
-        existingSalons[0].id,
-        "branch",
-        supabase,
-      );
-      if (!limitResult.allowed) {
-        // If limit reached (e.g. 0 because no plan, or 1 on standard plan),
-        // gracefully hijack into an UPDATE if we only have 1 salon and it's not active
-        if (existingSalons.length === 1 && (limitResult.limit === 0 || existingSalons[0].status === 'PENDING' || existingSalons[0].status === 'SUBMITTED' || existingSalons[0].status === 'DRAFT')) {
-          console.warn("Hijacking createSalon to update existing pending salon to escape limit loops:", existingSalons[0].id);
-          hijackedSalonId = existingSalons[0].id;
-        } else {
+      // An in-progress salon (not yet live) can be reused instead of creating a
+      // duplicate: finishing onboarding of a draft is NOT "adding a new branch",
+      // so it must not be blocked by the branch limit. This also prevents orphan
+      // drafts when onboarding is restarted (e.g. incognito / lost localStorage),
+      // and works even when the owner also has inactive (SUSPENDED) salons.
+      const reusableStatuses = ["DRAFT", "PENDING", "SUBMITTED", "REVISION_REQUESTED"];
+      const inProgress = existingSalons.find((s) => reusableStatuses.includes(s.status));
+
+      if (inProgress) {
+        console.warn(
+          "Reusing in-progress salon instead of creating a new branch:",
+          inProgress.id,
+        );
+        hijackedSalonId = inProgress.id;
+      } else {
+        // Genuinely adding a new branch → enforce the plan's branch limit
+        // (counts live branches only; see SubscriptionService.checkLimit).
+        const limitResult = await SubscriptionService.checkLimit(
+          existingSalons[0].id,
+          "branch",
+          supabase,
+        );
+        if (!limitResult.allowed) {
           throw new Error(
             `SUBSCRIPTION_LIMIT_REACHED:BRANCH:${limitResult.limit}`,
           );
