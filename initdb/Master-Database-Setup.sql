@@ -484,3 +484,75 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS "Public Read Access" ON public.reviews;
     CREATE POLICY "Public Read Access" ON public.reviews FOR SELECT USING (true);
 EXCEPTION WHEN others THEN null; END $$;
+
+-- =============================================================================
+-- DESTEK / BİLDİRİM / AUDIT TABLOLARI (idempotent)
+-- New-24 ile konsolide edildi; sıfırdan deploy için Master'da da olmalı
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    salon_id    uuid REFERENCES public.salons(id) ON DELETE SET NULL,
+    title       text NOT NULL,
+    content     text NOT NULL,
+    type        text NOT NULL,
+    is_read     boolean DEFAULT false,
+    link        text,
+    created_at  timestamptz DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.notification_queue (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    salon_id      uuid REFERENCES public.salons(id) ON DELETE SET NULL,
+    channel       text NOT NULL,
+    recipient     text NOT NULL,
+    subject       text,
+    content       text NOT NULL,
+    template      text,
+    metadata      jsonb,
+    status        text DEFAULT 'PENDING',
+    scheduled_for timestamptz DEFAULT NOW(),
+    processed_at  timestamptz,
+    tries         integer DEFAULT 0,
+    last_error    text,
+    created_at    timestamptz DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    salon_id      uuid NOT NULL REFERENCES public.salons(id) ON DELETE CASCADE,
+    user_id       uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    action        text NOT NULL,
+    resource_type text NOT NULL,
+    resource_id   text,
+    changes       jsonb,
+    ip_address    text,
+    user_agent    text,
+    created_at    timestamptz DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    salon_id   uuid REFERENCES public.salons(id) ON DELETE CASCADE,
+    subject    text NOT NULL,
+    message    text NOT NULL,
+    category   text,
+    status     text DEFAULT 'OPEN',
+    priority   text DEFAULT 'NORMAL',
+    created_at timestamptz DEFAULT NOW(),
+    updated_at timestamptz DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.ticket_messages (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id   uuid NOT NULL REFERENCES public.support_tickets(id) ON DELETE CASCADE,
+    sender_id   uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    sender_role text,
+    content     text NOT NULL,
+    created_at  timestamptz DEFAULT NOW()
+);
+
+-- RLS + GRANT için New-24 migration'ı çalıştır.

@@ -324,8 +324,36 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         try {
             await StaffService.deleteStaff(staffId);
             setStaff(prev => prev.filter(s => s.id !== staffId));
-        } catch (err) {
+        } catch (err: any) {
+            // STAFF_HAS_APPOINTMENTS → pasif yapma fallback'i öner
+            if (err?.code === 'STAFF_HAS_APPOINTMENTS') {
+                const cnt = err?.appointmentCount ?? '';
+                const msg = cnt
+                    ? `Bu personel ${cnt} randevuya bağlı. Geçmiş kayıtları kaybetmemek için silinemez.\n\nPasif yapmak ister misiniz? Pasif personel listede gizlenir ama randevu geçmişi korunur.`
+                    : 'Bu personel başka kayıtlara bağlı, silinemez.\n\nPasif yapmak ister misiniz? Listede gizlenir ama geçmiş korunur.';
+                if (window.confirm(msg)) {
+                    try {
+                        await StaffService.deactivateStaff(staffId);
+                        setStaff(prev => prev.map(s => s.id === staffId ? { ...s, is_active: false } : s));
+                    } catch (deactivateErr: any) {
+                        // RLS engeli (yetki) — net mesaj
+                        const code = deactivateErr?.code;
+                        if (code === '42501' || code === 'PGRST301') {
+                            alert('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel pasifleştirebilir.');
+                        } else {
+                            alert(`Pasif yapılamadı: ${deactivateErr?.message || 'Bilinmeyen hata'}`);
+                        }
+                    }
+                }
+                return;
+            }
+            // RLS engeli
+            if (err?.code === '42501' || err?.code === 'PGRST301') {
+                alert('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel silebilir.');
+                return;
+            }
             console.error('Silme hatası:', err);
+            alert(`Silme başarısız: ${err?.message || 'Bilinmeyen hata'}`);
         }
     };
 

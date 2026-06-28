@@ -176,7 +176,31 @@ GRANT SELECT ON public.<tbl> TO authenticated;
 GRANT SELECT ON public.<tbl> TO anon;  -- public okuma gerekiyorsa
 ```
 
-**Referans çözümler:** `New-09-Service-Role-Grants.sql` (service_role), `New-12-Notifications-Select-Grant.sql` (notifications), `New-14-Authenticated-Select-Grants-Audit.sql` (support + audit).
+**Referans çözümler:** `New-09-Service-Role-Grants.sql` (service_role), `New-12-Notifications-Select-Grant.sql` (notifications), `New-14-Authenticated-Select-Grants-Audit.sql` (support + audit), `New-22-Authenticated-CUD-Grants-Audit.sql` (kullanıcı CRUD tabloları için INSERT/UPDATE/DELETE).
+
+### ⚠️ KRİTİK: SELECT yetmez, INSERT/UPDATE/DELETE de gerek
+
+**`permission denied for table X`** runtime hatası gördüğünde semptom kesin: kullanıcı yazma operasyonu yapıyor ama `authenticated` rolünün `INSERT`/`UPDATE`/`DELETE` GRANT'ı yok. RLS politikası doğru olsa bile.
+
+| Operasyon | RLS Policy | GRANT Yeterli mi? | Eksikse Hata |
+|-----------|------------|--------------------|---------------|
+| SELECT | `USING (...)` | `GRANT SELECT` | Sessiz boş `{}` |
+| INSERT | `WITH CHECK (...)` | `GRANT INSERT` | `permission denied for table X` |
+| UPDATE | `USING + WITH CHECK` | `GRANT UPDATE` | `permission denied for table X` |
+| DELETE | `USING (...)` | `GRANT DELETE` | `permission denied for table X` |
+
+**Yeni tablo eklerken otomatik checklist** (her zaman uygula, dosyaya yaz):
+
+```sql
+ALTER TABLE public.<tbl> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "..." ON public.<tbl> FOR ALL TO authenticated USING (...);
+
+-- DAİMA — RLS satır seviyesinde korur, GRANT base erişim verir:
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tbl> TO authenticated;
+GRANT SELECT ON public.<tbl> TO anon;  -- public okuma gerekiyorsa
+```
+
+**Denetim:** `initdb/db-health-check.sql` Section 8b — kullanıcı CRUD tablolarında authenticated UPDATE GRANT'larını topluca kontrol eder. Her DB değişikliği sonrası çalıştır.
 
 ### DB Değişikliği Sonrası Denetim
 

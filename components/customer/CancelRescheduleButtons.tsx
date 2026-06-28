@@ -39,6 +39,7 @@ export function CancelRescheduleButtons({ appointment, onUpdate }: CancelResched
             if (error) throw error;
 
             await AuditService.log({
+                salon_id: appointment.salon_id,
                 action: 'UPDATE',
                 table_name: 'appointments',
                 record_id: appointment.id,

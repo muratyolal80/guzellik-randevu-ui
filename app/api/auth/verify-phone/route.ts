@@ -72,9 +72,17 @@ export async function POST(request: NextRequest) {
 
       console.log(`[verify-phone] Updated phone for logged-in user ${userId}`);
     } else {
-      // User is NOT logged in - find or create account
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = users.find(u => u.phone === e164Phone);
+      // User is NOT logged in - find or create account.
+      // Önceki kod: supabaseAdmin.auth.admin.listUsers() — TÜM kullanıcılar
+      // çekiliyordu, 100K+ kullanıcıda performans/payload katastrof + teorik
+      // enumeration. Direkt indexli sorgu çok daha güvenli ve hızlı.
+      const { data: phoneRows } = await supabaseAdmin
+        .schema('auth')
+        .from('users')
+        .select('id')
+        .eq('phone', e164Phone)
+        .limit(1);
+      const existingUser = phoneRows && phoneRows.length > 0 ? phoneRows[0] : null;
 
       if (existingUser) {
         userId = existingUser.id;

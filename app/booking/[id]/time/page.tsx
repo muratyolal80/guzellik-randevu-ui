@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { SalonDataService, StaffService, ServiceService } from '@/services/db';
+import { SalonDataService, StaffService, ServiceService, AppointmentService } from '@/services/db';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { GeminiChat } from '@/components/GeminiChat';
@@ -20,16 +20,68 @@ export default function TimeSelection() {
     salon: bookingSalon,
     setSalon: setBookingSalon,
     selectedServices,
+    setSelectedServices,
     selectedStaff: bookingStaff,
+    setSelectedStaff: setBookingStaff,
     selectedDate: persistedDate,
     selectedTime: persistedTime,
     setSelectedDate: setBookingDate,
     setSelectedTime: setBookingTime,
     appointmentId,
+    setAppointmentId,
     totalPrice: contextTotalPrice,
     discountAmount: contextDiscountAmount,
     activeCampaign
   } = useBooking();
+
+  // Yeniden Planla akışı: /time?appointmentId=X URL'den açıldıysa context'i kur.
+  // Aksi halde user-info'ya appointmentId boş geçer → backend YENİ randevu oluşturur
+  // (mevcudu güncellemek yerine) → çift kayıt sorunu.
+  const urlAppointmentId = searchParams.get('appointmentId');
+  useEffect(() => {
+    if (urlAppointmentId && urlAppointmentId !== appointmentId) {
+      setAppointmentId(urlAppointmentId);
+    }
+  }, [urlAppointmentId, appointmentId, setAppointmentId]);
+
+  // Recovery: BookingContext boşsa (örn. hard refresh, geri tuşu sonrası) URL'deki
+  // serviceId'den restore et. Aksi halde aşağıdaki guard /salon/{id}'ye yönlendirir.
+  const urlServiceId = searchParams.get('serviceId');
+  const [recovering, setRecovering] = useState(false);
+  useEffect(() => {
+    if (selectedServices.length === 0 && urlServiceId && !recovering) {
+      setRecovering(true);
+      ServiceService.getServiceById(urlServiceId)
+        .then((svc) => {
+          if (svc) setSelectedServices([svc]);
+        })
+        .catch((err) => console.warn('Time page service recovery failed:', err))
+        .finally(() => setRecovering(false));
+    }
+  }, [selectedServices.length, urlServiceId, recovering, setSelectedServices]);
+
+  // Reschedule Recovery: /time?appointmentId=X URL'inden gelinmişse serviceId yok.
+  // Mevcut randevudan service_id'yi çek, selectedServices'a doldur → guard
+  // /salon/{id}'ye yönlendirmez ve kullanıcı tarih/saat değiştirebilir.
+  useEffect(() => {
+    if (
+      urlAppointmentId &&
+      selectedServices.length === 0 &&
+      !urlServiceId &&
+      !recovering
+    ) {
+      setRecovering(true);
+      AppointmentService.getAppointmentById(urlAppointmentId)
+        .then(async (appt) => {
+          if (appt?.salon_service_id) {
+            const svc = await ServiceService.getServiceById(appt.salon_service_id);
+            if (svc) setSelectedServices([svc]);
+          }
+        })
+        .catch((err) => console.warn('Reschedule recovery failed:', err))
+        .finally(() => setRecovering(false));
+    }
+  }, [urlAppointmentId, selectedServices.length, urlServiceId, recovering, setSelectedServices]);
 
   const [salon, setSalon] = useState<SalonDetail | null>(bookingSalon);
   const [staff, setStaff] = useState<Staff | null>(bookingStaff);
@@ -92,16 +144,23 @@ export default function TimeSelection() {
     fetchAvailableSlots();
   }, [selectedDate, staff?.id, id, selectedServices]);
 
-  // Guard: hizmet seçimi yoksa adım 1'e yönlendir (kullanıcı direkt URL ile gelmiş veya
-  // sessionStorage temizlenmiş olabilir)
+  // Guard: hizmet seçimi yoksa adım 1'e yönlendir.
+  // URL'de serviceId veya appointmentId varsa recovery effect bunu çözmeye çalışır;
+  // recovering tamamlanana kadar bekle.
   useEffect(() => {
-    if (selectedServices.length === 0 && !loading) {
+    if (
+      selectedServices.length === 0 &&
+      !loading &&
+      !recovering &&
+      !urlServiceId &&
+      !urlAppointmentId
+    ) {
       const t = setTimeout(() => {
         router.replace(`/salon/${id}`);
       }, 100);
       return () => clearTimeout(t);
     }
-  }, [selectedServices.length, loading, id, router]);
+  }, [selectedServices.length, loading, id, router, recovering, urlServiceId, urlAppointmentId]);
 
   // Fetch data
   useEffect(() => {
@@ -126,23 +185,26 @@ export default function TimeSelection() {
           setServices([]);
         }
 
-        // Use booking context staff if available
+        // Use booking context staff if available; ALWAYS persist to context
+        // (user-info `selectedStaff!.id` non-null assertion'a göre).
         if (bookingStaff) {
           setStaff(bookingStaff);
         } else if (staffId && staffId !== 'any') {
           const staffData = await StaffService.getStaffById(staffId);
           if (staffData) {
-            setStaff({
+            const mapped = {
               ...staffData,
               image: staffData.photo || `https://i.pravatar.cc/150?u=${staffData.id}`,
               role: staffData.specialty || 'Uzman',
               rating: 4.5,
               isOnline: staffData.is_active
-            });
+            };
+            setStaff(mapped);
+            setBookingStaff(mapped);  // ← context'i de doldur, user-info kullanır
           }
         } else {
           // "Any staff" option
-          setStaff({
+          const anyStaff = {
             id: 'any',
             salon_id: id,
             name: 'Herhangi Bir Personel',
@@ -153,7 +215,9 @@ export default function TimeSelection() {
             rating: 0,
             image: 'https://i.pravatar.cc/150?u=any',
             isOnline: false
-          });
+          };
+          setStaff(anyStaff);
+          setBookingStaff(anyStaff);  // ← Any Staff de context'e gider
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -236,7 +300,9 @@ export default function TimeSelection() {
     if (staff?.id) params.set('staffId', staff.id);
     params.set('date', dateStr);
     params.set('time', selectedSlot);
-    if (appointmentId) params.set('appointmentId', appointmentId);
+    // appointmentId fallback: önce context, sonra URL — race condition koruması
+    const apptId = appointmentId || urlAppointmentId;
+    if (apptId) params.set('appointmentId', apptId);
 
     router.push(`/booking/${id}/user-info?${params.toString()}`);
   };

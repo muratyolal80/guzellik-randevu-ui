@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTenant } from '@/context/TenantContext';
 import { supabase } from '@/lib/supabase';
 import { AppointmentService } from '@/services/db';
+import PendingAppointmentsCard from '@/components/appointments/PendingAppointmentsCard';
 import {
     Clock,
     User,
@@ -124,6 +125,11 @@ export default function StaffDashboard() {
                     </span>
                 </div>
             </div>
+
+            {/* Mode B — Sadece bana atanmış PENDING randevular */}
+            {salonId && user?.id && (
+                <PendingAppointmentsCard salonId={salonId} onlyStaffUserId={user.id} />
+            )}
 
             {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

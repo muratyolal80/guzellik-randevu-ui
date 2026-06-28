@@ -1,46 +1,76 @@
 /**
  * Audit Service
- * Provides methods for manual audit logging from application code
+ * Provides methods for manual audit logging from application code.
+ *
+ * Tablo şeması (audit_logs):
+ *   salon_id NOT NULL, user_id, action, resource_type, resource_id, changes (jsonb)
+ *
+ * Eski API geriye dönük çağrı uyumluluğu için korunur — table_name → resource_type,
+ * record_id → resource_id, old_values+new_values → changes JSON.
  */
 
 import { supabase } from '@/lib/supabase';
 
 export interface AuditLogEntry {
+    salon_id?: string;            // şema NOT NULL ama bilmediğimiz durumda sessiz atla
     user_id?: string;
     action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACCESS' | 'EXPORT';
-    table_name: string;
-    record_id: string;
+    table_name: string;           // → resource_type'a map'lenir
+    record_id: string;            // → resource_id'a map'lenir
     old_values?: Record<string, any>;
     new_values?: Record<string, any>;
-    ip_address?: string;
-    user_agent?: string;
     description?: string;
 }
 
 export const AuditService = {
     /**
-     * Log an audit entry
+     * Log an audit entry via server-side /api/audit/log endpoint.
+     *
+     * Server route service_role ile çalışır → RLS race condition'larından
+     * etkilenmez. UI catch'siz çağırabilir; hata sessiz warn'a düşer.
+     *
+     * Eski şema (table_name/record_id/old/new_values) korunur — backend
+     * uygun formata map'ler.
      */
     async log(entry: AuditLogEntry): Promise<void> {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const changes =
+                entry.old_values || entry.new_values
+                    ? {
+                          old: entry.old_values || null,
+                          new: entry.new_values || null,
+                      }
+                    : null;
 
-            const { error } = await supabase.rpc('log_audit', {
-                p_user_id: entry.user_id || user?.id || null,
-                p_action: entry.action,
-                p_table_name: entry.table_name,
-                p_record_id: entry.record_id,
-                p_old_values: entry.old_values || null,
-                p_new_values: entry.new_values || null,
-                p_ip_address: entry.ip_address || null,
-                p_user_agent: entry.user_agent || (typeof navigator !== 'undefined' ? navigator.userAgent : null)
+            if (typeof window === 'undefined') {
+                // SSR/Server context — fetch yerine direct insert (admin)
+                console.warn('[AuditService] called from server — skipping (use API route directly)');
+                return;
+            }
+
+            const res = await fetch('/api/audit/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    salon_id: entry.salon_id,
+                    action: entry.action,
+                    resource_type: entry.table_name,
+                    resource_id: entry.record_id,
+                    changes,
+                    description: entry.description,
+                }),
             });
 
-            if (error) {
-                console.error('[AuditService] Failed to log audit:', error);
+            if (!res.ok) {
+                let detail = '';
+                try {
+                    const j = await res.json();
+                    detail = j?.error || '';
+                } catch { }
+                console.warn(`[AuditService] log failed (silent) ${res.status}: ${detail}`);
             }
-        } catch (err) {
-            console.error('[AuditService] Error logging audit:', err);
+        } catch (err: any) {
+            console.warn('[AuditService] threw (silent):', err?.message || err);
         }
     },
 
@@ -51,8 +81,8 @@ export const AuditService = {
         const { data, error } = await supabase
             .from('audit_logs')
             .select('*')
-            .eq('table_name', tableName)
-            .eq('record_id', recordId)
+            .eq('resource_type', tableName)
+            .eq('resource_id', recordId)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -95,15 +125,17 @@ export const AuditService = {
         appointmentId: string,
         oldStatus: string,
         newStatus: string,
-        userId?: string
+        userId?: string,
+        salonId?: string,
     ) {
         await this.log({
+            salon_id: salonId,
             user_id: userId,
             action: 'UPDATE',
             table_name: 'appointments',
             record_id: appointmentId,
             old_values: { status: oldStatus },
-            new_values: { status: newStatus }
+            new_values: { status: newStatus },
         });
     },
 
@@ -115,15 +147,17 @@ export const AuditService = {
         recordId: string,
         oldPrice: number,
         newPrice: number,
-        userId?: string
+        userId?: string,
+        salonId?: string,
     ) {
         await this.log({
+            salon_id: salonId,
             user_id: userId,
             action: 'UPDATE',
             table_name: tableName,
             record_id: recordId,
             old_values: { price: oldPrice },
-            new_values: { price: newPrice }
+            new_values: { price: newPrice },
         });
-    }
+    },
 };

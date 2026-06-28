@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
             salon_service_id: serviceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
-            status: 'PENDING',
+            status: 'PENDING', // Mode B: salon onayı bekler (staff/owner approve eder)
             notes: (notes || '') + ` [${appointmentId} nolu randevudan planlandı]`,
             deposit_amount: depositAmount,
           })
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
             salon_service_id: serviceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
-            status: 'PENDING', // Reset status to pending approval
+            status: 'PENDING', // Mode B: salon onayı bekler (reschedule sonrası yeniden onay)
             notes: notes || '',
             coupon_code: validCoupon?.code || null,
             campaign_rule_id: campaignRuleId || null,
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
           salon_service_id: serviceId,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
-          status: 'PENDING',
+          status: 'PENDING', // Mode B: salon onayı bekler (yeni randevu PENDING başlar)
           notes: notes || '',
           coupon_code: validCoupon?.code || null,
           campaign_rule_id: campaignRuleId || null,

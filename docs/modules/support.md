@@ -21,6 +21,19 @@ Kullanıcıların admin'le iletişim kurması (ticket sistemi), salon ve persone
 - ✅ **Yorum görsel ekleme** — `review_images` (her yoruma birden fazla foto)
 - ✅ **Updated_at trigger** — ticket güncelleme zamanı otomatik
 
+## Müşteri Arayüzü Zenginleştirme (2026-06-28)
+
+`/customer/support` ve `/customer/support/[id]` profesyonelleştirildi (DB değişikliği yok — mevcut `priority`/`updated_at` kolonları kullanıldı):
+
+- ✅ **Özet istatistik kartları** — Toplam / Açık / İşleniyor / Çözüldü sayıları
+- ✅ **Filtre + arama** — durum sekmeleri (Tümü/Açık/İşleniyor/Çözüldü), kategori filtresi, metin araması (konu/mesaj/#id)
+- ✅ **Öncelik UI** — oluşturma formunda öncelik seçimi + listede öncelik rozeti ve sol vurgu (önceden öncelik sadece DB'deydi, UI'da yoktu)
+- ✅ **Form validasyonu** — min konu/mesaj uzunluğu, karakter sayacı; başarı/hata `useToast` ile (native `alert` kaldırıldı)
+- ✅ **Skeleton yükleme** + hata durumu (boş durumdan ayrı, "Tekrar Dene")
+- ✅ **Sıralama** — aktif talepler önce, sonra `updated_at` azalan; göreli zaman ("3 sa önce")
+- ✅ **Detay: iyimser mesaj gönderimi** — mesaj anında görünür, hata olursa geri alınır; inline "Çözüldü" onayı (native `confirm` kaldırıldı)
+- ✅ **Ortak helper** — [lib/support.ts](../../lib/support.ts): durum/öncelik/kategori config + `formatRelativeTime`; müşteri + admin paneli paylaşır (3 yerdeki tekrar kaldırıldı)
+
 ## Veri Modeli
 | Tablo | Rol |
 |-------|-----|

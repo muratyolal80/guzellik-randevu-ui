@@ -138,9 +138,18 @@ export default function StaffSelection() {
   };
 
   const handleNext = () => {
-    if (selectedStaffId) {
-      router.push(`/booking/${id}/time`);
-    }
+    if (!selectedStaffId) return;
+    // selectedServices henüz boşsa serviceId'yi URL ile taşı — time sayfası recovery için kullanır.
+    // Aksi halde time sayfası guard'ı /salon/{id}'ye geri yönlendirir.
+    const params = new URLSearchParams();
+    const sid =
+      selectedServices[0]?.id ||
+      rescheduleServiceId ||
+      searchParams.get('serviceId');
+    if (sid) params.set('serviceId', sid);
+    if (selectedStaffId && selectedStaffId !== 'any') params.set('staffId', selectedStaffId);
+    const qs = params.toString();
+    router.push(`/booking/${id}/time${qs ? `?${qs}` : ''}`);
   };
 
   if (loading) {

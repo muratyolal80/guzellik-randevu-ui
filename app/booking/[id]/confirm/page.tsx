@@ -10,6 +10,62 @@ import type { SalonDetail, Staff, SalonServiceDetail, Appointment } from '@/type
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { downloadIcs } from '@/lib/calendar/ics';
+import PrintTicket from '@/components/booking/PrintTicket';
+import '@/components/booking/print-ticket.css';
+
+function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
+    const [loading, setLoading] = React.useState(false);
+    const [result, setResult] = React.useState<{ ok: boolean; msg: string } | null>(null);
+
+    const resend = async () => {
+        if (!appointmentId) return;
+        setLoading(true);
+        setResult(null);
+        try {
+            const r = await fetch(`/api/appointments/${appointmentId}/resend-sms`, { method: 'POST' });
+            const data = await r.json();
+            if (r.ok && data.success) {
+                setResult({ ok: true, msg: 'SMS yeniden gönderildi. Telefonu kontrol edin.' });
+            } else {
+                setResult({ ok: false, msg: data.error || 'Gönderilemedi.' });
+            }
+        } catch (e: any) {
+            setResult({ ok: false, msg: e?.message || 'Ağ hatası.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col gap-2 text-left">
+            <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                <div className="flex-1">
+                    <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                        Randevunuz oluşturuldu fakat SMS gönderiminde sorun yaşandı. Aşağıdaki butonla
+                        tekrar deneyebilir veya bu sayfanın çıktısını alarak salonu arayabilirsiniz.
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={resend}
+                    disabled={loading || !appointmentId}
+                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                >
+                    <span className="material-symbols-outlined text-base">sms</span>
+                    {loading ? 'Gönderiliyor...' : 'SMS Tekrar Gönder'}
+                </button>
+                {result && (
+                    <span className={`text-xs font-bold ${result.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {result.msg}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default function Confirmation() {
     const params = useParams();
@@ -188,22 +244,25 @@ export default function Confirmation() {
                 <div className="w-full max-w-[900px]">
                     <div className="bg-white rounded-xl border border-border p-6 lg:p-10 shadow-card text-center">
                         <div className="mb-6">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <span className="material-symbols-outlined text-5xl text-green-600">check_circle</span>
+                            {/* Status'a göre dinamik başlık + ikon */}
+                            <div className={`w-20 h-20 ${appointment?.status === 'CONFIRMED' ? 'bg-green-100' : 'bg-amber-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                                <span className={`material-symbols-outlined text-5xl ${appointment?.status === 'CONFIRMED' ? 'text-green-600' : 'text-amber-600'}`}>
+                                    {appointment?.status === 'CONFIRMED' ? 'check_circle' : 'hourglass_top'}
+                                </span>
                             </div>
-                            <h1 className="text-3xl font-bold text-text-main">Randevunuz Onaylandi!</h1>
+                            <h1 className="text-3xl font-bold text-text-main">
+                                {appointment?.status === 'CONFIRMED'
+                                    ? 'Randevunuz Onaylandı!'
+                                    : 'Randevu Başvurunuz Alındı'}
+                            </h1>
                             <p className="text-text-secondary mt-2">
-                                Randevu detaylariniz asagidadir.{smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapilmistir.'}
+                                {appointment?.status === 'CONFIRMED'
+                                    ? `Randevu detaylarınız aşağıdadır.${smsFailed ? '' : ' Telefonunuza SMS ile de bilgilendirme yapılmıştır.'}`
+                                    : `Salonun onayı bekleniyor. Onaylandığında size SMS ile bilgi verilecek.${smsFailed ? '' : ' Başvurunuz salona iletildi.'}`}
                             </p>
 
                             {smsFailed && (
-                                <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-left">
-                                    <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
-                                    <div>
-                                        <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
-                                        <p className="text-xs text-amber-700 mt-0.5">Randevunuz oluşturuldu fakat onay SMS'i gönderilemedi. Randevu bilgilerinizi bu sayfadan kontrol edip not alın. Salonu telefonla aramanızda fayda var.</p>
-                                    </div>
-                                </div>
+                                <SmsResendPanel appointmentId={searchParams.get('appointmentId') || appointment?.id || ''} />
                             )}
 
                             {/* User Status Badge */}
@@ -359,7 +418,7 @@ export default function Confirmation() {
 
                             {user && (
                                 <Link
-                                    href="/profile"
+                                    href="/customer/profile"
                                     className="px-8 py-3 bg-white border-2 border-primary text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <span className="material-symbols-outlined">person</span>
@@ -412,6 +471,24 @@ export default function Confirmation() {
                     </div>
                 </div>
             </div>
+
+            {/* Yazdırma için optimize edilmiş ticket — ekranda gizli, sadece print'te görünür */}
+            {/* appointment henüz yüklenmediyse BookingContext'ten enriched fallback obje üret */}
+            <PrintTicket
+                appointment={appointment || (selectedDate && selectedTime ? {
+                    id: searchParams.get('appointmentId') || 'pending',
+                    start_time: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+                    end_time: new Date(new Date(`${selectedDate}T${selectedTime}:00`).getTime() + 60 * 60 * 1000).toISOString(),
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    status: 'PENDING',
+                } as any : null)}
+                salon={salon}
+                staff={staff}
+                services={services}
+                customerName={customerName}
+                customerPhone={customerPhone}
+            />
         </Layout>
     );
 }

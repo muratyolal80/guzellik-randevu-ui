@@ -81,6 +81,25 @@ WHERE n.nspname = 'public'
   AND NOT has_table_privilege('authenticated', c.oid, 'SELECT')
 ORDER BY c.relname;
 
+-- 8b. Kullanıcı CRUD tablolarında authenticated UPDATE GRANT denetimi
+--     (CLAUDE.md RLS+GRANT ikilisi kuralı — INSERT/UPDATE/DELETE eksik olursa
+--      "permission denied for table X" runtime hatası verir. Bkz New-22.)
+\echo ''
+\echo '▶ 8b) Kullanici CRUD tablolari authenticated UPDATE GRANT eksik (BEKLENEN: 0):'
+SELECT c.relname AS tablename
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind = 'r'
+  AND c.relrowsecurity = true
+  AND c.relname IN (
+    'profiles', 'appointments', 'reviews', 'salons', 'salon_resources',
+    'salon_services', 'salon_working_hours', 'staff', 'working_hours',
+    'slot_reservations', 'salon_service_resources', 'appointment_resources'
+  )
+  AND NOT has_table_privilege('authenticated', c.oid, 'UPDATE')
+ORDER BY c.relname;
+
 -- 9. Uygulanan migration kayıtları
 \echo ''
 \echo '▶ 9) Uygulanan migration kayıtları (kronolojik, son 20):'

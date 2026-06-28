@@ -62,10 +62,11 @@ export const DashboardService = {
       0,
     ).toISOString();
 
+    // Hem CONFIRMED hem PENDING say — /customer/appointments upcoming tab ile tutarlı
     const upcomingQuery = supabase
       .from("appointments")
       .select("*", { count: "exact", head: true })
-      .eq("status", "CONFIRMED")
+      .in("status", ["CONFIRMED", "PENDING"])
       .gt("start_time", new Date().toISOString())
       .eq("customer_id", userId);
 
@@ -107,17 +108,102 @@ export const DashboardService = {
       `,
       )
       .gt("start_time", new Date().toISOString())
-      .eq("status", "CONFIRMED")
+      .in("status", ["CONFIRMED", "PENDING"])
       .eq("customer_id", userId)
       .order("start_time", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    const [upcoming, reviews, spending, nextAppt] = await Promise.all([
+    // Yıllık istatistik için 1 Ocak başlangıcı
+    const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
+
+    // Geçen ay yaklaşan sayımı (trend için)
+    const lastMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    ).toISOString();
+    const lastMonthSpendingQuery = supabase
+      .from("appointments")
+      .select("salon_service:salon_services(price)")
+      .in("status", ["CONFIRMED", "COMPLETED"])
+      .gte("start_time", lastMonthStart)
+      .lt("start_time", startOfMonth)
+      .eq("customer_id", userId);
+
+    // Yıllık tüm randevular (salon_id distinct için)
+    const yearlyQuery = supabase
+      .from("appointments")
+      .select(
+        "id, salon_id, status, salon_service:salon_services(price)",
+      )
+      .in("status", ["CONFIRMED", "COMPLETED"])
+      .gte("start_time", startOfYear)
+      .eq("customer_id", userId);
+
+    // Bekleyen değerlendirme: geçmiş COMPLETED + reviews'ta kaydı olmayan
+    const completedPastQuery = supabase
+      .from("appointments")
+      .select(
+        `
+        id, start_time, salon_id,
+        salon:salons(id, name, image),
+        service:salon_services(global_service:global_services(name))
+        `,
+      )
+      .in("status", ["COMPLETED", "CONFIRMED"])
+      .lt("start_time", new Date().toISOString())
+      .eq("customer_id", userId)
+      .order("start_time", { ascending: false })
+      .limit(10);
+
+    const allReviewsQuery = supabase
+      .from("reviews")
+      .select("appointment_id")
+      .eq("user_id", userId);
+
+    // Favori salonlar (en sık ziyaret)
+    const visitCountQuery = supabase
+      .from("appointments")
+      .select(
+        `
+        salon_id,
+        salon:salons(id, name, image, city:cities(name), district:districts(name))
+        `,
+      )
+      .in("status", ["CONFIRMED", "COMPLETED"])
+      .eq("customer_id", userId);
+
+    // Son ödemeler
+    const paymentsQuery = supabase
+      .from("payment_history")
+      .select("id, amount, payment_method, payment_type, status, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    const [
+      upcoming,
+      reviews,
+      spending,
+      nextAppt,
+      lastMonthSpending,
+      yearly,
+      completedPast,
+      allReviews,
+      visitCount,
+      payments,
+    ] = await Promise.all([
       upcomingQuery,
       reviewQuery,
       spendingQuery,
       nextAppointmentQuery,
+      lastMonthSpendingQuery,
+      yearlyQuery,
+      completedPastQuery,
+      allReviewsQuery,
+      visitCountQuery,
+      paymentsQuery,
     ]);
 
     const totalSpending =
@@ -126,11 +212,58 @@ export const DashboardService = {
         0,
       ) || 0;
 
+    const lastMonthTotal =
+      lastMonthSpending.data?.reduce(
+        (acc: number, curr: any) => acc + (curr.salon_service?.price || 0),
+        0,
+      ) || 0;
+
+    const yearlyData = yearly.data || [];
+    const yearlySpending = yearlyData.reduce(
+      (acc: number, curr: any) => acc + (curr.salon_service?.price || 0),
+      0,
+    );
+    const uniqueSalons = new Set(
+      yearlyData.map((a: any) => a.salon_id),
+    ).size;
+
+    // Bekleyen review: completed randevular - review'lanmış appointment_id'ler
+    const reviewedSet = new Set(
+      (allReviews.data || [])
+        .map((r: any) => r.appointment_id)
+        .filter(Boolean),
+    );
+    const pendingReviews = (completedPast.data || []).filter(
+      (a: any) => !reviewedSet.has(a.id),
+    );
+
+    // Sadakat: en çok ziyaret edilen salon
+    const visitMap = new Map<string, { salon: any; count: number }>();
+    (visitCount.data || []).forEach((a: any) => {
+      if (!a.salon_id) return;
+      const existing = visitMap.get(a.salon_id);
+      if (existing) existing.count++;
+      else visitMap.set(a.salon_id, { salon: a.salon, count: 1 });
+    });
+    const topLoyalty =
+      Array.from(visitMap.values()).sort((a, b) => b.count - a.count)[0] ||
+      null;
+
     return {
       upcomingCount: upcoming.count || 0,
       reviewCount: reviews.count || 0,
       monthlySpending: totalSpending,
       nextAppointment: nextAppt.data,
+      // Yeni alanlar
+      lastMonthSpending: lastMonthTotal,
+      spendingTrend: totalSpending - lastMonthTotal,
+      yearlyAppointmentCount: yearlyData.length,
+      yearlySpending,
+      uniqueSalonsThisYear: uniqueSalons,
+      pendingReviewCount: pendingReviews.length,
+      pendingReviews: pendingReviews.slice(0, 3),
+      topLoyalty,
+      recentPayments: payments.data || [],
     };
   },
 

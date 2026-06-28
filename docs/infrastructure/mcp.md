@@ -1,62 +1,64 @@
 # Altyapı: MCP & Geliştirme Akışı
 
 ## MCP Nedir?
-**Model Context Protocol** — Claude Code'un dış kaynaklara (DB, dosya sistemi, web) doğrudan erişmesini sağlayan standart. Bu projede:
+**Model Context Protocol** — Claude Code'un dış kaynaklara (DB, dosya sistemi, web) doğrudan erişmesini sağlayan standart. Bu projede 3 MCP kurulu:
 
-- **postgres MCP** — DB sorgu çalıştırma
-- **supabase MCP** — Supabase API yönetimi (cloud + self-hosted)
-- **magic MCP** — UI komponenti üretme (21st.dev)
-- **claude.ai Excalidraw** — diyagram (system MCP)
+- **postgres MCP** — ham SQL sorgu çalıştırma (tüm şema)
+- **supabase MCP** — PostgREST üzerinden tablo CRUD (REST API)
+- **supabase-storage MCP** — resim bucket'larında dosya yönetimi (özel, projeye ait)
 
 ## Konfigürasyon
 
-`~/.claude.json` dosyasında (kullanıcının home klasörü):
+Tüm MCP **kayıtları tek dosyada**: proje kökündeki **`.mcp.json`** (`mcpServers` objesi). Claude Code bir `mcp/` klasöründeki ayrı dosyaları **otomatik okumaz** — yalnızca `.mcp.json` (proje), `~/.claude.json` (kullanıcı) ve `.claude/settings.json` taranır. Özel bir MCP'nin **kodu** klasörde durabilir (`scripts/mcp/`), ama girişi yine `.mcp.json`'a yazılır. `.mcp.json` `.gitignore`'dadır → service key koymak güvenlidir.
+
 ```json
 {
   "mcpServers": {
-    "magic": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@21st-dev/magic@latest"],
-      "env": { "API_KEY": "..." }
-    },
-    "supabase": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase"],
-      "env": {
-        "SUPABASE_URL": "http://localhost:8000",
-        "SUPABASE_KEY": "<service_role_jwt>",
-        "SUPABASE_ACCESS_TOKEN": "<personal_access_token>"
-      }
-    },
     "postgres": {
-      "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:<password>@localhost:5432/postgres?sslmode=disable"
+        "postgresql://postgres:<password>@localhost:54322/postgres?sslmode=disable"
       ]
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y", "@supabase/mcp-server-postgrest",
+        "--apiUrl", "http://localhost:8000/rest/v1",
+        "--apiKey", "<service_role_jwt>",
+        "--schema", "public"
+      ]
+    },
+    "supabase-storage": {
+      "command": "node",
+      "args": ["scripts/mcp/supabase-storage-mcp.mjs"],
+      "env": {
+        "SUPABASE_URL": "http://localhost:8000",
+        "SUPABASE_SERVICE_ROLE_KEY": "<service_role_jwt>"
+      }
     }
   }
 }
 ```
 
-**Doğrulama:** Claude Code yeniden başlattıktan sonra `/mcp` komutu ile bağlı server'lar listelenir.
+**Etkinleştirme:** `.claude/settings.local.json` → `enabledMcpjsonServers` listesine üç server da eklenir (`enableAllProjectMcpServers: true` de yeterlidir).
+
+**Doğrulama:** Claude Code yeniden başlattıktan sonra `/mcp` komutu ile bağlı server'lar listelenir. `.mcp.json` değişiklikleri **ancak yeniden başlatınca** aktif olur.
 
 ## Bilinen Kısıtlar
 
-### postgres MCP — Pooler Sorunu
-Self-hosted Supabase kurulumunda `postgres` MCP `localhost:5432` üzerinden Supavisor pooler'a bağlanır. Pooler bazen `postgres` rolü yerine `postgres.<tenant>` formatı bekler — `Tenant or user not found` hatası verir.
+### postgres MCP — Pooler Portu (ÇÖZÜLDÜ)
+Host `localhost:5432` portu Supavisor **pooler**'a gider; pooler `postgres` rolü yerine `postgres.<tenant>` formatı beklediğinden `Tenant or user not found` hatası verir. Doğrudan postgres container'ı host'ta **`54322`** portuna map'lidir (`supabase-db` 5432 → host 54322).
 
-**Çözüm:** Pooler bypass için doğrudan supabase-db container'ına bağlan:
-```bash
-docker exec -i supabase-db psql -U postgres -d postgres < migration.sql
-```
+**Çözüm:** Bağlantı string'inde **`54322`** kullan (pooler bypass). Uçtan uca doğrulandı — query çalışıyor.
 
-### supabase MCP — Cloud-First
-`@supabase/mcp-server-supabase` Cloud Supabase'i yönetmek için tasarlandı. Self-hosted için bazı özellikler (project listing, advisors) yetersiz olabilir. SQL execute ve list_tables çalışır.
+### supabase MCP — Self-hosted için PostgREST
+Resmî `@supabase/mcp-server-supabase` **Cloud** içindir (`SUPABASE_ACCESS_TOKEN` + `project-ref` ister), self-hosted localhost'ta çalışmaz. Bunun yerine **`@supabase/mcp-server-postgrest`** kullanılır: Kong gateway'in REST endpoint'i (`:8000/rest/v1`) üzerinden `public` şemasındaki tablolara service_role ile CRUD yapar.
+
+### supabase-storage MCP — Özel server
+Storage API'sini saran küçük Node MCP'si: [scripts/mcp/supabase-storage-mcp.mjs](../../scripts/mcp/supabase-storage-mcp.mjs). Bağımlılık olarak yalnızca projedeki `@supabase/supabase-js`'i kullanır, JSON-RPC stdio'yu manuel konuşur. Araçlar: `list_buckets`, `create_bucket`, `delete_bucket`, `empty_bucket`, `list_files`, `upload_file`, `download_file`, `delete_files`, `move_file`, `copy_file`, `get_public_url`, `create_signed_url`, `create_signed_upload_url`. Bucket'lar: `avatars`, `salon-images`, `staff-photos`, `reviews`, `system-assets`.
 
 ## Geliştirme Akışı
 
@@ -84,8 +86,8 @@ docker exec -i supabase-db psql -U postgres -d postgres < migration.sql
 
 ```
 Docker container'lar:
-- supabase-db (PostgreSQL 15)        :5432 (pooler) / dahili
-- supabase-pooler (Supavisor)        :5432 / :6543
+- supabase-db (PostgreSQL 15)        :54322 (host → container 5432, DOĞRUDAN — MCP bunu kullanır)
+- supabase-pooler (Supavisor)        :5432 / :6543 (pooler — MCP için KULLANMA)
 - supabase-kong (API gateway)        :8000
 - supabase-auth (GoTrue)             :9999 (dahili)
 - supabase-storage                   :5000 (dahili)

@@ -38,7 +38,24 @@ db_backups/
 # MCP config (contains DB password)
 .mcp.json
 
+# Claude Code local settings (machine-specific, may contain MCP credentials)
+.claude/settings.local.json
+
 # Third-party skill repo clones (kullanıcı /plugin marketplace ile çekti, repo'ya commit etmiyoruz)
 claude-skills/
 .tmp/
 .tmp-claude-skills/
+tmp/
+
+# Live Share local config (machine-specific port mapping)
+.vsls.json
+
+# Certificates / private keys (never commit)
+*.pem
+*.key
+*.p12
+*.pfx
+
+# TypeScript build artifacts
+tsconfig.tsbuildinfo
+*.tsbuildinfo

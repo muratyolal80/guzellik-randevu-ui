@@ -1,0 +1,200 @@
+/* PrintTicket — yazdırma için optimize edilmiş randevu makbuzu */
+
+/* Ekranda görünmez (Tailwind 'hidden print:block' utility zaten ekrandan gizliyor;
+   bu dosya print-only stillerini ve sayfa düzenini kontrol eder). */
+
+@media print {
+  /* 1) Tüm sayfa elemanlarını gizle, sadece print-ticket görünsün */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-ticket,
+  .print-ticket * {
+    visibility: visible !important;
+  }
+  /* 2) Ticket'ı sayfanın sol üstüne sabitle ve A4 marginlerini sıfırla */
+  .print-ticket {
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    color: #111 !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+  /* 3) Sayfa kenarındaki Layout (header, footer, side panel) çıktıda görünmesin */
+  html, body {
+    background: white !important;
+  }
+}
+
+/* Ticket'ın iç tipografisi — ekran ve print'te aynı şekilde davranır */
+.ticket-frame {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: #111;
+  line-height: 1.4;
+}
+
+.ticket-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.ticket-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.ticket-salon {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  color: #111;
+}
+
+.ticket-meta {
+  font-size: 11px;
+  color: #4b5563;
+  margin: 2px 0;
+}
+
+.ticket-divider {
+  border-top: 1px dashed #d1d5db;
+  margin: 16px 0;
+}
+
+.ticket-when {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.ticket-when > div {
+  flex: 1;
+}
+
+.ticket-when > div:last-child {
+  text-align: right;
+}
+
+.ticket-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin: 0 0 4px;
+}
+
+.ticket-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.ticket-value-lg {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111;
+  margin: 0;
+}
+
+.ticket-services {
+  display: block;
+}
+
+.ticket-service-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dotted #e5e7eb;
+}
+
+.ticket-service-row:last-child {
+  border-bottom: none;
+}
+
+.ticket-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.ticket-total {
+  display: block;
+}
+
+.ticket-total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+  color: #374151;
+}
+
+.ticket-total-final {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+  border-top: 2px solid #111;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.ticket-pay-note {
+  text-align: right;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.ticket-footer {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.ticket-id {
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #111;
+  margin: 4px 0;
+}
+
+.ticket-uuid {
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  color: #9ca3af;
+  word-break: break-all;
+  margin: 0 0 12px;
+}
+
+.ticket-fineprint {
+  font-size: 10px;
+  color: #6b7280;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.ticket-brand {
+  margin-top: 16px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
