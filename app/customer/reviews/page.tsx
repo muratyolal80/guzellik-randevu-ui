@@ -105,7 +105,7 @@ export default function ReviewsPage() {
                         </div>
 
                         <div className="mt-4 flex justify-end">
-                            <Link href={`/salon/${review.salon?.top_level_id || review.salon?.id}`} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center">
+                            <Link href={`/salon/${review.salon?.id}`} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center">
                                 Salonu Görüntüle <ExternalLink className="w-3 h-3 ml-1" />
                             </Link>
                         </div>
