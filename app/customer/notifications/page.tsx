@@ -97,7 +97,7 @@ export default function NotificationsPage() {
                             <p className="text-gray-600 mt-1 text-sm leading-relaxed">{notif.content}</p>
                         </div>
 
-                        <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                             {!notif.is_read && (
                                 <button
                                     onClick={(e) => markAsRead(notif.id, e)}

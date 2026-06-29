@@ -70,7 +70,7 @@ const AdminSidebar: React.FC = () => {
     ];
 
     return (
-        <aside className="w-64 bg-white border-r border-border flex-shrink-0 p-4 overflow-y-auto">
+        <aside className="w-64 bg-white border-r border-border flex-shrink-0 p-4 overflow-y-auto hidden lg:block">
             <nav className="flex flex-col gap-1">
                 {menuItems.map((item, idx) => (
                     <div key={idx} className="space-y-1">
@@ -123,15 +123,46 @@ const AdminSidebar: React.FC = () => {
     );
 };
 
+// Mobil alt navigasyon — en çok kullanılan admin ekranları (sidebar lg altında gizli).
+const ADMIN_MOBILE_NAV = [
+    { label: 'Panel', path: '/admin', icon: LayoutDashboard },
+    { label: 'Onay', path: '/admin/salons/approvals', icon: Store },
+    { label: 'Kullanıcı', path: '/admin/users', icon: Users },
+    { label: 'Finans', path: '/admin/finance', icon: Wallet },
+    { label: 'Destek', path: '/admin/support', icon: MessageCircle },
+];
+
+const AdminMobileNav: React.FC = () => {
+    const pathname = usePathname();
+    return (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-border shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-around px-1 pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+            {ADMIN_MOBILE_NAV.map(item => {
+                const active = item.path === '/admin' ? pathname === '/admin' : pathname.startsWith(item.path);
+                return (
+                    <Link
+                        key={item.path}
+                        href={item.path}
+                        className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors ${active ? 'text-primary' : 'text-text-muted'}`}
+                    >
+                        <item.icon className="w-[22px] h-[22px]" />
+                        <span className="text-[10px] font-bold">{item.label}</span>
+                    </Link>
+                );
+            })}
+        </nav>
+    );
+};
+
 export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
         <Layout>
             <div className="flex flex-1">
                 <AdminSidebar />
-                <main className="flex-1 p-8 bg-gray-50">
+                <main className="flex-1 p-4 md:p-8 pb-24 lg:pb-8 bg-gray-50 min-w-0">
                     {children}
                 </main>
             </div>
+            <AdminMobileNav />
         </Layout>
     );
 };

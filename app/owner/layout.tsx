@@ -156,6 +156,15 @@ const OwnerSidebar: React.FC = () => {
     );
 };
 
+// Mobil alt navigasyon — en çok kullanılan owner ekranları (sidebar lg altında gizli).
+const OWNER_MOBILE_NAV = [
+    { label: 'Özet', path: '/owner/dashboard', icon: LayoutDashboard },
+    { label: 'Salonlar', path: '/owner/salons', icon: Store },
+    { label: 'Takvim', path: '/owner/calendar', icon: Calendar },
+    { label: 'Randevu', path: '/owner/appointments', icon: ClipboardList },
+    { label: 'Personel', path: '/owner/staff', icon: Briefcase },
+];
+
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
     const { user, isOwner, loading } = useAuth();
     const { subscriptionStatus, loading: tenantLoading } = useTenant();
@@ -220,11 +229,28 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         <Layout>
             <div className="flex bg-gray-50 min-h-[calc(100vh-64px)]">
                 <OwnerSidebar />
-                <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-x-hidden">
+                <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-x-hidden pb-24 lg:pb-12">
                     <SubscriptionBanner />
                     {renderContent()}
                 </main>
             </div>
+
+            {/* Mobil alt navigasyon (sidebar lg altında gizli) */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-border shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-around px-1 pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+                {OWNER_MOBILE_NAV.map(item => {
+                    const active = pathname.startsWith(item.path);
+                    return (
+                        <Link
+                            key={item.path}
+                            href={item.path}
+                            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors ${active ? 'text-primary' : 'text-text-muted'}`}
+                        >
+                            <item.icon className="w-[22px] h-[22px]" />
+                            <span className="text-[10px] font-bold">{item.label}</span>
+                        </Link>
+                    );
+                })}
+            </nav>
         </Layout>
     );
 }
