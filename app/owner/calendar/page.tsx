@@ -32,6 +32,7 @@ const STATUS_META: Record<string, { color: string; label: string; dot: string }>
     CONFIRMED: { color: '#10B981', label: 'Onaylı',         dot: 'bg-emerald-500' },
     COMPLETED: { color: '#64748B', label: 'Tamamlandı',     dot: 'bg-slate-500' },
     CANCELLED: { color: '#EF4444', label: 'İptal',          dot: 'bg-red-500' },
+    NO_SHOW:   { color: '#94A3B8', label: 'Gelmedi',        dot: 'bg-slate-400' },
 };
 
 // Tıklanabilir durum filtre çipleri (adetli). Tıklayınca takvim o duruma filtrelenir.
@@ -41,6 +42,7 @@ const STATUS_CHIPS = [
     { key: 'CONFIRMED', label: 'Onaylı',        dot: 'bg-emerald-500' },
     { key: 'COMPLETED', label: 'Tamamlandı',    dot: 'bg-slate-500' },
     { key: 'CANCELLED', label: 'İptal',         dot: 'bg-red-500' },
+    { key: 'NO_SHOW',   label: 'Gelmedi',       dot: 'bg-slate-400' },
 ];
 
 export default function OwnerMasterCalendar() {
@@ -75,6 +77,7 @@ export default function OwnerMasterCalendar() {
         CONFIRMED: appointments.filter(a => a.status === 'CONFIRMED').length,
         COMPLETED: appointments.filter(a => a.status === 'COMPLETED').length,
         CANCELLED: appointments.filter(a => a.status === 'CANCELLED').length,
+        NO_SHOW: appointments.filter(a => a.status === 'NO_SHOW').length,
     };
 
     // Personel listesi: şube değişince bir kez çek.

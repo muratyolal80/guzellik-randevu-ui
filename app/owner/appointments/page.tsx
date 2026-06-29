@@ -28,8 +28,9 @@ const STATUS_META: Record<string, { label: string; dot: string; badge: string }>
     CONFIRMED: { label: 'Onaylı',         dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
     COMPLETED: { label: 'Tamamlandı',     dot: 'bg-slate-500',   badge: 'bg-slate-50 text-slate-700 border-slate-200' },
     CANCELLED: { label: 'İptal',          dot: 'bg-red-500',     badge: 'bg-red-50 text-red-600 border-red-200' },
+    NO_SHOW:   { label: 'Gelmedi',        dot: 'bg-slate-400',   badge: 'bg-slate-100 text-slate-600 border-slate-300' },
 };
-const STATUS_CHIPS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const STATUS_CHIPS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
 
 // Tarih aralığı ön ayarları (yerel saat).
 function presetRange(preset: string): { start: string; end: string } {
@@ -134,6 +135,7 @@ export default function OwnerAppointmentsPage() {
         CONFIRMED: baseFiltered.filter(a => a.status === 'CONFIRMED').length,
         COMPLETED: baseFiltered.filter(a => a.status === 'COMPLETED').length,
         CANCELLED: baseFiltered.filter(a => a.status === 'CANCELLED').length,
+        NO_SHOW: baseFiltered.filter(a => a.status === 'NO_SHOW').length,
     }), [baseFiltered]);
 
     const rows = useMemo(
@@ -376,7 +378,7 @@ export default function OwnerAppointmentsPage() {
                                                     <CheckCircle2 className="w-4 h-4" />
                                                 </button>
                                             )}
-                                            {apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED' && (
+                                            {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && (
                                                 <button
                                                     onClick={() => quickAction(apt, 'CANCELLED')}
                                                     disabled={actingId === apt.id}
