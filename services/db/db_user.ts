@@ -394,7 +394,11 @@ export const DashboardService = {
    */
   async getPlatformStats(supabase: SupabaseClient = defaultSupabase) {
     const today = new Date().toISOString().split("T")[0];
-    const [salons, appointments, staff] = await Promise.all([
+    const sevenDaysAgo = new Date(Date.now() - 6 * 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    const [salons, appointments, staff, pending] = await Promise.all([
       supabase.from("salons").select("*", { count: "exact", head: true }),
       supabase
         .from("appointments")
@@ -404,6 +408,11 @@ export const DashboardService = {
         .from("staff")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true),
+      // Bekleyen onay = SUBMITTED salonlar (admin onay kuyruğu)
+      supabase
+        .from("salons")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "SUBMITTED"),
     ]);
     const { data: revenueData } = await supabase
       .from("appointments")
@@ -415,11 +424,27 @@ export const DashboardService = {
         0,
       ) || 0;
 
+    // Son 7 günün GERÇEK günlük randevu sayıları (grafik için — rastgele değil)
+    const { data: weekAppts } = await supabase
+      .from("appointments")
+      .select("start_time")
+      .gte("start_time", `${sevenDaysAgo}T00:00:00Z`);
+
+    // Son aktiviteler (en yeni 6 randevu)
+    const { data: recentActivities } = await supabase
+      .from("appointments")
+      .select("id, customer_name, created_at, status, salon:salons(name)")
+      .order("created_at", { ascending: false })
+      .limit(6);
+
     return {
       totalSalons: salons.count || 0,
       todayAppointments: appointments.count || 0,
       totalRevenue,
       activeStaff: staff.count || 0,
+      pendingApprovals: pending.count || 0,
+      weekAppointments: (weekAppts as any[]) || [],
+      recentActivities: (recentActivities as any[]) || [],
     };
   },
 };

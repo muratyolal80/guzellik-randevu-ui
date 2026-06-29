@@ -1,15 +1,17 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { AdminLayout } from '@/components/AdminLayout';
 
-import { 
-    Store, 
-    Calendar, 
-    CreditCard, 
-    Users, 
-    TrendingUp, 
-    Activity 
+import {
+    Store,
+    Calendar,
+    CreditCard,
+    Users,
+    TrendingUp,
+    Activity,
+    ShieldCheck
 } from 'lucide-react';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 
@@ -37,12 +39,13 @@ export default function Dashboard() {
     ]);
     const [chartData, setChartData] = React.useState<any[]>([]);
     const [activities, setActivities] = React.useState<any[]>([]);
+    const [pendingApprovals, setPendingApprovals] = React.useState(0);
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
         async function fetchDashboardData() {
             try {
-                const data = await DashboardService.getPlatformStats();
+                const data: any = await DashboardService.getPlatformStats();
 
                 setStats([
                     { title: 'Toplam Salon', value: data.totalSalons.toString(), icon: Store, color: 'bg-blue-600' },
@@ -50,16 +53,22 @@ export default function Dashboard() {
                     { title: 'Toplam Ciro', value: `${data.totalRevenue.toLocaleString('tr-TR')} TL`, icon: CreditCard, color: 'bg-amber-600' },
                     { title: 'Aktif Personel', value: data.activeStaff.toString(), icon: Users, color: 'bg-indigo-600' },
                 ]);
+                setPendingApprovals(data.pendingApprovals || 0);
+                setActivities(data.recentActivities || []);
 
-                // 2. Fetch Chart Data (Last 7 Days)
+                // Son 7 günün GERÇEK günlük randevu sayıları
                 const today = new Date();
                 const last7Days = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date();
                     d.setDate(today.getDate() - (6 - i));
+                    const key = d.toISOString().split('T')[0];
+                    const count = (data.weekAppointments || []).filter(
+                        (a: any) => (a.start_time || '').split('T')[0] === key
+                    ).length;
                     return {
                         name: d.toLocaleDateString('tr-TR', { weekday: 'short' }),
-                        randevu: Math.floor(Math.random() * 10) + 5, // Demo data for now
-                        date: d.toISOString().split('T')[0]
+                        randevu: count,
+                        date: key,
                     };
                 });
 
@@ -84,7 +93,24 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {/* Bekleyen Onay — tıklanabilir, >0 ise dikkat çekici amber */}
+                <Link
+                    href="/admin/salons/approvals"
+                    className={`rounded-[32px] border p-8 shadow-card flex items-center gap-5 transition-all hover:scale-[1.02] ${
+                        pendingApprovals > 0 ? 'bg-amber-500 border-amber-500 text-white shadow-amber-500/20' : 'bg-white border-border'
+                    }`}
+                >
+                    <div className={`size-16 rounded-2xl flex items-center justify-center shadow-lg ${
+                        pendingApprovals > 0 ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'
+                    }`}>
+                        <ShieldCheck size={32} />
+                    </div>
+                    <div>
+                        <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${pendingApprovals > 0 ? 'text-white/80' : 'text-text-muted'}`}>Bekleyen Onay</p>
+                        <h3 className={`text-3xl font-black tracking-tighter leading-none ${pendingApprovals > 0 ? 'text-white' : 'text-text-main'}`}>{pendingApprovals}</h3>
+                    </div>
+                </Link>
                 {stats.map(stat => (
                     <StatCard key={stat.title} {...stat} />
                 ))}
@@ -150,7 +176,7 @@ export default function Dashboard() {
                                         Yeni randevu: <span className="font-bold">{activity.customer_name || 'Misafir'}</span>
                                     </p>
                                     <p className="text-xs text-text-secondary mt-0.5">
-                                        {activity.salons?.name}
+                                        {activity.salon?.name}
                                     </p>
                                 </div>
                                 <span className="text-xs text-text-secondary whitespace-nowrap">
