@@ -24,6 +24,7 @@ import {
     Lock
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/Toast';
 
 type TabType = 'ACTIVE' | 'PENDING' | 'DRAFT' | 'REJECTED' | 'PASSIVE';
 
@@ -43,6 +44,7 @@ const SALON_TABS: { key: TabType; label: string; icon: React.ElementType; status
 
 export default function OwnerSalonsPage() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabType>('ACTIVE');
@@ -112,9 +114,10 @@ export default function OwnerSalonsPage() {
         if (!confirm('Salonunuzu pasife almak istediğinize emin misiniz? (Mevcut aboneliğiniz de iptal edilecektir)')) return;
         try {
             await SalonDataService.suspendSalonAndCancelSubscription(salonId);
+            showToast('Salon pasife alındı.', 'success');
             fetchSalons();
         } catch (error: any) {
-            alert('Hata: ' + error.message);
+            showToast('Hata: ' + error.message, 'error');
         }
     };
 
@@ -122,10 +125,10 @@ export default function OwnerSalonsPage() {
         if (!confirm('Salonunuzun tekrar aktif edilmesi için yöneticiye onay isteği gönderilecektir. Emin misiniz?')) return;
         try {
             await SalonDataService.submitForApproval(salonId);
-            alert('Aktivasyon isteğiniz başarıyla gönderildi. Yönetici onayından sonra salonunuz aktif olacaktır.');
+            showToast('Aktivasyon isteğiniz gönderildi. Yönetici onayından sonra salonunuz aktif olacaktır.', 'success');
             fetchSalons();
         } catch (error: any) {
-            alert('Hata: ' + error.message);
+            showToast('Hata: ' + error.message, 'error');
         }
     };
 

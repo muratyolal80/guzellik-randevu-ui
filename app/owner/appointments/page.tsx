@@ -6,6 +6,7 @@ import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService } from '@/services/db';
 import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
+import { useToast } from '@/components/ui/Toast';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -57,6 +58,7 @@ function presetRange(preset: string): { start: string; end: string } {
 export default function OwnerAppointmentsPage() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
+    const { showToast } = useToast();
 
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -145,8 +147,9 @@ export default function OwnerAppointmentsPage() {
             setActingId(apt.id);
             await AppointmentService.updateAppointmentStatus(apt.id, status, apt.salon_id);
             await fetchData();
+            showToast(status === 'CONFIRMED' ? 'Randevu onaylandı' : status === 'CANCELLED' ? 'Randevu iptal edildi' : 'Güncellendi', 'success');
         } catch (err: any) {
-            alert('İşlem başarısız: ' + (err?.message || ''));
+            showToast('İşlem başarısız: ' + (err?.message || ''), 'error');
         } finally {
             setActingId(null);
         }
