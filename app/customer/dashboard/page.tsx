@@ -146,7 +146,11 @@ export default function DashboardPage() {
             <div>
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Sana Özel Öneriler</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {recommendations.length > 0 ? recommendations.map((salon) => (
+                    {loading ? (
+                        [1, 2, 3].map((i) => (
+                            <div key={i} className="h-56 bg-gray-50 animate-pulse rounded-xl border border-gray-100"></div>
+                        ))
+                    ) : recommendations.length > 0 ? recommendations.map((salon) => (
                         <Link
                             href={`/salon/${salon.id}`}
                             key={salon.id}
@@ -171,9 +175,10 @@ export default function DashboardPage() {
                             </div>
                         </Link>
                     )) : (
-                        [1, 2, 3].map((i) => (
-                            <div key={i} className="h-56 bg-gray-50 animate-pulse rounded-xl border border-gray-100"></div>
-                        ))
+                        <div className="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500 text-sm">Şu an sana özel bir önerimiz yok. Salonları keşfederek başlayabilirsin.</p>
+                            <Link href="/" className="inline-block mt-3 px-5 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors">Salonları Keşfet</Link>
+                        </div>
                     )}
                 </div>
             </div>

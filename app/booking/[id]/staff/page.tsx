@@ -108,8 +108,15 @@ export default function StaffSelection() {
           }
         }
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch (error: any) {
+        // Boş {} hatasını anlamlı bir mesaja açıkla
+        const detail =
+          error?.message ||
+          error?.code ||
+          error?.details ||
+          (typeof error === 'object' ? JSON.stringify(error) : String(error)) ||
+          'Beklenmedik hata';
+        console.error('[staff page] Error fetching data:', detail, error);
       } finally {
         setLoading(false);
       }

@@ -21,6 +21,23 @@ import {
 } from 'lucide-react';
 import BranchSelector from './owner/BranchSelector';
 
+// Salon tipi slug → iş temalı material-symbol ikonu.
+// (salon_types.icon DB'de boş olduğundan slug bazlı, anlamlı fallback.)
+const SALON_TYPE_ICONS: Record<string, string> = {
+  berber: 'content_cut',
+  kuafor: 'styler',
+  guzellik: 'spa',
+  makyaj: 'face',
+  tirnak: 'brush',
+  spa: 'self_care',
+  terapi: 'healing',
+  solaryum: 'wb_sunny',
+  dovme: 'draw',
+};
+
+const salonTypeIcon = (type: SalonType): string =>
+  type.icon || SALON_TYPE_ICONS[type.slug] || 'storefront';
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, signOut, isAdmin, isOwner } = useAuth();
   const pathname = usePathname();
@@ -54,7 +71,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-border bg-surface/90 backdrop-blur-md px-4 md:px-6 py-4 shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-border bg-surface/90 backdrop-blur-md shadow-sm">
+        {/* ÜST SATIR: Logo + Aksiyonlar (Search, CTA, Login / Register) */}
+        <div className="flex items-center justify-between whitespace-nowrap px-4 md:px-6 py-3">
         <div className="flex items-center gap-4 shrink-0">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="size-10 flex items-center justify-center bg-primary rounded-full text-white shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
@@ -67,88 +86,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </Link>
         </div>
 
-        {/* Central Navigation with Dynamic Dropdowns */}
-        <nav className="hidden lg:flex items-center gap-1 mx-4">
-
-          {/* 1. Salonlar Dropdown (Salon Types) */}
-          <div className="relative group px-3 py-3">
-            <Link
-              href="/"
-              className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
-              suppressHydrationWarning
-            >
-              Salonlar
-              <span className="material-symbols-outlined text-[16px]">expand_more</span>
-            </Link>
-
-            <div className="absolute top-full left-0 mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left overflow-hidden z-50 max-h-[80vh] overflow-y-auto">
-              <div className="py-2">
-                <Link href="/?type=all" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all font-bold">Tüm Salonlar</Link>
-                {salonTypes.map((type) => (
-                  <Link
-                    key={type.id}
-                    href={`/?type=${type.slug}`}
-                    className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
-                  >
-                    {type.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Service Categories (Dynamic) */}
-          {categories.map((cat, index) => {
-            const services = servicesByCat[cat.id] || [];
-            const hasDropdown = services.length > 0;
-
-            // Handle dropdown positioning for items on the right side of the screen
-            const isRightAligned = index > 3;
-
-            if (hasDropdown) {
-              return (
-                <div key={cat.id} className="relative group px-2 py-3">
-                  <Link
-                    href={`/?search=${encodeURIComponent(cat.name)}`}
-                    className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-0.5"
-                  >
-                    {cat.name}
-                    <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                  </Link>
-                  <div className={`absolute top-full mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform overflow-hidden z-50 max-h-[80vh] overflow-y-auto custom-scrollbar ${isRightAligned ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
-                    <div className="py-2">
-                      <Link href={`/?search=${encodeURIComponent(cat.name)}`} className="block px-4 py-2 text-sm font-bold text-text-main hover:bg-surface-alt hover:pl-5 transition-all border-b border-gray-100">
-                        Tüm {cat.name} Hizmetleri
-                      </Link>
-                      {services.map((serviceName, idx) => (
-                        <Link
-                          key={idx}
-                          href={`/?search=${encodeURIComponent(serviceName)}`}
-                          className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
-                        >
-                          {serviceName}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // Simple Link for categories without services
-            return (
-              <Link
-                key={cat.id}
-                href={`/?search=${encodeURIComponent(cat.name)}`}
-                className="px-2 py-3 text-sm font-medium text-text-secondary hover:text-primary transition-colors"
-              >
-                {cat.name}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="flex flex-1 justify-end gap-3 items-center shrink-0">
+        <div className="flex justify-end gap-3 items-center shrink-0">
 
           {/* OWNER: Branch Selector */}
           {isOwner && (
@@ -207,6 +145,94 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
+        </div>
+        </div>
+        {/* ÜST SATIR SONU */}
+
+        {/* ALT SATIR: Salonlar + Kategori Navigasyonu (sadece desktop) */}
+        <div className="hidden lg:block border-t border-border/60 bg-surface/95">
+          {/* NOT: overflow-x-auto KULLANMA — bir eksen auto olunca CSS overflow-y'yi de
+              auto'ya zorlar ve aşağı açılan dropdown panelleri nav kutusuna hapsolup
+              kırpılır ("arkada açılıyor" + sürükleyince kayma). flex-wrap ile çöz. */}
+          <nav className="flex flex-wrap items-center gap-x-1 gap-y-0.5 px-4 md:px-6">
+            {/* 1. Salonlar Dropdown (Salon Types) */}
+            <div className="relative group px-3 py-2 shrink-0">
+              <Link
+                href="/"
+                className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary whitespace-nowrap ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
+                suppressHydrationWarning
+              >
+                <span className="material-symbols-outlined text-[18px]">storefront</span>
+                Salonlar
+                <span className="material-symbols-outlined text-[16px]">expand_more</span>
+              </Link>
+
+              <div className="absolute top-full left-0 mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left overflow-hidden z-50 max-h-[80vh] overflow-y-auto">
+                <div className="py-2">
+                  <Link href="/?type=all" className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all font-bold">Tüm Salonlar</Link>
+                  {salonTypes.map((type) => (
+                    <Link
+                      key={type.id}
+                      href={`/?type=${type.slug}`}
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary/70">{salonTypeIcon(type)}</span>
+                      {type.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Service Categories (Dynamic) */}
+            {categories.map((cat, index) => {
+              const services = servicesByCat[cat.id] || [];
+              const hasDropdown = services.length > 0;
+              const isRightAligned = index > 3;
+
+              if (hasDropdown) {
+                return (
+                  <div key={cat.id} className="relative group px-2 py-2 shrink-0">
+                    <Link
+                      href={`/?search=${encodeURIComponent(cat.name)}`}
+                      className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-1 whitespace-nowrap"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
+                      {cat.name}
+                      <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                    </Link>
+                    <div className={`absolute top-full mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform overflow-hidden z-50 max-h-[80vh] overflow-y-auto custom-scrollbar ${isRightAligned ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
+                      <div className="py-2">
+                        <Link href={`/?search=${encodeURIComponent(cat.name)}`} className="block px-4 py-2 text-sm font-bold text-text-main hover:bg-surface-alt hover:pl-5 transition-all border-b border-gray-100">
+                          Tüm {cat.name} Hizmetleri
+                        </Link>
+                        {services.map((serviceName, idx) => (
+                          <Link
+                            key={idx}
+                            href={`/?search=${encodeURIComponent(serviceName)}`}
+                            className="block px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
+                          >
+                            {serviceName}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={cat.id}
+                  href={`/?search=${encodeURIComponent(cat.name)}`}
+                  className="px-2 py-2 text-sm font-medium text-text-secondary hover:text-primary transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
+                  {cat.name}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
         {/* Mobile Menu Overlay/Drawer */}
@@ -275,7 +301,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-secondary hover:text-primary font-medium transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                        <span className="material-symbols-outlined text-[20px] text-primary/70">{salonTypeIcon(type)}</span>
                         {type.name}
                       </Link>
                     ))}
@@ -293,7 +319,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-[20px] text-text-muted">content_cut</span>
+                          <span className="material-symbols-outlined text-[20px] text-primary/70">{cat.icon || 'spa'}</span>
                           {cat.name}
                         </span>
                         <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-text-muted">{servicesByCat[cat.id]?.length || 0}</span>

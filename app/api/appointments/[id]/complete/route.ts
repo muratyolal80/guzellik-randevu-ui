@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { sendAppointmentSMS } from '@/lib/messaging/sms';
 
 /**
- * POST /api/appointments/[id]/reject
+ * POST /api/appointments/[id]/complete
  *
- * Salon onayı reddi (Mode B). PENDING → CANCELLED + reason kaydı.
+ * Randevuyu tamamlandı olarak işaretle (CONFIRMED → COMPLETED).
+ * Body: { isNoShow?: boolean }  → true ise COMPLETED yerine NO_SHOW
  *
- * Body: { reason?: string }
- *
- * Yetki: SUPER_ADMIN, ADMIN, salon owner, atanmış staff
+ * Yetki: salon owner, atanmış staff, admin
  */
 export async function POST(
     request: NextRequest,
@@ -36,11 +34,12 @@ export async function POST(
         }
 
         const body = await request.json().catch(() => ({}));
-        const reason: string = (body?.reason || 'Salon tarafından reddedildi.').toString().slice(0, 280);
+        const isNoShow = !!body?.isNoShow;
+        const targetStatus = isNoShow ? 'NO_SHOW' : 'COMPLETED';
 
         const { data: appointment, error: apptErr } = await supabaseAdmin
             .from('appointments')
-            .select('id, status, salon_id, staff_id, customer_phone, notes, start_time, salon:salons(name, owner_id)')
+            .select('id, status, salon_id, staff_id, salon:salons(owner_id)')
             .eq('id', appointmentId)
             .maybeSingle();
 
@@ -48,25 +47,19 @@ export async function POST(
             return NextResponse.json({ error: 'Randevu bulunamadı.' }, { status: 404 });
         }
 
-        if (appointment.status === 'CANCELLED') {
+        if (!['PENDING', 'CONFIRMED'].includes(appointment.status)) {
             return NextResponse.json(
-                { error: 'Bu randevu zaten iptal.' },
+                { error: `Bu randevu zaten ${appointment.status}; tamamlanamaz.` },
                 { status: 409 }
             );
         }
 
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-        const role = (profile?.role || '').toUpperCase();
-
-        const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(role);
-        const isOwner = (appointment.salon as any)?.owner_id === user.id;
-
+        // RBAC
+        const ownerId = (appointment.salon as any)?.owner_id;
+        const isOwner = ownerId === user.id;
         let isAssignedStaff = false;
-        if (!isAdmin && !isOwner && appointment.staff_id) {
+        let isAdmin = false;
+        if (!isOwner && appointment.staff_id) {
             const { data: staffMatch } = await supabaseAdmin
                 .from('staff')
                 .select('id')
@@ -75,37 +68,39 @@ export async function POST(
                 .maybeSingle();
             isAssignedStaff = !!staffMatch;
         }
-
-        if (!isAdmin && !isOwner && !isAssignedStaff) {
-            return NextResponse.json(
-                { error: 'Bu randevuyu reddetme yetkiniz yok.' },
-                { status: 403 }
+        if (!isOwner && !isAssignedStaff) {
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+            isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(
+                (profile?.role || '').toUpperCase()
             );
         }
-
-        const noteWithReason = (appointment.notes ? appointment.notes + ' ' : '') +
-            `[Salon tarafından reddedildi: ${reason}]`;
+        if (!isOwner && !isAssignedStaff && !isAdmin) {
+            return NextResponse.json({ error: 'Yetkiniz yok.' }, { status: 403 });
+        }
 
         const nowIso = new Date().toISOString();
         const { error: updateErr } = await supabaseAdmin
             .from('appointments')
             .update({
-                status: 'CANCELLED',
-                notes: noteWithReason,
-                cancelled_by: user.id,
-                cancelled_at: nowIso,
-                cancellation_reason: reason,
+                status: targetStatus,
+                completed_by: user.id,
+                completed_at: nowIso,
                 updated_at: nowIso,
             })
             .eq('id', appointmentId);
 
         if (updateErr) {
             return NextResponse.json(
-                { error: 'Reddetme başarısız: ' + updateErr.message },
+                { error: 'Güncellenemedi: ' + updateErr.message },
                 { status: 500 }
             );
         }
 
+        // Audit
         try {
             await supabaseAdmin.from('audit_logs').insert({
                 salon_id: appointment.salon_id,
@@ -115,36 +110,20 @@ export async function POST(
                 resource_id: appointmentId,
                 changes: {
                     old: { status: appointment.status },
-                    new: { status: 'CANCELLED' },
-                    reason,
-                    rejected_by_role: isAdmin ? 'ADMIN' : isOwner ? 'OWNER' : 'STAFF',
+                    new: { status: targetStatus },
+                    by_role: isAdmin ? 'ADMIN' : isOwner ? 'OWNER' : 'STAFF',
                 },
                 user_agent: request.headers.get('user-agent') ?? null,
             });
-        } catch (auditErr) {
-            console.warn('[appointment/reject] audit insert failed (silent):', auditErr);
-        }
-
-        let smsDelivered = false;
-        if (appointment.customer_phone) {
-            try {
-                const salonName = (appointment.salon as any)?.name || 'Salon';
-                const msg = `Üzgünüz, ${salonName} randevunuz reddedildi. Sebep: ${reason}. Lütfen başka bir saat deneyin.`;
-                smsDelivered = await sendAppointmentSMS(appointment.salon_id, appointment.customer_phone, msg);
-            } catch (smsErr) {
-                console.warn('[appointment/reject] SMS failed (silent):', smsErr);
-            }
-        }
+        } catch { }
 
         return NextResponse.json({
             success: true,
             appointmentId,
-            status: 'CANCELLED',
-            reason,
-            smsDelivered,
+            status: targetStatus,
         });
     } catch (err: any) {
-        console.error('[appointment/reject] error:', err);
+        console.error('[appointment/complete] error:', err);
         return NextResponse.json(
             { error: err?.message || 'Beklenmedik hata' },
             { status: 500 }

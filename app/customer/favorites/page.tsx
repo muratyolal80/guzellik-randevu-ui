@@ -95,9 +95,9 @@ export default function FavoritesPage() {
                                     <Link href={`/salon/${fav.salon?.id}`} className="flex items-center justify-center py-2.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm">
                                         İncele
                                     </Link>
-                                    <button className="flex items-center justify-center py-2.5 px-4 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 shadow-sm shadow-amber-200 transition-colors text-sm">
+                                    <Link href={`/booking/${fav.salon?.id}/staff`} className="flex items-center justify-center py-2.5 px-4 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 shadow-sm shadow-amber-200 transition-colors text-sm">
                                         Randevu Al
-                                    </button>
+                                    </Link>
                                 </div>
                             </div>
                         </div>

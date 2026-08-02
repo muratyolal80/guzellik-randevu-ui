@@ -153,20 +153,29 @@ export async function middleware(request: NextRequest) {
             let subscription: any = null;
 
             try {
-                // Single query: salon + subscription via join (avoids sequential DB calls)
-                const { data: salonData } = await supabase
+                // Salon + subscription via join (avoids sequential DB calls).
+                // NOT: .maybeSingle() KULLANMA — owner birden fazla şubeye sahip
+                // olabilir (çok şubeli plan ya da pasif + taslak gibi). maybeSingle
+                // 2+ satırda hata döndürür → salon=null → her /owner/* sayfası
+                // yanlışlıkla onboarding'e sekerdi. Tüm (silinmemiş) salonları çekip
+                // en anlamlı olanı seçiyoruz.
+                const { data: salonRows } = await supabase
                     .from('salons')
-                    .select('id, status, subscriptions(status)')
+                    .select('id, status, created_at, subscriptions(status)')
                     .eq('owner_id', user.id)
-                    .maybeSingle();
+                    .not('status', 'eq', 'DELETED')
+                    .order('created_at', { ascending: false });
 
-                salon = salonData;
+                const salonList = salonRows || [];
 
-                if (!salon) {
+                if (salonList.length === 0) {
                     return NextResponse.redirect(new URL('/owner/onboarding', request.url));
                 }
 
-                const subs = (salonData as any)?.subscriptions;
+                // Durum kontrolü için canlı (APPROVED) şubeyi tercih et; yoksa en yenisi.
+                salon = salonList.find((s: any) => s.status === 'APPROVED') || salonList[0];
+
+                const subs = (salon as any)?.subscriptions;
                 subscription = Array.isArray(subs) ? subs[0] : subs;
             } catch (err) {
                 if (dev) console.error('Middleware: Error fetching salon/subscription:', err);

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { Key } from 'lucide-react';
+import StaffCredentialModal from '@/components/owner/StaffCredentialModal';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
 import { Staff, WorkingHours, Invite } from '@/types';
@@ -28,7 +30,8 @@ import {
     ShieldAlert,
     Copy,
     ExternalLink,
-    MessageCircle
+    MessageCircle,
+    AlertCircle
 } from 'lucide-react';
 
 const DEFAULT_HOURS = [
@@ -112,9 +115,12 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         }
     };
 
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
     const fetchStaff = async () => {
         try {
             setLoading(true);
+            setFetchError(null);
             const staffList = await StaffService.getStaffBySalon(salonId);
             setStaff(staffList);
 
@@ -136,8 +142,13 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 }
                 setStaffMissing(missing);
             }
-        } catch (err) {
-            console.error('Veri çekme hatası:', err);
+        } catch (err: any) {
+            // Boş {} hatasını anlamlı mesaja çevir, kullanıcıya GÖRÜNÜR yap
+            const detail = err?.message || err?.code || err?.details ||
+                (typeof err === 'object' ? JSON.stringify(err) : String(err)) ||
+                'Bilinmeyen hata';
+            console.error('[SalonStaffManager] Veri çekme hatası:', detail, err);
+            setFetchError(detail);
         } finally {
             setLoading(false);
         }
@@ -145,6 +156,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
 
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [allOwnerStaff, setAllOwnerStaff] = useState<Staff[]>([]);
+    const [credentialTarget, setCredentialTarget] = useState<Staff | null>(null);
     const [assigningLoading, setAssigningLoading] = useState(false);
 
     const handleOpenAssignExisting = async () => {
@@ -375,10 +387,36 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Fetch error banner — kullanıcı boş listeyle baş başa bırakılmaz */}
+            {fetchError && (
+                <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-rose-900">Personel listesi yüklenemedi</h4>
+                            <p className="text-xs font-bold text-rose-700 mt-0.5 break-all">
+                                Hata: {fetchError}
+                            </p>
+                            <p className="text-[11px] text-rose-700 mt-1 opacity-80">
+                                Salon ID: <span className="font-mono">{salonId.substring(0, 8)}…</span>
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => fetchStaff()}
+                        className="px-5 py-2.5 bg-white border border-rose-200 text-rose-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition whitespace-nowrap"
+                    >
+                        🔄 Tekrar Dene
+                    </button>
+                </div>
+            )}
+
             {/* Header Section */}
             <div className="relative overflow-hidden bg-white/50 backdrop-blur-xl p-8 rounded-[40px] border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.05)] flex flex-col md:flex-row items-center justify-between gap-6 group">
                 <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-1000" />
-                
+
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
@@ -386,7 +424,14 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
                         <h3 className="text-2xl font-black text-text-main tracking-tight">Personel Yönetimi</h3>
                     </div>
-                    <p className="text-sm text-text-muted font-bold ml-1">{filteredStaff.length} aktif ekip üyesi {invites.length > 0 && `• ${invites.length} bekleyen davet`}</p>
+                    <p className="text-sm text-text-muted font-bold ml-1">
+                        {filteredStaff.length} aktif ekip üyesi {invites.length > 0 && `• ${invites.length} bekleyen davet`}
+                        {searchTerm && staff.length > filteredStaff.length && (
+                            <span className="ml-2 text-amber-600">
+                                ({staff.length - filteredStaff.length} arama filtresinde gizli)
+                            </span>
+                        )}
+                    </p>
                 </div>
 
                 <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
@@ -416,6 +461,54 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     </button>
                 </div>
             </div>
+
+            {/* Tek Kişilik İşletme — Sahip Kendini Personel Olarak Ekle */}
+            {staff.length === 0 && user && (
+                <div className="bg-gradient-to-r from-primary/5 to-amber-50 border border-primary/20 rounded-[24px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start md:items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shrink-0 shadow-sm">
+                            <UserPlus className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-lg font-black text-text-main">Tek başına çalışıyorsan</h4>
+                            <p className="text-sm text-text-secondary">
+                                Kendini personel olarak ekle; müşteriler senin için randevu alabilsin.
+                                Profil bilgilerin otomatik kullanılır.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            if (!user?.id) return;
+                            try {
+                                setSaving(true);
+                                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Salon Sahibi';
+                                await StaffService.createStaff({
+                                    salon_id: salonId,
+                                    name: fullName,
+                                    email: user.email,
+                                    role: 'Salon Sahibi / Stilist',
+                                    phone: user.phone,
+                                    user_id: user.id,
+                                    is_active: true,
+                                    is_email_verified: true,
+                                    is_phone_verified: !!user.phone,
+                                    kvkk_consent: true,
+                                });
+                                window.location.reload();
+                            } catch (err: any) {
+                                alert('Eklenemedi: ' + (err?.message || 'hata'));
+                            } finally {
+                                setSaving(false);
+                            }
+                        }}
+                        disabled={saving}
+                        className="px-6 py-3 bg-primary text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all whitespace-nowrap disabled:opacity-50"
+                    >
+                        Kendimi Personel Olarak Ekle
+                    </button>
+                </div>
+            )}
 
             {/* Pending Invites Alert */}
             {invites.length > 0 && (
@@ -470,18 +563,32 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 <div className="flex flex-col gap-2">
                                     <button
                                         onClick={() => handleOpenEdit(member)}
+                                        title="Bilgileri düzenle"
                                         className="p-2.5 bg-gray-50 hover:bg-primary/10 rounded-xl text-text-muted hover:text-primary transition-all shadow-sm"
                                     >
                                         <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleOpenShifts(member)}
+                                        title="Mesai saatleri"
                                         className="p-2.5 bg-gray-50 hover:bg-amber-50 rounded-xl text-text-muted hover:text-amber-600 transition-all shadow-sm"
                                     >
                                         <Clock className="w-4 h-4" />
                                     </button>
                                     <button
+                                        onClick={() => setCredentialTarget(member)}
+                                        title={member.user_id ? 'Şifre yönetimi / Login kapat' : 'Login hesabı oluştur'}
+                                        className={`p-2.5 rounded-xl transition-all shadow-sm ${
+                                            member.user_id
+                                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                                : 'bg-gray-50 text-text-muted hover:bg-blue-50 hover:text-blue-600'
+                                        }`}
+                                    >
+                                        <Key className="w-4 h-4" />
+                                    </button>
+                                    <button
                                         onClick={() => handleDeleteStaff(member.id)}
+                                        title="Personeli sil"
                                         className="p-2.5 bg-gray-50 hover:bg-red-50 rounded-xl text-text-muted hover:text-red-500 transition-all shadow-sm"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -494,6 +601,14 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 <div className="flex items-center gap-1.5 text-text-muted text-xs font-black uppercase tracking-widest bg-gray-50 w-fit px-2 py-1 rounded-lg">
                                     <Briefcase className="w-3.5 h-3.5 opacity-60" />
                                     {member.role || member.specialty || 'Uzman'}
+                                </div>
+                                {/* Login durumu rozeti */}
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest w-fit px-2 py-0.5 rounded-md mt-1.5"
+                                    style={{
+                                        background: member.user_id ? '#ecfdf5' : '#f3f4f6',
+                                        color: member.user_id ? '#047857' : '#6b7280',
+                                    }}>
+                                    {member.user_id ? '🔑 Login aktif' : '👤 Sadece görünüm'}
                                 </div>
                             </div>
 
@@ -547,16 +662,45 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         <div className="w-24 h-24 rounded-[32px] bg-gray-50 flex items-center justify-center mb-6 shadow-inner">
                             <Users className="w-10 h-10 text-text-muted/20" />
                         </div>
-                        <h4 className="text-2xl font-black text-text-main mb-3">Hiç personel bulunamadı</h4>
-                        <p className="text-sm text-text-muted font-bold max-w-sm px-6">
-                            Ekip üyelerinizi ekleyerek randevu almaya başlayabilirsiniz veya arama kriterlerini değiştirebilirsiniz.
-                        </p>
-                        <button
-                            onClick={handleOpenAdd}
-                            className="mt-8 flex items-center gap-2.5 px-10 py-4 bg-primary text-white rounded-[24px] font-black shadow-xl shadow-primary/20 hover:scale-105 transition-all"
-                        >
-                            <Plus className="w-5 h-5" /> Hemen Ekle
-                        </button>
+
+                        {searchTerm && staff.length > 0 ? (
+                            <>
+                                <h4 className="text-2xl font-black text-text-main mb-3">
+                                    "{searchTerm}" araması sonuç vermedi
+                                </h4>
+                                <p className="text-sm text-text-muted font-bold max-w-sm px-6">
+                                    Toplam {staff.length} personel listede; arama filtresini temizleyince hepsini görürsün.
+                                </p>
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="mt-8 flex items-center gap-2.5 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-text-main rounded-2xl font-black text-sm uppercase tracking-widest transition-all"
+                                >
+                                    <X className="w-4 h-4" /> Aramayı Temizle
+                                </button>
+                            </>
+                        ) : staff.length === 0 && !fetchError ? (
+                            <>
+                                <h4 className="text-2xl font-black text-text-main mb-3">Henüz personel yok</h4>
+                                <p className="text-sm text-text-muted font-bold max-w-sm px-6">
+                                    Ekip üyelerinizi ekleyerek müşterilerin randevu almasını sağlayabilirsiniz.
+                                </p>
+                                <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
+                                    <button
+                                        onClick={handleOpenAdd}
+                                        className="flex items-center gap-2.5 px-10 py-4 bg-primary text-white rounded-[24px] font-black shadow-xl shadow-primary/20 hover:scale-105 transition-all"
+                                    >
+                                        <Plus className="w-5 h-5" /> Personel Ekle
+                                    </button>
+                                    <button
+                                        onClick={() => fetchStaff()}
+                                        title="Listeyi yenile"
+                                        className="flex items-center gap-2.5 px-6 py-4 bg-white border border-border text-text-main rounded-[24px] font-bold text-sm hover:bg-gray-50 transition-all"
+                                    >
+                                        🔄 Listeyi Yenile
+                                    </button>
+                                </div>
+                            </>
+                        ) : null}
                     </div>
                 )}
             </div>
@@ -1044,6 +1188,24 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Login hesap yönetimi modali */}
+            {credentialTarget && (
+                <StaffCredentialModal
+                    staffId={credentialTarget.id}
+                    staffName={credentialTarget.name}
+                    hasAccount={!!credentialTarget.user_id}
+                    onClose={() => setCredentialTarget(null)}
+                    onUpdated={() => {
+                        // Tüm listeyi yenile (user_id link değişti)
+                        if (salonId) {
+                            StaffService.getStaffBySalon(salonId).then((list: any[]) => {
+                                setStaff(list as any);
+                            }).catch(() => { });
+                        }
+                    }}
+                />
             )}
         </div>
     );

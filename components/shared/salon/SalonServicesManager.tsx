@@ -201,17 +201,25 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
                                         <Wand2 className="w-3.5 h-3.5" /> İşlem Seçin
                                     </label>
                                     <div className="relative group">
-                                        <select
-                                            value={newServiceId}
-                                            onChange={(e) => setNewServiceId(e.target.value)}
-                                            disabled={!!editingService} // Disable changing service type when editing
-                                            className={`w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer ${editingService ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        >
-                                            <option value="">Seçiniz...</option>
-                                            {globalServices.map(gs => (
-                                                <option key={gs.id} value={gs.id}>{gs.name}</option>
-                                            ))}
-                                        </select>
+                                        {editingService ? (
+                                            // Düzenlemede işlem tipi değiştirilemez — mevcut işlemi
+                                            // boş/pasif bir select yerine salt-okunur, net göster.
+                                            <div className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg flex items-center justify-between gap-3">
+                                                <span className="truncate">{editingService.service_name || 'Hizmet'}</span>
+                                                <span className="shrink-0 text-[10px] font-bold text-text-muted uppercase tracking-widest">Değiştirilemez</span>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                value={newServiceId}
+                                                onChange={(e) => setNewServiceId(e.target.value)}
+                                                className="w-full px-6 py-4.5 bg-surface-alt border border-border rounded-2xl md:rounded-[24px] font-black text-text-main text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="">Seçiniz...</option>
+                                                {globalServices.map(gs => (
+                                                    <option key={gs.id} value={gs.id}>{gs.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
                                 </div>
 

@@ -64,12 +64,6 @@ export default function CustomerPaymentsPage() {
                     <h1 className="text-2xl font-bold text-text-main">Ödemelerim</h1>
                     <p className="text-text-secondary text-sm">Geçmiş randevu ödemeleriniz ve işlem dökümleriniz.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="bg-white border border-border px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm">
-                        <CreditCard className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-bold text-text-main">Bakiyem: ₺0.00</span>
-                    </div>
-                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

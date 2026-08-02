@@ -284,6 +284,34 @@ export default function BusinessRegister() {
                                 </button>
                             </form>
                         )}
+
+                        {/* Hesap rolü açıklayıcı footer */}
+                        <div className="mt-8 pt-6 border-t border-border space-y-3">
+                            <div className="text-center space-y-2">
+                                <p className="text-xs font-bold text-text-secondary">Zaten hesabın var mı?</p>
+                                <a
+                                    href="/login"
+                                    className="inline-flex items-center gap-1 text-sm font-black text-primary hover:underline"
+                                >
+                                    Giriş Yap →
+                                </a>
+                                <p className="text-[10px] text-text-muted italic">
+                                    Giriş sonrası rolüne göre (Müşteri / Salon Sahibi / Personel / Yönetici) otomatik panele yönlendirilirsin.
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-text-muted font-bold">
+                                <a href="/register" className="hover:text-primary transition flex items-center gap-1 justify-center">
+                                    👤 Müşteri Olarak Kayıt Ol
+                                </a>
+                                <div className="text-center sm:border-x border-border text-primary">
+                                    🏪 İşletme Hesabı (Bu Sayfa)
+                                </div>
+                                <span className="text-center opacity-60 cursor-not-allowed">
+                                    💼 Personel? Sahip seni davet eder
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                 </div>

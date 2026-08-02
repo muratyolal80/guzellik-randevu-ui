@@ -70,7 +70,13 @@ export const StaffService = {
         .select("staff(*)")
         .eq("salon_id", salonId);
 
-      if (!assignedError) {
+      if (assignedError) {
+        // Sessiz kalma — debug için warn at, ana flow'u kırma
+        console.warn(
+          "[getStaffBySalon] staff_branches optional query failed (non-critical):",
+          assignedError.message || assignedError.code,
+        );
+      } else {
         const assigned = (assignedStaffMap || [])
           .map((item: any) => item.staff)
           .filter((s: any) => s && s.is_active);
@@ -81,8 +87,9 @@ export const StaffService = {
           }
         });
       }
-    } catch {
-      // staff_branches does not exist yet — skip branch assignment lookup
+    } catch (err: any) {
+      // staff_branches does not exist veya başka exception — non-blocking
+      console.warn("[getStaffBySalon] staff_branches threw (non-critical):", err?.message || err);
     }
 
     return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -201,7 +208,7 @@ export const StaffService = {
     if (staffData.email && !staffData.user_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, role")
         .eq("email", staffData.email)
         .single();
 
@@ -210,11 +217,21 @@ export const StaffService = {
           .from("staff")
           .update({ user_id: profile.id })
           .eq("id", data.id);
-        // Optionally update user role to STAFF
-        await supabase
-          .from("profiles")
-          .update({ role: "STAFF" })
-          .eq("id", profile.id);
+
+        // ROLE UPGRADE KURALI — asla DOWNGRADE etme:
+        //   CUSTOMER → STAFF: OK (upgrade)
+        //   STAFF: değişiklik yok (idempotent)
+        //   SALON_OWNER/MANAGER/ADMIN/SUPER_ADMIN → STAFF: YASAK
+        //     (Owner kendisini kendi salonuna staff eklerse rolünü kaybeder)
+        const currentRole = (profile as any).role;
+        const safeToUpgrade = currentRole === "CUSTOMER" || !currentRole;
+        if (safeToUpgrade) {
+          await supabase
+            .from("profiles")
+            .update({ role: "STAFF" })
+            .eq("id", profile.id);
+        }
+        // Aksi halde: profile.role korunur (owner hâlâ owner, admin hâlâ admin)
       }
     }
 

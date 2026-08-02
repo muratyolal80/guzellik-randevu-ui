@@ -84,12 +84,15 @@ export async function POST(
             );
         }
 
-        // UPDATE: PENDING → CONFIRMED
+        // UPDATE: PENDING → CONFIRMED + kim/ne zaman onayladı
+        const nowIso = new Date().toISOString();
         const { error: updateErr } = await supabaseAdmin
             .from('appointments')
             .update({
                 status: 'CONFIRMED',
-                updated_at: new Date().toISOString(),
+                confirmed_by: user.id,
+                confirmed_at: nowIso,
+                updated_at: nowIso,
             })
             .eq('id', appointmentId)
             .eq('status', 'PENDING'); // race-safe

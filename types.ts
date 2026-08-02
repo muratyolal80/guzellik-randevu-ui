@@ -315,7 +315,7 @@ export interface Appointment {
   participant_count?: number; // Number of people for this appointment (Faz 6)
   start_time: string;
   end_time: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
   notes?: string;
   coupon_code?: string;
   discount_amount?: number;
@@ -323,6 +323,14 @@ export interface Appointment {
   iyzico_payment_id?: string;
   refund_status?: 'NONE' | 'PENDING' | 'COMPLETED' | 'FAILED';
   refund_amount?: number;
+  // Action tracking (New-26)
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

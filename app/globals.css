@@ -20,6 +20,16 @@
   background: rgba(156, 163, 175, 0.5);
 }
 
+/* Scrollbar gizleme — header alt nav için (yatay scroll var ama scrollbar görünmesin) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Leaflet z-index fixes */
 .leaflet-container {
   z-index: 0;

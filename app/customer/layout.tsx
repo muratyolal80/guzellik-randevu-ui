@@ -67,7 +67,7 @@ export default function CustomerDashboardLayout({
 
             <div className="flex max-w-[1600px] mx-auto">
                 <Sidebar />
-                <main className="flex-1 p-4 md:p-8 min-w-0">
+                <main className="flex-1 p-4 md:p-8 min-w-0 pb-24 md:pb-8">
                     {children}
                 </main>
             </div>
