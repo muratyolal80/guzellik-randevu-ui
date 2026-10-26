@@ -41,7 +41,8 @@ function LoginContent() {
     // Get redirect URL from query params or determine based on role/login type
     const getRedirectUrl = () => {
         const paramRedirect = searchParams.get('redirect');
-        if (paramRedirect) return paramRedirect;
+        // same-origin paths only — blocks open redirects like //evil.com or /\evil.com
+        if (paramRedirect && /^\/(?![/\\])/.test(paramRedirect)) return paramRedirect;
 
         // If we have a user, use their role
         if (user?.role) {

@@ -34,6 +34,7 @@ import type {
   PaymentStatus,
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
+import { STAFF_PUBLIC_COLUMNS, withStaffPrivate } from "./staff_columns";
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
@@ -1046,7 +1047,7 @@ export const WorkingHoursService = {
         ...staffData,
         created_at: new Date().toISOString(),
       })
-      .select()
+      .select(STAFF_PUBLIC_COLUMNS)
       .single();
 
     if (error) throw error;
@@ -1069,7 +1070,8 @@ export const WorkingHoursService = {
     });
 
     await supabase.from("working_hours").insert(defaultHours);
-    return data;
+    const [staff] = await withStaffPrivate(supabase, [data as Staff]);
+    return staff;
   },
 
   /**
@@ -1084,11 +1086,12 @@ export const WorkingHoursService = {
       .from("staff")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select()
+      .select(STAFF_PUBLIC_COLUMNS)
       .single();
 
     if (error) throw error;
-    return data;
+    const [staff] = await withStaffPrivate(supabase, [data as Staff]);
+    return staff;
   },
 
   /**

@@ -35,6 +35,7 @@ import type {
   UserRole,
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
+import { STAFF_PUBLIC_COLUMNS, withStaffPrivate } from "./staff_columns";
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
@@ -54,7 +55,7 @@ export const StaffService = {
     // 1. Get staff whose home branch is salonId
     const { data: homeStaff, error: homeError } = await supabase
       .from("staff")
-      .select("*")
+      .select(STAFF_PUBLIC_COLUMNS)
       .eq("salon_id", salonId)
       .eq("is_active", true);
 
@@ -67,7 +68,7 @@ export const StaffService = {
     try {
       const { data: assignedStaffMap, error: assignedError } = await supabase
         .from("staff_branches")
-        .select("staff(*)")
+        .select(`staff(${STAFF_PUBLIC_COLUMNS})`)
         .eq("salon_id", salonId);
 
       if (assignedError) {
@@ -92,7 +93,8 @@ export const StaffService = {
       console.warn("[getStaffBySalon] staff_branches threw (non-critical):", err?.message || err);
     }
 
-    return allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return withStaffPrivate(supabase, allStaff as Staff[]);
   },
 
   /**
@@ -104,12 +106,31 @@ export const StaffService = {
   ): Promise<Staff[]> {
     const { data, error } = await supabase
       .from("staff")
-      .select("*, salon:salons!inner(owner_id)")
+      .select(`${STAFF_PUBLIC_COLUMNS}, salon:salons!inner(owner_id)`)
       .eq("salons.owner_id", ownerId)
       .eq("is_active", true);
 
     if (error) throw error;
-    return data || [];
+    return withStaffPrivate(supabase, (data || []) as unknown as Staff[]);
+  },
+
+  /**
+   * Staff card of the signed-in staff member (own contact fields merged)
+   */
+  async getStaffByUserId(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Staff | null> {
+    const { data, error } = await supabase
+      .from("staff")
+      .select(STAFF_PUBLIC_COLUMNS)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    const [staff] = await withStaffPrivate(supabase, [data as Staff]);
+    return staff;
   },
 
   /**
@@ -121,12 +142,13 @@ export const StaffService = {
   ): Promise<Staff | null> {
     const { data, error } = await supabase
       .from("staff")
-      .select("*")
+      .select(STAFF_PUBLIC_COLUMNS)
       .eq("id", id)
       .single();
 
     if (error) throw error;
-    return data;
+    const [staff] = await withStaffPrivate(supabase, [data as Staff]);
+    return staff;
   },
 
   /**
@@ -167,7 +189,7 @@ export const StaffService = {
         is_phone_verified: staffData.is_phone_verified || false,
         kvkk_consent: staffData.kvkk_consent || false,
       })
-      .select()
+      .select(STAFF_PUBLIC_COLUMNS)
       .single();
 
     if (error) throw error;
@@ -250,11 +272,12 @@ export const StaffService = {
       .from("staff")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .select()
+      .select(STAFF_PUBLIC_COLUMNS)
       .single();
 
     if (error) throw error;
-    return data;
+    const [staff] = await withStaffPrivate(supabase, [data as Staff]);
+    return staff;
   },
 
   /**
@@ -575,14 +598,12 @@ export const StaffService = {
     token: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Invite | null> {
-    const { data, error } = await supabase
-      .from("invites")
-      .select("*, salon:salons(name)")
-      .eq("token", token)
-      .maybeSingle();
+    // invites are not publicly readable (New-33) — token lookup goes through a definer RPC
+    const { data, error } = await supabase.rpc("get_invite_by_token", { p_token: token });
 
     if (error) throw error;
-    return data;
+    const row = (data as Array<Invite & { salon_name: string | null }> | null)?.[0];
+    return row ? { ...row, token, salon: { name: row.salon_name ?? "" } } : null;
   },
 
   /**

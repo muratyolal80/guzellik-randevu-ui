@@ -532,7 +532,7 @@ export const SubscriptionService = {
     if (resourceType === "staff") {
       const { count } = await supabase
         .from("staff")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("salon_id", salonId);
       current = count || 0;
       limit = plan.max_staff;

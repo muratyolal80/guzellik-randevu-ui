@@ -78,7 +78,7 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relkind = 'r'
   AND c.relrowsecurity = true
-  AND NOT has_table_privilege('authenticated', c.oid, 'SELECT')
+  AND NOT has_any_column_privilege('authenticated', c.oid, 'SELECT')  -- column-level grants (e.g. staff, New-33) count
 ORDER BY c.relname;
 
 -- 8b. Kullanıcı CRUD tablolarında authenticated UPDATE GRANT denetimi
@@ -107,6 +107,25 @@ SELECT name, applied_at::date AS applied
 FROM public._migrations
 ORDER BY applied_at DESC
 LIMIT 20;
+
+-- 10. Güvenlik regresyonları (New-33) — privilege escalation / PII sızıntısı geri geldi mi?
+\echo ''
+\echo '▶ 10) Güvenlik regresyonları (BEKLENEN: 0):'
+SELECT 'staff_pii_readable_by_' || r AS finding
+FROM unnest(ARRAY['anon','authenticated']) r, unnest(ARRAY['tc_no','phone','email']) col
+WHERE has_column_privilege(r, 'public.staff', col, 'SELECT')
+UNION ALL
+SELECT 'public_true_select_policy:' || tablename FROM pg_policies
+WHERE schemaname='public' AND qual='true' AND cmd IN ('SELECT','ALL')
+  AND tablename IN ('invites','profiles','appointments','subscriptions','otp_codes','payments')
+  AND NOT ('service_role' = ANY(roles))
+UNION ALL
+SELECT 'profiles_guard_trigger_missing' WHERE NOT EXISTS
+  (SELECT 1 FROM pg_trigger WHERE tgname='guard_profile_privileged_columns')
+UNION ALL
+SELECT 'definer_without_search_path:' || p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.prosecdef AND p.proname NOT LIKE 'st\_%'
+  AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig,'{}')) c WHERE c LIKE 'search_path=%');
 
 \echo ''
 \echo '═══════════════════════════════════════════════════════════════════════'

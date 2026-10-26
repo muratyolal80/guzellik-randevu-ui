@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { StaffService } from '@/services/db';
+import type { Staff } from '@/types';
 import {
     User,
     Camera,
@@ -18,7 +20,7 @@ export default function StaffProfile() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [staffData, setStaffData] = useState<any>(null);
+    const [staffData, setStaffData] = useState<Staff | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Form states
@@ -36,11 +38,7 @@ export default function StaffProfile() {
     const fetchStaffProfile = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('staff')
-                .select('*')
-                .eq('user_id', user?.id)
-                .single();
+            const data = user ? await StaffService.getStaffByUserId(user.id) : null;
 
             if (data) {
                 setStaffData(data);
@@ -62,18 +60,8 @@ export default function StaffProfile() {
         setMessage(null);
 
         try {
-            const { error } = await supabase
-                .from('staff')
-                .update({
-                    name,
-                    specialty,
-                    bio,
-                    photo,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('user_id', user?.id);
-
-            if (error) throw error;
+            if (!staffData) throw new Error('Personel kaydı bulunamadı');
+            await StaffService.updateStaff(staffData.id, { name, specialty, bio, photo });
 
             // Profile tablosunu da güncelle (isim değiştiyse)
             await supabase

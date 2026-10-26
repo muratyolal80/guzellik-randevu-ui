@@ -27,15 +27,16 @@
 | 06-28 | Randevu aksiyon izi (kim/ne zaman), salon görselleri storage policy, usage stats fallback (New-26..32) | `9018894` `2c6216b` `7e3d4a3` |
 | 06-29 | Tüm panellerde mobil navigasyon, müşteri UX, admin dashboard gerçek KPI, 404/error sayfaları, alert → toast (owner) | `2c026c8` `5515862` `72d6de9` `b8607d3` `8fefe66` |
 | 10-26 | Local Supabase ayağa kaldırıldı ("Failed to fetch" çözüldü), DB + RLS + UI tam denetim yapıldı | — |
-| 10-26 | Belgeler toparlandı: kök md'ler → `docs/archive/`, deployment & alignment analizi, `docs/critical/` (git dışı) | bu commit |
+| 10-26 | Belgeler toparlandı: kök md'ler → `docs/archive/`, deployment & alignment analizi, `docs/critical/` (git dışı) | `81b45b9` |
+| 10-26 | **F1+F2:** New-33 güvenlik sertleştirmesi (local'de uygulandı + saldırı senaryolarıyla doğrulandı), `scripts/migrate.sh`, davet kabul akışı (RPC yoktu) + admin aktif/pasif bug'ı + login open redirect | F1-commit |
 
 ### ⏳ Yapılacak — Fazlar (sırayla)
 
 | Faz | İş | Neden | Detay | Durum |
 |-----|----|-------|-------|-------|
 | **F0** | **Prod keşfi (salt okunur):** prod `_migrations`, şema diff, aşağıdaki açıklar prod'da var mı? | Prod'un gerçek durumu bilinmiyor | [deployment-and-alignment §9-10](../infrastructure/deployment-and-alignment.md) | ⏳ |
-| **F1** 🔴 | **Kritik güvenlik — `New-33-Security-Hardening.sql`** | Herkes kendini admin yapabiliyor, personel TC/telefon herkese açık | aşağıda "F1 detay" | ⏳ |
-| **F2** | **Migration runner** `scripts/migrate.sh` (transaction + otomatik kayıt + prod yedeği) | Elle takip bozuldu (New-26b…32 kayıtsız, New-26 iki kez) | [§5](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F1** 🔴 | **Kritik güvenlik — `New-33-Security-Hardening.sql`** | Herkes kendini admin yapabiliyor, personel TC/telefon herkese açık | aşağıda "F1 detay" | ✅ local |
+| **F2** | **Migration runner** `scripts/migrate.sh` (transaction + otomatik kayıt + prod yedeği) | Elle takip bozuldu (New-26b…32 kayıtsız, New-26 iki kez) | [§5](../infrastructure/deployment-and-alignment.md) | ✅ |
 | **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | ⏳ |
 | **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ⏳ |
 | **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ⏳ |
@@ -48,16 +49,18 @@
 
 #### F1 detay — 2026-10-26 local DB denetimi bulguları
 
+> ✅ = local'de kapatıldı ve doğrulandı. **Prod'a uygulanması F0 keşfinden sonra:** `./scripts/migrate.sh prod`. Ek bulunan ve kapatılan: `accept_staff_invite` RPC yoktu (davet kabulü bozuktu), login `?redirect=` open redirect.
+
 | # | Açık | Etki | Durum |
 |---|------|------|-------|
-| 🔴 1 | `handle_new_user` rolü kayıt metadata'sından filtresiz alıyor | Kayıt olan herkes `SUPER_ADMIN` olabilir | ⏳ |
-| 🔴 2 | `profiles.own_profile` `FOR ALL`, `WITH CHECK` yok | Kullanıcı kendi `role`/`is_active` alanını değiştirebilir | ⏳ |
-| 🔴 3 | `staff` `USING(true)` + `tc_no/phone/email` | Anonim kişi personel TC/telefon/e-postasını okuyor (KVKK). **Doğrulandı** | ⏳ |
-| 🔴 4 | `invites` `USING(true)` | Tüm davet token'ları herkese açık → başkasının davetini kabul | ⏳ |
-| 🟡 5 | `salon_usage_stats` view anon'a açık | Salonların abonelik/plan bilgisi herkese açık | ⏳ |
-| 🟡 6 | 3 SECURITY DEFINER fonksiyonda `search_path` yok | search_path hijack | ⏳ |
-| 🟡 7 | `profiles`'ta admin UPDATE politikası yok | Admin "kullanıcı pasif yap" sessizce çalışmıyor (bug) | ⏳ |
-| 🟢 8 | `_migrations` kayıt boşluğu (New-26b…32 uygulanmış, kayıtsız) | Ortam takibi | ⏳ (F2) |
+| 🔴 1 | `handle_new_user` rolü kayıt metadata'sından filtresiz alıyor | Kayıt olan herkes `SUPER_ADMIN` olabilir | ✅ |
+| 🔴 2 | `profiles.own_profile` `FOR ALL`, `WITH CHECK` yok | Kullanıcı kendi `role`/`is_active` alanını değiştirebilir | ✅ |
+| 🔴 3 | `staff` `USING(true)` + `tc_no/phone/email` | Anonim kişi personel TC/telefon/e-postasını okuyor (KVKK). **Doğrulandı** | ✅ |
+| 🔴 4 | `invites` `USING(true)` | Tüm davet token'ları herkese açık → başkasının davetini kabul | ✅ |
+| 🟡 5 | `salon_usage_stats` view anon'a açık | Salonların abonelik/plan bilgisi herkese açık | ✅ |
+| 🟡 6 | 3 SECURITY DEFINER fonksiyonda `search_path` yok | search_path hijack | ✅ |
+| 🟡 7 | `profiles`'ta admin UPDATE politikası yok | Admin "kullanıcı pasif yap" sessizce çalışmıyor (bug) | ✅ |
+| 🟢 8 | `_migrations` kayıt boşluğu (New-26b…32 uygulanmış, kayıtsız) | Ortam takibi | ✅ (`--baseline`) |
 
 ### 👤 Senden beklenen manuel adımlar (güncel)
 

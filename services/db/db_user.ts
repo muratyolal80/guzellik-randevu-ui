@@ -406,7 +406,7 @@ export const DashboardService = {
         .gte("start_time", `${today}T00:00:00Z`),
       supabase
         .from("staff")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("is_active", true),
       // Bekleyen onay = SUBMITTED salonlar (admin onay kuyruğu)
       supabase

@@ -430,53 +430,25 @@ export const InviteService = {
     token: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<Invite | null> {
-    const { data, error } = await supabase
-      .from("invites")
-      .select("*, salon:salons(name)")
-      .eq("token", token)
-      .eq("status", "PENDING")
-      .single();
+    // invites are not publicly readable (New-33) — token lookup goes through a definer RPC
+    const { data, error } = await supabase.rpc("get_invite_by_token", { p_token: token });
 
-    if (error && error.code !== "PGRST116") throw error;
-    return data;
+    if (error) throw error;
+    const row = (data as Array<Invite & { salon_name: string | null }> | null)?.[0];
+    if (!row || row.status !== "PENDING") return null;
+    return { ...row, token, salon: { name: row.salon_name ?? "" } };
   },
 
   /**
-   * Accept invite and link to membership
+   * Accept invite for the signed-in user. accept_staff_invite (New-33) verifies the
+   * invite email matches the session, links/creates the staff card, membership and role.
    */
   async acceptInvite(
-    inviteId: string,
-    userId: string,
+    token: string,
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<void> {
-    const { data: invite, error: fetchErr } = await supabase
-      .from("invites")
-      .select("*")
-      .eq("id", inviteId)
-      .single();
-
-    if (fetchErr) throw fetchErr;
-
-    // 1. Create membership
-    const { error: memErr } = await supabase.from("salon_memberships").insert({
-      user_id: userId,
-      salon_id: invite.salon_id,
-      role: invite.role,
-      is_active: true,
-    });
-
-    if (memErr) throw memErr;
-
-    // 2. Mark invite as accepted
-    const { error: updErr } = await supabase
-      .from("invites")
-      .update({
-        status: "ACCEPTED",
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", inviteId);
-
-    if (updErr) throw updErr;
+    const { error } = await supabase.rpc("accept_staff_invite", { p_token: token });
+    if (error) throw error;
   },
 };
 

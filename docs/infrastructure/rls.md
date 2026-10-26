@@ -138,11 +138,12 @@ CREATE POLICY ... ON profiles FOR SELECT USING (
 
 | Tablo | SELECT | INSERT | UPDATE | DELETE |
 |-------|--------|--------|--------|--------|
-| `profiles` | self + public salon owner/staff | self | self | admin |
+| `profiles` | self + public salon owner/staff + admin | self (trigger) | self + admin — `role`/`is_active` **sadece admin/server** (trigger `guard_profile_privileged_columns`) | admin |
 | `salons` | public (APPROVED) + owner + admin | owner | owner + admin | admin |
 | `salon_services` | public + owner + admin | owner + admin | owner + admin | admin |
 | `appointments` | self + staff + owner + admin | self | staff + owner + admin | admin |
-| `staff` | public + owner + admin | owner + admin | owner + admin | owner + admin |
+| `staff` | public (**sadece public kolonlar**) + owner + admin | owner + admin | owner + admin | owner + admin |
+| `invites` | owner + admin (token ile: `get_invite_by_token` RPC) | owner | owner | owner + admin |
 | `staff_services` | public | owner + admin | owner + admin | owner + admin |
 | `working_hours` | public | owner + admin | owner + admin | owner + admin |
 | `payment_history` | self + owner + admin | system | admin | admin |
@@ -152,7 +153,22 @@ CREATE POLICY ... ON profiles FOR SELECT USING (
 
 > ⚠️ **Tablo-seviyesi GRANT, RLS'in önkoşuludur.** RLS politikası tek başına yetmez; ilgili rolde (`authenticated`) tablo GRANT'ı yoksa PostgREST `42501 permission denied for table` döner. `notifications`'ta `authenticated` rolünün `SELECT` GRANT'ı eksikti (INSERT/UPDATE/DELETE vardı) → client SELECT 403 alıyordu. Düzeltme: [initdb/New-12-Notifications-Select-Grant.sql](../../initdb/New-12-Notifications-Select-Grant.sql). Satır görünürlüğü `users_view_own_notifications` (USING `auth.uid() = user_id`) ile sınırlı kaldığından veri ifşası yok.
 
+## Güvenlik Sertleştirmesi (New-33, 2026-10-26)
+
+| Konu | Kural |
+|------|-------|
+| **Rol ataması** | `handle_new_user` client metadata'dan sadece `CUSTOMER` / `SALON_OWNER` kabul eder. `STAFF`/`MANAGER` yalnızca `accept_staff_invite(token)` ile — davet e-postası oturumdaki kullanıcıyla eşleşmeli. `SUPER_ADMIN`/`ADMIN` sadece DB'den (service_role) |
+| **profiles.role / is_active** | `BEFORE UPDATE` trigger: `authenticated`/`anon` rolündeyken sadece `is_admin()` değiştirebilir. Definer fonksiyonlar ve service_role etkilenmez |
+| **staff PII** | `anon`/`authenticated` için **kolon bazlı** SELECT: `id, salon_id, user_id, name, photo, specialty, bio, is_active, created_at, updated_at, rating, review_count, role`. `email, phone, tc_no, is_*_verified, kvkk_consent, verified_at` → `get_staff_private(uuid[])` RPC (salon sahibi / personelin kendisi / admin). **Kodda `staff` üzerinde `select("*")` veya parametresiz `.select()` kullanılmaz** → `STAFF_PUBLIC_COLUMNS` + `withStaffPrivate()` ([services/db/staff_columns.ts](../../services/db/staff_columns.ts)) |
+| **invites** | Public listeleme yok. Token sorgusu `get_invite_by_token(text)`, kabul `accept_staff_invite(text)` (definer RPC) |
+| **is_admin()** | `profiles` üzerinde admin politikaları için SECURITY DEFINER helper (policy içinde `profiles`'ı sorgulamak sonsuz döngü yaratır) |
+| **SECURITY DEFINER** | Hepsinde `SET search_path = public, pg_temp` zorunlu |
+
+Regresyon kontrolü: `db-health-check.sql` **Section 10** (beklenen 0 bulgu).
+
 ## Açık Aksiyon (TODO)
+- 🟡 **notifications / audit_logs** `INSERT WITH CHECK (true)` → bildirim üretimini server'a taşıyıp daralt (Roadmap F6)
+- 🟡 **slot_reservations** anon INSERT (`user_id IS NULL`) → slot doldurma saldırısı; `acquire_slot_lock` RPC dışı insert kapatılmalı (F6)
 - 🟢 **Otomatik denetim** — health-check.sql'i CI'da çalıştır (PR öncesi)
 - 🟢 **Penetration test** — anon kullanıcı ile her tablo için 4xx yanıt beklenmesi gereken sorgular test edilebilir
 - 🟢 **Policy test suite** — pgTAP ile her policy için test

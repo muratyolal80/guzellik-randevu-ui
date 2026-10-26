@@ -36,6 +36,7 @@ function InviteRegisterContent() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [needsVerification, setNeedsVerification] = useState(false);
 
     useEffect(() => {
         if (!token) {
@@ -75,21 +76,26 @@ function InviteRegisterContent() {
         }
 
         try {
-            // 1. Sign up user
-            const data = await signUp(invite.email, password, firstName, lastName, invite.role);
+            // 1. Sign up — role is NOT taken from the client; accept_staff_invite grants it
+            const data = await signUp(invite.email, password, firstName, lastName);
 
             if (!data?.user) {
                 throw new Error('Kullanıcı oluşturulamadı.');
             }
 
-            // 2. Accept invite and create membership
-            await InviteService.acceptInvite(invite.id, data.user.id);
+            // 2. Email confirmation enabled → no session yet; invite is accepted after verifying
+            if (!data.session) {
+                setNeedsVerification(true);
+                return;
+            }
+
+            // 3. Accept invite (links staff card, membership, role)
+            await InviteService.acceptInvite(token!);
 
             setSuccess(true);
 
-            // 3. Redirect to dashboard after a bit
             setTimeout(() => {
-                router.push('/owner/dashboard');
+                router.push(invite.role === 'MANAGER' ? '/owner/dashboard' : '/staff/dashboard');
             }, 2000);
         } catch (err) {
             console.error('Invite acceptance error:', err);
@@ -138,7 +144,17 @@ function InviteRegisterContent() {
                         </div>
 
                         <div className="p-8 sm:p-10">
-                            {success ? (
+                            {needsVerification ? (
+                                <div className="py-10 text-center space-y-4">
+                                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto">
+                                        <Mail className="w-10 h-10" />
+                                    </div>
+                                    <h3 className="text-xl font-black text-text-main">E-postanızı Doğrulayın</h3>
+                                    <p className="text-sm font-medium text-text-secondary">
+                                        {invite.email} adresine bir doğrulama bağlantısı gönderdik. Doğruladıktan sonra giriş yapıp davet bağlantısına tekrar tıklayarak daveti kabul edebilirsiniz.
+                                    </p>
+                                </div>
+                            ) : success ? (
                                 <div className="py-10 text-center space-y-4 animate-in zoom-in duration-500">
                                     <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center text-green-600 mx-auto border border-green-100">
                                         <ShieldCheck className="w-10 h-10" />

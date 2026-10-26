@@ -66,6 +66,21 @@ psql < initdb/New-15-PayTR-Setup.sql
 psql < initdb/db-health-check.sql
 ```
 
+## Migration Runner (2026-10-26 itibarıyla standart yol)
+
+```bash
+./scripts/migrate.sh local --dry-run   # bekleyenleri listele
+./scripts/migrate.sh local             # uygula (her dosya tek transaction + _migrations kaydı + checksum)
+./scripts/migrate.sh staging           # STAGING_SSH=user@host gerekir
+./scripts/migrate.sh prod              # 'prod' onayı + ZORUNLU pg_dump yedeği
+./scripts/migrate.sh <env> --baseline New-32   # zaten uygulanmış dosyaları çalıştırmadan kaydet
+```
+
+- Dosyaya artık **elle `INSERT INTO _migrations` yazılmaz** — runner kaydeder.
+- Uygulanmış bir dosya sonradan düzenlenirse runner checksum uyarısı verir → düzenleme yerine yeni `New-XX` yaz.
+- `CREATE INDEX CONCURRENTLY` gibi transaction dışı işler için dosyanın ilk satırlarına `-- @no-transaction`.
+- Süreç ve ortamlar: [deployment-and-alignment.md](deployment-and-alignment.md).
+
 ## Yeni Migration Ekleme Akışı
 
 CLAUDE.md kurallarına göre:
