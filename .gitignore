@@ -59,3 +59,6 @@ tmp/
 # TypeScript build artifacts
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# Gizli belgeler (kullanıcı/şifre, sunucu erişimleri) — ASLA commit edilmez
+docs/critical/

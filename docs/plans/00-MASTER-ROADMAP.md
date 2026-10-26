@@ -2,11 +2,76 @@
 
 > Bu belge tüm projenin **gün gün** ne yapıldığı, **şu an** nerede olduğumuz, **neyin kaldığı** ve **senden hangi aksiyonların beklendiğinin** tek doğruluk kaynağıdır.
 >
-> **Son güncelleme:** 2026-06-25
-> **Aktif branch:** `feat-admin-panel`
-> **Yazılım sürümü:** `1.1.0`
+> **Son güncelleme:** 2026-10-26
+> **Aktif branch:** `salonara` (staging) → `kuaforara` (prod, oluşturulacak)
+> **Yazılım sürümü:** `1.1.5`
+>
+> **Nasıl takip edilir:** Bu belgenin en üstündeki **"🧭 GÜNCEL YOL HARİTASI"** tek takip noktasıdır. Her faz bittikçe ⏳ → ✅ yapılır, commit hash yazılır. Alttaki bölümler (Haziran) geçmiş kaydıdır.
 
 ---
+
+## 🧭 GÜNCEL YOL HARİTASI (2026-10-26)
+
+**Durum:** Özellik geliştirme büyük ölçüde tamam. **Prod'da gerçek müşteri verisi olmadan önce** 3 iş şart: kritik güvenlik açıklarını kapatmak, güvenli bir DB release süreci kurmak, deploy zincirini (`salonara` → `kuaforara`) bağlamak.
+
+### ✅ Yapıldı (2026-06-25 → 2026-10-26, 41 commit)
+
+| Tarih | İş | Commit |
+|-------|----|--------|
+| 06-27 | OTP RLS açığı kapatıldı (New-20), profiles.birth_date (New-21), authenticated CUD GRANT denetimi (New-22) | `c32f3b0` `1718563` `142433a` |
+| 06-27 | ESLint 9, test sayısı 38 → 85, Coolify deployment rehberi, prod launch checklist | `e753d09` `f7f1f31` `3004efa` `353e12f` |
+| 06-27 | PayTR iade UI, hizmet-kaynak bağlama, yazdırılabilir bilet | `b1221ba` `2d33cb0` |
+| 06-28 | Booking: reschedule düzeltmeleri, Mode A otomatik onay, Mode B onay akışı | `499c4c7` `805023d` `c1280f7` `e979226` `aff4d74` |
+| 06-28 | audit_logs INSERT policy (New-23), Master şemaya 5 eksik tablo (New-24), owner yazma politikaları (New-25) | `778df3a` `1c684e2` `5a923f9` |
+| 06-28 | Auth enumeration fix, SMS tekrar gönder, rol düşürme (downgrade) bug'ı, personel hesap yönetimi | `93a5445` `739111f` `d27710c` |
+| 06-28 | Randevu aksiyon izi (kim/ne zaman), salon görselleri storage policy, usage stats fallback (New-26..32) | `9018894` `2c6216b` `7e3d4a3` |
+| 06-29 | Tüm panellerde mobil navigasyon, müşteri UX, admin dashboard gerçek KPI, 404/error sayfaları, alert → toast (owner) | `2c026c8` `5515862` `72d6de9` `b8607d3` `8fefe66` |
+| 10-26 | Local Supabase ayağa kaldırıldı ("Failed to fetch" çözüldü), DB + RLS + UI tam denetim yapıldı | — |
+| 10-26 | Belgeler toparlandı: kök md'ler → `docs/archive/`, deployment & alignment analizi, `docs/critical/` (git dışı) | bu commit |
+
+### ⏳ Yapılacak — Fazlar (sırayla)
+
+| Faz | İş | Neden | Detay | Durum |
+|-----|----|-------|-------|-------|
+| **F0** | **Prod keşfi (salt okunur):** prod `_migrations`, şema diff, aşağıdaki açıklar prod'da var mı? | Prod'un gerçek durumu bilinmiyor | [deployment-and-alignment §9-10](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F1** 🔴 | **Kritik güvenlik — `New-33-Security-Hardening.sql`** | Herkes kendini admin yapabiliyor, personel TC/telefon herkese açık | aşağıda "F1 detay" | ⏳ |
+| **F2** | **Migration runner** `scripts/migrate.sh` (transaction + otomatik kayıt + prod yedeği) | Elle takip bozuldu (New-26b…32 kayıtsız, New-26 iki kez) | [§5](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ⏳ |
+| **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ⏳ |
+| **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
+| **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ⏳ |
+| **F10** | **SEO/a11y:** 59 sayfada metadata eksik (layout ile), background-image alt, İngilizce UI metinleri | SEO + erişilebilirlik | UI denetimi | ⏳ |
+| **F11** | **Kod kalitesi:** `any` temizliği, sayfalardaki ham Supabase sorguları → `services/db`, ele alınmayan fetch hataları | CLAUDE.md mimari kuralları | — | ⏳ |
+
+#### F1 detay — 2026-10-26 local DB denetimi bulguları
+
+| # | Açık | Etki | Durum |
+|---|------|------|-------|
+| 🔴 1 | `handle_new_user` rolü kayıt metadata'sından filtresiz alıyor | Kayıt olan herkes `SUPER_ADMIN` olabilir | ⏳ |
+| 🔴 2 | `profiles.own_profile` `FOR ALL`, `WITH CHECK` yok | Kullanıcı kendi `role`/`is_active` alanını değiştirebilir | ⏳ |
+| 🔴 3 | `staff` `USING(true)` + `tc_no/phone/email` | Anonim kişi personel TC/telefon/e-postasını okuyor (KVKK). **Doğrulandı** | ⏳ |
+| 🔴 4 | `invites` `USING(true)` | Tüm davet token'ları herkese açık → başkasının davetini kabul | ⏳ |
+| 🟡 5 | `salon_usage_stats` view anon'a açık | Salonların abonelik/plan bilgisi herkese açık | ⏳ |
+| 🟡 6 | 3 SECURITY DEFINER fonksiyonda `search_path` yok | search_path hijack | ⏳ |
+| 🟡 7 | `profiles`'ta admin UPDATE politikası yok | Admin "kullanıcı pasif yap" sessizce çalışmıyor (bug) | ⏳ |
+| 🟢 8 | `_migrations` kayıt boşluğu (New-26b…32 uygulanmış, kayıtsız) | Ortam takibi | ⏳ (F2) |
+
+### 👤 Senden beklenen manuel adımlar (güncel)
+
+| # | İş | Faz |
+|---|----|-----|
+| 1 | `docs/critical/credentials.md`'deki prod/staging boşluklarını doldur (Coolify, SSH, Studio, 3. parti paneller) | F0 |
+| 2 | Prod'a SSH erişimini doğrula (`ssh root@45.81.113.82`) — F0 keşfini birlikte yaparız | F0 |
+| 3 | Prod'da `admin@demo.com / password123` varsa şifresini değiştir veya hesabı sil | F1 |
+| 4 | Coolify'da prod Application branch'ini `kuaforara` yap (F3'te birlikte) | F3 |
+| 5 | Eski listeden hâlâ açık olanlar: İYS hesabı, NetGSM prod, PayTR canlı + `test_mode=0`, Resend, `CRON_SECRET` — bkz. [PROD-LAUNCH-CHECKLIST](../PROD-LAUNCH-CHECKLIST.md) | Launch |
+
+---
+
+## 📜 GEÇMİŞ — Haziran 2026 Durumu (arşiv, değiştirilmez)
 
 ## 🎯 Hızlı Durum
 
@@ -192,6 +257,9 @@
 | `docs/integrations/payment-iyzico.md` | DEPRECATED (arşiv) | 🟡 |
 | `docs/learning/claude-skills-rehberi.md` | 345 skill kullanım rehberi | 🟢 |
 | `CLAUDE.md` | Proje anayasası | 🟢 |
+| [deployment-and-alignment.md](../infrastructure/deployment-and-alignment.md) | Kod/şema/veri akışı, release süreci, prod→local alignment | 🟢 2026-10-26 |
+| `docs/archive/` | Eski analizler (GAP analysis, project overview/architecture) | 📦 Arşiv |
+| `docs/critical/` | Kullanıcı/şifre, sunucu erişimleri — **git dışı** | 🔐 |
 
 ---
 

@@ -47,6 +47,18 @@ Bu klasör projenin **detaylı modül belgelerini** içerir. Üst düzey gereksi
 | [RLS & Güvenlik](infrastructure/rls.md) | 90 policy, rol matrisleri, denetim |
 | [Migrations](infrastructure/migrations.md) | initdb akışı, New-XX dosyaları |
 | [MCP & Geliştirme](infrastructure/mcp.md) | Supabase MCP, postgres MCP, akış |
+| [Deployment & Alignment](infrastructure/deployment-and-alignment.md) | **Release süreci**, branch modeli (salonara → kuaforara), migration kuralları, prod → local/staging veri hizalama |
+| [Coolify Deployment](infrastructure/coolify-deployment.md) | İlk kurulum rehberi (§3 veri taşıma sadece ilk launch için) |
+| [Supabase Local Setup](infrastructure/supabase-local-setup.md) | Local Docker Supabase kurulumu |
+
+## Takip & Arşiv
+
+| Belge | İçerik |
+|-------|--------|
+| [**Master Roadmap**](plans/00-MASTER-ROADMAP.md) | **Tek takip noktası** — yapıldı / yapılacak, fazlar |
+| [PROD-LAUNCH-CHECKLIST](PROD-LAUNCH-CHECKLIST.md) | Launch öncesi kontrol listesi |
+| `archive/` | Eski analizler (GAP analysis, project overview/architecture) |
+| `critical/` | 🔐 Kullanıcı/şifre, sunucu erişimleri — **git'e gitmez** (`.gitignore`) |
 
 ## Belge Formatı (Yeni Modül Eklerken)
 
