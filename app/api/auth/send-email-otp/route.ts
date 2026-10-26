@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
         const { email } = await request.json();
 
-        if (!email || !email.includes('@')) {
+        if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
             return NextResponse.json({ error: 'Geçerli bir e-posta adresi girin.' }, { status: 400 });
         }
+
+        const [byIp, byEmail] = await Promise.all([
+            rateLimit(`email-otp:ip:${getClientIp(request)}`, 5, 10 * 60_000),
+            rateLimit(`email-otp:email:${email.trim().toLowerCase()}`, 3, 10 * 60_000),
+        ]);
+        if (!byIp.success) return rateLimitResponse(byIp.reset);
+        if (!byEmail.success) return rateLimitResponse(byEmail.reset);
 
         // Send magic link via Supabase Auth
         const { error } = await supabaseAdmin.auth.signInWithOtp({

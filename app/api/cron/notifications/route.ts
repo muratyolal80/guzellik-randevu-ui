@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isCronAuthorized } from '@/lib/auth/cron';
 import { NotificationService } from '@/services/server-notification';
 
 /**
@@ -14,16 +15,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 async function handle(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  const token = request.nextUrl.searchParams.get('token');
-  const expected = process.env.CRON_SECRET;
-
-  if (expected) {
-    const headerOk = authHeader === `Bearer ${expected}`;
-    const queryOk = token === expected;
-    if (!headerOk && !queryOk) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!isCronAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const startedAt = Date.now();

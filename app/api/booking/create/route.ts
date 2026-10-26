@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { findAuthUserIdByEmail } from '@/lib/auth/lookup';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
@@ -50,45 +51,44 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId, participantCount = 1, depositAmount = 0 } = body;
+    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId } = body;
+    // price inputs are never trusted from the client (deposit is recomputed below)
+    const participantCount = Number.isInteger(body.participantCount) && body.participantCount >= 1 && body.participantCount <= 20
+      ? body.participantCount
+      : 1;
 
     if (!customerName || !salonId || !staffId || !serviceId || !startTime) {
       return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
     }
 
-    // 2. Update User Profile & Email
-    // If email is provided and user has a pending.user placeholder, update it
-    if (email && user.email?.includes('@pending.user')) {
-      const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        email,
-        email_confirm: true // Auto-confirm since they're already authenticated
-      });
-      if (updateEmailError) console.warn('Placeholder email update failed:', updateEmailError.message);
-    } else if (email && email !== user.email && !user.email?.includes('@pending.user')) {
-      // Update if email is different and not a placeholder
-      const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { email });
-      if (updateEmailError) console.warn('Email update failed:', updateEmailError.message);
+    // 2. Contact email: only replaces a phone-signup placeholder, and only with an
+    //    address no other account owns. Not confirmed here — GoTrue confirmation applies.
+    const isPlaceholder = /@(pending|phone)\.user$/.test(user.email || '');
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (isPlaceholder && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      if (!(await findAuthUserIdByEmail(cleanEmail))) {
+        const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { email: cleanEmail });
+        if (updateEmailError) console.warn('Placeholder email update failed:', updateEmailError.message);
+      }
     }
 
-    // Update Profile Data
-    await supabaseAdmin.from('profiles').upsert({
-      id: user.id,
+    // Name/phone only — role is never written here (an owner booking stays an owner)
+    await supabaseAdmin.from('profiles').update({
       first_name: customerName.split(' ')[0],
       last_name: customerName.split(' ').slice(1).join(' '),
-      email: email || user.email,
-      phone: user.phone, // Phone comes from the auth user
-      role: 'CUSTOMER',
+      phone: user.phone,
       updated_at: new Date().toISOString()
-    });
+    }).eq('id', user.id);
 
-    // 3. Get Service Info
-    const { data: service } = await supabaseAdmin
-      .from('salon_services')
-      .select('duration_min, price, global_services(name)')
-      .eq('id', serviceId)
-      .single();
+    // 3. Service + staff must belong to this salon
+    const [{ data: service }, { data: staffRow }, { data: salonRow }] = await Promise.all([
+      supabaseAdmin.from('salon_services').select('duration_min, price, global_services(name)').eq('id', serviceId).eq('salon_id', salonId).maybeSingle(),
+      supabaseAdmin.from('staff').select('id').eq('id', staffId).eq('salon_id', salonId).eq('is_active', true).maybeSingle(),
+      supabaseAdmin.from('salons').select('deposit_rate').eq('id', salonId).maybeSingle(),
+    ]);
 
     if (!service) return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
+    if (!staffRow || !salonRow) return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
 
     // 4. Handle Coupon Validation
     const basePrice = service.price * participantCount;
@@ -161,10 +161,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Combined Discount
-    const totalDiscount = discountAmount + campaignDiscount;
+    // Combined Discount (never more than the price)
+    const totalDiscount = Math.min(discountAmount + campaignDiscount, basePrice);
+
+    // Deposit = salon's deposit_rate of the discounted price (same formula as the booking UI)
+    const depositAmount = Math.round(((basePrice - totalDiscount) * (salonRow.deposit_rate || 0)) / 100);
 
     const startDate = new Date(startTime);
+    if (Number.isNaN(startDate.getTime())) {
+      return NextResponse.json({ error: 'Geçersiz randevu zamanı.' }, { status: 400 });
+    }
     const endDate = new Date(startDate.getTime() + service.duration_min * 60 * 1000);
 
     // Validate that the appointment is not in the past

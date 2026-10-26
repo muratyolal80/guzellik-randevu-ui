@@ -130,4 +130,4 @@ done
 
 q "NOTIFY pgrst, 'reload schema'" >/dev/null
 echo "🩺 Health check:"
-psql_t -P pager=off < "$MIG_DIR/db-health-check.sql" | grep -A12 -E "▶ (1|2|3|8|8b)\)" || true
+psql_t -P pager=off < "$MIG_DIR/db-health-check.sql" | grep -A12 -E "▶ (1|2|3|8|8b|10)\)" || true

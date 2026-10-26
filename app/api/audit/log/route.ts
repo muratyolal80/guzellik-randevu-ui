@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { rateLimit } from '@/lib/rate-limit';
+import { canActForSalon } from '@/lib/auth/request-user';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 /**
  * POST /api/audit/log
@@ -78,6 +79,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // A salon-scoped entry may only be written by someone who acts for that salon
+        if (salon_id && salon_id !== PLATFORM_SALON_ID && !(await canActForSalon(user.id, salon_id))) {
+            return NextResponse.json({ error: 'Bu salon için yetkiniz yok.' }, { status: 403 });
+        }
+
         const finalChanges = changes
             ? (description ? { ...changes, description } : changes)
             : description
@@ -94,10 +100,7 @@ export async function POST(request: NextRequest) {
                 resource_id: resource_id || null,
                 changes: finalChanges,
                 user_agent: request.headers.get('user-agent') ?? null,
-                ip_address:
-                    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-                    request.headers.get('x-real-ip') ||
-                    null,
+                ip_address: getClientIp(request),
             });
 
         if (insertErr) {

@@ -21,23 +21,24 @@ export async function POST(req: NextRequest) {
         const options = await IyzicoService.getOptions();
         const secretKey = options.secretKey;
 
-        if (signature) {
-            // V3 Signature string: SECRET_KEY + iyziEventType + paymentId + paymentConversationId + status
-            // Note: For subscriptions, parameters might differ. We try both the standard concat and raw body.
-            const payloadStr = secretKey +
-                (body.iyziEventType || '') +
-                (body.paymentId || body.subscriptionReferenceCode || '') +
-                (body.paymentConversationId || '') +
-                (body.status || '');
+        // V3 Signature string: SECRET_KEY + iyziEventType + paymentId + paymentConversationId + status
+        // Unsigned / mismatched calls are rejected — they could mark payments SUCCESS.
+        const payloadStr = secretKey +
+            (body.iyziEventType || '') +
+            (body.paymentId || body.subscriptionReferenceCode || '') +
+            (body.paymentConversationId || '') +
+            (body.status || '');
 
-            const expectedSignature = crypto
-                .createHmac('sha256', secretKey)
-                .update(payloadStr)
-                .digest('hex');
+        const expectedSignature = crypto
+            .createHmac('sha256', secretKey)
+            .update(payloadStr)
+            .digest('hex');
 
-            if (signature !== expectedSignature) {
-                console.warn('Invalid iyzico signature (V3 check failed).');
-            }
+        const given = Buffer.from(signature || '');
+        const expected = Buffer.from(expectedSignature);
+        if (!secretKey || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+            console.warn('Rejected iyzico webhook: missing or invalid signature');
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
         }
 
         // 0. Log Webhook to Database (Audit Trail)

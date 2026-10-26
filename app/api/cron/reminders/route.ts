@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isCronAuthorized } from '@/lib/auth/cron';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { format } from 'date-fns';
@@ -11,8 +12,7 @@ import { tr } from 'date-fns/locale';
  */
 export async function GET(request: NextRequest) {
   // Simple auth check for cron (use a secret header in production)
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { canManageSalon } from '@/lib/auth/request-user';
 import {
     generateIframeToken,
     buildSubscriptionMerchantOid,
@@ -62,6 +63,10 @@ export async function POST(request: NextRequest) {
         const { planId, billingCycle = 'MONTHLY', salonId } = body || {};
         if (!planId) {
             return NextResponse.json({ error: 'planId zorunlu.' }, { status: 400 });
+        }
+        // a paid subscription must not be attachable to someone else's salon
+        if (salonId && !(await canManageSalon(user.id, salonId))) {
+            return NextResponse.json({ error: 'Bu salon için yetkiniz yok.' }, { status: 403 });
         }
 
         const { data: plan, error: planError } = await supabaseAdmin

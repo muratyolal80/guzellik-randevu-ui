@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IyzicoService } from '@/lib/payment/iyzico';
-import { SalonDataService, SubmerchantService } from '@/services/db';
+import { SubmerchantService } from '@/services/db';
+import { getRequestUser, canManageSalon } from '@/lib/auth/request-user';
 
 /**
  * API route to create a sub-merchant on iyzico
@@ -11,6 +12,12 @@ export async function POST(req: NextRequest) {
 
         if (!salonId || !subMerchantData) {
             return NextResponse.json({ error: 'Eksik bilgi' }, { status: 400 });
+        }
+
+        const user = await getRequestUser(req);
+        if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
+        if (!(await canManageSalon(user.id, salonId))) {
+            return NextResponse.json({ error: 'Yetkiniz yok.' }, { status: 403 });
         }
 
         // Call iyzico API

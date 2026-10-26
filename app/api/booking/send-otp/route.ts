@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOTP, saveOTP, cleanPhone, getActiveOTP } from '@/lib/auth/otp';
+import { generateOTP, saveOTP, cleanPhone, getActiveOTP, isOtpDemoMode } from '@/lib/auth/otp';
 import { sendOTPSMS } from '@/lib/messaging/sms';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { verifyTurnstile } from '@/lib/turnstile';
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // 1. Check for existing active OTP (Optimize SMS usage)
     const activeCode = await getActiveOTP(cleanedPhone);
-    const isDemoMode = process.env.OTP_DEMO_MODE === 'true';
+    const isDemoMode = isOtpDemoMode();
 
     if (activeCode) {
       console.log('Active OTP found for', cleanedPhone, 'skipping SMS');
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const smsSent = await sendOTPSMS(cleanedPhone, code);
 
-    if (!smsSent && process.env.OTP_DEMO_MODE !== 'true') {
+    if (!smsSent && !isDemoMode) {
       console.warn('SMS gonderilemedi ama OTP DBye kaydedildi');
     }
 

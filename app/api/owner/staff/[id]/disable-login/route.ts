@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { isManageableStaffAccount } from '@/lib/auth/staff-account';
 
 /**
  * POST /api/owner/staff/[id]/disable-login
@@ -69,6 +70,10 @@ export async function POST(
         }
         if (!isOwner && !isAdmin) {
             return NextResponse.json({ error: 'Yetkiniz yok.' }, { status: 403 });
+        }
+
+        if (!(await isManageableStaffAccount(staffRow.user_id, user.id))) {
+            return NextResponse.json({ error: 'Bu hesap personel hesabı değil.' }, { status: 403 });
         }
 
         const targetUserId = staffRow.user_id;

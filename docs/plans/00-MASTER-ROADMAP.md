@@ -40,7 +40,7 @@
 | **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | 🟡 `scripts/release.sh` hazır — GitHub/Coolify ayarı senin |
 | **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ✅ (local test edildi) |
 | **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ✅ script · ⏳ sunucuya cron kurulumu senin |
-| **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ⏳ |
+| **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ✅ local (bkz. "F6 detay") |
 | **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ⏳ |
 | **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
 | **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ⏳ |
@@ -62,6 +62,29 @@
 | 🟡 7 | `profiles`'ta admin UPDATE politikası yok | Admin "kullanıcı pasif yap" sessizce çalışmıyor (bug) | ✅ |
 | 🟢 8 | `_migrations` kayıt boşluğu (New-26b…32 uygulanmış, kayıtsız) | Ortam takibi | ✅ (`--baseline`) |
 
+#### F6 detay — kod güvenlik taraması (2026-10-26) + DB yazma politikaları
+
+| # | Bulgu | Düzeltme | Durum |
+|---|-------|----------|-------|
+| 🔴 C1 | `verify-and-book`: OTP'yi kendi telefonuyla geçip **başkasının e-postasıyla** hesabını ele geçirme; her randevuda müşterinin gerçek şifresi sıfırlanıyordu | Hesap sadece doğrulanmış telefonla bulunur; oturum magic-link token ile açılır, **şifreye dokunulmaz** (`lib/auth/session.ts`) | ✅ |
+| 🔴 C2 | OTP brute-force (deneme limiti yok, verify route'larında rate limit yok) | `otp_codes.attempts` (New-35), 5 hatada kod yanar; telefon+IP rate limit; `crypto.randomInt` | ✅ |
+| 🔴 C3 | Owner `staff.user_id`'yi admin'e çevirip `reset-password` ile admin hesabını ele geçirebiliyordu | DB trigger: sadece kendi hesabına bağlama (New-34) + route'ta hedef rol STAFF/MANAGER kontrolü | ✅ |
+| 🟠 H1 | `.env` git'e commit edilmişti (Gemini/iyzico anahtarları), `OTP_DEMO_MODE` prod koruması yoktu | `git rm --cached .env`; demo mod prod build'de kapalı (`OTP_DEMO_ALLOW_IN_PRODUCTION` sadece staging) | ✅ · **anahtar rotasyonu senin** |
+| 🟠 H2 | iyzico webhook imzası zorunlu değildi | İmzasız/yanlış → 401, `timingSafeEqual` | ✅ |
+| 🟠 H3 | iyzico sub-merchant route'unda auth yoktu | Oturum + salon sahipliği | ✅ |
+| 🟠 H4 | `subscription/subscribe`: başkasının salonuna abonelik yazma (IDOR) | `canManageSalon` | ✅ |
+| 🟠 H5 | `booking/create`: kapora ve kişi sayısı istemciden geliyordu (1 TL kapora) | Kapora sunucuda `deposit_rate` ile hesaplanır, kişi sayısı 1–20 | ✅ |
+| 🟡 M1 | Rate limit IP'si sahte `X-Forwarded-For` ile atlanıyordu; Upstash limitleri yok sayıyordu | `cf-connecting-ip` öncelikli; (limit, pencere) başına limiter | ✅ |
+| 🟡 M2 | `CRON_SECRET` yoksa cron açıktı; `?token=` log'a düşüyordu | Secret yoksa kapalı, sadece Bearer | ✅ |
+| 🟡 M3 | Üye randevularına anonim SMS tekrar gönderme | Oturum zorunlu + IP limiti | ✅ |
+| 🟡 M4 | `booking/create` e-postayı doğrulamasız değiştiriyor, owner'ı CUSTOMER'a düşürüyordu | Sadece placeholder e-posta, rol yazılmaz | ✅ |
+| 🟡 M5 | Başka salonun hizmet/personeliyle randevu, geçersiz tarih | `salon_id` eşleşmesi + tarih kontrolü | ✅ |
+| 🟡 M6 | PayTR aboneliği başkasının salonuna bağlanabiliyordu | `canManageSalon` | ✅ |
+| 🟡 M7 | Güvenlik header'ı yoktu, `/_next/image` açık proxy | nosniff, Referrer-Policy, X-Frame-Options, `frame-ancestors`, HSTS (prod); image host listesi | ✅ (tam CSP ⏳) |
+| 🟡 DB | `notifications`/`audit_logs` `INSERT WITH CHECK(true)`; `slot_reservations` anon INSERT ile takvim kalıcı kilitlenebiliyordu | New-34: kapsamlı INSERT politikaları, slot sadece RPC, `acquire_slot_lock` client user_id'ye güvenmez | ✅ |
+| 🐞 | `auth` şeması PostgREST'e açık değil → 5 yerde `schema('auth')` sorgusu hep boştu: **geri dönen telefonlu müşteri randevu alamıyor/giriş yapamıyordu (500)**, ayrıca telefon formatı (`+90` vs `90`) uyuşmuyordu | New-36: service_role-only `auth_user_id_by_phone/email` RPC | ✅ |
+| 🟢 L1–L7 | Math.random OTP, PayTR hash sabit-zaman değil, admin varsayılan şifre, audit forgery, JSON-LD `</script>`, e-posta OTP limiti, middleware `is_active` | Hepsi düzeltildi | ✅ |
+
 ### 🧩 Denetimde çıkan ek bulgular (karar bekleyen)
 
 | Bulgu | Etki | Öneri |
@@ -77,6 +100,8 @@
 | 1 | `docs/critical/credentials.md`'deki prod/staging boşluklarını doldur (Coolify, SSH, Studio, 3. parti paneller) | F0 |
 | 2 | Prod'a SSH erişimini doğrula (`ssh root@45.81.113.82`) — F0 keşfini birlikte yaparız | F0 |
 | 3 | Prod'da `admin@demo.com / password123` varsa şifresini değiştir veya hesabı sil | F1 |
+| 3b | 🔴 **Anahtar rotasyonu:** `.env` git geçmişinde → `GEMINI_API_KEY` (Google AI Studio) ve iyzico anahtarlarını yenile. Prod'da `CRON_SECRET` set et (yoksa cron artık kapalı) | F6 |
+| 3c | Diğer geliştirici `git pull` yapmadan önce `.env`'ini yedeklesin — takipten çıkarıldığı için pull'da diskinden silinir | F6 |
 | 4 | Coolify'da prod Application branch'ini `kuaforara` yap (F3'te birlikte) | F3 |
 | 5 | Eski listeden hâlâ açık olanlar: İYS hesabı, NetGSM prod, PayTR canlı + `test_mode=0`, Resend, `CRON_SECRET` — bkz. [PROD-LAUNCH-CHECKLIST](../PROD-LAUNCH-CHECKLIST.md) | Launch |
 

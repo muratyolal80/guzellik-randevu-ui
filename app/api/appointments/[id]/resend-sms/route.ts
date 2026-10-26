@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 /**
  * POST /api/appointments/[id]/resend-sms
@@ -42,8 +42,14 @@ export async function POST(
             return NextResponse.json({ error: 'Randevu bulunamadı.' }, { status: 404 });
         }
 
-        // Yetki: misafir randevu = herkes resend yapabilir
-        // Üyelik randevu = sadece müşteri, owner, admin
+        // Yetki: misafir randevu = herkes resend yapabilir (IP + telefon limitli)
+        // Üyelik randevu = sadece müşteri, owner, admin (oturum zorunlu)
+        if (appointment.customer_id && !user) {
+            return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
+        }
+        const ipRl = await rateLimit(`sms-resend:ip:${getClientIp(request)}`, 5, 10 * 60_000);
+        if (!ipRl.success) return rateLimitResponse(ipRl.reset);
+
         if (user && appointment.customer_id) {
             const isCustomer = appointment.customer_id === user.id;
             const isOwner = (appointment.salon as any)?.owner_id === user.id;

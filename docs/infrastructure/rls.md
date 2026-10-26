@@ -167,8 +167,10 @@ CREATE POLICY ... ON profiles FOR SELECT USING (
 Regresyon kontrolü: `db-health-check.sql` **Section 10** (beklenen 0 bulgu).
 
 ## Açık Aksiyon (TODO)
-- 🟡 **notifications / audit_logs** `INSERT WITH CHECK (true)` → bildirim üretimini server'a taşıyıp daralt (Roadmap F6)
-- 🟡 **slot_reservations** anon INSERT (`user_id IS NULL`) → slot doldurma saldırısı; `acquire_slot_lock` RPC dışı insert kapatılmalı (F6)
+- ✅ ~~notifications / audit_logs `INSERT WITH CHECK (true)`~~ → New-34 `notifications_insert_scoped` (self / admin / salon → o salonda randevusu olan müşteri), `audit_insert_scoped` (`user_id` default `auth.uid()` + `can_act_for_salon`)
+- ✅ ~~slot_reservations anon INSERT~~ → New-34: INSERT REVOKE, sadece `acquire_slot_lock` (client `p_user_id` yok sayılır, oturum başına tek kilit, max 8 saat)
+- ✅ `staff.user_id` sadece kendi hesabına bağlanabilir, `rating/review_count` client'tan yazılamaz (trigger `guard_staff_privileged_columns`)
+- ℹ️ `auth` şeması PostgREST'e **açılmaz**; server kodu kullanıcı aramak için `auth_user_id_by_phone/email` (New-36, sadece service_role) kullanır
 - 🟢 **Otomatik denetim** — health-check.sql'i CI'da çalıştır (PR öncesi)
 - 🟢 **Penetration test** — anon kullanıcı ile her tablo için 4xx yanıt beklenmesi gereken sorgular test edilebilir
 - 🟢 **Policy test suite** — pgTAP ile her policy için test

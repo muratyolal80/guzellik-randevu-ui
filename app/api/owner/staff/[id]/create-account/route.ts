@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { findAuthUserIdByEmail } from '@/lib/auth/lookup';
 import { validatePassword } from '@/lib/auth/password';
 import { rateLimit } from '@/lib/rate-limit';
 
@@ -108,13 +109,7 @@ export async function POST(
         }
 
         // Email kullanılıyor mu? (direct query, listUsers değil)
-        const { data: existing } = await supabaseAdmin
-            .schema('auth')
-            .from('users')
-            .select('id')
-            .eq('email', email)
-            .limit(1);
-        if (existing && existing.length > 0) {
+        if (await findAuthUserIdByEmail(email)) {
             return NextResponse.json(
                 {
                     error: 'Bu email zaten kullanılıyor. Mevcut kullanıcıyı bağlamak için davet sistemini kullanın.',

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
 import { getActiveProvider } from '@/lib/payment/paytr';
+import { canManageSalon } from '@/lib/auth/request-user';
 
 export async function POST(request: NextRequest) {
     const supabase = createServerClient(
@@ -27,6 +28,13 @@ export async function POST(request: NextRequest) {
 
         if (!salonId || !planId) {
             return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
+        }
+        if (billingCycle !== 'MONTHLY' && billingCycle !== 'YEARLY') {
+            return NextResponse.json({ error: 'Geçersiz ödeme periyodu.' }, { status: 400 });
+        }
+        // salonId comes from the client — the caller must own it (or be admin)
+        if (!(await canManageSalon(user.id, salonId))) {
+            return NextResponse.json({ error: 'Yetkiniz yok.' }, { status: 403 });
         }
 
         // 1. Get Plan Info

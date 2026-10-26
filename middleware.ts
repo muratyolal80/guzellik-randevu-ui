@@ -112,9 +112,17 @@ export async function middleware(request: NextRequest) {
                 try {
                     const { data: profile } = await supabase
                         .from('profiles')
-                        .select('role')
+                        .select('role, is_active')
                         .eq('id', user.id)
                         .single();
+
+                    // deactivated accounts (admin / owner disable-login) lose panel access
+                    if (profile?.is_active === false) {
+                        await supabase.auth.signOut();
+                        const loginUrl = new URL('/login', request.url);
+                        loginUrl.searchParams.set('error', 'account_deactivated');
+                        return NextResponse.redirect(loginUrl);
+                    }
 
                     userRole = profile?.role ? profile.role.toUpperCase() : 'CUSTOMER';
                 } catch (err) {

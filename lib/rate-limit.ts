@@ -1,9 +1,10 @@
 /**
  * Rate Limit — provider-agnostic.
- * Default: in-memory LRU (single-instance). Production'da UPSTASH_REDIS_REST_URL/TOKEN
+ * Default: in-memory (single-instance). Production'da UPSTASH_REDIS_REST_URL/TOKEN
  * tanımlıysa otomatik Upstash'e geçer.
  */
 import { type NextRequest, NextResponse } from 'next/server';
+import type { Ratelimit } from '@upstash/ratelimit';
 
 type Bucket = { count: number; reset: number };
 const memory = new Map<string, Bucket>();
@@ -11,18 +12,21 @@ const memory = new Map<string, Bucket>();
 const useUpstash =
   !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
 
-let upstashLimiter: any = null;
-async function getUpstash() {
-  if (upstashLimiter) return upstashLimiter;
+// one limiter per (limit, window) — callers pass different budgets
+const upstashLimiters = new Map<string, Ratelimit>();
+async function getUpstash(limit: number, windowMs: number): Promise<Ratelimit> {
+  const id = `${limit}:${windowMs}`;
+  const cached = upstashLimiters.get(id);
+  if (cached) return cached;
   const { Ratelimit } = await import('@upstash/ratelimit');
   const { Redis } = await import('@upstash/redis');
-  upstashLimiter = new Ratelimit({
+  const rl = new Ratelimit({
     redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(10, '60 s'),
-    analytics: true,
-    prefix: 'gr-rl',
+    limiter: Ratelimit.slidingWindow(limit, `${Math.ceil(windowMs / 1000)} s`),
+    prefix: `gr-rl:${id}`,
   });
-  return upstashLimiter;
+  upstashLimiters.set(id, rl);
+  return rl;
 }
 
 export interface RateLimitResult {
@@ -41,8 +45,7 @@ export async function rateLimit(
   windowMs = 60_000,
 ): Promise<RateLimitResult> {
   if (useUpstash) {
-    const rl = await getUpstash();
-    const r = await rl.limit(key);
+    const r = await (await getUpstash(limit, windowMs)).limit(key);
     return { success: r.success, remaining: r.remaining, reset: r.reset };
   }
 
@@ -50,16 +53,27 @@ export async function rateLimit(
   const b = memory.get(key);
   if (!b || b.reset < now) {
     memory.set(key, { count: 1, reset: now + windowMs });
+    if (memory.size > 50_000) {
+      memory.forEach((v, k) => { if (v.reset < now) memory.delete(k); });
+    }
     return { success: true, remaining: limit - 1, reset: now + windowMs };
   }
   b.count += 1;
   return { success: b.count <= limit, remaining: Math.max(0, limit - b.count), reset: b.reset };
 }
 
+/**
+ * Client IP behind Cloudflare → Traefik. CF-Connecting-IP / X-Real-IP are set by the
+ * proxies; the first X-Forwarded-For entry is client-controlled, so it is the last resort.
+ */
 export function getClientIp(req: NextRequest | Request): string {
-  const h = (req as any).headers;
-  const xff = h.get?.('x-forwarded-for') || h.get?.('cf-connecting-ip') || '';
-  return xff.split(',')[0].trim() || '127.0.0.1';
+  const h = req.headers;
+  return (
+    h.get('cf-connecting-ip')?.trim() ||
+    h.get('x-real-ip')?.trim() ||
+    h.get('x-forwarded-for')?.split(',')[0].trim() ||
+    '127.0.0.1'
+  );
 }
 
 export function rateLimitResponse(reset: number) {

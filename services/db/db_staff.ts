@@ -179,9 +179,10 @@ export const StaffService = {
         // map specialty to role if role is not provided
         role: staffData.role || staffData.specialty,
         phone: staffData.phone,
+        email: staffData.email,
         photo: staffData.photo || staffData.image, // Support both aliases
         salon_id: staffData.salon_id,
-        user_id: staffData.user_id,
+        user_id: staffData.user_id, // only the caller's own id passes the DB guard (solo owner)
         created_at: new Date().toISOString(),
         // Faz 4 Fields
         tc_no: staffData.tc_no,
@@ -226,34 +227,15 @@ export const StaffService = {
 
     await supabase.from("working_hours").insert(hoursToInsert);
 
-    // 3. Auto-link to profile if email matches
+    // Solo-owner pattern: an owner adding themselves as staff gets the card linked to
+    // their own account (role unchanged). Linking anyone else goes through the invite
+    // flow (accept_staff_invite) or the create-account API route — the DB trigger
+    // guard_staff_privileged_columns (New-34) rejects client links to other accounts.
     if (staffData.email && !staffData.user_id) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, role")
-        .eq("email", staffData.email)
-        .single();
-
-      if (profile) {
-        await supabase
-          .from("staff")
-          .update({ user_id: profile.id })
-          .eq("id", data.id);
-
-        // ROLE UPGRADE KURALI — asla DOWNGRADE etme:
-        //   CUSTOMER → STAFF: OK (upgrade)
-        //   STAFF: değişiklik yok (idempotent)
-        //   SALON_OWNER/MANAGER/ADMIN/SUPER_ADMIN → STAFF: YASAK
-        //     (Owner kendisini kendi salonuna staff eklerse rolünü kaybeder)
-        const currentRole = (profile as any).role;
-        const safeToUpgrade = currentRole === "CUSTOMER" || !currentRole;
-        if (safeToUpgrade) {
-          await supabase
-            .from("profiles")
-            .update({ role: "STAFF" })
-            .eq("id", profile.id);
-        }
-        // Aksi halde: profile.role korunur (owner hâlâ owner, admin hâlâ admin)
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth.user?.email && auth.user.email.toLowerCase() === staffData.email.toLowerCase()) {
+        await supabase.from("staff").update({ user_id: auth.user.id }).eq("id", data.id);
+        return { ...data, user_id: auth.user.id } as Staff;
       }
     }
 

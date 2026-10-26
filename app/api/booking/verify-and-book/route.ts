@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
+import { startSessionForUser } from '@/lib/auth/session';
+import { findAuthUserIdByPhone, findAuthUserIdByEmail } from '@/lib/auth/lookup';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 
@@ -40,10 +43,23 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanedPhone = cleanPhone(phone);
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      return NextResponse.json({ error: 'Geçersiz telefon numarası.' }, { status: 400 });
+    }
     const e164Phone = `+90${cleanedPhone}`;
 
-    // Use provided email or fallback to generated one
-    const userEmail = email && email.trim() !== '' ? email.trim() : `${cleanedPhone}@phone.user`;
+    const ip = getClientIp(request);
+    const [byIp, byPhone] = await Promise.all([
+      rateLimit(`verify-book:ip:${ip}`, 20, 10 * 60_000),
+      rateLimit(`verify-book:phone:${cleanedPhone}`, 8, 10 * 60_000),
+    ]);
+    if (!byIp.success) return rateLimitResponse(byIp.reset);
+    if (!byPhone.success) return rateLimitResponse(byPhone.reset);
+
+    // The email field is contact info only — it never selects or unlocks an account
+    const requestedEmail = typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      ? email.trim().toLowerCase()
+      : null;
 
     // --- 1. Verify SMS OTP ---
     const isValidOTP = await verifyOTP(cleanedPhone, otp);
@@ -51,42 +67,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Geçersiz kod' }, { status: 401 });
     }
 
-    // --- 2. Get Service Info ---
-    const { data: service } = await supabaseAdmin
-      .from('salon_services')
-      .select('duration_min')
-      .eq('id', serviceId)
-      .single();
+    // --- 2. Service / staff must belong to this salon; time must be valid & future ---
+    const [{ data: service }, { data: staff }] = await Promise.all([
+      supabaseAdmin.from('salon_services').select('duration_min').eq('id', serviceId).eq('salon_id', salonId).maybeSingle(),
+      supabaseAdmin.from('staff').select('id').eq('id', staffId).eq('salon_id', salonId).eq('is_active', true).maybeSingle(),
+    ]);
 
     if (!service) return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
+    if (!staff) return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
 
     const startDate = new Date(startTime);
+    if (Number.isNaN(startDate.getTime()) || startDate.getTime() < Date.now() - 5 * 60_000) {
+      return NextResponse.json({ error: 'Geçersiz randevu zamanı.' }, { status: 400 });
+    }
     const endDate = new Date(startDate.getTime() + service.duration_min * 60 * 1000);
 
-    // --- 3. User Logic ---
+    // --- 3. User: identified by the VERIFIED phone only ---
     let userId: string;
-    let finalEmail: string = userEmail;
 
-    // Check if user exists by phone OR email — direct indexed query
-    // (listUsers() tüm kullanıcıları çeker, 100K+ rakamla katastrof + enumeration riski)
-    const { data: phoneOrEmailRows } = await supabaseAdmin
-      .schema('auth')
-      .from('users')
-      .select('id, email, phone')
-      .or(`phone.eq.${e164Phone},email.eq.${userEmail}`)
-      .limit(1);
-    const existingUser = phoneOrEmailRows && phoneOrEmailRows.length > 0
-      ? phoneOrEmailRows[0]
-      : null;
+    const existingUserId = await findAuthUserIdByPhone(cleanedPhone);
 
-    if (existingUser) {
-      // User exists - use existing ID and Email
-      userId = existingUser.id;
-      finalEmail = existingUser.email || userEmail;
-      console.log('👤 Existing user found:', userId);
+    if (existingUserId) {
+      userId = existingUserId;
     } else {
-      // Create new user
-      console.log('👤 Creating new user with email:', userEmail);
+      // Use the given email only if no other account owns it; otherwise a phone-based placeholder
+      let userEmail = `${cleanedPhone}@phone.user`;
+      if (requestedEmail) {
+        if (!(await findAuthUserIdByEmail(requestedEmail))) userEmail = requestedEmail;
+      }
+
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: userEmail,
         phone: e164Phone,
@@ -106,12 +115,11 @@ export async function POST(request: NextRequest) {
       }
 
       userId = newUser.user.id;
-      finalEmail = newUser.user.email || userEmail;
 
       // Create profile
       await supabaseAdmin.from('profiles').upsert({
         id: userId,
-        email: finalEmail,
+        email: newUser.user.email || userEmail,
         first_name: customerName.split(' ')[0],
         last_name: customerName.split(' ').slice(1).join(' '),
         phone: cleanedPhone,
@@ -158,38 +166,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Randevu oluşturulamadı' }, { status: 500 });
     }
 
-    // --- 5. AUTO LOGIN (Password Strategy) ---
-    try {
-      console.log('🔄 Starting Auto-login flow (Password Strategy) for:', finalEmail);
-
-      // Generate a random secure password
-      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8) + "Aa1!";
-
-      // Update user with temp password using Admin client
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        password: tempPassword
-      });
-
-      if (updateError) {
-        console.error('❌ Update User Password Error:', updateError.message);
-      } else {
-        // Sign in with the temp password using the SSR client (to set cookies)
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: finalEmail,
-          password: tempPassword
-        });
-
-        if (signInError) {
-          console.error('❌ Sign In Error:', signInError.message);
-        }
-
-        if (signInData.session) {
-          console.log('✅ Session obtained via password login. Cookies captured.');
-        }
-      }
-    } catch (e: any) {
-      console.warn('Auto-login exception:', e.message);
-    }
+    // --- 5. AUTO LOGIN (phone verified → one-time token, password untouched) ---
+    const session = await startSessionForUser(supabase, userId);
+    if (!session.ok) console.warn('[verify-and-book] auto-login skipped:', session.reason);
 
     // --- 6. Send SMS ---
     sendAppointmentSMS(salonId, cleanedPhone, 'Randevunuz alındı!').catch(() => { });

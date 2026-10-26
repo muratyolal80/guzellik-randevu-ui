@@ -1,4 +1,5 @@
 import { LimitEnforcer } from '@/lib/utils/limits';
+import { isOtpDemoMode } from '@/lib/auth/otp';
 
 const API_BASE = "https://api.netgsm.com.tr/sms/rest/v2";
 
@@ -36,7 +37,7 @@ export async function sendOTPSMS(phone: string, code: string): Promise<boolean> 
   const cleanedPhone = cleanPhone(phone);
   const message = `Dogrulama Kodunuz: ${code}`;
 
-  if (!isConfigured || process.env.OTP_DEMO_MODE === 'true') {
+  if (!isConfigured || isOtpDemoMode()) {
     console.warn('Demo mode: SMS simulated for', cleanedPhone);
     return true;
   }

@@ -12,7 +12,8 @@ export function JsonLd({ data }: JsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data, null, 0) }}
+      // escape "<" so user-provided text (salon name/description) can't close the script tag
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data, null, 0).replace(/</g, '\\u003c') }}
     />
   );
 }

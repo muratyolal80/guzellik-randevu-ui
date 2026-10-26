@@ -47,10 +47,15 @@ export async function adminCreateUserAction(formData: {
     const auth = await requireSuperAdmin();
     if (!auth.authorized) return { success: false, error: auth.error };
 
+    // no shared default password — every admin-created account gets its own
+    if (!formData.password || formData.password.length < 8) {
+        return { success: false, error: 'Yeni kullanıcı için en az 8 karakterli bir şifre girin.' };
+    }
+
     try {
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: formData.email,
-            password: formData.password || 'TemporaryPassword123!',
+            password: formData.password,
             email_confirm: true,
             user_metadata: {
                 full_name: formData.full_name,

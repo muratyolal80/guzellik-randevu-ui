@@ -169,7 +169,9 @@ export async function verifyCallbackHash(body: PayTRCallbackBody): Promise<boole
         .update(body.merchant_oid + cfg.merchant_salt + body.status + body.total_amount)
         .digest('base64');
 
-    return expected === body.hash;
+    const a = Buffer.from(expected);
+    const b = Buffer.from(String(body.hash || ''));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 /**

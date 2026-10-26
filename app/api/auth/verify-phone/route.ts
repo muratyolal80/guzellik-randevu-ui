@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
+import { startSessionForUser } from '@/lib/auth/session';
+import { findAuthUserIdByPhone } from '@/lib/auth/lookup';
+import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { registerIYSConsent } from '@/lib/messaging/iys';
 
@@ -36,7 +39,18 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanedPhone = cleanPhone(phone);
+    if (!/^5\d{9}$/.test(cleanedPhone)) {
+      return NextResponse.json({ error: 'Geçersiz telefon numarası.' }, { status: 400 });
+    }
     const e164Phone = `+90${cleanedPhone}`;
+
+    const ip = getClientIp(request);
+    const [byIp, byPhone] = await Promise.all([
+      rateLimit(`verify-phone:ip:${ip}`, 20, 10 * 60_000),
+      rateLimit(`verify-phone:phone:${cleanedPhone}`, 8, 10 * 60_000),
+    ]);
+    if (!byIp.success) return rateLimitResponse(byIp.reset);
+    if (!byPhone.success) return rateLimitResponse(byPhone.reset);
 
     // 1. Verify OTP
     const isValidOTP = await verifyOTP(cleanedPhone, otp);
@@ -76,16 +90,10 @@ export async function POST(request: NextRequest) {
       // Önceki kod: supabaseAdmin.auth.admin.listUsers() — TÜM kullanıcılar
       // çekiliyordu, 100K+ kullanıcıda performans/payload katastrof + teorik
       // enumeration. Direkt indexli sorgu çok daha güvenli ve hızlı.
-      const { data: phoneRows } = await supabaseAdmin
-        .schema('auth')
-        .from('users')
-        .select('id')
-        .eq('phone', e164Phone)
-        .limit(1);
-      const existingUser = phoneRows && phoneRows.length > 0 ? phoneRows[0] : null;
+      const existingUserId = await findAuthUserIdByPhone(cleanedPhone);
 
-      if (existingUser) {
-        userId = existingUser.id;
+      if (existingUserId) {
+        userId = existingUserId;
 
         // Fetch Profile
         const { data: existingProfile } = await supabaseAdmin
@@ -115,25 +123,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Login (Set Session)
-    // We use the Password Strategy (resetting it to a temp one) to force a login
-    // This is robust and works without user interaction
-    const tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
-    await supabaseAdmin.auth.admin.updateUserById(userId, { password: tempPassword });
-
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      phone: e164Phone,
-      password: tempPassword
-    });
-
-    if (signInError) {
-      // Fallback: Try email login if phone login fails
-      // Use profile email if available, otherwise use pending.user email
-      const userEmail = profile?.email || `${cleanedPhone}@pending.user`;
-      await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: tempPassword
-      });
+    // 3. Login (Set Session) — only when not already signed in; password untouched
+    if (!currentUser) {
+      const session = await startSessionForUser(supabase, userId);
+      if (session.reason === 'password_only') {
+        return NextResponse.json(
+          { error: 'Bu hesap SMS koduyla giriş yapamaz. Lütfen e-posta ve şifrenizle giriş yapın.' },
+          { status: 403 },
+        );
+      }
+      if (!session.ok) {
+        return NextResponse.json({ error: 'Oturum açılamadı. Lütfen tekrar deneyin.' }, { status: 500 });
+      }
     }
 
     // 3.5. Log IYS Consent & SMS Verification (IYS COMPLIANCE)
