@@ -28,18 +28,18 @@
 | 06-29 | Tüm panellerde mobil navigasyon, müşteri UX, admin dashboard gerçek KPI, 404/error sayfaları, alert → toast (owner) | `2c026c8` `5515862` `72d6de9` `b8607d3` `8fefe66` |
 | 10-26 | Local Supabase ayağa kaldırıldı ("Failed to fetch" çözüldü), DB + RLS + UI tam denetim yapıldı | — |
 | 10-26 | Belgeler toparlandı: kök md'ler → `docs/archive/`, deployment & alignment analizi, `docs/critical/` (git dışı) | `81b45b9` |
-| 10-26 | **F1+F2:** New-33 güvenlik sertleştirmesi (local'de uygulandı + saldırı senaryolarıyla doğrulandı), `scripts/migrate.sh`, davet kabul akışı (RPC yoktu) + admin aktif/pasif bug'ı + login open redirect | F1-commit |
+| 10-26 | **F1+F2:** New-33 güvenlik sertleştirmesi (local'de uygulandı + saldırı senaryolarıyla doğrulandı), `scripts/migrate.sh`, davet kabul akışı (RPC yoktu) + admin aktif/pasif bug'ı + login open redirect | `757582f` |
 
 ### ⏳ Yapılacak — Fazlar (sırayla)
 
 | Faz | İş | Neden | Detay | Durum |
 |-----|----|-------|-------|-------|
-| **F0** | **Prod keşfi (salt okunur):** prod `_migrations`, şema diff, aşağıdaki açıklar prod'da var mı? | Prod'un gerçek durumu bilinmiyor | [deployment-and-alignment §9-10](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F0** | **Prod keşfi (salt okunur):** prod `_migrations`, şema diff, aşağıdaki açıklar prod'da var mı? | Prod'un gerçek durumu bilinmiyor | [deployment-and-alignment §9-10](../infrastructure/deployment-and-alignment.md) | 🟡 script hazır — prod erişimi senin ([adımlar](../infrastructure/deployment-and-alignment.md#senin-yapacağın-adımlar-prod-erişimi-gerektiren)) |
 | **F1** 🔴 | **Kritik güvenlik — `New-33-Security-Hardening.sql`** | Herkes kendini admin yapabiliyor, personel TC/telefon herkese açık | aşağıda "F1 detay" | ✅ local |
 | **F2** | **Migration runner** `scripts/migrate.sh` (transaction + otomatik kayıt + prod yedeği) | Elle takip bozuldu (New-26b…32 kayıtsız, New-26 iki kez) | [§5](../infrastructure/deployment-and-alignment.md) | ✅ |
-| **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | ⏳ |
-| **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ⏳ |
-| **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ⏳ |
+| **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | 🟡 `scripts/release.sh` hazır — GitHub/Coolify ayarı senin |
+| **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ✅ (local test edildi) |
+| **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ✅ script · ⏳ sunucuya cron kurulumu senin |
 | **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ⏳ |
 | **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ⏳ |
 | **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
@@ -61,6 +61,14 @@
 | 🟡 6 | 3 SECURITY DEFINER fonksiyonda `search_path` yok | search_path hijack | ✅ |
 | 🟡 7 | `profiles`'ta admin UPDATE politikası yok | Admin "kullanıcı pasif yap" sessizce çalışmıyor (bug) | ✅ |
 | 🟢 8 | `_migrations` kayıt boşluğu (New-26b…32 uygulanmış, kayıtsız) | Ortam takibi | ✅ (`--baseline`) |
+
+### 🧩 Denetimde çıkan ek bulgular (karar bekleyen)
+
+| Bulgu | Etki | Öneri |
+|-------|------|-------|
+| `profiles.id` → `auth.users` FK yok | Kullanıcı silinince profil sahipsiz kalır (local'de 1 tane: `demo-owner@example.com`) | `NOT VALID` FK + soft-delete akışıyla birlikte değerlendir; `ON DELETE CASCADE` randevuları da silebilir → **sormadan yapılmayacak** |
+| `owner@demo.com` hesabının salonu yok | Owner testi onboarding'e düşer | Test verisi: bir salon bağla veya `demo-owner@example.com`'u auth'a ekle |
+| `demo-owner@example.com` auth.users'ta yok | Bu hesapla giriş yapılamaz, davet FK'si patlar | Seed düzeltmesi |
 
 ### 👤 Senden beklenen manuel adımlar (güncel)
 

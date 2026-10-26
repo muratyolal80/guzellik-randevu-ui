@@ -150,7 +150,7 @@ Kritik nokta şu: **kod deploy'u ile migration aynı anda olamaz.** Coolify yeni
 - Hiçbir migration `BEGIN/COMMIT` içinde değil → yarıda kalırsa yarım şema.
 - Prod'da hangi migration'ın uygulandığı **bilinmiyor** — `_migrations`'a güvenilemez.
 
-### 5.2 Hedef: `scripts/migrate.sh` (yapılacak)
+### 5.2 `scripts/migrate.sh` ✅ (2026-10-26)
 
 Tek komutla her ortamda aynı davranış:
 
@@ -198,12 +198,14 @@ Davranış:
    (local'de elle yapılmış, migration'a yazılmamış değişiklik varsa KAYBOLUR)
 2. Local yedek:     ./scripts/local-backup-db.sh
 3. Prod → local:    ./scripts/prod-pull-db.sh        (prod'u sadece OKUR)
-4. Maskeleme:       scripts/mask-local-pii.sql        (yapılacak, §6.4)
-5. Hizala:          ./scripts/migrate.sh local
+4. Maskeleme:       scripts/mask-pii.sql              (prod-pull içinde otomatik, §6.4)
+5. Hizala:          ./scripts/migrate.sh local        (prod-pull içinde otomatik)
    → prod'da henüz olmayan, senin branch'indeki yeni New-XX'ler tekrar uygulanır
-6. Storage:         görseller Storage API ile (scripts/sync-storage.* — yapılacak)
+6. Storage:         node scripts/sync-storage.mjs     (SRC_*=prod, DST_*=local; prod hedefi reddeder)
 7. Kontrol:         db-health-check.sql
 ```
+
+> 2–5 adımlarını `./scripts/prod-pull-db.sh` tek seferde yapar (öncesinde local yedeği alır, geri dönüş komutunu basar).
 
 **Alignment'ın özü 5. adım:** Prod'dan gelen DB, prod'un `_migrations` kaydını da taşır. Runner "prod'da olmayan ama bende olan" migration'ları görüp uygular. Sonuç: **prod verisi + senin geliştirdiğin şema.** Elle hiçbir şey hatırlaman gerekmez.
 
@@ -213,11 +215,11 @@ Davranış:
 |------|-------|---------------------|
 | Yön (prod sadece okunur) | ✅ Doğru | — |
 | UTF-8 (Türkçe karakter) | ✅ `PGCLIENTENCODING=UTF8` | — |
-| `auth` şeması dahil | ✅ Kullanıcılar gelir, prod şifreleriyle login olunur | Local JWT secret farklı → eski oturumlar geçersiz (normal) |
-| `ON_ERROR_STOP=0` | ⚠️ Hatalar sessizce geçiyor | Hataları say, sonunda raporla. Kritik tablo sayıları prod ile eşleşmezse uyar |
-| PII maskeleme | ❌ Yok | §6.4 |
-| Storage dosyaları | ❌ Referans verilen `sync-storage` script'i **yok** | Storage API ile bucket mirror (local=file, prod=S3/MinIO, ham kopya çalışmaz) |
-| Sonrasında migration | ❌ Yok | Sonuna `migrate.sh local` çağrısı |
+| `auth` şeması dahil | ✅ Kullanıcılar gelir. Maskeleme sonrası giriş: `u<id8>@masked.local` / `password123` | Local JWT secret farklı → eski oturumlar silinir (normal) |
+| `ON_ERROR_STOP=0` | ✅ 2026-10-26: hatalar log dosyasına yazılıp sayılıyor, en sık 10 hata özetleniyor | — |
+| PII maskeleme | ✅ `scripts/mask-pii.sql` otomatik (`--no-mask` ile atlanır) | — |
+| Storage dosyaları | ✅ `scripts/sync-storage.mjs` (Storage API, prod hedefini reddeder) | — |
+| Sonrasında migration | ✅ `migrate.sh local` otomatik + öncesinde local yedek | — |
 
 ### 6.4 ⚠️ Gerçek müşteri verisi local'deyken — KVKK ve "yanlışlıkla SMS" riski
 
@@ -317,13 +319,42 @@ Kural: **Studio'dan prod'da elle şema değişikliği yapılmaz.** Acil bir duru
 
 | Faz | İş | Çıktı | Durum |
 |-----|----|-------|-------|
-| **0** | Prod keşfi (salt okunur): prod `_migrations`, şema diff, §9 açıkları prod'da var mı? | Prod durum raporu | ⏳ |
-| **1** | `New-33-Security-Hardening.sql` + ilgili kod değişiklikleri (staff kolon listesi, invite RPC) | §9 maddeleri 1–6, 8 | ⏳ |
-| **2** | `scripts/migrate.sh` + `_migrations.checksum` + New-26 numara çakışmasının çözümü + geriye dönük kayıt | Tek komutla migration | ⏳ |
-| **3** | Branch modeli: `kuaforara` branch'i, GitHub branch protection, Coolify prod → `kuaforara`, staging → `salonara` | Otomatik deploy zinciri | ⏳ |
-| **4** | `prod-pull-db.sh` iyileştirme + `mask-local-pii.sql` + `sync-storage` script'i | Güvenli alignment | ⏳ |
-| **5** | Prod otomatik yedek + sunucu dışı kopya + aylık restore testi | Felaket kurtarma | ⏳ |
-| **6** | GitHub Actions ile prod migration (onay adımlı) | Tam otomasyon | ⏳ (opsiyonel) |
+| **0** | Prod keşfi (salt okunur) | [`initdb/helpersql/security-audit.sql`](../../initdb/helpersql/security-audit.sql) + `migrate.sh prod --dry-run` | 🟡 Script hazır — **senin çalıştırman gerek** (aşağıda) |
+| **1** | `New-33-Security-Hardening.sql` + kod (staff kolon listesi, invite RPC) | §9 maddeleri 1–6, 8 | ✅ local · ⏳ prod |
+| **2** | `scripts/migrate.sh` + checksum + `--baseline` | Tek komutla migration | ✅ |
+| **3** | Branch modeli + release sırası | [`scripts/release.sh`](../../scripts/release.sh) | 🟡 Script hazır — GitHub/Coolify ayarı **senin** |
+| **4** | Alignment | [`prod-pull-db.sh`](../../scripts/prod-pull-db.sh) (yedek + hata sayımı + maskeleme + hizalama), [`mask-pii.sql`](../../scripts/mask-pii.sql), [`sync-storage.mjs`](../../scripts/sync-storage.mjs) | ✅ (local'de test edildi) |
+| **5** | Yedekleme | [`scripts/server/prod-backup.sh`](../../scripts/server/prod-backup.sh) (cron, 7/4/3 saklama, off-site rsync), [`restore-test.sh`](../../scripts/restore-test.sh) | ✅ script · ⏳ sunucuya kurulum |
+| **6** | GitHub Actions ile prod migration (onay adımlı) | Tam otomasyon | ⏳ (opsiyonel, süreç oturunca) |
+
+### Senin yapacağın adımlar (prod erişimi gerektiren)
+
+```bash
+# F0 — Prod keşfi (salt okunur, hiçbir şey değiştirmez)
+ssh root@45.81.113.82 'docker ps --format "{{.Names}}" | grep -i db'      # DB container adını doğrula
+ssh root@45.81.113.82 'docker exec -i <db-container> psql -U postgres -d postgres' < initdb/helpersql/security-audit.sql
+PROD_DB_CONTAINER=<db-container> ./scripts/migrate.sh prod --dry-run      # prod'da bekleyen migration'lar
+
+#   Prod _migrations'ta New-26b…32 kayıtsız ama şema uygulanmışsa (local'deki gibi):
+#   ./scripts/migrate.sh prod --baseline New-32     (sadece kayıt, SQL çalışmaz)
+
+# F1 — Güvenlik migration'ını prod'a uygula (yedek otomatik alınır)
+PROD_DB_CONTAINER=<db-container> ./scripts/migrate.sh prod
+
+# F3 — Branch + Coolify
+git push origin salonara:kuaforara                 # kuaforara branch'ini oluştur (bir kez)
+#   GitHub → Settings → Branches → kuaforara: "Require a pull request before merging"
+#   Coolify prod App  → Source → Branch: kuaforara
+#   Coolify staging App (salonara.com.tr) → Branch: salonara
+#   Sonraki her release: STAGING_SSH=... ./scripts/release.sh
+
+# F5 — Yedek cron'u (prod sunucusunda)
+scp scripts/server/prod-backup.sh root@45.81.113.82:/opt/kuaforara/
+ssh root@45.81.113.82 'chmod +x /opt/kuaforara/prod-backup.sh && /opt/kuaforara/prod-backup.sh'
+#   crontab: 15 3 * * * /opt/kuaforara/prod-backup.sh >> /var/log/kuaforara-backup.log 2>&1
+#   Off-site: /opt/kuaforara/backup.env → OFFSITE_RSYNC=user@yedek-sunucu:/backups/kuaforara
+#   Ayda bir: yedeği indir → ./scripts/restore-test.sh <dosya.dump>
+```
 
 ### Release checklist (her prod çıkışında)
 

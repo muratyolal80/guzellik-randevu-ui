@@ -65,8 +65,7 @@ SQL
 # --- discover files (numeric order, then name) ------------------------------
 mapfile -t FILES < <(ls "$MIG_DIR"/New-*.sql | while read -r f; do printf '%05d %s\n' "$(num_of "$f")" "$f"; done | sort | cut -d' ' -f2-)
 
-dups=$(for f in "${FILES[@]}"; do num_of "$f"; done | sort -n | uniq -d | tr "
-" " ")
+dups=$(for f in "${FILES[@]}"; do num_of "$f"; done | sort -n | uniq -d | tr '\n' ' ')
 [ -n "$dups" ] && echo "⚠️  Duplicate migration numbers (legacy, ordered by name): $dups"
 
 APPLIED="$(q "select regexp_replace(name,'\.sql\$','') from public._migrations")"
