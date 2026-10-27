@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { BookingSummary } from '@/components/BookingSummary';
 import { useBooking } from '@/context/BookingContext';
+import { trTime } from '@/lib/tz';
 import { useAuth } from '@/context/AuthContext';
 import { CampaignService } from '@/services/db';
 import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
@@ -276,10 +277,15 @@ export default function BookingUserInfoPage() {
       setError('Lütfen adınızı ve soyadınızı girin');
       return;
     }
+    if (!selectedDate || !selectedTime) {
+      setError('Lütfen tarih ve saat seçin');
+      return;
+    }
 
     setLoading(true);
     try {
-      const startDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+      // salon wall-clock time (+03:00), independent of the visitor's device time zone
+      const startDateTime = trTime(selectedDate, selectedTime);
 
       const response = await fetch('/api/booking/create', {
         method: 'POST',
@@ -295,11 +301,12 @@ export default function BookingUserInfoPage() {
           staffId: selectedStaff?.id || qStaffId || undefined,
           // serviceId: context > URL fallback
           serviceId: selectedServices[0]?.id || qServiceId || undefined,
+          // every selected service — server sums duration & price
+          serviceIds: selectedServices.length > 0 ? selectedServices.map(sv => sv.id) : undefined,
           startTime: startDateTime.toISOString(),
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
           campaignRuleId: activeCampaign?.id,
           participantCount,
-          depositAmount: depositAmount > 0 ? depositAmount : undefined,
         }),
       });
 

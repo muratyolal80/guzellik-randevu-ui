@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SlotService } from '@/services/slot';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { trTime, trHHMM } from '@/lib/tz';
 
 /**
  * Available Slots API
@@ -13,9 +14,7 @@ import { rateLimit } from '@/lib/rate-limit';
 export async function GET(request: NextRequest) {
     try {
         // Sprint F (R10) — rate limit (IP başına 30/dakika)
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-            || request.headers.get('x-real-ip')
-            || 'unknown';
+        const ip = getClientIp(request);
         const rl = await rateLimit(`slots:${ip}`, 30, 60_000);
         if (!rl.success) {
             return NextResponse.json(
@@ -39,7 +38,8 @@ export async function GET(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const selectedDate = new Date(dateStr);
+        // `date` is a Türkiye calendar day; noon TR avoids any day-boundary ambiguity
+        const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? trTime(dateStr, '12:00') : new Date(NaN);
 
         // Validate date
         if (isNaN(selectedDate.getTime())) {
@@ -61,17 +61,9 @@ export async function GET(request: NextRequest) {
             staffId: (staffId && staffId !== 'any') ? staffId : undefined
         }, supabaseAdmin);
 
-        console.log(`✅ Generated ${availableSlots.length} slots for ${dateStr} (Staff: ${staffId || 'any'})`);
-
         // Return only unique slots by time (e.g. 09:00, 09:30)
         // Convert TimeSlot[] to string[] (HH:MM format) for backward compatibility
-        const slots = availableSlots.map(slot => {
-            return slot.startTime.toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            });
-        });
+        const slots = availableSlots.map(slot => trHHMM(slot.startTime));
 
         // Remove duplicates (if same time from multiple staff)
         const uniqueSlots = Array.from(new Set(slots)).sort();

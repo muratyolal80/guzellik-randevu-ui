@@ -1,4 +1,5 @@
 import { SubscriptionService } from '@/services/db';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Utility class to enforce subscription limits throughout the application.
@@ -32,8 +33,9 @@ export const LimitEnforcer = {
     /**
      * Specifically check for remaining SMS balance
      */
-    async hasRemainingSms(salonId: string, needed: number = 1): Promise<boolean> {
-        const sub = await SubscriptionService.getSalonSubscription(salonId);
+    // server callers pass supabaseAdmin — the browser client has no access to subscriptions
+    async hasRemainingSms(salonId: string, needed: number = 1, supabase?: SupabaseClient): Promise<boolean> {
+        const sub = await SubscriptionService.getSalonSubscription(salonId, supabase);
         const plan = sub?.subscription_plans;
 
         if (!plan) return false;

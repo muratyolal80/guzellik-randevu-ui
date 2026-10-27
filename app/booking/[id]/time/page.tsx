@@ -9,6 +9,7 @@ import { BookingSummary } from '@/components/BookingSummary';
 import { GeminiChat } from '@/components/GeminiChat';
 import { useBooking } from '@/context/BookingContext';
 import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
+import { localDateString } from '@/lib/tz';
 
 export default function TimeSelection() {
   const params = useParams();
@@ -106,12 +107,16 @@ export default function TimeSelection() {
 
   // Fetch available slots when date or staff changes
   useEffect(() => {
+    // switching dates quickly must not let an older response overwrite a newer one
+    const controller = new AbortController();
     const fetchAvailableSlots = async () => {
       if (!id || selectedServices.length === 0) return;
 
       setLoadingSlots(true);
+      setSlotsError(null);
       try {
-        const dateStr = selectedDate.toISOString().split('T')[0];
+        // local calendar day (toISOString gave the previous day between 00:00-03:00 TR)
+        const dateStr = localDateString(selectedDate);
 
         const serviceIds = selectedServices.map(s => s.id).join(',');
         let url = `/api/booking/available-slots?salon_id=${id}&service_ids=${serviceIds}&date=${dateStr}`;
@@ -119,7 +124,7 @@ export default function TimeSelection() {
           url += `&staff_id=${staff.id}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         const data = await response.json();
 
         if (data.success) {
@@ -129,19 +134,21 @@ export default function TimeSelection() {
           // (kullanıcı yenileme sonrası başka tarih seçtiyse vb.)
           setSelectedSlot(prev => (prev && slots.includes(prev) ? prev : null));
         } else {
-          console.error('❌ API Error:', data.error);
           setAvailableTimeSlots([]);
           setSelectedSlot(null);
+          setSlotsError(data.error || 'Müsait saatler yüklenemedi.');
         }
       } catch (error) {
-        console.error('❌ Fetch Error:', error);
+        if ((error as Error).name === 'AbortError') return;
         setAvailableTimeSlots([]);
+        setSlotsError('Müsait saatler yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.');
       } finally {
-        setLoadingSlots(false);
+        if (!controller.signal.aborted) setLoadingSlots(false);
       }
     };
 
     fetchAvailableSlots();
+    return () => controller.abort();
   }, [selectedDate, staff?.id, id, selectedServices]);
 
   // Guard: hizmet seçimi yoksa adım 1'e yönlendir.
@@ -241,7 +248,6 @@ export default function TimeSelection() {
       date.setDate(today.getDate() + i);
 
       const dayOfWeek = date.getDay();
-      const isSunday = dayOfWeek === 0; // Sunday is typically closed
 
       let displayName = dayNames[dayOfWeek];
       if (i === 0) displayName = 'Bugün';
@@ -252,7 +258,7 @@ export default function TimeSelection() {
         day: date.getDate(),
         month: monthNames[date.getMonth()],
         name: displayName,
-        disabled: isSunday,
+        disabled: false, // closed days come back from the slot API with no slots
         active: date.toDateString() === selectedDate.toDateString()
       });
     }
@@ -291,7 +297,7 @@ export default function TimeSelection() {
     if (!selectedSlot) return;
 
     // 1. Update Context
-    const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateStr = localDateString(selectedDate); // YYYY-MM-DD (local day, no UTC shift)
     setBookingDate(dateStr);
     setBookingTime(selectedSlot);
 

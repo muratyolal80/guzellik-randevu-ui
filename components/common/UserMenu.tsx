@@ -115,7 +115,7 @@ export const UserMenu: React.FC = () => {
 
                     {user.role === 'STAFF' && (
                         <Link
-                            href={`/booking/1/staff`} // Using existing pattern, realistically should be dynamic
+                            href="/staff/dashboard"
                             onClick={() => setIsOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors font-semibold"
                         >

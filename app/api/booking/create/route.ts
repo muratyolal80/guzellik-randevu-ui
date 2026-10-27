@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { cleanPhone } from '@/lib/auth/otp';
+import { SlotService } from '@/services/slot';
+import { trDateString, trDayOfWeek, trHHMM } from '@/lib/tz';
 import { findAuthUserIdByEmail } from '@/lib/auth/lookup';
 import { sendAppointmentSMS } from '@/lib/messaging/sms';
 import { IyzicoLinkService } from '@/lib/payment/iyzico-link';
@@ -51,13 +54,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { appointmentId, customerName, email, notes, salonId, staffId, serviceId, startTime, couponCode, campaignRuleId } = body;
+    const { appointmentId, customerName, email, notes, salonId, serviceId, startTime, couponCode, campaignRuleId } = body;
+    // several services may be booked together; serviceId is the legacy single-service field
+    const serviceIds: string[] = Array.isArray(body.serviceIds) && body.serviceIds.length > 0
+      ? Array.from(new Set<string>(body.serviceIds.filter((x: unknown): x is string => typeof x === 'string')))
+      : (serviceId ? [serviceId] : []);
+    let staffId: string = body.staffId;
     // price inputs are never trusted from the client (deposit is recomputed below)
     const participantCount = Number.isInteger(body.participantCount) && body.participantCount >= 1 && body.participantCount <= 20
       ? body.participantCount
       : 1;
 
-    if (!customerName || !salonId || !staffId || !serviceId || !startTime) {
+    if (!customerName || !salonId || !staffId || serviceIds.length === 0 || serviceIds.length > 10 || !startTime) {
       return NextResponse.json({ error: 'Eksik bilgi.' }, { status: 400 });
     }
 
@@ -80,18 +88,46 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     }).eq('id', user.id);
 
-    // 3. Service + staff must belong to this salon
-    const [{ data: service }, { data: staffRow }, { data: salonRow }] = await Promise.all([
-      supabaseAdmin.from('salon_services').select('duration_min, price, global_services(name)').eq('id', serviceId).eq('salon_id', salonId).maybeSingle(),
-      supabaseAdmin.from('staff').select('id').eq('id', staffId).eq('salon_id', salonId).eq('is_active', true).maybeSingle(),
+    const startDate = new Date(startTime);
+    if (Number.isNaN(startDate.getTime())) {
+      return NextResponse.json({ error: 'Geçersiz randevu zamanı.' }, { status: 400 });
+    }
+
+    // 3. Services must belong to this salon; duration & price are the sum of all of them
+    const [{ data: services }, { data: salonRow }] = await Promise.all([
+      supabaseAdmin.from('salon_services').select('id, duration_min, price, global_services(name)').in('id', serviceIds).eq('salon_id', salonId),
       supabaseAdmin.from('salons').select('deposit_rate').eq('id', salonId).maybeSingle(),
     ]);
+    if (!services || services.length !== serviceIds.length || !salonRow) {
+      return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
+    }
+    const ordered = serviceIds.map((sid) => services.find((x) => x.id === sid)!);
+    const totalDuration = ordered.reduce((acc, x) => acc + (x.duration_min || 0), 0);
+    const totalPrice = ordered.reduce((acc, x) => acc + Number(x.price || 0), 0);
+    const serviceName = (x: (typeof ordered)[number]) =>
+      (Array.isArray(x.global_services) ? x.global_services[0]?.name : (x.global_services as { name?: string } | null)?.name) || 'Hizmet';
+    const primaryServiceId = ordered[0].id;
+    const extraServicesNote = ordered.length > 1
+      ? ` [Ek hizmetler: ${ordered.slice(1).map(serviceName).join(', ')}]`
+      : '';
 
-    if (!service) return NextResponse.json({ error: 'Hizmet bulunamadı' }, { status: 404 });
-    if (!staffRow || !salonRow) return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
+    // "Herhangi bir personel": the server picks a capable staff member free at that time
+    if (staffId === 'any') {
+      const slots = await SlotService.getAvailableSlots(
+        { salonId, serviceIds, durationMin: totalDuration, date: startDate },
+        supabaseAdmin,
+      );
+      const match = slots.find((sl) => sl.startTime.getTime() === startDate.getTime());
+      if (!match) return NextResponse.json({ error: 'Bu saat dilimi dolu.' }, { status: 409 });
+      staffId = match.staffId;
+    }
+
+    const { data: staffRow } = await supabaseAdmin
+      .from('staff').select('id').eq('id', staffId).eq('salon_id', salonId).eq('is_active', true).maybeSingle();
+    if (!staffRow) return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
 
     // 4. Handle Coupon Validation
-    const basePrice = service.price * participantCount;
+    const basePrice = totalPrice * participantCount;
     let discountAmount = 0;
     let validCoupon = null;
 
@@ -142,11 +178,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (rule) {
-        // Double check time/day
-        const startDate = new Date(startTime);
-        const dayOfWeek = startDate.getDay() || 7;
+        // Double check time/day — in Türkiye time (client sends UTC ISO strings)
+        const dayOfWeek = trDayOfWeek(trDateString(startDate));
         const dbDay = dayOfWeek === 0 ? 7 : dayOfWeek;
-        const appointmentTime = startTime.split('T')[1].substring(0, 5); // "HH:mm"
+        const appointmentTime = trHHMM(startDate); // "HH:mm"
 
         const dayMatch = !rule.days_of_week || rule.days_of_week.includes(dbDay);
         const timeMatch = !rule.start_time || (appointmentTime >= rule.start_time && appointmentTime <= rule.end_time);
@@ -167,11 +202,7 @@ export async function POST(request: NextRequest) {
     // Deposit = salon's deposit_rate of the discounted price (same formula as the booking UI)
     const depositAmount = Math.round(((basePrice - totalDiscount) * (salonRow.deposit_rate || 0)) / 100);
 
-    const startDate = new Date(startTime);
-    if (Number.isNaN(startDate.getTime())) {
-      return NextResponse.json({ error: 'Geçersiz randevu zamanı.' }, { status: 400 });
-    }
-    const endDate = new Date(startDate.getTime() + service.duration_min * 60 * 1000);
+    const endDate = new Date(startDate.getTime() + totalDuration * 60 * 1000);
 
     // Validate that the appointment is not in the past
     // Buffer: Allow 1-2 minutes lag, but generally strict
@@ -198,32 +229,20 @@ export async function POST(request: NextRequest) {
 
       // CASE: Staff Changed or explicit reschedule -> CANCEL old, CREATE new
       if (existingAppt.staff_id !== staffId) {
-        console.log(`Rescheduling: Staff changed. Cancelling old appointment ${appointmentId}.`);
-
-        // 1. Cancel old appointment with a note
-        await supabaseAdmin
-          .from('appointments')
-          .update({
-            status: 'CANCELLED',
-            notes: (existingAppt.notes ? existingAppt.notes + ' ' : '') + '[Yeniden planlama nedeniyle iptal edildi]',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', appointmentId);
-
-        // 2. Proceed to create NEW
+        // 1. Create the NEW appointment first — if it fails the customer keeps the old one
         const { data: newData, error: createError } = await supabaseAdmin
           .from('appointments')
           .insert({
             customer_id: user.id,
             customer_name: customerName,
-            customer_phone: user.phone?.replace('+90', '') || '',
+            customer_phone: user.phone ? cleanPhone(user.phone) : '',
             salon_id: salonId,
             staff_id: staffId,
-            salon_service_id: serviceId,
+            salon_service_id: primaryServiceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
             status: 'PENDING', // Mode B: salon onayı bekler (staff/owner approve eder)
-            notes: (notes || '') + ` [${appointmentId} nolu randevudan planlandı]`,
+            notes: (notes || '') + extraServicesNote + ` [${appointmentId} nolu randevudan planlandı]`,
             deposit_amount: depositAmount,
           })
           .select()
@@ -232,17 +251,29 @@ export async function POST(request: NextRequest) {
         appointment = newData;
         appointmentError = createError;
 
+        // 2. Only then cancel the old one
+        if (!createError) {
+          await supabaseAdmin
+            .from('appointments')
+            .update({
+              status: 'CANCELLED',
+              notes: (existingAppt.notes ? existingAppt.notes + ' ' : '') + '[Yeniden planlama nedeniyle iptal edildi]',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', appointmentId);
+        }
+
       } else {
         // CASE: Same Staff -> UPDATE existing
         const { data: updatedData, error: updateError } = await supabaseAdmin
           .from('appointments')
           .update({
             // staff_id: staffId, // Same staff, no need to change (or can update safely)
-            salon_service_id: serviceId,
+            salon_service_id: primaryServiceId,
             start_time: startDate.toISOString(),
             end_time: endDate.toISOString(),
             status: 'PENDING', // Mode B: salon onayı bekler (reschedule sonrası yeniden onay)
-            notes: notes || '',
+            notes: (notes || '') + extraServicesNote,
             coupon_code: validCoupon?.code || null,
             campaign_rule_id: campaignRuleId || null,
             discount_amount: totalDiscount,
@@ -265,14 +296,14 @@ export async function POST(request: NextRequest) {
         .insert({
           customer_id: user.id,
           customer_name: customerName,
-          customer_phone: user.phone?.replace('+90', '') || '', // Clean phone for display
+          customer_phone: user.phone ? cleanPhone(user.phone) : '', // Clean phone for display
           salon_id: salonId,
           staff_id: staffId,
-          salon_service_id: serviceId,
+          salon_service_id: primaryServiceId,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
           status: 'PENDING', // Mode B: salon onayı bekler (yeni randevu PENDING başlar)
-          notes: notes || '',
+          notes: (notes || '') + extraServicesNote,
           coupon_code: validCoupon?.code || null,
           campaign_rule_id: campaignRuleId || null,
           discount_amount: totalDiscount,
@@ -327,12 +358,11 @@ export async function POST(request: NextRequest) {
         const commission = Math.round((totalPriceTL * commissionRate) / 100);
         const subMerchantPriceTL = totalPriceTL - commission;
 
-        console.log(`Generating payment link for appointment ${appointment.id}. Total: ${totalPriceTL}, Salon share: ${subMerchantPriceTL}`);
 
-        const serviceName = (service as any).global_services?.name || 'Hizmet';
+        const serviceTitle = ordered.map(serviceName).join(' + ');
 
         const linkResult = await IyzicoLinkService.createLink({
-          name: `${serviceName} Randevusu`,
+          name: `${serviceTitle} Randevusu`,
           description: `${customerName} - ${startTime}`,
           price: totalPriceTL, // Link API uses unit (TRY)
           subMerchantKey: subMerchant.iyzico_sub_merchant_key,
@@ -398,7 +428,7 @@ export async function POST(request: NextRequest) {
         const tpl = renderAppointmentConfirmation({
           customerName: customerName || (user.email?.split('@')[0] ?? 'Müşterimiz'),
           salonName: salonInfo?.name || 'Salonumuz',
-          serviceName: (service as any)?.global_services?.[0]?.name || (service as any)?.service_name || 'Hizmet',
+          serviceName: ordered.map(serviceName).join(' + '),
           staffName: staffInfo?.name || 'Uzman',
           startTime,
           appointmentId: appointment.id,

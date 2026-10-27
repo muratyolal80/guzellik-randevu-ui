@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SlotService } from '../slot'
+import { trHHMM, trTime } from '@/lib/tz'
 
 // slot.ts modülünü import ettiğinde @/lib/supabase'i de import eder.
 // Bu dosya browser'a özgü createBrowserClient kullandığı için Node.js ortamında crash eder.
@@ -18,7 +19,7 @@ function createMockSupabase(tables: Record<string, TableMock>) {
     function makeChain(tableName: string) {
         const result = tables[tableName] ?? { data: null, error: null }
         const chain: Record<string, unknown> = {}
-        for (const method of ['select', 'eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'in', 'limit', 'or']) {
+        for (const method of ['select', 'eq', 'neq', 'not', 'gt', 'lt', 'gte', 'lte', 'in', 'limit', 'or']) {
             chain[method] = () => chain
         }
         chain.maybeSingle = () => Promise.resolve(result)
@@ -31,21 +32,19 @@ function createMockSupabase(tables: Record<string, TableMock>) {
     return { from: (table: string) => makeChain(table) }
 }
 
-// Test tarihimiz: 10 Haziran 2024, Pazartesi
-const TEST_DATE = new Date(2024, 5, 10)
+// Test tarihimiz: 10 Haziran 2024, Pazartesi — Türkiye saati (sunucu TZ'sinden bağımsız)
+const TEST_DATE = new Date('2024-06-10T00:00:00+03:00')
 const STAFF_ID = 'staff-abc'
 const STAFF_NAME = 'Ayşe'
 
-// Verilen tarihin saat:dakika'sını yerel saatle döndürür
+// Verilen tarihin saat:dakika'sını Türkiye saatiyle döndürür
 function hhmm(date: Date) {
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    return trHHMM(date)
 }
 
-// Test tarihinde belirli saat:dakika'ya sahip Date nesnesi oluşturur
+// Test tarihinde belirli Türkiye saat:dakika'sına sahip Date nesnesi oluşturur
 function makeTime(h: number, m: number) {
-    const d = new Date(TEST_DATE)
-    d.setHours(h, m, 0, 0)
-    return d
+    return trTime('2024-06-10', `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,7 +289,7 @@ describe('getAvailableSlots — tam akış', () => {
     it('serviceId verilince o hizmetin duration_min değeri kullanılır', async () => {
         const db = createMockSupabase({
             salon_services: { data: { duration_min: 45 }, error: null },
-            staff_services: { data: [{ staff_id: STAFF_ID }], error: null },
+            staff_services: { data: [{ staff_id: STAFF_ID, salon_service_id: 'svc-1' }], error: null },
             staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
             working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
             appointments: { data: [], error: null },
@@ -313,7 +312,10 @@ describe('getAvailableSlots — tam akış', () => {
                 data: [{ duration_min: 30 }, { duration_min: 45 }],
                 error: null,
             },
-            staff_services: { data: [{ staff_id: STAFF_ID }], error: null },
+            staff_services: {
+                data: [{ staff_id: STAFF_ID, salon_service_id: 'svc-1' }, { staff_id: STAFF_ID, salon_service_id: 'svc-2' }],
+                error: null,
+            },
             staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
             working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
             appointments: { data: [], error: null },
@@ -326,6 +328,22 @@ describe('getAvailableSlots — tam akış', () => {
         expect(slots.length).toBeGreaterThan(0)
         const diff = slots[0].endTime.getTime() - slots[0].startTime.getTime()
         expect(diff).toBe(75 * 60 * 1000)
+    })
+
+    it('seçilen hizmetlerin sadece birini verebilen personel slotu dönmez', async () => {
+        const db = createMockSupabase({
+            salon_services: { data: [{ duration_min: 30 }, { duration_min: 45 }], error: null },
+            staff_services: { data: [{ staff_id: STAFF_ID, salon_service_id: 'svc-1' }], error: null },
+            staff: { data: [{ id: STAFF_ID, name: STAFF_NAME }], error: null },
+            working_hours: { data: { start_time: '09:00', end_time: '17:00', is_day_off: false }, error: null },
+            appointments: { data: [], error: null },
+        })
+
+        const slots = await SlotService.getAvailableSlots(
+            { salonId: 'salon-1', serviceIds: ['svc-1', 'svc-2'], date: TEST_DATE },
+            db as never
+        )
+        expect(slots).toHaveLength(0)
     })
 
     it('seçilen hizmeti veremeyen personel slotu dönmez', async () => {

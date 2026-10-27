@@ -45,7 +45,7 @@
 | **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
 | **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ⏳ |
 | **F10** | **SEO/a11y:** 59 sayfada metadata eksik (layout ile), background-image alt, İngilizce UI metinleri | SEO + erişilebilirlik | UI denetimi | ⏳ |
-| **F11** | **Kod kalitesi:** `any` temizliği, sayfalardaki ham Supabase sorguları → `services/db`, ele alınmayan fetch hataları | CLAUDE.md mimari kuralları | — | ⏳ |
+| **F11** | **Kod kalitesi:** `any` temizliği, sayfalardaki ham Supabase sorguları → `services/db`, ele alınmayan fetch hataları | CLAUDE.md mimari kuralları | — | 🟡 randevu akışı ✅ · kod kalitesi ⏳ (bkz. "F11 detay") |
 
 #### F1 detay — 2026-10-26 local DB denetimi bulguları
 
@@ -93,6 +93,23 @@
 - Login'deki ikinci altın `#CFA76D/#b08d55` ve sınıflardaki hex altınlar → `primary` token'ları.
 - Müşteri panelinde marka rengi olarak kullanılan amber (82 sınıf) → `primary`; durum rozetleri (`amber-50/100`) ve yıldızlar korundu.
 - ⚠️ **Karar senin:** `bg-primary text-white` butonlar 2.5:1 (WCAG fail, ~191 yer). Seçenek A: buton yazısı koyu (`text-text-main`, 7.4:1) · B: buton zemini `primary-hover/dark` · C: olduğu gibi kalsın (marka görünümü). Söylersen tek seferde uygularım.
+
+#### F11 detay — fonksiyonalite taraması (2026-10-27)
+
+| # | Bulgu | Durum |
+|---|-------|-------|
+| 🔴 | İptal edilen randevu slotu kalıcı kilitliyordu (DB kısıtı WHERE'siz) | ✅ New-37 |
+| 🔴 | Slot motoru sunucu TZ'sine bağlı (UTC'de 3 saat kayma) + istemci UTC tarihi | ✅ `lib/tz.ts` |
+| 🔴 | "Herhangi bir personel" ile randevu hiç oluşmuyordu | ✅ |
+| 🔴 | Çoklu hizmette sadece ilki kaydediliyor, bitiş saati kısa | ✅ (toplam süre/fiyat) · ⏳ `appointment_services` tablosu |
+| 🔴 | Yeniden planlamada önce iptal → yeni kayıt başarısızsa müşteri randevusuz | ✅ (`booking/create`) · `verify-and-book` kullanılmıyor |
+| 🔴 | Müşteri iptali API'yi atlıyordu (iade/politika yok) | ✅ |
+| 🐞 | Randevu SMS'leri hiç gitmiyordu (anon client ile abonelik kontrolü) | ✅ |
+| 🟡 | Pazar sabit kapalı, slot yarış koşulu, kampanya saati UTC, kırık linkler | ✅ |
+| 🟡 | Yetenekli personel filtresi "herhangi bir hizmet" diyordu | ✅ (tüm hizmetler) |
+| ⏳ | `slot-lock.ts` hiç bağlanmamış (kilit alınmıyor) — kullan ya da kaldır | ⏳ |
+| ⏳ | ~151 sessiz `catch` (kullanıcıya mesaj yok), ~50 ham Supabase sorgusu UI'da, 470 `any`, 54 `console.log`, ~15 ölü dosya | ⏳ kod kalitesi |
+| ⏳ | Tab/ilçe/arama efektlerinde yarış koşulu (müşteri randevular, onboarding ilçe, global arama) | ⏳ |
 
 ### 🧩 Denetimde çıkan ek bulgular (karar bekleyen)
 

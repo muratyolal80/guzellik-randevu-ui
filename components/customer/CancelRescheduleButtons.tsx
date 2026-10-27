@@ -7,8 +7,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { AuditService } from '@/services/audit';
+import { useToast } from '@/components/ui/Toast';
 
 interface CancelRescheduleButtonsProps {
     appointment: any;
@@ -19,6 +18,7 @@ export function CancelRescheduleButtons({ appointment, onUpdate }: CancelResched
     const router = useRouter();
     const [isCancelling, setIsCancelling] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const { showToast } = useToast();
 
     // Cancellation policy: Can cancel up to 3 hours before appointment
     const canCancel = () => {
@@ -31,28 +31,20 @@ export function CancelRescheduleButtons({ appointment, onUpdate }: CancelResched
     const handleCancel = async () => {
         setIsCancelling(true);
         try {
-            const { error } = await supabase
-                .from('appointments')
-                .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
-                .eq('id', appointment.id);
-
-            if (error) throw error;
-
-            await AuditService.log({
-                salon_id: appointment.salon_id,
-                action: 'UPDATE',
-                table_name: 'appointments',
-                record_id: appointment.id,
-                old_values: { status: appointment.status },
-                new_values: { status: 'CANCELLED' }
+            // server applies the cancellation policy, deposit refund and audit trail
+            const res = await fetch('/api/booking/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointmentId: appointment.id }),
             });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Randevu iptal edilemedi.');
 
-            alert('Randevunuz iptal edildi.');
+            showToast('Randevunuz iptal edildi.', 'success');
             onUpdate?.();
             setShowConfirm(false);
         } catch (err) {
-            console.error('Cancel failed:', err);
-            alert('Randevu iptal edilemedi. Lütfen tekrar deneyin.');
+            showToast((err as Error).message || 'Randevu iptal edilemedi. Lütfen tekrar deneyin.', 'error');
         } finally {
             setIsCancelling(false);
         }

@@ -9,6 +9,7 @@
 
 import { supabase as defaultSupabase } from '@/lib/supabase';
 import { type SupabaseClient } from '@supabase/supabase-js';
+import { trDateString, trDayOfWeek, trTime, BLOCKING_STATUSES_EXCLUDED } from '@/lib/tz';
 
 export interface TimeSlot {
     startTime: Date;
@@ -74,9 +75,18 @@ export const SlotService = {
         if (requestedServiceIds) {
             const { data: capable } = await supabase
                 .from('staff_services')
-                .select('staff_id')
+                .select('staff_id, salon_service_id')
                 .in('salon_service_id', requestedServiceIds);
-            capableStaffIds = Array.from(new Set((capable || []).map(r => r.staff_id)));
+            // a staff member qualifies only if they can do EVERY requested service
+            const wanted = new Set(requestedServiceIds);
+            const byStaff = new Map<string, Set<string>>();
+            for (const r of (capable || []) as { staff_id: string; salon_service_id: string }[]) {
+                if (!byStaff.has(r.staff_id)) byStaff.set(r.staff_id, new Set());
+                byStaff.get(r.staff_id)!.add(r.salon_service_id);
+            }
+            capableStaffIds = Array.from(byStaff.entries())
+                .filter(([, svc]) => Array.from(wanted).every((id) => svc.has(id)))
+                .map(([id]) => id);
             if (capableStaffIds.length === 0) {
                 return [];
             }
@@ -130,8 +140,11 @@ export const SlotService = {
         salonId?: string,
         supabase: SupabaseClient = defaultSupabase
     ): Promise<TimeSlot[]> {
+        // All times are Türkiye wall-clock (lib/tz) — independent of server TZ
+        const dateStr = trDateString(date);
+
         // 1. Get staff working hours for this day of week
-        const dayOfWeek = date.getDay();
+        const dayOfWeek = trDayOfWeek(dateStr);
 
         const { data: staffHours, error: staffHoursError } = await supabase
             .from('working_hours')
@@ -156,7 +169,6 @@ export const SlotService = {
 
             if (salonHours && !salonHours.is_closed) {
                 workingHours = salonHours;
-                console.log(`📋 Using salon-level working hours for staff ${staffName} on day ${dayOfWeek}`);
             }
         }
 
@@ -164,19 +176,18 @@ export const SlotService = {
             return [];
         }
 
-        // 2. Get existing appointments for this staff on this date
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
+        // 2. Appointments of this staff overlapping this day (CANCELLED / NO_SHOW free the slot,
+        //    same rule as the prevent_staff_double_booking constraint — New-37)
+        const startOfDay = trTime(dateStr, '00:00');
+        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
         const { data: appointments, error: apptError } = await supabase
             .from('appointments')
             .select('start_time, end_time, status')
             .eq('staff_id', staffId)
-            .gte('start_time', startOfDay.toISOString())
-            .lte('start_time', endOfDay.toISOString())
-            .neq('status', 'CANCELLED');
+            .lt('start_time', endOfDay.toISOString())
+            .gt('end_time', startOfDay.toISOString())
+            .not('status', 'in', `(${BLOCKING_STATUSES_EXCLUDED.join(',')})`);
 
         if (apptError) {
             console.error('Error fetching appointments:', apptError);
@@ -190,8 +201,8 @@ export const SlotService = {
             .eq('salon_id', salonId)
             .eq('staff_id', staffId)
             .gt('expires_at', new Date().toISOString())
-            .gte('slot_start', startOfDay.toISOString())
-            .lte('slot_start', endOfDay.toISOString());
+            .lt('slot_start', endOfDay.toISOString())
+            .gt('slot_end', startOfDay.toISOString());
 
         // 3. Generate potential slots
         const slots = this.generateTimeSlots(
@@ -209,7 +220,7 @@ export const SlotService = {
                 start: new Date(appt.start_time),
                 end: new Date(appt.end_time)
             })),
-            ...((locks || []) as any[]).map(l => ({
+            ...((locks || []) as { slot_start: string; slot_end: string }[]).map(l => ({
                 start: new Date(l.slot_start),
                 end: new Date(l.slot_end)
             })),
@@ -218,22 +229,13 @@ export const SlotService = {
         // 5. Filter out past slots if the requested date is today.
         //    "Now + 15 dk buffer" altındaki slotlar booking yapılamaz hale gelir.
         const now = new Date();
-        const isToday =
-            date.getFullYear() === now.getFullYear() &&
-            date.getMonth() === now.getMonth() &&
-            date.getDate() === now.getDate();
+        const isToday = trDateString(now) === dateStr;
         const minStart = isToday ? new Date(now.getTime() + 15 * 60 * 1000) : null;
 
         return slots.filter(slot => {
             if (minStart && slot.startTime < minStart) return false;
-            const hasConflict = bookedSlots.some(booked => {
-                return (
-                    (slot.startTime >= booked.start && slot.startTime < booked.end) ||
-                    (slot.endTime > booked.start && slot.endTime <= booked.end) ||
-                    (slot.startTime <= booked.start && slot.endTime >= booked.end)
-                );
-            });
-            return !hasConflict;
+            // half-open intervals overlap
+            return !bookedSlots.some(b => slot.startTime < b.end && slot.endTime > b.start);
         });
     },
 
@@ -251,14 +253,9 @@ export const SlotService = {
         const slots: TimeSlot[] = [];
 
         // Parse start and end times
-        const [startHour, startMin] = startTimeStr.split(':').map(Number);
-        const [endHour, endMin] = endTimeStr.split(':').map(Number);
-
-        const currentSlot = new Date(date);
-        currentSlot.setHours(startHour, startMin, 0, 0);
-
-        const endTime = new Date(date);
-        endTime.setHours(endHour, endMin, 0, 0);
+        const dateStr = trDateString(date);
+        const currentSlot = trTime(dateStr, startTimeStr.slice(0, 5));
+        const endTime = trTime(dateStr, endTimeStr.slice(0, 5));
 
         const slotInterval = 30; // 30-minute intervals
 
@@ -273,34 +270,9 @@ export const SlotService = {
                 available: true
             });
 
-            currentSlot.setMinutes(currentSlot.getMinutes() + slotInterval);
+            currentSlot.setTime(currentSlot.getTime() + slotInterval * 60000);
         }
 
         return slots;
     },
-
-    /**
-     * Check if a specific time slot is available
-     */
-    async isSlotAvailable(
-        staffId: string,
-        startTime: Date,
-        endTime: Date,
-        supabase: SupabaseClient = defaultSupabase
-    ): Promise<boolean> {
-        const { data: conflicts, error } = await supabase
-            .from('appointments')
-            .select('id')
-            .eq('staff_id', staffId)
-            .neq('status', 'CANCELLED')
-            .or(`start_time.gte.${startTime.toISOString()},start_time.lt.${endTime.toISOString()}`)
-            .limit(1);
-
-        if (error) {
-            console.error('Error checking slot availability:', error);
-            return false;
-        }
-
-        return !conflicts || conflicts.length === 0;
-    }
 };

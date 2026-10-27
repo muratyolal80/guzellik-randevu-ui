@@ -65,7 +65,7 @@ export default function OwnerQuickActions({ salonId, salonStatus }: OwnerQuickAc
             label: 'Ayarlar',
             desc: 'Salon profili + tercihler',
             icon: Settings,
-            href: `/owner/settings`,
+            href: `/owner/salons`,
             color: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',
             iconBg: 'bg-slate-100',
         },

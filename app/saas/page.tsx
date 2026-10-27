@@ -39,10 +39,10 @@ export default function SaaSLandingPage() {
                             Randevu takibi, personel yönetimi, gelişmiş analitikler ve müşteri ilişkileri yönetimi. Hepsi tek bir premium platformda.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                            <Link href="/auth/signup?role=owner" className="w-full sm:w-auto px-10 py-5 bg-primary text-white font-black rounded-3xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <Link href="/register/business" className="w-full sm:w-auto px-10 py-5 bg-primary text-white font-black rounded-3xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                 Ücretsiz Başla <ArrowRight className="w-5 h-5" />
                             </Link>
-                            <Link href="/contact" className="w-full sm:w-auto px-10 py-5 bg-white border border-border text-text-main font-bold rounded-3xl hover:bg-gray-50 transition-all">
+                            <Link href="mailto:destek@kuaforara.com.tr" className="w-full sm:w-auto px-10 py-5 bg-white border border-border text-text-main font-bold rounded-3xl hover:bg-gray-50 transition-all">
                                 Demo Talebi
                             </Link>
                         </div>
@@ -111,7 +111,7 @@ export default function SaaSLandingPage() {
                                         ))}
                                     </div>
                                     <Link
-                                        href="/auth/signup?role=owner"
+                                        href="/register/business"
                                         className={`w-full py-5 rounded-3xl font-black text-sm transition-all ${plan.popular ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'bg-gray-50 text-text-main hover:bg-gray-100'}`}
                                     >
                                         Hemen Başla
@@ -129,7 +129,7 @@ export default function SaaSLandingPage() {
                         <Award className="w-16 h-16 text-white/40 mx-auto mb-8 animate-bounce" />
                         <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-8">Salonunuzun Geleceği Burada Başlıyor</h2>
                         <p className="text-white/80 font-bold text-lg mb-12 max-w-2xl mx-auto">Siz de binlerce memnun salon sahibi gibi bugün dijital dönüşümünüzü başlatın.</p>
-                        <Link href="/auth/signup?role=owner" className="inline-flex items-center gap-2 px-12 py-6 bg-white text-primary font-black rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all text-lg">
+                        <Link href="/register/business" className="inline-flex items-center gap-2 px-12 py-6 bg-white text-primary font-black rounded-3xl shadow-2xl hover:scale-105 active:scale-95 transition-all text-lg">
                             Şimdi Ücretsiz Kayıt Ol <ArrowRight className="w-6 h-6" />
                         </Link>
                     </div>

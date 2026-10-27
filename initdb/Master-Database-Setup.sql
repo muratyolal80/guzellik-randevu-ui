@@ -442,7 +442,7 @@ DO $$ BEGIN
         EXCLUDE USING gist (
         staff_id WITH =,
         tstzrange(start_time, end_time, '[)') WITH &&
-    );
+    ) WHERE (status NOT IN ('CANCELLED', 'NO_SHOW'));  -- New-37
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- 6. SECURITY (RLS) - Basic Public Read

@@ -203,7 +203,7 @@ export default function AdminApprovalsPage() {
                         title: 'İşletme İçin Revizyon İstendi',
                         content: `${selectedSalon.name} başvurusu için şu düzeltmeler istendi: ${reason}. Lütfen panelden güncelleyip tekrar onaya gönderin.`,
                         type: 'SYSTEM',
-                        link: '/owner/settings'
+                        link: '/owner/salons'
                     });
                 } catch (notifErr) {
                     console.error('Bildirim gönderilemedi:', notifErr);

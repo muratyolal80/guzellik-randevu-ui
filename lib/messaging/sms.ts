@@ -1,5 +1,6 @@
 import { LimitEnforcer } from '@/lib/utils/limits';
 import { isOtpDemoMode } from '@/lib/auth/otp';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const API_BASE = "https://api.netgsm.com.tr/sms/rest/v2";
 
@@ -65,7 +66,7 @@ export async function sendOTPSMS(phone: string, code: string): Promise<boolean> 
 
 export async function sendAppointmentSMS(salonId: string, phone: string, details: string): Promise<boolean> {
   // 1. Check Subscription Limits
-  const canSend = await LimitEnforcer.hasRemainingSms(salonId);
+  const canSend = await LimitEnforcer.hasRemainingSms(salonId, 1, supabaseAdmin);
   if (!canSend) {
     console.warn('SMS block: Subscription limit reached for salon', salonId);
     return false;
