@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { BookingStepSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
@@ -31,8 +32,8 @@ function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
             } else {
                 setResult({ ok: false, msg: data.error || 'Gönderilemedi.' });
             }
-        } catch (e: any) {
-            setResult({ ok: false, msg: e?.message || 'Ağ hatası.' });
+        } catch (e: unknown) {
+            setResult({ ok: false, msg: toErrorLike(e).message || 'Ağ hatası.' });
         } finally {
             setLoading(false);
         }
@@ -430,7 +431,8 @@ export default function Confirmation() {
                                     onClick={() => {
                                         const start = new Date(appointment.start_time);
                                         const end = appointment.end_time ? new Date(appointment.end_time) : new Date(start.getTime() + 60 * 60 * 1000);
-                                        const serviceName = (services?.[0] as any)?.name || (services?.[0] as any)?.service_name || 'Randevu';
+                                        const firstService: (SalonServiceDetail & { name?: string }) | undefined = services?.[0];
+                                        const serviceName = firstService?.name || firstService?.service_name || 'Randevu';
                                         const salonName = salon?.name || 'Salon';
                                         downloadIcs({
                                             uid: appointment.id,
@@ -471,7 +473,7 @@ export default function Confirmation() {
                     customer_name: customerName,
                     customer_phone: customerPhone,
                     status: 'PENDING',
-                } as any : null)}
+                } : null)}
                 salon={salon}
                 staff={staff}
                 services={services}

@@ -179,7 +179,7 @@ export interface Salon {
 
 // Extended Salon with joined data for display
 export interface SalonDetail extends Salon {
-  coordinates: any;
+  coordinates: { lat: number; lng: number };
   city_name: string;
   district_name: string;
   type_name: string;
@@ -230,7 +230,7 @@ export interface Subscription {
   id: string;
   salon_id: string;
   plan_id: string;
-  status: 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'CANCELLED';
+  status: 'ACTIVE' | 'PENDING' | 'PENDING_APPROVAL' | 'TRIAL' | 'EXPIRED' | 'CANCELLED';
   current_period_start: string;
   current_period_end: string;
   billing_cycle: 'MONTHLY' | 'YEARLY';
@@ -335,6 +335,19 @@ export interface Appointment {
   updated_at: string;
 }
 
+/** Appointment row with the commonly embedded relations (all optional — depends on the select) */
+export interface AppointmentWithRelations extends Appointment {
+  salon?: { id?: string; name: string; address?: string; image?: string; slug?: string } | null;
+  service?: {
+    id?: string;
+    price?: number;
+    duration_min?: number;
+    global_service?: { id?: string; name: string } | null;
+    service_name?: string | null; // only present on flattened views
+  } | null;
+  staff?: { id?: string; name: string; photo?: string } | null;
+}
+
 export interface Review {
   id: string;
   salon_id: string;
@@ -351,6 +364,21 @@ export interface Review {
   service_name?: string;
   service_date?: string;
   images?: ReviewImage[]; // Added images to review
+}
+
+/** A customer's own review with the reviewed salon embedded (customer/reviews page) */
+export interface CustomerReviewItem {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  created_at: string;
+  salon?: {
+    id?: string;
+    name: string;
+    image?: string | null;
+    city?: { name: string } | null;
+    district?: { name: string } | null;
+  } | null;
 }
 
 export interface ReviewImage {
@@ -434,6 +462,150 @@ export interface BookingDisplay {
   };
   coupon_code?: string;
   discount_amount?: number;
+}
+
+/** Raw appointments row as selected by AppointmentService.getCustomerBookingRows */
+export interface CustomerBookingRow {
+  id: string;
+  start_time: string;
+  end_time: string;
+  status: Appointment['status'];
+  salon?: { name: string; address?: string | null } | null;
+  staff?: { name: string } | null;
+  salon_service?: {
+    price?: number;
+    duration_min?: number;
+    global_service?: { name: string } | null;
+  } | null;
+}
+
+/** appointments row as selected for the owner finance page */
+export interface AppointmentFinanceRow {
+  id: string;
+  customer_name?: string | null;
+  start_time: string;
+  status: Appointment['status'];
+  deposit_amount?: number | null;
+  refund_status?: Appointment['refund_status'] | null;
+  refund_amount?: number | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+  salon_id: string;
+  staff_id?: string | null;
+  staff?: { id: string; name: string } | null;
+  salon_services?:
+    | { price?: number; global_services?: { name: string } | { name: string }[] | null }
+    | { price?: number; global_services?: { name: string } | { name: string }[] | null }[]
+    | null;
+}
+
+/** Owner finance page transaction list item (derived from AppointmentFinanceRow) */
+export interface OwnerFinanceTransaction {
+  id: string;
+  customer: string;
+  service: string;
+  date: string;
+  amount: number;
+  deposit: number;
+  status: string;
+  refundStatus?: string | null;
+  paymentMethod: string;
+  salonId: string;
+}
+
+/** One entry of platform_settings["bank_accounts"] (shown on bank-transfer payment steps) */
+export interface BankAccountSetting {
+  bank: string;
+  owner: string;
+  iban: string;
+}
+
+/** Salon wizard form state (owner onboarding / admin new-salon) — salons row built step by step */
+export interface SalonWizardForm extends Partial<Salon> {
+  name: string;
+  phone: string;
+  type_ids: string[];
+  primary_type_id: string;
+  city_id: string;
+  district_id: string;
+  geo_latitude: number;
+  geo_longitude: number;
+  features: string[];
+  plan_id?: string;
+}
+
+/** Full appointment detail (owner AppointmentDetailModal) incl. actor profiles */
+export interface AppointmentDetail {
+  id: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  notes?: string;
+  coupon_code?: string;
+  discount_amount?: number;
+  deposit_amount?: number;
+  participant_count?: number;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  created_at: string;
+  salon?: { id: string; name: string; address?: string; phone?: string };
+  staff?: { id: string; name: string; role?: string; specialty?: string };
+  salon_service?: {
+      id: string;
+      price: number;
+      duration_min: number;
+      global_service?: { name: string };
+  };
+  confirmed_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
+  completed_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
+  cancelled_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
+}
+
+/** Upcoming PENDING appointment row (PendingAppointmentsCard) */
+export interface PendingAppointmentRow {
+  id: string;
+  start_time: string;
+  customer_name?: string;
+  customer_phone?: string;
+  notes?: string;
+  staff_id?: string;
+  salon_service?: { duration_min?: number; global_service?: { name?: string } };
+  staff?: { id: string; name: string; user_id?: string };
+}
+
+/** audit_logs row with the acting user embedded */
+export interface AuditLogEntry {
+  id: string;
+  salon_id: string;
+  user_id?: string | null;
+  action: string;
+  resource_type: string;
+  resource_id?: string | null;
+  changes?: unknown;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+  user?: { full_name?: string | null; email?: string | null } | null;
+}
+
+/** user_sessions row (account security / active sessions) */
+export interface UserSession {
+  id: string;
+  user_id: string;
+  ip_address: string;
+  user_agent: string;
+  device_name: string;
+  last_active_at: string;
+  is_revoked: boolean;
+  created_at: string;
 }
 
 export interface SalonWorkingHours {
@@ -529,7 +701,7 @@ export interface Transaction {
   provider_transaction_id?: string;
   commission_amount?: number;
   notes?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -578,7 +750,7 @@ export interface SalonUsageStats {
 export interface IyzicoWebhook {
   id: string;
   iyzi_event_type: string;
-  payload: any;
+  payload: unknown;
   status: 'RECEIVED' | 'PROCESSED' | 'ERROR';
   error_message?: string;
   processed_at?: string;

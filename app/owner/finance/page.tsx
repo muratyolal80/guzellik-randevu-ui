@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import { supabase } from '@/lib/supabase';
+import { FinanceService } from '@/services/db';
+import type { OwnerFinanceTransaction } from '@/types';
 import { 
     Wallet, 
     ArrowUpRight, 
@@ -34,7 +35,7 @@ export default function OwnerFinancePage() {
         completedPayments: 0,
         staffEarnings: [] as { id: string, name: string, total: number, count: number }[]
     });
-    const [transactions, setTransactions] = useState<any[]>([]);
+    const [transactions, setTransactions] = useState<OwnerFinanceTransaction[]>([]);
 
     useEffect(() => {
         if (activeBranch || viewType === 'all') {
@@ -46,36 +47,10 @@ export default function OwnerFinancePage() {
         if (!activeBranch && viewType === 'single') return;
         setLoading(true);
         try {
-            let query = supabase
-                .from('appointments')
-                .select(`
-                    id,
-                    customer_name,
-                    start_time,
-                    status,
-                    deposit_amount,
-                    refund_status,
-                    refund_amount,
-                    payment_method,
-                    payment_status,
-                    salon_id,
-                    staff_id,
-                    staff:staff(id, name),
-                    salon_services (
-                        price,
-                        global_services (name)
-                    )
-                `);
-
-            if (viewType === 'single' && activeBranch) {
-                query = query.eq('salon_id', activeBranch.id);
-            } else if (viewType === 'all' && branches.length > 0) {
-                query = query.in('salon_id', branches.map(b => b.id));
-            }
-
-            const { data: appointments, error } = await query.order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const salonIds = viewType === 'single' && activeBranch
+                ? [activeBranch.id]
+                : viewType === 'all' ? branches.map(b => b.id) : [];
+            const appointments = await FinanceService.getAppointmentFinanceRows(salonIds);
 
             // Calculate Stats
             let total = 0;
@@ -96,7 +71,7 @@ export default function OwnerFinancePage() {
 
                     // Staff tracking
                     const sId = app.staff_id;
-                    const sName = (app.staff as any)?.name || 'Bilinmeyen Personel';
+                    const sName = app.staff?.name || 'Bilinmeyen Personel';
                     if (sId) {
                         if (!staffMap[sId]) staffMap[sId] = { name: sName, total: 0, count: 0 };
                         staffMap[sId].total += servicePrice;
@@ -108,7 +83,7 @@ export default function OwnerFinancePage() {
                     pending += depositAmount;
                 }
 
-                const gs: any = serviceData?.global_services;
+                const gs = serviceData?.global_services;
                 const globalServiceName = Array.isArray(gs) ? gs[0]?.name : gs?.name;
 
                 return {
@@ -131,7 +106,7 @@ export default function OwnerFinancePage() {
                 totalAppointments: appointments?.length || 0,
                 completedPayments: completed,
                 staffEarnings: Object.entries(staffMap).map(([id, data]) => ({ id, ...data })).sort((a, b) => b.total - a.total)
-            } as any);
+            });
             setTransactions(txList.slice(0, 10)); // Show last 10
 
         } catch (err) {
@@ -278,7 +253,7 @@ export default function OwnerFinancePage() {
                                                         <p className="text-sm font-black text-text-main leading-none">{tx.customer}</p>
                                                         {viewType === 'all' && (
                                                             <span className="text-[9px] bg-primary/5 text-primary px-1.5 py-0.5 rounded-md font-bold">
-                                                                {(branches as any[]).find(b => b.id === tx.salonId)?.name || 'Şube'}
+                                                                {branches.find(b => b.id === tx.salonId)?.name || 'Şube'}
                                                             </span>
                                                         )}
                                                     </div>

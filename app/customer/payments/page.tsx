@@ -9,10 +9,13 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/Toast';
 
+/** Transaction with the `salons(name)` embed from getCustomerTransactions */
+type TransactionRow = Transaction & { salons?: { name: string } | null };
+
 export default function CustomerPaymentsPage() {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [transactions, setTransactions] = useState<TransactionRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -36,7 +39,7 @@ export default function CustomerPaymentsPage() {
     };
 
     const filteredTransactions = transactions.filter(t =>
-        (t as any).salons?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.salons?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.id.includes(searchTerm)
     );
 
@@ -154,7 +157,7 @@ export default function CustomerPaymentsPage() {
                                 <tr key={t.id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div>
-                                            <p className="font-bold text-text-main group-hover:text-primary transition-colors">{(t as any).salons?.name || '---'}</p>
+                                            <p className="font-bold text-text-main group-hover:text-primary transition-colors">{t.salons?.name || '---'}</p>
                                             <p className="text-[10px] text-text-muted font-mono">{t.id.split('-')[0]}</p>
                                         </div>
                                     </td>

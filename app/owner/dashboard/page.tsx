@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { SalonDataService, DashboardService } from '@/services/db';
-import { supabase } from '@/lib/supabase';
+import { SalonDataService, DashboardService, AppointmentService, StaffService } from '@/services/db';
+import type { AppointmentWithRelations } from '@/types';
 import {
     Users,
     Calendar,
@@ -45,8 +45,8 @@ export default function OwnerDashboard() {
         weeklyOccupancy: 0,
         activeStaff: 0
     });
-    const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
-    const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [recentAppointments, setRecentAppointments] = useState<AppointmentWithRelations[]>([]);
+    const [analyticsData, setAnalyticsData] = useState<Awaited<ReturnType<typeof DashboardService.getOwnerDashboardData>> | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -84,36 +84,24 @@ export default function OwnerDashboard() {
 
     const fetchSalonStats = async (salonId: string) => {
         const today = new Date().toISOString().split('T')[0];
-        const [apptsResponse, staffResponse] = await Promise.all([
-            supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    service:salon_services(price, duration_min, global_service:global_services(name)),
-                    staff:staff(name, photo)
-                `)
-                .eq('salon_id', salonId)
-                .gte('start_time', `${today}T00:00:00Z`)
-                .order('start_time', { ascending: true }),
-            supabase
-                .from('staff')
-                .select('id, name')
-                .eq('salon_id', salonId)
-                .eq('is_active', true)
+        // Errors are non-fatal here (original behaviour: missing data → stats not updated)
+        const [appts, staffList] = await Promise.all([
+            AppointmentService.getSalonAppointmentsFrom(salonId, `${today}T00:00:00Z`).catch(() => null),
+            StaffService.getActiveStaffNames(salonId).catch(() => null)
         ]);
 
-        if (apptsResponse.data) {
-            const todayAppts = apptsResponse.data.filter(a => a.start_time.startsWith(today));
+        if (appts) {
+            const todayAppts = appts.filter(a => a.start_time.startsWith(today));
             const revenue = todayAppts.reduce((sum, a) => sum + (a.service?.price || 0), 0);
 
             setStats({
                 todayCount: todayAppts.length,
                 todayRevenue: revenue,
                 weeklyOccupancy: 0,
-                activeStaff: staffResponse.data?.length || 0
+                activeStaff: staffList?.length || 0
             });
 
-            setRecentAppointments(apptsResponse.data.slice(0, 5));
+            setRecentAppointments(appts.slice(0, 5));
         }
     };
 
@@ -317,7 +305,7 @@ export default function OwnerDashboard() {
                                             </td>
                                             <td className="px-8 py-6">
                                                 {(() => {
-                                                    const statusMap: Record<string, any> = {
+                                                    const statusMap: Record<string, { label: string; color: string; bg: string }> = {
                                                         PENDING: { label: 'Beklemede', color: 'bg-orange-600', bg: 'bg-orange-50' },
                                                         CONFIRMED: { label: 'Onaylandı', color: 'bg-blue-600', bg: 'bg-blue-50' },
                                                         COMPLETED: { label: 'Tamamlandı', color: 'bg-green-600', bg: 'bg-green-50' },

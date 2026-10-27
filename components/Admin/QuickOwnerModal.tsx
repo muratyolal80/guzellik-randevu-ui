@@ -1,13 +1,15 @@
 "use client";
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState } from "react";
 import { X, UserPlus, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import type { Profile } from "@/types";
 
 interface QuickOwnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (profile: any) => void;
+  onSuccess: (profile: Profile) => void;
 }
 
 export function QuickOwnerModal({ isOpen, onClose, onSuccess }: QuickOwnerModalProps) {
@@ -44,20 +46,19 @@ export function QuickOwnerModal({ isOpen, onClose, onSuccess }: QuickOwnerModalP
         throw new Error(res.error || "Bilinmeyen bir hata oluştu.");
       }
       
-      const newProfile = {
+      const newProfile: Profile = {
         id: res.user.id,
         full_name: formData.full_name,
         email: formData.email,
         phone: formData.phone,
         role: "SALON_OWNER",
-        avatar_url: null,
       };
 
       showToast("Yeni salon sahibi başarıyla oluşturuldu.", "success");
       onSuccess(newProfile);
       onClose();
-    } catch (err: any) {
-      showToast(err.message || "Kayıt sırasında bir hata oluştu.", "error");
+    } catch (err: unknown) {
+      showToast(toErrorLike(err).message || "Kayıt sırasında bir hata oluştu.", "error");
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,11 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService } from '@/services/db';
+import type { AppointmentWithRelations } from '@/types';
 import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import { useToast } from '@/components/ui/Toast';
@@ -64,7 +66,7 @@ export default function OwnerAppointmentsPage() {
     const { showToast } = useToast();
     const { confirm } = useConfirm();
 
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Filtreler
@@ -75,7 +77,7 @@ export default function OwnerAppointmentsPage() {
     const [staffFilter, setStaffFilter] = useState<string>('all');
     const [search, setSearch] = useState('');
 
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<(AppointmentWithRelations & { staff_name?: string; title: string }) | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [actingId, setActingId] = useState<string | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -147,21 +149,21 @@ export default function OwnerAppointmentsPage() {
         [baseFiltered, statusFilter]
     );
 
-    const quickAction = async (apt: any, status: 'CONFIRMED' | 'CANCELLED') => {
+    const quickAction = async (apt: AppointmentWithRelations, status: 'CONFIRMED' | 'CANCELLED') => {
         if (status === 'CANCELLED' && !(await confirm({ title: 'Bu randevuyu iptal etmek istediğinize emin misiniz?', confirmText: 'İptal Et', cancelText: 'Vazgeç', tone: 'danger' }))) return;
         try {
             setActingId(apt.id);
             await AppointmentService.updateAppointmentStatus(apt.id, status, apt.salon_id);
             await fetchData();
             showToast(status === 'CONFIRMED' ? 'Randevu onaylandı' : status === 'CANCELLED' ? 'Randevu iptal edildi' : 'Güncellendi', 'success');
-        } catch (err: any) {
-            showToast('İşlem başarısız: ' + (err?.message || ''), 'error');
+        } catch (err: unknown) {
+            showToast('İşlem başarısız: ' + (toErrorLike(err).message || ''), 'error');
         } finally {
             setActingId(null);
         }
     };
 
-    const openDetail = (apt: any) => {
+    const openDetail = (apt: AppointmentWithRelations) => {
         setSelectedAppointment({
             ...apt,
             staff_name: apt.staff?.name,

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { SalonDataService } from '@/services/db';
 
 interface SalonSlugLayoutProps {
     children: React.ReactNode;
@@ -21,15 +22,7 @@ async function getSalonBySlugServer(slug: string) {
         }
     );
 
-    const { data, error } = await supabase
-        .from('salon_details')
-        .select('id, name, description, image, city_name, district_name')
-        .eq('slug', slug)
-        .eq('status', 'APPROVED')
-        .single();
-
-    if (error) return null;
-    return data;
+    return SalonDataService.getApprovedSalonMetaBySlug(slug, supabase);
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

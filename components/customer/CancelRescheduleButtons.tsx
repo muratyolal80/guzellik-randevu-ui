@@ -11,7 +11,13 @@ import { useToast } from '@/components/ui/Toast';
 import { CalendarDays, XCircle } from 'lucide-react';
 
 interface CancelRescheduleButtonsProps {
-    appointment: any;
+    appointment: {
+        id: string;
+        start_time: string;
+        status?: string;
+        salon_id?: string | null;
+        staff_id?: string | null;
+    };
     onUpdate?: () => void;
 }
 

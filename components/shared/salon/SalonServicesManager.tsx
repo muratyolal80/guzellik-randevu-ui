@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { ServiceService } from '@/services/db';
 import { SalonServiceDetail, GlobalService } from '@/types';
@@ -123,9 +124,9 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
             setNewMaxParticipants(1);
             setNewRequiresResource(false);
             fetchData();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Hizmet kaydetme hatası:', err);
-            const errorMsg = err.message || 'Hizmet kaydedilirken hata oluştu';
+            const errorMsg = toErrorLike(err).message || 'Hizmet kaydedilirken hata oluştu';
             showToast(errorMsg, 'error');
         } finally {
             setSaving(false);

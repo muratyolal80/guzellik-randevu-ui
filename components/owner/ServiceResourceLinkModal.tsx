@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import { useEffect, useState } from 'react';
 import { X, Database, CheckCircle2, Save, AlertCircle, Loader2 } from 'lucide-react';
 import { ResourceService } from '@/services/db';
@@ -87,8 +88,8 @@ export default function ServiceResourceLinkModal({
       setTimeout(() => {
         onClose();
       }, 1200);
-    } catch (err: any) {
-      setError(err?.message || 'Kaydedilemedi');
+    } catch (err: unknown) {
+      setError(toErrorLike(err).message || 'Kaydedilemedi');
     } finally {
       setSaving(false);
     }

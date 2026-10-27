@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -55,7 +56,7 @@ export async function POST(
         }
 
         // RBAC
-        const ownerId = (appointment.salon as any)?.owner_id;
+        const ownerId = (appointment.salon as { owner_id?: string } | null)?.owner_id;
         const isOwner = ownerId === user.id;
         let isAssignedStaff = false;
         let isAdmin = false;
@@ -122,10 +123,10 @@ export async function POST(
             appointmentId,
             status: targetStatus,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[appointment/complete] error:', err);
         return NextResponse.json(
-            { error: err?.message || 'Beklenmedik hata' },
+            { error: toErrorLike(err).message || 'Beklenmedik hata' },
             { status: 500 }
         );
     }

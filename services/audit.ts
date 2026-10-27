@@ -69,8 +69,8 @@ export const AuditService = {
                 } catch { }
                 console.warn(`[AuditService] log failed (silent) ${res.status}: ${detail}`);
             }
-        } catch (err: any) {
-            console.warn('[AuditService] threw (silent):', err?.message || err);
+        } catch (err: unknown) {
+            console.warn('[AuditService] threw (silent):', err instanceof Error ? err.message : err);
         }
     },
 

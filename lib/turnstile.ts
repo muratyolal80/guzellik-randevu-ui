@@ -4,6 +4,9 @@
  *
  * Secret yoksa veya token "demo-no-turnstile" ise true döner (development konforu).
  */
+
+import { toErrorLike } from '@/lib/error-mapping';
+
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 export interface TurnstileVerifyResult {
@@ -37,8 +40,8 @@ export async function verifyTurnstile(token: string | undefined, ip?: string): P
       errorCodes: data['error-codes'],
       hostname: data.hostname,
     };
-  } catch (err: any) {
-    console.error('[turnstile] verify failed:', err?.message || err);
+  } catch (err: unknown) {
+    console.error('[turnstile] verify failed:', toErrorLike(err).message || err);
     return { success: false, errorCodes: ['fetch-failed'] };
   }
 }

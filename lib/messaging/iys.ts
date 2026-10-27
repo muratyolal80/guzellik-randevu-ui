@@ -7,6 +7,7 @@
  * Not: Bu sadece YEREL log tutar — gerçek IYS API entegrasyonu için
  * https://iys.org.tr/api/v1/sps adresine ayrı bir bridge gerekir.
  */
+import { toErrorLike } from '@/lib/error-mapping';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export type IysChannel = 'SMS' | 'EMAIL' | 'CALL';
@@ -24,7 +25,7 @@ export interface IysLogEntry {
   userId?: string;
   salonId?: string;
   relatedId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export async function logIys(entry: IysLogEntry): Promise<void> {
@@ -145,8 +146,8 @@ export async function registerIYSConsent(
 
     console.log(`[IYS] OK userId=${params.userId} iysId=${iysId ?? '-'}`);
     return { success: true, skipped: false, iysId, raw: data };
-  } catch (err: any) {
-    console.error('[IYS] Network/parse error:', err?.message || err);
-    return { success: false, skipped: false, error: err?.message || 'unknown' };
+  } catch (err: unknown) {
+    console.error('[IYS] Network/parse error:', toErrorLike(err).message || err);
+    return { success: false, skipped: false, error: toErrorLike(err).message || 'unknown' };
   }
 }

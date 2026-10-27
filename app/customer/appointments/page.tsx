@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { AppointmentService } from '@/services/db';
+import type { AppointmentWithRelations } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { CancelRescheduleButtons } from '@/components/customer/CancelRescheduleButtons';
 import { RatingModal } from '@/components/customer/RatingModal';
@@ -60,11 +61,11 @@ function AppointmentSkeleton() {
 export default function AppointmentsPage() {
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
     const [ratingModalOpen, setRatingModalOpen] = useState(false);
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
     const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
     const [cancelling, setCancelling] = useState(false);
 
@@ -75,28 +76,8 @@ export default function AppointmentsPage() {
         const fetchAppointments = async () => {
             try {
                 setLoading(true);
-                let query = supabase
-                    .from('appointments')
-                    .select(`
-                        *,
-                        salon:salons(id, name, address, image),
-                        service:salon_services(id, price, duration_min, global_service:global_services(name)),
-                        staff:staff(id, name)
-                    `)
-                    .eq('customer_id', user.id)
-                    .order('start_time', { ascending: activeTab === 'upcoming' });
-
-                if (activeTab === 'upcoming') {
-                    query = query.in('status', ['PENDING', 'CONFIRMED']).gt('start_time', new Date().toISOString());
-                } else if (activeTab === 'past') {
-                    query = query.in('status', ['COMPLETED', 'CONFIRMED', 'NO_SHOW']).lt('start_time', new Date().toISOString());
-                } else if (activeTab === 'cancelled') {
-                    query = query.eq('status', 'CANCELLED');
-                }
-
-                const { data, error } = await query;
-                if (error) throw error;
-                if (!ignore) setAppointments(data || []);
+                const data = await AppointmentService.getCustomerAppointments(user.id, activeTab);
+                if (!ignore) setAppointments(data);
             } catch (error) {
                 console.error('Error fetching appointments:', error);
                 if (!ignore) showToast('Randevular yüklenemedi.', 'error');
@@ -286,7 +267,7 @@ export default function AppointmentsPage() {
                     isOpen={ratingModalOpen}
                     onClose={() => setRatingModalOpen(false)}
                     appointment={selectedAppointment}
-                    salonId={selectedAppointment.salon?.id}
+                    salonId={selectedAppointment.salon?.id as string}
                     onSubmit={() => { setRatingModalOpen(false); setSelectedAppointment(null); }}
                 />
             )}

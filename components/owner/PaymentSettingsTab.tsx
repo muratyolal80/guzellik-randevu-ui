@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { SubmerchantService } from '@/services/db';
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { SalonDataService, ProfileService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
+import type { Profile, SalonDetail } from '@/types';
 
 interface PaymentSettingsTabProps {
     salonId: string;
@@ -28,9 +30,9 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [registration, setRegistration] = useState<any>(null);
-    const [salon, setSalon] = useState<any>(null);
-    const [profile, setProfile] = useState<any>(null);
+    const [registration, setRegistration] = useState<{ status?: string } | null>(null);
+    const [salon, setSalon] = useState<SalonDetail | null>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Form States
@@ -115,7 +117,7 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
                 updated_at: new Date().toISOString()
             });
             setMessage({ type: 'success', text: 'Ödeme ve iptal politikası başarıyla güncellendi.' });
-        } catch (err: any) {
+        } catch (err: unknown) {
             setMessage({ type: 'error', text: 'Kapora oranı güncellenemedi.' });
         } finally {
             setSaving(false);
@@ -162,9 +164,9 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
 
             setMessage({ type: 'success', text: 'Ödeme bilgileriniz onaylandı! Artık randevu ödemelerini iyzico üzerinden alabilirsiniz.' });
             fetchRegistration();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Save error:', err);
-            setMessage({ type: 'error', text: err.message || 'Bilgiler kaydedilemedi. Lütfen tüm alanları doldurduğunuzdan emin olun.' });
+            setMessage({ type: 'error', text: toErrorLike(err).message || 'Bilgiler kaydedilemedi. Lütfen tüm alanları doldurduğunuzdan emin olun.' });
         } finally {
             setSaving(false);
         }

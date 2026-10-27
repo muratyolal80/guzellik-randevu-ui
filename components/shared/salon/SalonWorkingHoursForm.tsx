@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { SalonDataService } from '@/services/db';
 import { SalonWorkingHours } from '@/types';
@@ -39,9 +40,9 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
             const data = await SalonDataService.initializeDefaultWorkingHours(salonId);
             setHours(data);
             showToast('Standart çalışma saatleri başarıyla yüklendi.', 'success');
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Init error:', err);
-            showToast('Saatler yüklenirken hata oluştu: ' + (err.message || 'Yetki hatası'), 'error');
+            showToast('Saatler yüklenirken hata oluştu: ' + (toErrorLike(err).message || 'Yetki hatası'), 'error');
         } finally {
             setLoading(false);
         }
@@ -51,9 +52,9 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
         try {
             await SalonDataService.updateSalonWorkingHours(hourId, { is_closed: !currentStatus });
             setHours(prev => prev.map(h => h.id === hourId ? { ...h, is_closed: !currentStatus } : h));
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Update error:', err);
-            showToast('Güncelleme hatası: ' + (err.message || 'Yetki hatası'), 'error');
+            showToast('Güncelleme hatası: ' + (toErrorLike(err).message || 'Yetki hatası'), 'error');
         }
     };
 
@@ -66,9 +67,9 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
                 await SalonDataService.updateSalonWorkingHours(hourId, { end_time: value });
                 setHours(prev => prev.map(h => h.id === hourId ? { ...h, end_time: value } : h));
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Time update error:', err);
-            showToast('Saat güncelleme hatası: ' + (err.message || 'Yetki hatası'), 'error');
+            showToast('Saat güncelleme hatası: ' + (toErrorLike(err).message || 'Yetki hatası'), 'error');
         }
     };
 

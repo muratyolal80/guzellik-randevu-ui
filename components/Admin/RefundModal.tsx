@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import { useState } from 'react';
 import { X, RotateCcw, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -12,7 +13,7 @@ export interface RefundableTransaction {
     provider?: string;
     merchant_oid?: string;
     is_test?: number;
-    [k: string]: any;
+    [k: string]: unknown;
   };
   created_at: string;
 }
@@ -72,8 +73,8 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
           onClose();
         }, 1500);
       }
-    } catch (err: any) {
-      setError(err?.message || 'Beklenmedik hata.');
+    } catch (err: unknown) {
+      setError(toErrorLike(err).message || 'Beklenmedik hata.');
     } finally {
       setSubmitting(false);
     }

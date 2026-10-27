@@ -6,6 +6,7 @@ import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService, SalonDataService, StaffService, ReportingService } from '@/services/db';
 import { useToast } from '@/components/ui/Toast';
 import Skeleton from '@/components/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
     TrendingUp,
     DollarSign,
@@ -27,7 +28,7 @@ export default function OwnerReports() {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [reportDays, setReportDays] = useState(30);
-    const [reportData, setReportData] = useState<any>(null);
+    const [reportData, setReportData] = useState<Awaited<ReturnType<typeof ReportingService.getSalonReport>> | null>(null);
 
     useEffect(() => {
         if (user && activeBranch) {
@@ -80,6 +81,16 @@ export default function OwnerReports() {
     }
 
     if (loading) return reportSkeleton;
+    if (!reportData) {
+        return (
+            <EmptyState
+                icon={BarChart3}
+                title="Rapor yüklenemedi"
+                description="Rapor verileri şu anda alınamıyor. Lütfen sayfayı yenileyip tekrar deneyin."
+            />
+        );
+    }
+    const report = reportData;
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">
@@ -102,9 +113,9 @@ export default function OwnerReports() {
             {/* KPI Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[
-                    { label: 'Toplam Gelir', value: `₺${reportData.totalRevenue}`, trend: '+12.5%', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-                    { label: 'Tamamlanan Randevu', value: reportData.completedAppts, trend: '+5.2%', icon: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { label: 'Ortalama İşlem Tutarı', value: `₺${reportData.avgTicket}`, trend: '-1.2%', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }
+                    { label: 'Toplam Gelir', value: `₺${report.totalRevenue}`, trend: '+12.5%', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+                    { label: 'Tamamlanan Randevu', value: report.completedAppts, trend: '+5.2%', icon: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { label: 'Ortalama İşlem Tutarı', value: `₺${report.avgTicket}`, trend: '-1.2%', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }
                 ].map((kpi, idx) => (
                     <div key={idx} className="bg-white p-8 rounded-[40px] border border-border shadow-card relative overflow-hidden group">
                         <div className={`w-14 h-14 rounded-2xl ${kpi.bg} ${kpi.color} flex items-center justify-center mb-6`}>
@@ -130,7 +141,7 @@ export default function OwnerReports() {
                         <span className="text-[10px] font-black text-text-muted uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-border shadow-sm">Hacim Bazlı</span>
                     </div>
                     <div className="p-10 space-y-6">
-                        {reportData.serviceStats.length > 0 ? reportData.serviceStats.map((stat: any, idx: number) => (
+                        {report.serviceStats.length > 0 ? report.serviceStats.map((stat, idx: number) => (
                             <div key={idx} className="space-y-2">
                                 <div className="flex justify-between items-end">
                                     <span className="text-sm font-black text-text-main">{stat.name}</span>
@@ -139,7 +150,7 @@ export default function OwnerReports() {
                                 <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-primary rounded-full transition-all duration-1000"
-                                        style={{ width: `${(stat.revenue / reportData.totalRevenue) * 100}%` }}
+                                        style={{ width: `${(stat.revenue / report.totalRevenue) * 100}%` }}
                                     ></div>
                                 </div>
                             </div>
@@ -157,9 +168,9 @@ export default function OwnerReports() {
                         </h3>
                     </div>
                     <div className="p-6">
-                        {reportData?.staffStats?.length > 0 ? (
+                        {report.staffStats.length > 0 ? (
                             <div className="space-y-4">
-                                {reportData.staffStats.map((stat: any, idx: number) => (
+                                {report.staffStats.map((stat, idx: number) => (
                                     <div key={idx} className="flex items-center gap-6 p-4 rounded-[24px] hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                                         <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center font-black text-primary border border-border">
                                             {idx + 1}
@@ -171,7 +182,7 @@ export default function OwnerReports() {
                                         <div className="text-right">
                                             <p className="text-sm font-black text-text-main">₺{stat.revenue.toLocaleString('tr-TR')}</p>
                                             <p className="text-[10px] font-bold text-green-600 uppercase">
-                                                {((stat.revenue / reportData.totalRevenue) * 100).toFixed(1)}% Pay
+                                                {((stat.revenue / report.totalRevenue) * 100).toFixed(1)}% Pay
                                             </p>
                                         </div>
                                         <ArrowRight className="w-4 h-4 text-gray-300 ml-2" />
@@ -195,7 +206,7 @@ export default function OwnerReports() {
                     <p className="text-sm text-primary/80 leading-relaxed font-medium">
                         Bu dönem geliriniz önceki döneme göre <span className="font-black text-primary underline underline-offset-4 tracking-tighter">{reportData?.revenueTrend || '0%'} {reportData?.revenueTrend?.startsWith('+') ? 'arttı' : 'değişti'}.</span> 
                         {reportData?.serviceStats?.[0] && (
-                            <> En karlı hizmetiniz olan <span className="font-black">{reportData.serviceStats[0].name}</span> işlemlerinde sabah seanslarına daha fazla personel atayarak verimi %15 daha artırabilirsiniz.</>
+                            <> En karlı hizmetiniz olan <span className="font-black">{report.serviceStats[0].name}</span> işlemlerinde sabah seanslarına daha fazla personel atayarak verimi %15 daha artırabilirsiniz.</>
                         )}
                     </p>
                 </div>

@@ -38,8 +38,8 @@ export function SmartImage({ src, alt, fallback = DEFAULT_FALLBACK, fill, ...res
     <Image
       src={finalSrc}
       alt={alt}
-      width={(rest as any).width || 400}
-      height={(rest as any).height || 300}
+      width={rest.width || 400}
+      height={rest.height || 300}
       onError={() => setErrored(true)}
       {...rest}
     />

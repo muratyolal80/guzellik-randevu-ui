@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { SalonDataService, ServiceService, NotificationService, MasterDataService } from '@/services/db';
-import { SalonDetail, SalonServiceDetail } from '@/types';
+import { SalonDetail, SalonServiceDetail, City, District, SalonType } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
@@ -33,7 +33,8 @@ import {
     PenLine,
     Trash2,
     PowerOff,
-    ShoppingCart
+    ShoppingCart,
+    type LucideIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -41,6 +42,8 @@ import { useRouter } from 'next/navigation';
 // Dynamic Map for details
 import dynamic from 'next/dynamic';
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
+
+type ApprovalFilter = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'SUSPENDED' | 'ALL';
 
 const PLAN_LABELS: Record<string, string> = { STARTER: 'Starter', PRO: 'Pro', BUSINESS: 'Business', ELITE: 'Elite' };
 
@@ -50,7 +53,7 @@ export default function AdminApprovalsPage() {
     const router = useRouter();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'SUSPENDED' | 'ALL'>('PENDING');
+    const [filter, setFilter] = useState<ApprovalFilter>('PENDING');
 
     // Advanced Filters State
     const [searchQuery, setSearchQuery] = useState('');
@@ -60,9 +63,9 @@ export default function AdminApprovalsPage() {
     const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedPlan, setSelectedPlan] = useState('');
 
-    const [cities, setCities] = useState<any[]>([]);
-    const [districts, setDistricts] = useState<any[]>([]);
-    const [salonTypes, setSalonTypes] = useState<any[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
+    const [districts, setDistricts] = useState<District[]>([]);
+    const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
 
     // Detailed Review State
     const [selectedSalon, setSelectedSalon] = useState<SalonDetail | null>(null);
@@ -254,7 +257,7 @@ export default function AdminApprovalsPage() {
     const filteredSalons = salons.filter(s => {
         // Status Filter
         if (filter !== 'ALL') {
-            const isPending = s.status === 'SUBMITTED' || s.status === 'PENDING' as any || s.status === 'REVISION_REQUESTED';
+            const isPending = s.status === 'SUBMITTED' || (s.status as string) === 'PENDING' || s.status === 'REVISION_REQUESTED';
             if (filter === 'PENDING' && !isPending) return false;
             if (filter === 'APPROVED' && s.status !== 'APPROVED') return false;
             if (filter === 'REJECTED' && s.status !== 'REJECTED') return false;
@@ -321,17 +324,17 @@ export default function AdminApprovalsPage() {
                     <div className="lg:col-span-12 space-y-6">
                         {/* Status Tabs Header */}
                         <div className="flex flex-wrap gap-2 mb-2">
-                            {[
+                            {([
                                 { id: 'PENDING', label: 'Başvurular', icon: Clock, count: salons.filter(s => s.status === 'SUBMITTED' || s.status === 'REVISION_REQUESTED').length },
                                 { id: 'APPROVED', label: 'Onaylı', icon: CheckCircle, count: salons.filter(s => s.status === 'APPROVED').length },
                                 { id: 'REJECTED', label: 'Reddedilen', icon: XCircle, count: salons.filter(s => s.status === 'REJECTED').length },
                                 { id: 'DRAFT', label: 'Taslaklar', icon: MoreVertical, count: salons.filter(s => s.status === 'DRAFT').length },
                                 { id: 'SUSPENDED', label: 'Askıda', icon: AlertCircle, count: salons.filter(s => s.status === 'SUSPENDED').length },
                                 { id: 'ALL', label: 'Tümü', icon: Filter, count: salons.length }
-                            ].map((tab) => (
+                            ] satisfies { id: ApprovalFilter; label: string; icon: LucideIcon; count: number }[]).map((tab) => (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setFilter(tab.id as any)}
+                                    onClick={() => setFilter(tab.id)}
                                     className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black transition-all border ${filter === tab.id ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-white text-text-secondary border-border hover:bg-gray-50'}`}
                                 >
                                     <tab.icon className="w-4 h-4" />
@@ -765,8 +768,8 @@ export default function AdminApprovalsPage() {
     );
 }
 
-function StatusBadge({ status, reason }: { status: any, reason?: string }) {
-    const statusMap: Record<string, any> = {
+function StatusBadge({ status, reason }: { status?: string, reason?: string }) {
+    const statusMap: Record<string, { label: string; icon: LucideIcon; color: string; bg: string; border: string }> = {
         DRAFT: { label: 'TASLAK', icon: MoreVertical, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200' },
         SUBMITTED: { label: 'ONAY BEKLİYOR', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
         REVISION_REQUESTED: { label: 'REVİZYON İSTENDİ', icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },

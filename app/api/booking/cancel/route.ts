@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
             const startTime = new Date(appointment.start_time);
             const now = new Date();
             const hoursUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-            const deadline = (appointment.salons as any)?.cancellation_deadline_hours || 24;
+            const deadline = (appointment.salons as { cancellation_deadline_hours?: number } | null)?.cancellation_deadline_hours || 24;
 
             if (hoursUntilStart >= deadline) {
                 try {
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
                     } else {
                         refundError = refundResult.errorMessage || 'İade işlemi iyzico tarafından reddedildi.';
                     }
-                } catch (err: any) {
+                } catch (err: unknown) {
                     console.error('Refund API Error:', err);
                     refundError = 'İade servisi şu anda kullanılamıyor.';
                 }
@@ -140,8 +141,8 @@ export async function POST(request: NextRequest) {
                 ? 'Randevunuz iptal edildi ve kaporanız iade edildi.' 
                 : 'Randevunuz iptal edildi.' 
         });
-    } catch (err: any) {
-        console.error('Server Error:', err.message);
+    } catch (err: unknown) {
+        console.error('Server Error:', toErrorLike(err).message);
         return NextResponse.json({ error: 'Sunucu hatası' }, { status: 500 });
     }
 }

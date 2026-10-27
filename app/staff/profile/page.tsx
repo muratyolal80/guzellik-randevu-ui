@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { StaffService } from '@/services/db';
+import { ProfileService, StaffService } from '@/services/db';
 import type { Staff } from '@/types';
 import {
     User,
@@ -68,10 +67,10 @@ export default function StaffProfile() {
             await StaffService.updateStaff(staffData.id, { name, specialty, bio, photo });
 
             // Profile tablosunu da güncelle (isim değiştiyse)
-            await supabase
-                .from('profiles')
-                .update({ full_name: name })
-                .eq('id', user?.id);
+            if (user) {
+                await ProfileService.updateFullName(user.id, name).catch((profileErr: unknown) =>
+                    console.warn('profiles.full_name sync failed (non-blocking):', profileErr));
+            }
 
             setMessage({ type: 'success', text: 'Profiliniz başarıyla güncellendi.' });
         } catch (err) {

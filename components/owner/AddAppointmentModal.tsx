@@ -7,9 +7,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
-import { supabase } from '@/lib/supabase';
+import { trTime } from '@/lib/tz';
 import { StaffService, ServiceService, AppointmentService, SalonDataService } from '@/services/db';
 import { AuditService } from '@/services/audit';
+import type { Staff, SalonServiceDetail, SalonWorkingHours } from '@/types';
 import {
     Users,
     Scissors,
@@ -40,9 +41,9 @@ export function AddAppointmentModal({
     onSuccess
 }: AddAppointmentModalProps) {
     const { showToast } = useToast();
-    const [staff, setStaff] = useState<any[]>([]);
-    const [services, setServices] = useState<any[]>([]);
-    const [workingHours, setWorkingHours] = useState<any[]>([]);
+    const [staff, setStaff] = useState<Staff[]>([]);
+    const [services, setServices] = useState<SalonServiceDetail[]>([]);
+    const [workingHours, setWorkingHours] = useState<SalonWorkingHours[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Form state
@@ -119,7 +120,7 @@ export function AddAppointmentModal({
             // working_hours.day_of_week konvansiyonu: 1=Pazartesi ... 7=Pazar (Pazar=7).
             const jsDay = new Date(selectedDate).getDay(); // 0=Pazar..6=Cumartesi
             const dow = jsDay === 0 ? 7 : jsDay;
-            const dayHours = workingHours.find((h: any) => h.day_of_week === dow);
+            const dayHours = workingHours.find((h) => h.day_of_week === dow);
             const dayNames = ['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
             if (!dayHours || dayHours.is_closed) {
                 setError(`Seçilen gün (${dayNames[dow]}) salon kapalı — çalışma günü olmayan bir güne randevu oluşturulamaz. Lütfen başka bir gün seçin.`);
@@ -137,30 +138,20 @@ export function AddAppointmentModal({
                 }
             }
 
-            const [hours, minutes] = selectedTime.split(':').map(Number);
-            const startTime = new Date(selectedDate);
-            startTime.setHours(hours, minutes, 0, 0);
+            // Salon wall-clock time (Europe/Istanbul) — independent of the browser's time zone
+            const startTime = trTime(selectedDate, selectedTime);
+            const endTime = new Date(startTime.getTime() + selectedService.duration_min * 60_000);
 
-            const endTime = new Date(startTime);
-            endTime.setMinutes(startTime.getMinutes() + selectedService.duration_min);
-
-            const { data, error: insertError } = await supabase
-                .from('appointments')
-                .insert({
-                    salon_id: salonId,
-                    staff_id: selectedStaffId,
-                    salon_service_id: selectedServiceId,
-                    customer_name: customerName,
-                    customer_phone: customerPhone,
-                    start_time: startTime.toISOString(),
-                    end_time: endTime.toISOString(),
-                    status: 'PENDING',
-                    notes: notes || null
-                })
-                .select()
-                .single();
-
-            if (insertError) throw insertError;
+            const data = await AppointmentService.createManualAppointment({
+                salon_id: salonId,
+                staff_id: selectedStaffId,
+                salon_service_id: selectedServiceId,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                notes: notes || null
+            });
 
             // Log audit
             await AuditService.log({
@@ -177,9 +168,9 @@ export function AddAppointmentModal({
             onSuccess?.();
             onClose();
             resetForm();
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error creating appointment:', err);
-            setError(err.message || 'Randevu oluşturulurken bir hata oluştu');
+            setError((err as { message?: string } | null)?.message || 'Randevu oluşturulurken bir hata oluştu');
         } finally {
             setLoading(false);
         }

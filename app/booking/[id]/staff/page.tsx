@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BookingStepSkeleton } from '@/components/common/PageSkeletons';
@@ -111,12 +112,12 @@ export default function StaffSelection() {
           }
         }
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Boş {} hatasını anlamlı bir mesaja açıkla
         const detail =
-          error?.message ||
-          error?.code ||
-          error?.details ||
+          toErrorLike(error).message ||
+          toErrorLike(error).code ||
+          toErrorLike(error).details ||
           (typeof error === 'object' ? JSON.stringify(error) : String(error)) ||
           'Beklenmedik hata';
         console.error('[staff page] Error fetching data:', detail, error);

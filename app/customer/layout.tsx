@@ -1,7 +1,10 @@
 'use client';
 
 import React from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { ProfileService } from '@/services/db';
+import type { Profile } from '@/types';
 import { useRouter } from 'next/navigation';
 import { UserMenu } from '@/components/common/UserMenu';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -12,7 +15,7 @@ export default function CustomerDashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const [user, setUser] = React.useState<any>(null);
+    const [user, setUser] = React.useState<Profile | User | null>(null);
     const [loading, setLoading] = React.useState(true);
     const router = useRouter();
 
@@ -22,7 +25,7 @@ export default function CustomerDashboardLayout({
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                     // Fetch profile for first_name/last_name
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                    const profile = await ProfileService.getProfileById(user.id).catch(() => null);
                     setUser(profile || user);
                 } else {
                     router.push('/login');

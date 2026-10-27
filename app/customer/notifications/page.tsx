@@ -6,11 +6,13 @@ import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import Skeleton from '@/components/Skeleton';
 import { supabase } from '@/lib/supabase';
+import { NotificationService } from '@/services/db';
+import type { Notification } from '@/types';
 
 export default function NotificationsPage() {
     const { showToast } = useToast();
     const { confirm } = useConfirm();
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchNotifications = async () => {
@@ -18,14 +20,7 @@ export default function NotificationsPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setNotifications(data || []);
+            setNotifications(await NotificationService.getNotifications(user.id));
         } catch (error) {
             console.error('Error fetching notifications:', error);
             showToast('Bildirimler yüklenemedi.', 'error');
@@ -41,14 +36,8 @@ export default function NotificationsPage() {
     const markAsRead = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const { error } = await supabase
-                .from('notifications')
-                .update({ is_read: true })
-                .eq('id', id);
-
-            if (!error) {
-                setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-            }
+            await NotificationService.markAsRead(id);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         } catch (error) {
             console.error("Error marking as read", error);
             showToast('Bildirim güncellenemedi.', 'error');
@@ -122,9 +111,12 @@ export default function NotificationsPage() {
                                 onClick={async (e) => {
                                     e.stopPropagation();
                                     if (!(await confirm({ title: 'Bildirim silinsin mi?', message: 'Bildirimi silmek istediğinize emin misiniz?', tone: 'danger', confirmText: 'Sil' }))) return;
-                                    const { error } = await supabase.from('notifications').delete().eq('id', notif.id);
-                                    if (!error) setNotifications(prev => prev.filter(n => n.id !== notif.id));
-                                    else showToast('Bildirim silinemedi.', 'error');
+                                    try {
+                                        await NotificationService.deleteNotification(notif.id);
+                                        setNotifications(prev => prev.filter(n => n.id !== notif.id));
+                                    } catch {
+                                        showToast('Bildirim silinemedi.', 'error');
+                                    }
                                 }}
                                 className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Sil"
                             >

@@ -88,7 +88,7 @@ export const NotificationService = {
                     throw new Error('Provider returned failure');
                 }
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error(`Job ${job.id} failed:`, err);
                 failed++;
 
@@ -101,7 +101,7 @@ export const NotificationService = {
                     .update({
                         status: newStatus,
                         tries: newTries,
-                        last_error: err.message || 'Unknown error',
+                        last_error: (err instanceof Error ? err.message : String(err)) || 'Unknown error',
                         // If retrying, delay by 5 minutes
                         scheduled_for: newStatus === 'PENDING'
                             ? new Date(Date.now() + 5 * 60000).toISOString()

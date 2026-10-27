@@ -1,6 +1,7 @@
 import { supabase as defaultSupabase, supabaseUrl } from "@/lib/supabase";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  CustomerReviewItem,
   City,
   District,
   SalonType,
@@ -47,8 +48,10 @@ export const SalonDataService = {
   /**
    * Helper: Normalize salon data to prevent [object Object] errors
    */
-  mapSalonDetail(salon: any): SalonDetail {
-    if (!salon) return salon;
+  mapSalonDetail(salon: Record<string, unknown>): SalonDetail {
+    if (!salon) return salon as unknown as SalonDetail;
+    // Some joined columns arrive as `{ name }` objects instead of plain strings
+    const nameOf = (v: unknown) => (v as { name?: string } | null)?.name;
     return {
       ...salon,
       name: String(salon.name || ""),
@@ -58,31 +61,31 @@ export const SalonDataService = {
           : salon.description || "",
       city_name:
         typeof salon.city_name === "object"
-          ? (salon.city_name as any)?.name
+          ? nameOf(salon.city_name)
           : String(salon.city_name || "Belirtilmemiş"),
       district_name:
         typeof salon.district_name === "object"
-          ? (salon.district_name as any)?.name
+          ? nameOf(salon.district_name)
           : String(salon.district_name || ""),
       neighborhood:
         typeof salon.neighborhood === "object"
-          ? String((salon.neighborhood as any)?.name || "")
+          ? String(nameOf(salon.neighborhood) || "")
           : String(salon.neighborhood || ""),
       avenue:
         typeof salon.avenue === "object"
-          ? String((salon.avenue as any)?.name || "")
+          ? String(nameOf(salon.avenue) || "")
           : String(salon.avenue || ""),
       street:
         typeof salon.street === "object"
-          ? String((salon.street as any)?.name || "")
+          ? String(nameOf(salon.street) || "")
           : String(salon.street || ""),
       building_no:
         typeof salon.building_no === "object"
-          ? String((salon.building_no as any)?.name || "")
+          ? String(nameOf(salon.building_no) || "")
           : String(salon.building_no || ""),
       apartment_no:
         typeof salon.apartment_no === "object"
-          ? String((salon.apartment_no as any)?.name || "")
+          ? String(nameOf(salon.apartment_no) || "")
           : String(salon.apartment_no || ""),
       address:
         typeof salon.address === "object"
@@ -94,13 +97,13 @@ export const SalonDataService = {
       rating: Number(salon.rating || salon.average_rating || 0),
       deposit_rate: Number(salon.deposit_rate || 0),
       features: Array.isArray(salon.features)
-        ? salon.features.map((f: any) =>
-          typeof f === "string" ? f : f.name || JSON.stringify(f),
+        ? salon.features.map((f: unknown) =>
+          typeof f === "string" ? f : nameOf(f) || JSON.stringify(f),
         )
         : [],
       tags: Array.isArray(salon.assigned_types)
-        ? salon.assigned_types.map((t: any) =>
-          typeof t === "string" ? t : t.name || String(t),
+        ? salon.assigned_types.map((t: unknown) =>
+          typeof t === "string" ? t : nameOf(t) || String(t),
         )
         : salon.type_name
           ? [String(salon.type_name)]
@@ -110,14 +113,14 @@ export const SalonDataService = {
         lng: Number(salon.geo_longitude || 0),
       },
       working_hours: Array.isArray(salon.working_hours)
-        ? salon.working_hours.map((wh: any) => ({
+        ? (salon.working_hours as Record<string, unknown>[]).map((wh) => ({
           day_of_week: Number(wh.day_of_week),
           start_time: String(wh.start_time || "09:00:00"),
           end_time: String(wh.end_time || "20:00:00"),
           is_closed: Boolean(wh.is_closed),
         }))
         : [],
-    };
+    } as SalonDetail;
   },
 
   /**
@@ -157,7 +160,7 @@ export const SalonDataService = {
     const { data, error, count } = await q;
     if (error) throw error;
     return {
-      data: (data || []).map((s: any) => this.mapSalonDetail(s)),
+      data: (data || []).map((s) => this.mapSalonDetail(s)),
       total: typeof count === 'number' ? count : null,
     };
   },
@@ -201,7 +204,7 @@ export const SalonDataService = {
         console.error('[getSalonsNearby] RPC error:', error.message);
         return [];
       }
-      return (data || []) as any[];
+      return (data || []) as Awaited<ReturnType<typeof SalonDataService.getSalonsNearby>>;
     } catch (err) {
       console.error('[getSalonsNearby] threw:', err);
       return [];
@@ -231,11 +234,11 @@ export const SalonDataService = {
       return this._getSalonsByMembershipFallback(userId, supabase);
     }
 
-    const details = (rows || [])
-      .map((r: any) => r.salon_details)
-      .filter(Boolean);
+    const details = ((rows || []) as unknown as { salon_details: Record<string, unknown> | null }[])
+      .map((r) => r.salon_details)
+      .filter((d): d is Record<string, unknown> => Boolean(d));
 
-    return details.map((s: any) => this.mapSalonDetail(s));
+    return details.map((s) => this.mapSalonDetail(s));
   },
 
   /**
@@ -298,6 +301,24 @@ export const SalonDataService = {
 
     if (error) throw error;
     return data ? this.mapSalonDetail(data) : null;
+  },
+
+  /**
+   * SEO fields of an APPROVED salon by slug (server metadata). Pass a server client.
+   */
+  async getApprovedSalonMetaBySlug(
+    slug: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Pick<SalonDetail, "id" | "name" | "description" | "image" | "city_name" | "district_name"> | null> {
+    const { data, error } = await supabase
+      .from("salon_details")
+      .select("id, name, description, image, city_name, district_name")
+      .eq("slug", slug)
+      .eq("status", "APPROVED")
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
   },
 
   /**
@@ -463,7 +484,7 @@ export const SalonDataService = {
     }
 
     const { type_ids, primary_type_id, ...salonData } = salon;
-    const slug = (salonData as any).slug || (salonData.name.toLowerCase().trim()
+    const slug = salonData.slug || (salonData.name.toLowerCase().trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '') + '-' + Math.random().toString(36).substring(2, 7));
@@ -471,7 +492,7 @@ export const SalonDataService = {
     const dbSalon = {
       ...salonData,
       slug,
-      type_id: primary_type_id || (salonData as any).type_id,
+      type_id: primary_type_id || salonData.type_id,
     };
 
     let data;
@@ -583,7 +604,7 @@ export const SalonDataService = {
 
     // If primary type is updated, sync it to the legacy type_id column
     if (primary_type_id) {
-      (salonUpdates as any).type_id = primary_type_id;
+      salonUpdates.type_id = primary_type_id;
     }
 
     // Update main table
@@ -755,6 +776,94 @@ export const SalonDataService = {
   },
 
   /**
+   * Raw `salons` rows owned by a user (no view joins) — used by TenantContext
+   */
+  async getOwnedSalonRows(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Salon[]> {
+    const { data, error } = await supabase
+      .from("salons")
+      .select("*")
+      .eq("owner_id", ownerId);
+
+    if (error) throw error;
+    return (data || []) as Salon[];
+  },
+
+  /**
+   * Owner's most recent unfinished (DRAFT/PENDING) salon — onboarding resume
+   */
+  async getLatestDraftSalon(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Salon | null> {
+    const { data, error } = await supabase
+      .from("salons")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .in("status", ["DRAFT", "PENDING"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as Salon | null;
+  },
+
+  /**
+   * Insert a placeholder DRAFT salon that holds a subscription during onboarding
+   */
+  async createDraftSalon(
+    ownerId: string,
+    name: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Salon> {
+    const { data, error } = await supabase
+      .from("salons")
+      .insert({ name, owner_id: ownerId, status: "DRAFT" })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Salon;
+  },
+
+  /**
+   * Number of an owner's salons that are not DELETED (branch-limit checks)
+   */
+  async countOwnerSalons(
+    ownerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<number> {
+    const { count, error } = await supabase
+      .from("salons")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId)
+      .not("status", "eq", "DELETED");
+
+    if (error) throw error;
+    return count || 0;
+  },
+
+  /**
+   * Raw `salons` row by id (no view joins)
+   */
+  async getSalonRowById(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Salon | null> {
+    const { data, error } = await supabase
+      .from("salons")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as Salon | null;
+  },
+
+  /**
    * Get single salon for owner (backward compatibility & dashboard)
    */
   async getSalonByOwner(
@@ -923,8 +1032,9 @@ export const SalonDataService = {
       .eq("id", salonId)
       .maybeSingle();
 
-    const typeName = (salon?.salon_types as any)?.name?.toLowerCase() || "";
-    const typeSlug = (salon?.salon_types as any)?.slug?.toLowerCase() || "";
+    const salonType = salon?.salon_types as { name?: string; slug?: string } | null | undefined;
+    const typeName = salonType?.name?.toLowerCase() || "";
+    const typeSlug = salonType?.slug?.toLowerCase() || "";
 
     let weekday = { start: "09:00", end: "20:00" };
     let saturday = { start: "09:00", end: "20:00", closed: false };
@@ -1154,7 +1264,7 @@ export const ReviewService = {
 
       const finalData = (error ? fallbackData : data) || [];
 
-      return finalData.map((r: any) => ({
+      return (finalData as Review[]).map((r) => ({
         ...r,
         user_name: String(r.user_name || "Misafir"),
         comment:
@@ -1163,7 +1273,7 @@ export const ReviewService = {
             : String(r.comment || ""),
         service_name:
           typeof r.service_name === "object"
-            ? (r.service_name as any)?.name
+            ? (r.service_name as { name?: string } | null)?.name
             : String(r.service_name || ""),
       }));
     }
@@ -1185,7 +1295,7 @@ export const ReviewService = {
             : String(review.comment || ""),
         service_name:
           typeof review.service_name === "object"
-            ? (review.service_name as any)?.name
+            ? (review.service_name as { name?: string } | null)?.name
             : String(review.service_name || ""),
         images: imageData?.filter((img) => img.review_id === review.id) || [],
       }));
@@ -1200,9 +1310,38 @@ export const ReviewService = {
           : String(review.comment || ""),
       service_name:
         typeof review.service_name === "object"
-          ? (review.service_name as any)?.name
+          ? (review.service_name as { name?: string } | null)?.name
           : String(review.service_name || ""),
     }));
+  },
+
+  /**
+   * Reviews written by a user, newest first, with salon name/image/location
+   */
+  async getReviewsByUser(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<CustomerReviewItem[]> {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        salon:salons (
+          id,
+          name,
+          image,
+          city:cities(name),
+          district:districts(name)
+        )
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as unknown as CustomerReviewItem[];
   },
 
   async createReview(
@@ -1586,7 +1725,12 @@ export const ReportingService = {
     const staffStats: Record<string, { id: string, name: string, count: number, revenue: number }> = {};
     let totalRevenue = 0;
 
-    appointments?.forEach((appt: any) => {
+    type ReportApptRow = {
+      staff_id: string;
+      salon_services?: { price?: number; global_services?: { name?: string } | null } | null;
+      staff?: { id: string; name: string } | null;
+    };
+    (appointments as unknown as ReportApptRow[] | null)?.forEach((appt) => {
       const price = appt.salon_services?.price || 0;
       totalRevenue += price;
 
@@ -1620,7 +1764,7 @@ export const ReportingService = {
       .gte('end_time', prevStart.toISOString())
       .lt('end_time', startDate.toISOString());
 
-    const prevRevenue = prevAppointments?.reduce((sum, a: any) => sum + (a.salon_services?.price || 0), 0) || 0;
+    const prevRevenue = (prevAppointments as { salon_services?: { price?: number } | null }[] | null)?.reduce((sum, a) => sum + (a.salon_services?.price || 0), 0) || 0;
     const revenueTrend = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
 
     return {

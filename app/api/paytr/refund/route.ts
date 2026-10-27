@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -80,8 +81,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ success: true, merchant_oid, return_amount, is_test: result.is_test === 1 });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('PayTR refund error:', err);
-        return NextResponse.json({ error: err?.message || 'Beklenmedik hata' }, { status: 500 });
+        return NextResponse.json({ error: toErrorLike(err).message || 'Beklenmedik hata' }, { status: 500 });
     }
 }

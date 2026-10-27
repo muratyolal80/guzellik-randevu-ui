@@ -49,7 +49,7 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
             
             setImages(galleryData);
             setUsageStats(statsData as SalonUsageStats);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Galeri verileri yüklenirken hata:', err);
             setError('Galeri ve plan bilgileri yüklenirken bir hata oluştu. Lütfen sayfayı yenileyiniz.');
         } finally {
@@ -113,7 +113,7 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
             // Refresh both gallery and stats
             await fetchData();
             setUploadProgress(null);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Yükleme hatası:', err);
             setError('Görsel yüklenirken bir hata oluştu. Lütfen dosya boyutunu (max 5MB) kontrol edip tekrar deneyin.');
         } finally {

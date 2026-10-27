@@ -21,55 +21,26 @@ import {
     Loader2,
     UserPlus,
     Printer,
+    type LucideIcon,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { AppointmentService } from '@/services/db';
+import type { AppointmentDetail } from '@/types';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import Skeleton from '@/components/Skeleton';
 
-interface AppointmentDetailModalProps {
+/** Minimum the modal needs from the caller's row; the full detail is fetched by id. */
+type AppointmentRef = { id: string; status?: string | null };
+
+interface AppointmentDetailModalProps<T extends AppointmentRef> {
     isOpen: boolean;
     onClose: () => void;
-    appointment: any;
+    appointment: T | null;
     onSuccess: () => void;
     /** İptal edilen randevunun saatine yeni müşteri almak için (opsiyonel). */
-    onRebook?: (appointment: any) => void;
+    onRebook?: (appointment: T) => void;
 }
 
-interface FullAppointment {
-    id: string;
-    status: string;
-    start_time: string;
-    end_time: string;
-    customer_id?: string;
-    customer_name?: string;
-    customer_phone?: string;
-    notes?: string;
-    coupon_code?: string;
-    discount_amount?: number;
-    deposit_amount?: number;
-    participant_count?: number;
-    confirmed_by?: string | null;
-    confirmed_at?: string | null;
-    completed_by?: string | null;
-    completed_at?: string | null;
-    cancelled_by?: string | null;
-    cancelled_at?: string | null;
-    cancellation_reason?: string | null;
-    created_at: string;
-    salon?: { id: string; name: string; address?: string; phone?: string };
-    staff?: { id: string; name: string; role?: string; specialty?: string };
-    salon_service?: {
-        id: string;
-        price: number;
-        duration_min: number;
-        global_service?: { name: string };
-    };
-    confirmed_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
-    completed_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
-    cancelled_by_profile?: { id: string; first_name?: string; last_name?: string; email?: string };
-}
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: LucideIcon }> = {
     PENDING: { label: 'Onay Bekliyor', color: 'text-amber-700', bg: 'bg-amber-100 border-amber-200', icon: Hourglass },
     CONFIRMED: { label: 'Onaylandı', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-200', icon: CheckCircle2 },
     COMPLETED: { label: 'Tamamlandı', color: 'text-blue-700', bg: 'bg-blue-100 border-blue-200', icon: UserCheck },
@@ -94,14 +65,14 @@ function fullName(p?: { first_name?: string; last_name?: string; email?: string 
     return n || p.email || 'Sistem';
 }
 
-export default function AppointmentDetailModal({
+export default function AppointmentDetailModal<T extends AppointmentRef>({
     isOpen,
     onClose,
     appointment,
     onSuccess,
     onRebook,
-}: AppointmentDetailModalProps) {
-    const [apt, setApt] = useState<FullAppointment | null>(null);
+}: AppointmentDetailModalProps<T>) {
+    const [apt, setApt] = useState<AppointmentDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -116,34 +87,14 @@ export default function AppointmentDetailModal({
         setLoading(true);
         setError(null);
         try {
-            const { data, error: err } = await supabase
-                .from('appointments')
-                .select(`
-                    id, status, start_time, end_time, customer_id, customer_name, customer_phone,
-                    notes, coupon_code, discount_amount, deposit_amount, participant_count,
-                    confirmed_by, confirmed_at, completed_by, completed_at,
-                    cancelled_by, cancelled_at, cancellation_reason, created_at,
-                    salon:salons(id, name, address, phone),
-                    staff:staff(id, name, role, specialty),
-                    salon_service:salon_services(
-                        id, price, duration_min,
-                        global_service:global_services(name)
-                    ),
-                    confirmed_by_profile:profiles!appointments_confirmed_by_fkey(id, first_name, last_name, email),
-                    completed_by_profile:profiles!appointments_completed_by_fkey(id, first_name, last_name, email),
-                    cancelled_by_profile:profiles!appointments_cancelled_by_fkey(id, first_name, last_name, email)
-                `)
-                .eq('id', appointmentId)
-                .maybeSingle();
-
-            if (err) throw err;
+            const data = await AppointmentService.getAppointmentDetail(appointmentId);
             if (!data) {
                 setError('Randevu bulunamadı.');
                 return;
             }
-            setApt(data as any);
-        } catch (e: any) {
-            setError(e?.message || JSON.stringify(e) || 'Yüklenemedi');
+            setApt(data);
+        } catch (e: unknown) {
+            setError((e as { message?: string } | null)?.message || JSON.stringify(e) || 'Yüklenemedi');
         } finally {
             setLoading(false);
         }
@@ -172,14 +123,14 @@ export default function AppointmentDetailModal({
 
     const action = async (
         kind: 'confirm' | 'reject' | 'complete' | 'noshow',
-        body?: any,
+        body?: Record<string, unknown>,
     ) => {
         if (!apt) return;
         setActionLoading(kind);
         setActionMsg(null);
         try {
             let url = '';
-            let bodyPayload: any = body;
+            let bodyPayload: Record<string, unknown> | undefined = body;
             if (kind === 'confirm') url = `/api/appointments/${apt.id}/confirm`;
             else if (kind === 'reject') {
                 url = `/api/appointments/${apt.id}/reject`;
@@ -202,8 +153,8 @@ export default function AppointmentDetailModal({
             setActionMsg({ type: 'success', msg: 'Güncellendi' });
             await fetchDetail();
             onSuccess();
-        } catch (e: any) {
-            setActionMsg({ type: 'error', msg: e?.message || 'Ağ hatası' });
+        } catch (e: unknown) {
+            setActionMsg({ type: 'error', msg: e instanceof Error ? e.message : 'Ağ hatası' });
         } finally {
             setActionLoading(null);
         }

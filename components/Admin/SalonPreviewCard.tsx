@@ -2,10 +2,18 @@
 
 import React from "react";
 import { MapPin, Star, Phone, Clock, Heart } from "lucide-react";
+import type { Profile } from "@/types";
+
+/** Draft salon form fields shown in the preview. */
+interface SalonPreviewData {
+  image?: string | null;
+  name?: string | null;
+  phone?: string | null;
+}
 
 interface SalonPreviewCardProps {
-  data: any;
-  owner?: any;
+  data: SalonPreviewData;
+  owner?: Profile | null;
   cityName?: string;
   districtName?: string;
   typeName?: string;

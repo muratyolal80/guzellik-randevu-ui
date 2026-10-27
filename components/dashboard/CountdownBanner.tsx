@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { Calendar, MapPin, Phone, Navigation, Scissors } from 'lucide-react';
 
 interface CountdownBannerProps {
-    appointment: any;
+    appointment: {
+        start_time: string;
+        salon?: { name?: string | null; address?: string | null; phone?: string | null } | null;
+        service?: { global_service?: { name?: string | null } | null } | null;
+    } | null;
 }
 
 function getCountdown(start: string) {

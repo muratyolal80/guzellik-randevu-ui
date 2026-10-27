@@ -1,4 +1,4 @@
-import { getIyzicoInstance } from './iyzico';
+import { getIyzicoInstance, type IyzicoResult } from './iyzico';
 
 /**
  * iyzico Link API Wrapper
@@ -16,7 +16,7 @@ export const IyzicoLinkService = {
         currency?: string;
         subMerchantKey?: string;
         subMerchantPrice?: number;
-    }): Promise<any> {
+    }): Promise<IyzicoResult> {
         const iyzico = await getIyzicoInstance();
 
         const requestData = {
@@ -32,10 +32,8 @@ export const IyzicoLinkService = {
         };
 
         return new Promise((resolve, reject) => {
-            // @ts-ignore - iyzipay Node SDK Link API support check
             if (iyzico.iyziLink) {
-                // @ts-ignore
-                iyzico.iyziLink.create(requestData, (err: any, result: any) => {
+                iyzico.iyziLink.create(requestData, (err, result) => {
                     if (err) reject(err);
                     else resolve(result);
                 });

@@ -25,6 +25,7 @@ import type {
   SalonGallery,
   ReviewImage,
   Profile,
+  UserSession,
   Coupon,
   Package,
   Transaction,
@@ -206,40 +207,51 @@ export const DashboardService = {
       paymentsQuery,
     ]);
 
-    const totalSpending =
-      spending.data?.reduce(
-        (acc, curr: any) => acc + (curr.salon_service?.price || 0),
-        0,
-      ) || 0;
+    // Many-to-one embeds arrive as single objects at runtime
+    type PriceRow = { salon_service?: { price?: number } | null };
+    type PendingReviewRow = {
+      id: string;
+      start_time: string;
+      salon_id: string;
+      salon: { id: string; name: string; image?: string | null } | null;
+      service: { global_service: { name: string } | null } | null;
+    };
+    type VisitRow = {
+      salon_id: string | null;
+      salon: {
+        id: string;
+        name: string;
+        image?: string | null;
+        city: { name: string } | null;
+        district: { name: string } | null;
+      } | null;
+    };
+    const sumPrices = (rows: unknown[] | null) =>
+      ((rows || []) as PriceRow[]).reduce((acc, curr) => acc + (curr.salon_service?.price || 0), 0);
 
-    const lastMonthTotal =
-      lastMonthSpending.data?.reduce(
-        (acc: number, curr: any) => acc + (curr.salon_service?.price || 0),
-        0,
-      ) || 0;
+    const totalSpending = sumPrices(spending.data);
+
+    const lastMonthTotal = sumPrices(lastMonthSpending.data);
 
     const yearlyData = yearly.data || [];
-    const yearlySpending = yearlyData.reduce(
-      (acc: number, curr: any) => acc + (curr.salon_service?.price || 0),
-      0,
-    );
+    const yearlySpending = sumPrices(yearlyData);
     const uniqueSalons = new Set(
-      yearlyData.map((a: any) => a.salon_id),
+      yearlyData.map((a) => a.salon_id),
     ).size;
 
     // Bekleyen review: completed randevular - review'lanmış appointment_id'ler
     const reviewedSet = new Set(
-      (allReviews.data || [])
-        .map((r: any) => r.appointment_id)
+      ((allReviews.data || []) as { appointment_id: string | null }[])
+        .map((r) => r.appointment_id)
         .filter(Boolean),
     );
-    const pendingReviews = (completedPast.data || []).filter(
-      (a: any) => !reviewedSet.has(a.id),
+    const pendingReviews = ((completedPast.data || []) as unknown as PendingReviewRow[]).filter(
+      (a) => !reviewedSet.has(a.id),
     );
 
     // Sadakat: en çok ziyaret edilen salon
-    const visitMap = new Map<string, { salon: any; count: number }>();
-    (visitCount.data || []).forEach((a: any) => {
+    const visitMap = new Map<string, { salon: VisitRow["salon"]; count: number }>();
+    ((visitCount.data || []) as unknown as VisitRow[]).forEach((a) => {
       if (!a.salon_id) return;
       const existing = visitMap.get(a.salon_id);
       if (existing) existing.count++;
@@ -286,6 +298,7 @@ export const DashboardService = {
         id,
         start_time,
         status,
+        customer_id,
         service:salon_services (
           price,
           global_service:global_services(name)
@@ -298,12 +311,22 @@ export const DashboardService = {
 
     if (error) throw error;
 
+    // Many-to-one embeds arrive as single objects at runtime
+    type OwnerApptRow = {
+      id: string;
+      start_time: string;
+      status: string;
+      customer_id: string | null;
+      service: { price?: number; global_service: { name: string } | null } | null;
+    };
+    const rows = (appts || []) as unknown as OwnerApptRow[];
+
     // Process daily stats for charts
     const dailyStats: Record<
       string,
       { date: string; income: number; appointments: number }
     > = {};
-    appts?.forEach((a: any) => {
+    rows.forEach((a) => {
       const day = a.start_time.split("T")[0];
       if (!dailyStats[day]) {
         dailyStats[day] = { date: day, income: 0, appointments: 0 };
@@ -333,14 +356,14 @@ export const DashboardService = {
         ?.map((s) => ({
           name: s.name,
           appointments:
-            (s.appointments as any[])?.filter((a) => a.status !== "CANCELLED")
+            (s.appointments as { id: string; status: string }[] | null)?.filter((a) => a.status !== "CANCELLED")
               .length || 0,
         }))
         .sort((a, b) => b.appointments - a.appointments) || [];
 
     // 3. Service Popularity
     const serviceCounts: Record<string, number> = {};
-    appts?.forEach((a: any) => {
+    rows.forEach((a) => {
       const name = a.service?.global_service?.name || "Diğer";
       serviceCounts[name] = (serviceCounts[name] || 0) + 1;
     });
@@ -352,8 +375,8 @@ export const DashboardService = {
 
     // 4. Summaries
     const totalIncome =
-      appts?.reduce(
-        (acc, curr) => acc + ((curr.service as any)?.price || 0),
+      rows.reduce(
+        (acc, curr) => acc + (curr.service?.price || 0),
         0,
       ) || 0;
 
@@ -364,7 +387,7 @@ export const DashboardService = {
       summary: {
         totalIncome,
         totalAppointments: appts?.length || 0,
-        activeCustomers: new Set(appts?.map((a) => (a as any).customer_id))
+        activeCustomers: new Set(rows.map((a) => a.customer_id).filter(Boolean))
           .size,
       },
     };
@@ -419,7 +442,7 @@ export const DashboardService = {
       .select("service:salon_services(price)")
       .eq("status", "COMPLETED");
     const totalRevenue =
-      (revenueData as any[])?.reduce(
+      (revenueData as unknown as { service: { price?: number } | null }[] | null)?.reduce(
         (acc, curr) => acc + (curr.service?.price || 0),
         0,
       ) || 0;
@@ -443,8 +466,15 @@ export const DashboardService = {
       totalRevenue,
       activeStaff: staff.count || 0,
       pendingApprovals: pending.count || 0,
-      weekAppointments: (weekAppts as any[]) || [],
-      recentActivities: (recentActivities as any[]) || [],
+      weekAppointments: (weekAppts as { start_time: string }[] | null) || [],
+      recentActivities:
+        (recentActivities as unknown as {
+          id: string;
+          customer_name?: string;
+          created_at: string;
+          status: string;
+          salon: { name: string } | null;
+        }[] | null) || [],
     };
   },
 };
@@ -465,6 +495,80 @@ export const ProfileService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Raw profile row (no joins). Throws PostgrestError — PGRST116 when the row does not exist yet.
+   */
+  async getProfileById(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Profile> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    return data as Profile;
+  },
+
+  /**
+   * Insert own profile row (fallback when the sign-up trigger did not create it).
+   * Throws PostgrestError — 23505 when it already exists.
+   */
+  async createProfile(
+    profile: Pick<Profile, "id" | "email" | "role"> & Partial<Pick<Profile, "first_name" | "last_name" | "avatar_url">>,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Profile> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .insert(profile)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Profile;
+  },
+
+  /**
+   * Sync profiles.full_name (e.g. after a staff member renames themselves)
+   */
+  async updateFullName(
+    userId: string,
+    fullName: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", userId);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Persist KVKK + marketing consent right after sign-up
+   */
+  async saveSignupConsent(
+    userId: string,
+    kvkkVersion: string,
+    marketingOptIn: boolean,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        kvkk_accepted_at: nowIso,
+        kvkk_version: kvkkVersion,
+        marketing_opt_in: marketingOptIn,
+        marketing_opt_in_at: marketingOptIn ? nowIso : null,
+      })
+      .eq("id", userId);
+
+    if (error) throw error;
   },
 
   /**
@@ -532,7 +636,7 @@ export const ProfileService = {
   async getActiveSessions(
     userId: string,
     supabase: SupabaseClient = defaultSupabase,
-  ): Promise<any[]> {
+  ): Promise<UserSession[]> {
     const { data, error } = await supabase
       .from("user_sessions")
       .select("*")

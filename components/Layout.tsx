@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,8 +59,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setSalonTypes(data.salonTypes || []);
         setCategories(data.categories || []);
         setServicesByCat(data.servicesByCatId || {});
-      } catch (err: any) {
-        console.error('Error in fetchMenuData:', err?.message || err?.code || JSON.stringify(err) || err);
+      } catch (err: unknown) {
+        console.error('Error in fetchMenuData:', toErrorLike(err).message || toErrorLike(err).code || JSON.stringify(err) || err);
       }
     };
 

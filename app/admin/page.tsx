@@ -14,8 +14,18 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
+import type { LucideIcon } from 'lucide-react';
 
-const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string, icon: any, color: string }) => (
+interface RecentActivity {
+    id: string;
+    created_at: string;
+    customer_name?: string;
+    salon?: { name?: string } | null;
+}
+
+interface ChartPoint { name: string; randevu: number; date: string }
+
+const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string, icon: LucideIcon, color: string }) => (
     <div className={`bg-white rounded-[32px] border border-border p-8 shadow-card flex items-center gap-6 hover:scale-[1.02] transition-all`}>
         <div className={`size-16 rounded-2xl flex items-center justify-center ${color} text-white shadow-lg`}>
             <Icon className="w-8 h-8" />
@@ -37,15 +47,15 @@ export default function Dashboard() {
         { title: 'Toplam Ciro', value: '0 TL', icon: CreditCard, color: 'bg-amber-600' },
         { title: 'Aktif Personel', value: '0', icon: Users, color: 'bg-indigo-600' },
     ]);
-    const [chartData, setChartData] = React.useState<any[]>([]);
-    const [activities, setActivities] = React.useState<any[]>([]);
+    const [chartData, setChartData] = React.useState<ChartPoint[]>([]);
+    const [activities, setActivities] = React.useState<RecentActivity[]>([]);
     const [pendingApprovals, setPendingApprovals] = React.useState(0);
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
         async function fetchDashboardData() {
             try {
-                const data: any = await DashboardService.getPlatformStats();
+                const data = await DashboardService.getPlatformStats();
 
                 setStats([
                     { title: 'Toplam Salon', value: data.totalSalons.toString(), icon: Store, color: 'bg-blue-600' },
@@ -63,7 +73,7 @@ export default function Dashboard() {
                     d.setDate(today.getDate() - (6 - i));
                     const key = d.toISOString().split('T')[0];
                     const count = (data.weekAppointments || []).filter(
-                        (a: any) => (a.start_time || '').split('T')[0] === key
+                        (a: { start_time?: string }) => (a.start_time || '').split('T')[0] === key
                     ).length;
                     return {
                         name: d.toLocaleDateString('tr-TR', { weekday: 'short' }),

@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import { useState } from 'react';
 import { X, Key, UserPlus, AlertCircle, CheckCircle2, Loader2, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -182,8 +183,8 @@ function CreateAccountForm({
             }
             setSuccess('Hesap oluşturuldu! Şifreyi personele iletebilirsin.');
             onSuccess();
-        } catch (err: any) {
-            setError(err?.message || 'Ağ hatası');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Ağ hatası');
         } finally {
             setLoading(false);
         }
@@ -272,8 +273,8 @@ function ResetPasswordForm({
             }
             setSuccess('Şifre güncellendi! Personele yeni şifreyi ilet.');
             onSuccess();
-        } catch (err: any) {
-            setError(err?.message || 'Ağ hatası');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Ağ hatası');
         } finally {
             setLoading(false);
         }
@@ -351,8 +352,8 @@ function DisableLoginForm({
             }
             setSuccess('Giriş hesabı devre dışı bırakıldı.');
             onSuccess();
-        } catch (err: any) {
-            setError(err?.message || 'Ağ hatası');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Ağ hatası');
         } finally {
             setLoading(false);
         }

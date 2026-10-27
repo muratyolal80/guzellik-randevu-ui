@@ -14,7 +14,13 @@ import { useToast } from '@/components/ui/Toast';
 interface RatingModalProps {
     isOpen: boolean;
     onClose: () => void;
-    appointment: any;
+    appointment: {
+        id: string;
+        customer_id?: string | null;
+        customer_name?: string | null;
+        customer_avatar?: string | null;
+        service?: { service_name?: string | null } | null;
+    };
     salonId: string;
     onSubmit?: () => void;
 }

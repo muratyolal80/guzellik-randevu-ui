@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import {
     Package, Building, Users, Image as ImageIcon, CheckCircle2,
@@ -19,8 +20,32 @@ import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
 import { SubscriptionService, PaymentService } from '@/services/db';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import type { SubscriptionPlan } from '@/types';
 
-const PlanIcon = ({ name }: { name: string }) => {
+interface PaymentHistoryRow {
+    id: string;
+    amount: number;
+    created_at: string;
+    payment_type?: string | null;
+    payment_method?: string | null;
+    status: string;
+}
+
+/** subscriptions row with `subscription_plans(*), salons(name)` embeds */
+interface SubscriptionHistoryRow {
+    id: string;
+    status: string;
+    created_at: string;
+    start_date?: string | null;
+    end_date?: string | null;
+    subscription_plans?: SubscriptionPlan | null;
+    salons?: { name: string } | null;
+}
+
+interface UsageLimit { current: number; max: number }
+interface UsageLimits { branches: UsageLimit; staff: UsageLimit; gallery: UsageLimit }
+
+const PlanIcon = ({ name }: { name?: string }) => {
     switch (name) {
         case 'STARTER': return <ShieldCheck className="w-6 h-6 text-gray-400" />;
         case 'PRO': return <Zap className="w-6 h-6 text-amber-500" />;
@@ -38,13 +63,13 @@ export default function BillingPage() {
     const { confirm } = useConfirm();
 
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'HISTORY' | 'UPGRADE' | 'SUBSCRIPTIONS'>('OVERVIEW');
-    const [plans, setPlans] = useState<any[]>([]);
-    const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-    const [subHistory, setSubHistory] = useState<any[]>([]);
+    const [plans, setPlans] = useState<React.ComponentProps<typeof SubscriptionPlanSelector>['plans']>([]);
+    const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryRow[]>([]);
+    const [subHistory, setSubHistory] = useState<SubscriptionHistoryRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Limit stats
-    const [limits, setLimits] = useState<any>(null);
+    const [limits, setLimits] = useState<UsageLimits | null>(null);
     const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
     const [receiptUrl, setReceiptUrl] = useState<string>('');
@@ -123,16 +148,17 @@ export default function BillingPage() {
             await refreshSalonId();
             await fetchData();
             setActiveTab('OVERVIEW');
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            showToast(err.message || 'Hata oluştu', 'error');
+            showToast(toErrorLike(err).message || 'Hata oluştu', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const renderProgressBar = (label: string, icon: React.ReactNode, current: number, max: number) => {
-        const percentage = max === -1 ? 0 : Math.min(100, Math.max(0, (current / max) * 100));
+    // current/max are undefined while limits is null; Number() keeps the original NaN arithmetic
+    const renderProgressBar = (label: string, icon: React.ReactNode, current: number | undefined, max: number | undefined) => {
+        const percentage = max === -1 ? 0 : Math.min(100, Math.max(0, (Number(current) / Number(max)) * 100));
         const isNearLimit = max !== -1 && percentage >= 80;
 
         return (

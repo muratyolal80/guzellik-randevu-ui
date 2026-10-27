@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { AppointmentService, StaffService } from '@/services/db';
+import type { AppointmentWithRelations } from '@/types';
 import {
     ChevronLeft,
     ChevronRight,
@@ -22,9 +23,9 @@ export default function StaffSchedule() {
     const { showToast } = useToast();
     const { prompt } = useConfirm();
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null);
 
     // Filter appointments for the current week
     useEffect(() => {
@@ -37,13 +38,9 @@ export default function StaffSchedule() {
             setLoading(true);
 
             // Get staff ID
-            const { data: staffMember } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('user_id', user?.id)
-                .single();
+            const staffId = user ? await StaffService.getStaffIdByUserId(user.id) : null;
 
-            if (!staffMember) return;
+            if (!staffId) return;
 
             // Calculate week range
             const startOfWeek = new Date(currentDate);
@@ -54,19 +51,10 @@ export default function StaffSchedule() {
             endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
             endOfWeek.setHours(23, 59, 59, 999);
 
-            const { data, error } = await supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    service:salon_services(price, duration_min, global_service:global_services(name))
-                `)
-                .eq('staff_id', staffMember.id)
-                .gte('start_time', startOfWeek.toISOString())
-                .lte('start_time', endOfWeek.toISOString())
-                .order('start_time', { ascending: true });
-
-            if (error) throw error;
-            setAppointments(data || []);
+            const data = await AppointmentService.getStaffAppointmentsWithService(
+                staffId, startOfWeek.toISOString(), endOfWeek.toISOString()
+            );
+            setAppointments(data);
 
         } catch (err) {
             console.error('Error fetching weekly appointments:', err);

@@ -6,7 +6,7 @@ import { CardListSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { AppointmentService } from '@/services/db';
 import Link from 'next/link';
 import type { BookingDisplay } from '@/types';
 
@@ -35,39 +35,14 @@ export default function BookingsPage() {
       // appointments -> staff (name)
       // appointments -> salon_services -> global_services (name)
       
-      const { data, error } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          start_time,
-          end_time,
-          status,
-          salon:salons (
-            name,
-            address
-          ),
-          staff:staff (
-            name
-          ),
-          salon_service:salon_services (
-            price,
-            duration_min,
-            global_service:global_services (
-              name
-            )
-          )
-        `)
-        .eq('customer_id', user?.id)
-        .order('start_time', { ascending: false });
-
-      if (error) throw error;
+      const data = user ? await AppointmentService.getCustomerBookingRows(user.id) : [];
 
       // Transform data to match our interface
-      const formattedBookings = (data || []).map((item: any) => ({
+      const formattedBookings: BookingDisplay[] = data.map((item) => ({
         id: item.id,
         start_time: item.start_time,
         end_time: item.end_time,
-        status: item.status,
+        status: item.status as BookingDisplay['status'],
         salon: {
           name: item.salon?.name || 'Bilinmeyen Salon',
           address: item.salon?.address || '',

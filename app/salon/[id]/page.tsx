@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -7,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
 import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, ReviewService, ServiceService, FavoriteService, GalleryService, StaffReviewService } from '@/services/db';
-import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Appointment, StaffReview, SalonGallery } from '@/types';
+import { SalonDetail, Review, ReviewImage, SalonServiceDetail, SalonWorkingHours, Appointment, StaffReview, SalonGallery } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { useBooking } from '@/context/BookingContext';
@@ -22,6 +23,13 @@ import {
     MessageSquare, Pencil, X, Store, ShieldCheck,
     AlertCircle, Navigation, Timer
 } from 'lucide-react';
+
+/** View rows are defensively normalized: these fields have come back as objects before. */
+type LooseStaffReview = Omit<StaffReview, 'user_name' | 'comment' | 'staff_name'> & {
+    user_name?: unknown;
+    comment?: unknown;
+    staff_name?: unknown;
+};
 
 const SalonMap = dynamic(
     () => import('@/components/Map/SalonMap').then((mod) => mod.SalonMap),
@@ -79,11 +87,11 @@ export default function SalonDetailPage() {
         try {
             setLoadingStaffReviews(true);
             const data = await StaffReviewService.getReviewsBySalon(id);
-            setStaffReviews((data || []).map((r: any) => ({
+            setStaffReviews((data || []).map((r: LooseStaffReview) => ({
                 ...r,
                 user_name: String(r.user_name || 'Misafir'),
                 comment: typeof r.comment === 'object' ? JSON.stringify(r.comment) : String(r.comment || ''),
-                staff_name: typeof r.staff_name === 'object' ? (r.staff_name as any)?.name : String(r.staff_name || '')
+                staff_name: typeof r.staff_name === 'object' ? (r.staff_name as { name?: string } | null)?.name : String(r.staff_name || '')
             })));
         } catch (error) {
             console.error('Error fetching staff reviews:', error);
@@ -149,7 +157,7 @@ export default function SalonDetailPage() {
                 setOpenCategories(cats);
 
                 const logReason = (label: string, reason: unknown) => {
-                    const msg = reason instanceof Error ? reason.message : (reason as any)?.message || JSON.stringify(reason) || String(reason);
+                    const msg = reason instanceof Error ? reason.message : toErrorLike(reason).message || JSON.stringify(reason) || String(reason);
                     console.error(`${label}:`, msg);
                 };
                 if (reviewsResult.status === 'rejected') logReason('Reviews fetch failed', reviewsResult.reason);
@@ -192,7 +200,7 @@ export default function SalonDetailPage() {
                 user_avatar: user.avatar_url, rating: newRating,
                 comment: newComment, appointment_id: selectedAppointmentId
             });
-            let finalReviewData = { ...newReviewData, images: [] as any[] };
+            let finalReviewData = { ...newReviewData, images: [] as ReviewImage[] };
             if (reviewImagesUrls.length > 0) {
                 const addedImages = await Promise.all(reviewImagesUrls.map(url =>
                     GalleryService.addReviewImage({ review_id: newReviewData.id, image_url: url })
@@ -208,8 +216,8 @@ export default function SalonDetailPage() {
             setSelectedAppointmentId('');
             const updatedSalon = await SalonDataService.getSalonById(salon.id);
             if (updatedSalon) setSalon(updatedSalon);
-        } catch (error: any) {
-            showToast(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`, 'error');
+        } catch (error: unknown) {
+            showToast(`Yorum eklenirken hata oluştu: ${toErrorLike(error).message || "Lütfen tekrar deneyin"}`, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -411,7 +419,7 @@ export default function SalonDetailPage() {
                                         <button
                                             key={tab.key}
                                             data-tab={tab.key}
-                                            onClick={() => setActiveTab(tab.key as any)}
+                                            onClick={() => setActiveTab(tab.key as typeof activeTab)}
                                             className={`relative flex items-center gap-2 px-5 py-2.5 font-bold text-sm rounded-xl transition-all duration-300 ${active ? 'bg-white text-primary shadow-md shadow-primary/10' : 'text-gray-500 hover:text-gray-800'}`}
                                         >
                                             {tab.icon} {tab.label}
@@ -749,8 +757,8 @@ export default function SalonDetailPage() {
                                             <p className="text-gray-700 leading-relaxed text-sm mb-3">{review.comment}</p>
                                             {review.images && review.images.length > 0 && (
                                                 <div className="flex flex-wrap gap-2">
-                                                    {review.images.map((img: any, idx: number) => (
-                                                        <button key={idx} onClick={() => setLightboxState({ isOpen: true, images: (review.images || []).map((i: any) => i.image_url), currentIndex: idx })} className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity">
+                                                    {review.images.map((img, idx: number) => (
+                                                        <button key={idx} onClick={() => setLightboxState({ isOpen: true, images: (review.images || []).map((i) => i.image_url), currentIndex: idx })} className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity">
                                                             <img src={img.image_url} alt="Review" className="w-full h-full object-cover" />
                                                         </button>
                                                     ))}

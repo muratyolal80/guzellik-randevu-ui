@@ -1,10 +1,11 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
     const response = new NextResponse();
-    const cookieStore: { name: string, value: string, options: any }[] = [];
+    const cookieStore: { name: string, value: string, options: CookieOptions }[] = [];
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,8 +75,8 @@ export async function POST(request: NextRequest) {
 
         return finalResponse;
 
-    } catch (error: any) {
-        console.error('Verify Email Error:', error.message);
+    } catch (error: unknown) {
+        console.error('Verify Email Error:', toErrorLike(error).message);
         return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
     }
 }

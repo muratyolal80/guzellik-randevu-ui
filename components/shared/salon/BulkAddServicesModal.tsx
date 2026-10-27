@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useEffect, useState } from 'react';
 import { MasterDataService, ServiceService, SalonDataService } from '@/services/db';
 import type { GlobalService, ServiceCategory } from '@/types';
@@ -103,8 +104,8 @@ export default function BulkAddServicesModal({
                     }),
                 );
                 setSelected(defaultSelected);
-            } catch (err: any) {
-                if (!cancelled) setError(err?.message || 'Yüklenemedi');
+            } catch (err: unknown) {
+                if (!cancelled) setError(toErrorLike(err).message || 'Yüklenemedi');
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -158,9 +159,9 @@ export default function BulkAddServicesModal({
                         requires_resource: false,
                     });
                     count++;
-                } catch (singleErr: any) {
-                    console.warn(`[BulkAddServices] failed for ${svc.name}:`, singleErr?.message);
-                    if ((singleErr?.message || '').includes('SUBSCRIPTION_LIMIT_REACHED')) {
+                } catch (singleErr: unknown) {
+                    console.warn(`[BulkAddServices] failed for ${svc.name}:`, toErrorLike(singleErr).message);
+                    if ((toErrorLike(singleErr).message || '').includes('SUBSCRIPTION_LIMIT_REACHED')) {
                         setError('Plan limiti aşıldı. Daha fazlasını eklemek için planınızı yükseltin.');
                         break;
                     }
@@ -172,8 +173,8 @@ export default function BulkAddServicesModal({
                 onAdded(count);
                 onClose();
             }, 1500);
-        } catch (err: any) {
-            setError(err?.message || 'Toplu ekleme başarısız.');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Toplu ekleme başarısız.');
         } finally {
             setSaving(false);
         }

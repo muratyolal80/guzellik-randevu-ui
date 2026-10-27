@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+// many-to-one embeds come back as an object at runtime (typed as array by supabase-js)
+type EmbedService = { price?: number; global_services?: { name?: string } | { name?: string }[] | null };
+function firstOf<T>(v: T | T[] | null | undefined): T | undefined {
+    return Array.isArray(v) ? v[0] : (v ?? undefined);
+}
+
 export async function POST(req: Request) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -59,7 +65,7 @@ export async function POST(req: Request) {
             completed: appointments?.filter(a => a.status === 'COMPLETED').length || 0,
             cancelled: appointments?.filter(a => a.status === 'CANCELLED').length || 0,
             revenue: appointments?.filter(a => a.status === 'COMPLETED').reduce((acc, a) => {
-                const price = (a.salon_services as any)?.[0]?.price || 0;
+                const price = firstOf(a.salon_services)?.price || 0;
                 return acc + price;
             }, 0),
             topServices: {} as Record<string, number>,
@@ -68,13 +74,13 @@ export async function POST(req: Request) {
         };
 
         appointments?.forEach(a => {
-            const serviceName = (a.salon_services as any)?.[0]?.global_services?.name || 'Unknown';
+            const serviceName = firstOf(firstOf(a.salon_services as EmbedService | EmbedService[] | null)?.global_services)?.name || 'Unknown';
             summary.topServices[serviceName] = (summary.topServices[serviceName] || 0) + 1;
 
             const day = new Date(a.start_time).toLocaleDateString('tr-TR', { weekday: 'long' });
             summary.busyDays[day] = (summary.busyDays[day] || 0) + 1;
 
-            const sName = (a.staff as any)?.name || 'Unknown';
+            const sName = (a.staff as { name?: string } | null)?.name || 'Unknown';
             summary.staffPerformance[sName] = (summary.staffPerformance[sName] || 0) + 1;
         });
 

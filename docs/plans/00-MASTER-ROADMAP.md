@@ -42,10 +42,10 @@
 | **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ✅ script · ⏳ sunucuya cron kurulumu senin |
 | **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ✅ local (bkz. "F6 detay") |
 | **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ✅ (buton zemini kararı senin — aşağıda) |
-| **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
-| **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ⏳ |
-| **F10** | **SEO/a11y:** 59 sayfada metadata eksik (layout ile), background-image alt, İngilizce UI metinleri | SEO + erişilebilirlik | UI denetimi | ⏳ |
-| **F11** | **Kod kalitesi:** `any` temizliği, sayfalardaki ham Supabase sorguları → `services/db`, ele alınmayan fetch hataları | CLAUDE.md mimari kuralları | — | 🟡 randevu akışı ✅ · kod kalitesi ⏳ (bkz. "F11 detay") |
+| **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ✅ `31b38a2` `cf9972e` `f69060f` |
+| **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ✅ |
+| **F10** | **SEO/a11y:** 59 sayfada metadata eksik (layout ile), background-image alt, İngilizce UI metinleri | SEO + erişilebilirlik | UI denetimi | ✅ (panel layout'ları client → metadata yok, auth arkasında) |
+| **F11** | **Kod kalitesi:** `any` temizliği, sayfalardaki ham Supabase sorguları → `services/db`, ele alınmayan fetch hataları | CLAUDE.md mimari kuralları | — | ✅ (ölü dosya silme kararı senin) |
 
 #### F1 detay — 2026-10-26 local DB denetimi bulguları
 
@@ -108,10 +108,25 @@
 | 🟡 | Pazar sabit kapalı, slot yarış koşulu, kampanya saati UTC, kırık linkler | ✅ |
 | 🟡 | Yetenekli personel filtresi "herhangi bir hizmet" diyordu | ✅ (tüm hizmetler) |
 | ⏳ | `slot-lock.ts` hiç bağlanmamış (kilit alınmıyor) — kullan ya da kaldır | ⏳ |
-| ⏳ | ~151 sessiz `catch` (kullanıcıya mesaj yok), ~50 ham Supabase sorgusu UI'da, 470 `any`, 54 `console.log`, ~15 ölü dosya | ⏳ kod kalitesi |
-| ⏳ | Tab/ilçe/arama efektlerinde yarış koşulu (müşteri randevular, onboarding ilçe, global arama) | ⏳ |
+| ✅ | ~130 sessiz `catch` → Türkçe toast; UI'daki ham Supabase sorguları `services/db`'ye taşındı (36 → 4, kalan 4'ü kullanılmayan dosyalarda); **`any` 470 → 0**; PII loglayan `console.log`'lar kaldırıldı | ✅ |
+| ✅ | Yarış koşulları (müşteri randevu sekmeleri, onboarding/admin ilçe, global arama, slot seçimi) | ✅ |
+| 🐞 | Denetim sırasında bulunup düzeltilen: admin salon oluştururken abonelik atama hep hata veriyordu; `StaffSkillsManager` başarısız kaydı başarılı gösteriyordu; müşteri yorum → salon linki boştu; owner "aktif müşteri" sayısı anlamsızdı; AI öneri geliri hep 0; arama harita görünümü sonuç yokken çöküyordu; raporlar sayfası hata durumunda çöküyordu | ✅ |
+
+#### F8–F10 detay — UI (2026-10-27)
+
+- **İkonlar:** Material Symbols tamamen kaldırıldı (~140 kullanım → lucide, font isteği ve CSS silindi — `display=block` ikonları yüklenene kadar gizliyordu); emoji/glif ikonlar → lucide; ~300 dekoratif ikona `aria-hidden`.
+- **Dialoglar:** ~135 `alert/confirm/prompt` → `showToast` / `useConfirm` (`components/ui/ConfirmDialog.tsx`, erişilebilir, Türkçe).
+- **Yükleme/boş durum:** ~58 spinner/"Yükleniyor..." → Skeleton (`PageSkeletons`, `PanelSkeleton`); `EmptyState` bileşeni ve ~12 liste.
+- **SEO:** 12 public route'a server `layout.tsx` + metadata (booking/şifre sayfaları noindex).
+- **Mobil/erişilebilirlik:** staff saatleri/takvim, admin tablolar, owner grid'ler responsive; background-image'lara `role="img"`; 8–9px yazılar 10px; İngilizce metinler Türkçe.
 
 ### 🧩 Denetimde çıkan ek bulgular (karar bekleyen)
+
+| Karar | Seçenekler |
+|-------|-----------|
+| **Kullanılmayan 15 dosya** (hiçbir yerden import edilmiyor): `components/{RoleGuard,ErrorBoundary}.tsx`, `components/Map/HomeMap.tsx`, `components/booking/TimeSlotPicker.tsx`, `components/common/{SmartImage,Turnstile}.tsx`, `components/dashboard/{AppointmentCard,StatCard}.tsx`, `components/owner/{PaymentSettingsTab,StaffSkillsManager}.tsx`, `components/staff/AppointmentStatus.tsx`, `hooks/useRouter.ts`, `lib/i18n/index.ts`, `services/netgsm.ts`, `services/slot-lock.ts` | CLAUDE.md gereği silmeden önce onay. Öneri: `Turnstile` + `ErrorBoundary` + `slot-lock` kalsın (planlı özellik), kalan 12'si silinsin |
+| `appointment_services` tablosu | Çoklu hizmet şu an toplam süre/fiyat + not ile; raporlarda ek hizmetler görünmüyor |
+| Altın buton kontrastı | F7 detayındaki A/B/C |
 
 | Bulgu | Etki | Öneri |
 |-------|------|-------|

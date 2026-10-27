@@ -41,6 +41,28 @@ import {
 } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
 import { useSearchParams } from 'next/navigation';
+import { toErrorLike } from '@/lib/error-mapping';
+import type { Profile, Subscription } from '@/types';
+
+type PlanRow = React.ComponentProps<typeof SubscriptionPlanSelector>['plans'][number];
+
+interface OwnerRow extends Profile {
+    activeSub: Subscription | null;
+    salonCount: number;
+}
+
+interface PaymentHistoryRow {
+    id: string;
+    amount: number;
+    created_at: string;
+    payment_method: string;
+    payment_type: string;
+    status: string;
+    subscriptions?: { billing_cycle?: string; subscription_plans?: { display_name?: string } | null } | null;
+}
+
+interface UsageLimit { current: number; max: number }
+interface OwnerLimits { branches: UsageLimit; staff: UsageLimit; gallery: UsageLimit }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,8 +115,9 @@ const salonStatusLabel: Record<string, { label: string; cls: string }> = {
     REVISION_REQUESTED: { label: 'Revizyon',      cls: 'bg-purple-100 text-purple-700' },
 };
 
-const mapErrorToTurkish = (error: any) => {
-    const msg = error?.message || error?.error || '';
+const mapErrorToTurkish = (error: unknown) => {
+    const e = toErrorLike(error);
+    const msg = e.message || (e.error as string | undefined) || '';
     if (msg.includes('duplicate key')) return 'Bu salon için zaten aktif bir abonelik veya bekleyen ödeme bulunuyor.';
     if (msg.includes('connection error')) return 'Veritabanı bağlantı hatası. Lütfen internetinizi kontrol edin.';
     if (msg.includes('JWT')) return 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
@@ -135,9 +158,9 @@ function ProgressSteps({ step }: { step: 1 | 2 }) {
 
 // ─── Step 1: Owner Select ─────────────────────────────────────────────────────
 
-function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => void }) {
+function OwnerSelectStep({ onSelect }: { onSelect: (owner: OwnerRow, sub: Subscription | null) => void }) {
     const { showToast } = useToast();
-    const [owners, setOwners]   = useState<any[]>([]);
+    const [owners, setOwners]   = useState<OwnerRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery]     = useState('');
 
@@ -330,15 +353,15 @@ export default function AdminPurchasePage() {
 
     // Step 1 state
     const [step, setStep]             = useState<1 | 2>(1);
-    const [selectedOwner, setSelectedOwner] = useState<any>(null);
-    const [currentSub, setCurrentSub] = useState<any>(null);
+    const [selectedOwner, setSelectedOwner] = useState<OwnerRow | null>(null);
+    const [currentSub, setCurrentSub] = useState<Subscription | null>(null);
 
     // Step 2 state
     const [activeTab, setActiveTab]   = useState<ActiveTab>('OVERVIEW');
-    const [plans, setPlans]           = useState<any[]>([]);
-    const [payHistory, setPayHistory] = useState<any[]>([]);
-    const [subHistory, setSubHistory] = useState<any[]>([]);
-    const [limits, setLimits]         = useState<any>(null);
+    const [plans, setPlans]           = useState<PlanRow[]>([]);
+    const [payHistory, setPayHistory] = useState<PaymentHistoryRow[]>([]);
+    const [subHistory, setSubHistory] = useState<Subscription[]>([]);
+    const [limits, setLimits]         = useState<OwnerLimits | null>(null);
     const [loading, setLoading]       = useState(false);
 
     // Payment state
@@ -387,7 +410,7 @@ export default function AdminPurchasePage() {
             }
 
             // Check for pending payments in history
-            const pending = fullHistory?.history?.some((p: any) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION') ?? false;
+            const pending = fullHistory?.history?.some((p: PaymentHistoryRow) => p.status === 'PENDING' && p.payment_type === 'SUBSCRIPTION') ?? false;
             setHasPendingPayment(pending);
         } catch (err) {
             console.error('Load owner data error:', err);
@@ -398,7 +421,7 @@ export default function AdminPurchasePage() {
     }, [showToast]);
 
     // ── Owner selected ────────────────────────────────────────────────────────
-    const handleOwnerSelect = (owner: any, sub: any) => {
+    const handleOwnerSelect = (owner: OwnerRow, sub: Subscription | null) => {
         setSelectedOwner(owner);
         setCurrentSub(sub);
         setStep(2);
@@ -434,7 +457,7 @@ export default function AdminPurchasePage() {
             } else {
                 // Standard flow (potential PENDING)
                 await SubscriptionService.subscribe(
-                    undefined as any, // owner centric uses owner_id logic inside if salonId missing
+                    undefined as unknown as string, // owner centric uses owner_id logic inside if salonId missing
                     selectedPlanId,
                     paymentMethod === 'CASH' ? 'BANK_TRANSFER' : paymentMethod,
                     billingCycle,
@@ -460,7 +483,7 @@ export default function AdminPurchasePage() {
             setCurrentSub(freshSub);
             setActiveTab('OVERVIEW');
             setSelectedPlanId(null);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Purchase error:', err);
             showToast(mapErrorToTurkish(err), 'error');
         } finally {
@@ -883,7 +906,7 @@ export default function AdminPurchasePage() {
                                                     <p className="text-4xl font-black text-text-main tracking-tight">
                                                         {isFree
                                                             ? 'Ücretsiz'
-                                                            : `${((billingCycle === 'YEARLY' && plan?.price_yearly ? plan.price_yearly : plan?.price_monthly) / 100).toLocaleString('tr-TR')} ₺`
+                                                            : `${(Number(billingCycle === 'YEARLY' && plan?.price_yearly ? plan.price_yearly : plan?.price_monthly) / 100).toLocaleString('tr-TR')} ₺`
                                                         }
                                                         {!isFree && <span className="text-sm text-text-muted font-bold ml-1.5 italic">/ {billingCycle === 'YEARLY' ? 'yıl' : 'ay'}</span>}
                                                     </p>
@@ -964,7 +987,7 @@ export default function AdminPurchasePage() {
                                                     <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                                                         <td className="px-8 py-5">
                                                             <div className="flex items-center gap-3">
-                                                                <PlanIcon name={sub.subscription_plans?.name} />
+                                                                <PlanIcon name={sub.subscription_plans?.name ?? ''} />
                                                                 <div>
                                                                     <span className="text-sm font-bold text-text-main block">{sub.subscription_plans?.display_name}</span>
                                                                     <span className="text-[10px] font-medium text-text-muted uppercase">{selectedOwner.full_name || 'Owner'}</span>

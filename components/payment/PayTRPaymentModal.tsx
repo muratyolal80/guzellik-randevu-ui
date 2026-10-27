@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, ShieldCheck, CreditCard } from 'lucide-react';
 
@@ -61,8 +62,8 @@ export default function PayTRPaymentModal({
                 setIframeUrl(data.iframeUrl);
                 setMerchantOid(data.merchant_oid);
                 if (onSuccess && data.merchant_oid) onSuccess(data.merchant_oid);
-            } catch (err: any) {
-                if (!cancelled) setError(err?.message || 'Beklenmedik hata');
+            } catch (err: unknown) {
+                if (!cancelled) setError(toErrorLike(err).message || 'Beklenmedik hata');
             } finally {
                 if (!cancelled) setLoading(false);
             }

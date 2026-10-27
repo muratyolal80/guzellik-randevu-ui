@@ -1,5 +1,6 @@
 'use server';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -70,9 +71,9 @@ export async function adminCreateUserAction(formData: {
 
         revalidatePath('/admin/users');
         return { success: true, user: authData.user };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Admin Create User Error:', error);
-        return { success: false, error: error.message || 'Kullanıcı oluşturulamadı.' };
+        return { success: false, error: toErrorLike(error).message || 'Kullanıcı oluşturulamadı.' };
     }
 }
 
@@ -85,7 +86,7 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
     if (!auth.authorized) return { success: false, error: auth.error };
 
     try {
-        const updateParams: any = {};
+        const updateParams: typeof updates = {};
         if (updates.email) updateParams.email = updates.email;
         if (updates.phone) updateParams.phone = updates.phone;
         if (updates.password) updateParams.password = updates.password;
@@ -96,9 +97,9 @@ export async function adminUpdateUserAuthAction(userId: string, updates: {
 
         revalidatePath('/admin/users');
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Admin Update Auth Error:', error);
-        return { success: false, error: error.message || 'Kullanıcı bilgileri güncellenemedi.' };
+        return { success: false, error: toErrorLike(error).message || 'Kullanıcı bilgileri güncellenemedi.' };
     }
 }
 
@@ -112,8 +113,8 @@ export async function adminDeleteUserAuthAction(userId: string) {
 
         revalidatePath('/admin/users');
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Admin Delete Auth Error:', error);
-        return { success: false, error: error.message || 'Kullanıcı silinemedi.' };
+        return { success: false, error: toErrorLike(error).message || 'Kullanıcı silinemedi.' };
     }
 }

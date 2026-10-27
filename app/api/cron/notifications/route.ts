@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { isCronAuthorized } from '@/lib/auth/cron';
 import { NotificationService } from '@/services/server-notification';
@@ -29,10 +30,10 @@ async function handle(request: NextRequest) {
       result,
       timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
-    console.error('[cron/notifications] error:', err?.message || err);
+  } catch (err: unknown) {
+    console.error('[cron/notifications] error:', toErrorLike(err).message || err);
     return NextResponse.json(
-      { ok: false, error: err?.message || 'unknown', timestamp: new Date().toISOString() },
+      { ok: false, error: toErrorLike(err).message || 'unknown', timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }

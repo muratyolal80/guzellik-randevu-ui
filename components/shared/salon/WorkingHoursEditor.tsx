@@ -4,15 +4,18 @@ import React from 'react';
 import { Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { WorkingHours } from '@/types';
 
-interface WorkingHoursEditorProps {
-    hours: any[]; // Can be WorkingHours[] or the Omit type for new staff
-    onChange: (updatedHours: any[]) => void;
+/** A saved WorkingHours row, or an unsaved draft row (no id) for new staff. */
+type EditableHour = Pick<WorkingHours, 'day_of_week' | 'start_time' | 'end_time' | 'is_day_off'> & { id?: string };
+
+interface WorkingHoursEditorProps<T extends EditableHour> {
+    hours: T[];
+    onChange: (updatedHours: T[]) => void;
     onUpdateOne?: (hourId: string, updates: Partial<WorkingHours>) => Promise<void>;
     days: string[];
     readonly?: boolean;
 }
 
-export default function WorkingHoursEditor({ hours, onChange, onUpdateOne, days, readonly = false }: WorkingHoursEditorProps) {
+export default function WorkingHoursEditor<T extends EditableHour>({ hours, onChange, onUpdateOne, days, readonly = false }: WorkingHoursEditorProps<T>) {
 
     const handleToggleDayOff = async (idx: number) => {
         if (readonly) return;
@@ -30,7 +33,7 @@ export default function WorkingHoursEditor({ hours, onChange, onUpdateOne, days,
     const handleTimeChange = async (idx: number, type: 'start' | 'end', value: string) => {
         if (readonly) return;
         const updated = [...hours];
-        const updates: any = {};
+        const updates: Partial<WorkingHours> = {};
 
         if (type === 'start') {
             updated[idx].start_time = value;

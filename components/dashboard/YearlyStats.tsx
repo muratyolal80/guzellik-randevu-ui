@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarCheck, Building2, Wallet, MessageSquare, Sparkles } from 'lucide-react';
+import { CalendarCheck, Building2, Wallet, MessageSquare, Sparkles, type LucideIcon } from 'lucide-react';
 
 interface YearlyStatsProps {
     appointmentCount: number;
@@ -42,7 +42,7 @@ export default function YearlyStats({
     );
 }
 
-function YearStat({ icon: Icon, value, label }: { icon: any; value: any; label: string }) {
+function YearStat({ icon: Icon, value, label }: { icon: LucideIcon; value: string | number; label: string }) {
     return (
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
             <Icon className="w-5 h-5 opacity-70 mb-2" />

@@ -9,8 +9,7 @@ import {
   ServiceService,
   PlatformService,
 } from "@/services/db";
-import { supabase } from "@/lib/supabase";
-import { City, District, SalonType } from "@/types";
+import type { City, District, SalonType, Salon, SalonWizardForm, SubscriptionPlan, ServiceCategory, GlobalService, BankAccountSetting } from "@/types";
 import {
   Store,
   MapPin,
@@ -75,7 +74,7 @@ export default function OnboardingWizard() {
   const { confirm } = useConfirm();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<
     "CREDIT_CARD" | "BANK_TRANSFER" | null
@@ -83,19 +82,19 @@ export default function OnboardingWizard() {
   const [paymentStatus, setPaymentStatus] = useState<
     "IDLE" | "PENDING_APPROVAL" | "SUCCESS"
   >("IDLE");
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountSetting[]>([]);
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "YEARLY">(
     "MONTHLY",
   );
 
-  const [existingPlan, setExistingPlan] = useState<any>(null);
+  const [existingPlan, setExistingPlan] = useState<SubscriptionPlan | null>(null);
   const [canSkipPayment, setCanSkipPayment] = useState(false);
 
   const [cities, setCities] = useState<City[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [globalServices, setGlobalServices] = useState<any[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
   const [selectedServices, setSelectedServices] = useState<
     {
       global_service_id: string;
@@ -125,7 +124,7 @@ export default function OnboardingWizard() {
     null,
   );
 
-  const [salonData, setSalonData] = useState<any>({
+  const [salonData, setSalonData] = useState<SalonWizardForm>({
     name: "",
     phone: "",
     type_ids: [] as string[], // Changed from type_id
@@ -415,17 +414,10 @@ export default function OnboardingWizard() {
     const loadState = async () => {
       try {
         // Resume from draft salon if one exists
-        const { data: draftSalon } = await supabase
-          .from("salons")
-          .select("*")
-          .eq("owner_id", user.id)
-          .in("status", ["DRAFT", "PENDING"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const draftSalon = await SalonDataService.getLatestDraftSalon(user.id).catch(() => null);
 
         if (draftSalon) {
-          setSalonData((prev: any) => ({
+          setSalonData((prev) => ({
             ...prev,
             id: draftSalon.id,
             name: draftSalon.name !== "Yeni Salon İşlemi" ? draftSalon.name : prev.name,
@@ -435,7 +427,7 @@ export default function OnboardingWizard() {
           if (sub && sub.status === "PENDING") {
              setPaymentStatus("PENDING_APPROVAL");
              setSelectedPlanId(sub.plan_id);
-             setPaymentMethod(sub.payment_method as any);
+             setPaymentMethod(sub.payment_method as "CREDIT_CARD" | "BANK_TRANSFER");
              setCurrentStep(2);
              return; // Stop here, wait for admin
           }
@@ -549,7 +541,7 @@ export default function OnboardingWizard() {
     const valid =
       !Number.isNaN(v) && (axis === "lat" ? v >= -90 && v <= 90 : v >= -180 && v <= 180);
     if (valid) {
-      setSalonData((prev: any) => ({
+      setSalonData((prev) => ({
         ...prev,
         [axis === "lat" ? "geo_latitude" : "geo_longitude"]: v,
       }));
@@ -601,7 +593,7 @@ export default function OnboardingWizard() {
     try {
       const result = await GeocodingService.searchAddress(searchQuery);
       if (result) {
-        setSalonData((prev: any) => ({
+        setSalonData((prev) => ({
           ...prev,
           geo_latitude: result.lat,
           geo_longitude: result.lon,
@@ -638,7 +630,7 @@ export default function OnboardingWizard() {
         if (cancelled || !result) return;
         setRefPoint({ lat: result.lat, lon: result.lon });
         if (autoSync) {
-          setSalonData((prev: any) => ({
+          setSalonData((prev) => ({
             ...prev,
             geo_latitude: result.lat,
             geo_longitude: result.lon,
@@ -721,14 +713,10 @@ export default function OnboardingWizard() {
           // 1. Create a dummy salon to hold the subscription
           let newSalonId = salonData.id;
           if (!newSalonId) {
-             const { data: dbSalon, error: salonErr } = await supabase.from("salons").insert({
-               name: "Yeni Salon İşlemi",
-               owner_id: user?.id,
-               status: 'DRAFT'
-             }).select().single();
-             if (salonErr) throw salonErr;
+             if (!user) throw new Error("Oturum bulunamadı");
+             const dbSalon = await SalonDataService.createDraftSalon(user.id, "Yeni Salon İşlemi");
              newSalonId = dbSalon.id;
-             setSalonData((prev: any) => ({ ...prev, id: newSalonId }));
+             setSalonData((prev) => ({ ...prev, id: newSalonId }));
           }
 
           // 2. Create subscription
@@ -743,7 +731,7 @@ export default function OnboardingWizard() {
           await SubscriptionService.notifyBankTransfer(
             subResult.id,
             newSalonId,
-            billingCycle === "YEARLY" ? plan.price_yearly : plan.price_monthly
+            billingCycle === "YEARLY" ? plan!.price_yearly : plan!.price_monthly
           );
 
           setPaymentStatus("PENDING_APPROVAL");
@@ -786,14 +774,14 @@ export default function OnboardingWizard() {
               ...salonData,
               type_id: salonData.primary_type_id,
               owner_id: user?.id,
-            },
+            } as Omit<Salon, "id" | "created_at" | "updated_at">,
             [], // Default hours
             []  // No services yet
           );
-          setSalonData((prev: any) => ({ ...prev, id: salon.id }));
-        } catch (err: any) {
+          setSalonData((prev) => ({ ...prev, id: salon.id }));
+        } catch (err: unknown) {
           console.error("Salon taslak oluşturulurken/güncellenirken hata:", err);
-          const rawMessage = err.message || "";
+          const rawMessage = err instanceof Error ? err.message : ((err as { message?: string } | null)?.message || "");
           let errorMsg = "Salon kaydedilemedi: " + (rawMessage || "Bilinmeyen hata");
           
           if (rawMessage.includes("SUBSCRIPTION_LIMIT_REACHED:BRANCH")) {
@@ -847,7 +835,7 @@ export default function OnboardingWizard() {
       if (canSkipPayment && existingPlan && !salon.plan_id) {
         // Mevcut paketin altına bağlıyoruz
         await SubscriptionService.createSubscriptionRequest(
-            salon.id, 
+            salon.id as string, 
             existingPlan.id, 
             "BANK_TRANSFER", 
             "MONTHLY"
@@ -855,7 +843,7 @@ export default function OnboardingWizard() {
       }
 
       // Submit for Approval
-      await SalonDataService.submitForApproval(salon.id);
+      await SalonDataService.submitForApproval(salon.id as string);
 
       // Success, redirecting...
       if (user?.id) {
@@ -883,7 +871,7 @@ export default function OnboardingWizard() {
             </div>
 
             <SubscriptionPlanSelector
-              plans={plans}
+              plans={plans as React.ComponentProps<typeof SubscriptionPlanSelector>["plans"]}
               selectedPlanId={selectedPlanId}
               billingCycle={billingCycle}
               onSelect={(id) => setSelectedPlanId(id)}
@@ -962,7 +950,7 @@ export default function OnboardingWizard() {
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-widest">
                     Seçilen Plan: {selectedPlan2?.display_name} - {billingCycle === "YEARLY" ? "Yıllık" : "Aylık"}
                   </h4>
-                  {bankAccounts.map((acc: any, i: number) => (
+                  {bankAccounts.map((acc, i: number) => (
                     <div
                       key={i}
                       className="p-4 bg-gray-50 rounded-2xl border border-border"
@@ -1626,7 +1614,7 @@ export default function OnboardingWizard() {
             {salonData.id ? (
               <SalonGalleryManager 
                 salonId={salonData.id} 
-                onCoverChange={(url: string) => setSalonData((prev: any) => ({ ...prev, image: url }))}
+                onCoverChange={(url: string) => setSalonData((prev) => ({ ...prev, image: url }))}
               />
             ) : (
               <div className="text-center text-text-muted py-10">Salon bilgileri yükleniyor...</div>

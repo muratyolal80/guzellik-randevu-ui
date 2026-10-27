@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -256,8 +257,8 @@ export default function BookingUserInfoPage() {
         setAppliedCoupon(null);
         setDiscountAmount(0);
       }
-    } catch (err: any) {
-      setCouponError(err.message || 'Kupon uygulanırken hata oluştu');
+    } catch (err: unknown) {
+      setCouponError(toErrorLike(err).message || 'Kupon uygulanırken hata oluştu');
       setAppliedCoupon(null);
       setDiscountAmount(0);
     } finally {

@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -29,7 +30,7 @@ const normalize = (text: string | undefined | null) => {
     return text.toLocaleLowerCase('tr').trim();
 };
 
-const isValidLatLng = (lat: any, lng: any): boolean => {
+const isValidLatLng = (lat: unknown, lng: unknown): boolean => {
     if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
     const numLat = Number(lat);
     const numLng = Number(lng);
@@ -206,7 +207,7 @@ export default function HomeClient() {
                 if (results[3].status === 'rejected') console.error('HomeClient: Error fetching cities:', results[3].reason);
 
                 // getSalons() already normalizes via mapSalonDetail — only add UI aliases
-                const mappedData = (salonsData || []).map((salon: any) => ({
+                const mappedData = (salonsData || []).map((salon: SalonDetail & { min_price?: number | string | null }) => ({
                     ...salon,
                     city: salon.city_name || 'Belirtilmemiş',
                     district: salon.district_name || '',
@@ -227,9 +228,9 @@ export default function HomeClient() {
                 if (user && user.id && user.id !== "") {
                     try {
                         const favs = await FavoriteService.getUserFavorites();
-                        setUserFavorites(favs.map((f: any) => f.salon_id));
-                    } catch (favErr: any) {
-                        console.error('HomeClient: Kullanıcı favorileri alınamadı:', favErr?.message || favErr);
+                        setUserFavorites(favs.map((f) => f.salon_id));
+                    } catch (favErr: unknown) {
+                        console.error('HomeClient: Kullanıcı favorileri alınamadı:', toErrorLike(favErr).message || favErr);
                     }
                 }
 
@@ -246,11 +247,11 @@ export default function HomeClient() {
                 }
                 setSalonServicesMap(servicesMap);
 
-            } catch (err: any) {
-                console.error('Error fetching initial data (main block):', err?.message || err);
+            } catch (err: unknown) {
+                console.error('Error fetching initial data (main block):', toErrorLike(err).message || err);
                 showToast('Salonlar yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.', 'error');
-                if (err?.code) console.error('Error code:', err.code);
-                if (err?.details) console.error('Error details:', err.details);
+                if (toErrorLike(err).code) console.error('Error code:', toErrorLike(err).code);
+                if (toErrorLike(err).details) console.error('Error details:', toErrorLike(err).details);
             } finally {
                 setLoading(false);
             }

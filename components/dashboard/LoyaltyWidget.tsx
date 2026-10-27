@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Trophy, Sparkles, Medal } from 'lucide-react';
 
 interface LoyaltyWidgetProps {
-    topLoyalty: { salon: any; count: number } | null;
+    topLoyalty: { salon: { id?: string; name?: string | null } | null; count: number } | null;
 }
 
 /**

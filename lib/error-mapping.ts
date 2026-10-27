@@ -25,13 +25,26 @@ export const ERROR_MESSAGES: Record<string, string> = {
   'Missing required fields': 'Lütfen tüm zorunlu alanları doldurun.',
 };
 
+/** Shape of thrown values we read from: Error, PostgrestError, API error objects. */
+export interface ErrorLike {
+  message?: string;
+  code?: string;
+  details?: string;
+  [key: string]: unknown;
+}
+
+/** Narrows an unknown caught value to ErrorLike; non-objects become {} (so `.message` is undefined, like `err?.message`). */
+export function toErrorLike(err: unknown): ErrorLike {
+  return typeof err === 'object' && err !== null ? (err as ErrorLike) : {};
+}
+
 /**
  * Hata nesnesini veya mesajını kullanıcı dostu Türkçe bir mesaja dönüştürür.
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
   if (!error) return ERROR_MESSAGES['unexpected error'];
 
-  const message = typeof error === 'string' ? error : error.message || '';
+  const message = typeof error === 'string' ? error : toErrorLike(error).message || '';
 
   // Tam eşleşme kontrolü
   if (ERROR_MESSAGES[message]) {

@@ -29,7 +29,7 @@ interface HomeMapProps {
 }
 
 // --- Helper: Strict Coordinate Validation ---
-const isValidLatLng = (lat: any, lng: any): boolean => {
+const isValidLatLng = (lat: unknown, lng: unknown): boolean => {
     const numLat = Number(lat);
     const numLng = Number(lng);
     return !isNaN(numLat) && !isNaN(numLng) && isFinite(numLat) && isFinite(numLng);

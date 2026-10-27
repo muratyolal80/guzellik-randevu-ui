@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { AppointmentService } from '@/services/db';
+import type { PendingAppointmentRow } from '@/types';
 import { Clock, AlertCircle, Loader2, PartyPopper } from 'lucide-react';
 import PendingApprovalActions from './PendingApprovalActions';
 
@@ -9,16 +10,6 @@ interface PendingAppointmentsCardProps {
     salonId: string;
     /** Sadece bu staff'ın PENDING'lerini göster (staff dashboard için) */
     onlyStaffUserId?: string;
-}
-
-interface PendingRow {
-    id: string;
-    start_time: string;
-    customer_name?: string;
-    customer_phone?: string;
-    notes?: string;
-    salon_service?: { duration_min?: number; global_service?: { name?: string } };
-    staff?: { id: string; name: string; user_id?: string };
 }
 
 /**
@@ -29,7 +20,7 @@ export default function PendingAppointmentsCard({
     salonId,
     onlyStaffUserId,
 }: PendingAppointmentsCardProps) {
-    const [rows, setRows] = useState<PendingRow[]>([]);
+    const [rows, setRows] = useState<PendingAppointmentRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -39,29 +30,13 @@ export default function PendingAppointmentsCard({
             setLoading(true);
             setError(null);
             try {
-                let query = supabase
-                    .from('appointments')
-                    .select(`
-                        id, start_time, customer_name, customer_phone, notes, staff_id,
-                        salon_service:salon_services(duration_min, global_service:global_services(name)),
-                        staff:staff(id, name, user_id)
-                    `)
-                    .eq('salon_id', salonId)
-                    .eq('status', 'PENDING')
-                    .gte('start_time', new Date().toISOString())
-                    .order('start_time', { ascending: true })
-                    .limit(20);
-
-                const { data, error: err } = await query;
-                if (err) throw err;
-
-                let list = (data || []) as any[];
+                let list = await AppointmentService.getUpcomingPendingAppointments(salonId);
                 if (onlyStaffUserId) {
                     list = list.filter((r) => r.staff?.user_id === onlyStaffUserId);
                 }
-                if (!cancelled) setRows(list as PendingRow[]);
-            } catch (err: any) {
-                if (!cancelled) setError(err?.message || 'Yüklenemedi');
+                if (!cancelled) setRows(list);
+            } catch (err: unknown) {
+                if (!cancelled) setError((err as { message?: string } | null)?.message || 'Yüklenemedi');
             } finally {
                 if (!cancelled) setLoading(false);
             }

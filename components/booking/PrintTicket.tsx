@@ -2,7 +2,7 @@ import React from 'react';
 import type { Appointment, SalonDetail, Staff, SalonServiceDetail } from '@/types';
 
 interface PrintTicketProps {
-  appointment: Appointment | null;
+  appointment: Pick<Appointment, 'id' | 'start_time' | 'end_time' | 'status' | 'customer_name' | 'customer_phone' | 'discount_amount' | 'coupon_code'> | null;
   salon: SalonDetail | null;
   staff: Staff | null;
   services: SalonServiceDetail[];
@@ -89,7 +89,7 @@ export default function PrintTicket({
           {services.length === 0 ? (
             <p className="ticket-value">—</p>
           ) : (
-            services.map((s: any) => (
+            services.map((s: SalonServiceDetail & { name?: string }) => (
               <div className="ticket-service-row" key={s.id}>
                 <span>
                   {s.service_name || s.name || 'Hizmet'}

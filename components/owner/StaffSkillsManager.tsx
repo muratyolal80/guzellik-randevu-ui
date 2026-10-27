@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { StaffService, ServiceService } from '@/services/db';
+import type { Staff, SalonServiceDetail } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 import Skeleton from '@/components/Skeleton';
 
@@ -16,8 +17,8 @@ interface StaffSkillsProps {
 }
 
 export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
-    const [staff, setStaff] = useState<any[]>([]);
-    const [services, setServices] = useState<any[]>([]);
+    const [staff, setStaff] = useState<Staff[]>([]);
+    const [services, setServices] = useState<SalonServiceDetail[]>([]);
     const [assignments, setAssignments] = useState<Set<string>>(new Set()); // "staffId-serviceId"
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

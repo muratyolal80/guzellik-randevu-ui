@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import { useState } from 'react';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
@@ -47,8 +48,8 @@ export default function PendingApprovalActions({
                 return;
             }
             onUpdated?.('CONFIRMED');
-        } catch (err: any) {
-            setError(err?.message || 'Ağ hatası');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Ağ hatası');
         } finally {
             setLoading(null);
         }
@@ -70,8 +71,8 @@ export default function PendingApprovalActions({
             }
             setShowRejectModal(false);
             onUpdated?.('CANCELLED');
-        } catch (err: any) {
-            setError(err?.message || 'Ağ hatası');
+        } catch (err: unknown) {
+            setError(toErrorLike(err).message || 'Ağ hatası');
         } finally {
             setLoading(null);
         }

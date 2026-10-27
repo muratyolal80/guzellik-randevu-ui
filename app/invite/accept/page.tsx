@@ -65,7 +65,7 @@ function InviteAcceptContent() {
                 return;
             }
 
-            const salonName = (invite as any).salon?.name || 'Bilinmeyen Salon';
+            const salonName = invite.salon?.name || 'Bilinmeyen Salon';
 
             setInviteData({
                 email: invite.email,

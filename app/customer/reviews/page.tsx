@@ -5,11 +5,13 @@ import { Star, MapPin, Calendar, ExternalLink, MessageSquare } from 'lucide-reac
 import { useToast } from '@/components/ui/Toast';
 import Skeleton from '@/components/Skeleton';
 import { supabase } from '@/lib/supabase';
+import { ReviewService } from '@/services/db';
+import type { CustomerReviewItem } from '@/types';
 import Link from 'next/link';
 
 export default function ReviewsPage() {
     const { showToast } = useToast();
-    const [reviews, setReviews] = useState<any[]>([]);
+    const [reviews, setReviews] = useState<CustomerReviewItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -18,29 +20,7 @@ export default function ReviewsPage() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                const { data, error } = await supabase
-                    .from('reviews')
-                    .select(`
-                        id,
-                        rating,
-                        comment,
-                        created_at,
-                        salon:salons (
-                            top_level_id:id,
-                            name,
-                            image,
-                            city:cities(name),
-                            district:districts(name)
-                        )
-                    `)
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
-
-                // Note: Join result structure might need adjustment depending entirely on if salons is a view or table
-                // If it's the view 'salon_details' it's better, but let's stick to simple join first or handle response.
-
-                if (error) throw error;
-                setReviews(data || []);
+                setReviews(await ReviewService.getReviewsByUser(user.id));
 
             } catch (error) {
                 console.error('Error fetching reviews:', error);

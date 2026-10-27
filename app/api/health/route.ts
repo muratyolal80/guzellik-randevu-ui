@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
@@ -16,8 +17,8 @@ export async function GET() {
     const t0 = Date.now();
     const { error } = await supabaseAdmin.from('cities').select('id').limit(1);
     checks.database = { ok: !error, latencyMs: Date.now() - t0, error: error?.message };
-  } catch (e: any) {
-    checks.database = { ok: false, error: e?.message || 'unknown' };
+  } catch (e: unknown) {
+    checks.database = { ok: false, error: toErrorLike(e).message || 'unknown' };
   }
 
   // 2) Resend email (yapılandırılmış mı sadece — gerçek istek atmıyoruz)

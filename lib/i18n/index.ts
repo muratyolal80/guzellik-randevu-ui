@@ -26,10 +26,10 @@ const DEFAULT_LOCALE = 'tr';
 export function t(key: MessageKey, locale: string = DEFAULT_LOCALE): string {
   const dict = messages[locale] || messages[DEFAULT_LOCALE];
   const segments = key.split('.');
-  let cur: any = dict;
+  let cur: unknown = dict;
   for (const seg of segments) {
     if (cur && typeof cur === 'object' && seg in cur) {
-      cur = cur[seg];
+      cur = (cur as Record<string, unknown>)[seg];
     } else {
       return key; // fallback: anahtarı döndür
     }

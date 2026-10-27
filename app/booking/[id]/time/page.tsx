@@ -358,7 +358,7 @@ export default function TimeSelection() {
             <div className="w-full lg:w-[380px] flex-shrink-0 lg:sticky lg:top-24 order-2 lg:order-1">
               <BookingSummary
                 salon={salon}
-                services={services as any}
+                services={services}
                 staff={staff}
                 totalPrice={contextTotalPrice}
                 discountAmount={contextDiscountAmount}

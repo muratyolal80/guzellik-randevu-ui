@@ -8,11 +8,12 @@ import Skeleton from '@/components/Skeleton';
 import Link from 'next/link';
 import { FavoriteService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
+import type { Favorite } from '@/types';
 
 export default function FavoritesPage() {
     const { showToast } = useToast();
     const { confirm } = useConfirm();
-    const [favorites, setFavorites] = useState<any[]>([]);
+    const [favorites, setFavorites] = useState<Favorite[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -47,7 +48,7 @@ export default function FavoritesPage() {
             // Actually toggle logic might re-add if we clicked remove button.
             // Let's use delete explicitly if we want to be safe, or logic:
             // Since it's favorites page, we know it's already favored. Toggle will remove it.
-            setFavorites(prev => prev.filter((f: any) => f.salon.id !== salonId));
+            setFavorites(prev => prev.filter((f) => f.salon?.id !== salonId));
 
         } catch (error) {
             console.error('Error removing favorite:', error);
@@ -85,7 +86,7 @@ export default function FavoritesPage() {
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <button
-                                    onClick={(e) => removeFavorite(fav.salon.id, e)}
+                                    onClick={(e) => removeFavorite(fav.salon_id, e)}
                                     className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm hover:bg-white text-red-500 transition-colors"
                                 >
                                     <Heart className="w-5 h-5 fill-current" aria-hidden="true" />

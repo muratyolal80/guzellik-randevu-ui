@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -144,8 +145,8 @@ export async function POST(request: NextRequest) {
             { status: 503 }
         );
 
-    } catch (err: any) {
-        console.error('Subscription Error:', err.message);
-        return NextResponse.json({ error: 'Sunucu hatası: ' + err.message }, { status: 500 });
+    } catch (err: unknown) {
+        console.error('Subscription Error:', toErrorLike(err).message);
+        return NextResponse.json({ error: 'Sunucu hatası: ' + toErrorLike(err).message }, { status: 500 });
     }
 }

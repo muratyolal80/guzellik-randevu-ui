@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -52,7 +53,7 @@ export async function POST(
 
         if (user && appointment.customer_id) {
             const isCustomer = appointment.customer_id === user.id;
-            const isOwner = (appointment.salon as any)?.owner_id === user.id;
+            const isOwner = (appointment.salon as { owner_id?: string; name?: string } | null)?.owner_id === user.id;
             let isAdmin = false;
             if (!isCustomer && !isOwner) {
                 const { data: profile } = await supabaseAdmin
@@ -88,7 +89,7 @@ export async function POST(
             hour: '2-digit',
             minute: '2-digit',
         });
-        const salonName = (appointment.salon as any)?.name || 'Salon';
+        const salonName = (appointment.salon as { owner_id?: string; name?: string } | null)?.name || 'Salon';
         const statusLabel = appointment.status === 'CONFIRMED' ? 'onaylandı' : 'alındı';
         const msg = `Randevu hatırlatma: ${salonName} - ${startStr} (${statusLabel}). İptal/değişiklik için salonu arayın.`;
 
@@ -106,10 +107,10 @@ export async function POST(
         }
 
         return NextResponse.json({ success: true, smsDelivered });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[appointment/resend-sms] error:', err);
         return NextResponse.json(
-            { error: err?.message || 'Beklenmedik hata' },
+            { error: toErrorLike(err).message || 'Beklenmedik hata' },
             { status: 500 }
         );
     }

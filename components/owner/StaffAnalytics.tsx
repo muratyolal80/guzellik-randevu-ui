@@ -31,7 +31,7 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-    const [weeklyData, setWeeklyData] = useState<any[]>([]);
+    const [weeklyData, setWeeklyData] = useState<Awaited<ReturnType<typeof StaffAnalyticsService.getWeeklyOccupancyByStaff>>>([]);
     const [todayStats, setTodayStats] = useState<{
         count: number;
         availability: { isAvailable: boolean; nextAvailableSlot?: string };

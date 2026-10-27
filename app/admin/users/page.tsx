@@ -39,8 +39,11 @@ import {
 } from './actions';
 import { getErrorMessage } from '@/lib/error-mapping';
 import ImageUpload from '@/components/ImageUpload';
+import type { LucideIcon } from 'lucide-react';
 
-const ROLE_LABELS: Record<string, { label: string, icon: any, color: string, bg: string, border: string }> = {
+type OwnerSubDetails = Awaited<ReturnType<typeof SubscriptionService.getOwnerSubscriptionFullDetails>>;
+
+const ROLE_LABELS: Record<string, { label: string, icon: LucideIcon, color: string, bg: string, border: string }> = {
     'CUSTOMER': { label: 'MÜŞTERİ', icon: Users, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
     'STAFF': { label: 'PERSONEL', icon: UserCog, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
     'SALON_OWNER': { label: 'SALON SAHİBİ', icon: Shield, color: 'text-blue-700', bg: 'bg-indigo-50', border: 'border-indigo-100' },
@@ -48,7 +51,7 @@ const ROLE_LABELS: Record<string, { label: string, icon: any, color: string, bg:
     'SUPER_ADMIN': { label: 'YÖNETİCİ', icon: UserCog, color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-100' },
 };
 
-const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boolean }) => {
+const OwnerSubscriptionSection = ({ data, loading }: { data: OwnerSubDetails, loading: boolean }) => {
     // Hooks MUST be declared at top before any early return (rules-of-hooks)
     const [historyPage, setHistoryPage] = useState(1);
     const itemsPerPage = 3;
@@ -125,7 +128,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">{item.label}</p>
                             <div className="flex items-end justify-between gap-2">
                                 <span className="text-2xl font-black text-slate-900 leading-none">{item.used} <span className="text-slate-300">/</span> {item.limit === -1 ? '∞' : item.limit}</span>
-                                <Icon className={`w-5 h-5 ${item.limit !== -1 && item.used >= item.limit ? 'text-rose-500' : 'text-slate-200'}`} />
+                                <Icon className={`w-5 h-5 ${item.limit !== -1 && Number(item.used) >= item.limit ? 'text-rose-500' : 'text-slate-200'}`} />
                             </div>
                             {/* Progress Bar */}
                             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -196,7 +199,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                                 <tr>
                                     <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic font-medium">İşlem geçmişi bulunamadı.</td>
                                 </tr>
-                            ) : pagedHistory?.map((h: any, i: number) => (
+                            ) : pagedHistory?.map((h, i) => (
                                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4 font-bold text-slate-600">{new Date(h.created_at).toLocaleDateString('tr-TR')}</td>
                                     <td className="px-6 py-4 font-black text-slate-900 uppercase">
@@ -250,7 +253,7 @@ export default function AdminUserManagementPage() {
     const [editForm, setEditForm] = useState<Partial<Profile & { password?: string }>>({});
 
     // New Owner Subscription States
-    const [ownerSubData, setOwnerSubData] = useState<any>(null);
+    const [ownerSubData, setOwnerSubData] = useState<OwnerSubDetails>(null);
     const [loadingSubData, setLoadingSubData] = useState(false);
 
     useEffect(() => {
@@ -280,7 +283,7 @@ export default function AdminUserManagementPage() {
             });
             setUsers(profiles);
             setTotalCount(totalCount);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to fetch users:', error);
             showToast(getErrorMessage(error), 'error');
         } finally {
@@ -335,14 +338,14 @@ export default function AdminUserManagementPage() {
         setIsDetailsOpen(true);
     };
 
-    const handleAction = async (task: () => Promise<any>, successMsg: string) => {
+    const handleAction = async (task: () => Promise<unknown>, successMsg: string) => {
         try {
             setActionLoading(true);
             await task();
             showToast(successMsg, 'success');
             setIsDetailsOpen(false);
             fetchUsers();
-        } catch (error: any) {
+        } catch (error: unknown) {
             showToast(getErrorMessage(error), 'error');
         } finally {
             setActionLoading(false);
@@ -358,7 +361,7 @@ export default function AdminUserManagementPage() {
 
         if (isCreateMode) {
             handleAction(async () => {
-                const res = await adminCreateUserAction(editForm as any);
+                const res = await adminCreateUserAction(editForm as Parameters<typeof adminCreateUserAction>[0]);
                 if (!res.success) throw new Error(res.error);
             }, 'Kullanıcı başarıyla oluşturuldu.');
         } else if (selectedUser) {
@@ -527,7 +530,7 @@ export default function AdminUserManagementPage() {
                             ].map(btn => (
                                 <button
                                     key={btn.id}
-                                    onClick={() => handleStatClick(btn.id as any)}
+                                    onClick={() => handleStatClick(btn.id as UserRole | 'all')}
                                     className={`px-8 py-3.5 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all border-2 ${filter === btn.id 
                                         ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105' 
                                         : 'bg-white text-slate-400 border-slate-100 hover:border-primary/30 hover:text-slate-600'}`}
@@ -906,7 +909,7 @@ export default function AdminUserManagementPage() {
                                             <div className="relative p-1 bg-slate-50 rounded-3xl border-2 border-transparent focus-within:border-primary/20 transition-all">
                                                 <select 
                                                     value={editForm.role}
-                                                    onChange={e => setEditForm({ ...editForm, role: e.target.value as any })}
+                                                    onChange={e => setEditForm({ ...editForm, role: e.target.value as UserRole })}
                                                     className="w-full h-16 px-8 bg-white border border-slate-200 rounded-2xl text-base font-black text-slate-900 focus:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] transition-all outline-none appearance-none cursor-pointer pr-16"
                                                 >
                                                     <option value="CUSTOMER">STANDART MÜŞTERİ</option>

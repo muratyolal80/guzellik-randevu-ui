@@ -141,8 +141,9 @@ export function BookingProvider({ children, salonId }: { children: ReactNode; sa
           const { CampaignService } = await import('@/services/db');
           const rules = await CampaignService.getSalonCampaignRules(salon.id);
           setCampaignRules(rules.filter(r => r.is_active));
-        } catch (err: any) {
-          console.warn('Campaign rules fetch failed:', err?.message || err?.code || err);
+        } catch (err: unknown) {
+          const e = err as { message?: string; code?: string } | null;
+          console.warn('Campaign rules fetch failed:', e?.message || e?.code || err);
           setCampaignRules([]);
         }
       };

@@ -21,9 +21,9 @@ import {
 
 interface Props {
     data: {
-        chartData: any[];
-        staffPerformance: any[];
-        serviceStats: any[];
+        chartData: { date: string; income: number; appointments: number }[];
+        staffPerformance: { name: string; appointments: number }[];
+        serviceStats: { name: string; value: number }[];
     };
 }
 
@@ -73,7 +73,7 @@ export default function OwnerAnalyticsCharts({ data }: Props) {
                                 contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
                                 labelStyle={{ fontWeight: 800, marginBottom: '4px', color: '#111827' }}
                                 itemStyle={{ fontSize: '12px', fontWeight: 600 }}
-                                formatter={(value: any) => [`₺${value}`, 'Gelir']}
+                                formatter={(value) => [`₺${value}`, 'Gelir']}
                                 labelFormatter={(label) => new Date(label).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                             />
                             <Area
@@ -111,7 +111,7 @@ export default function OwnerAnalyticsCharts({ data }: Props) {
                                 <Tooltip
                                     cursor={{ fill: 'transparent' }}
                                     contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                    formatter={(value: any) => [value, 'Randevu']}
+                                    formatter={(value) => [value, 'Randevu']}
                                 />
                                 <Bar
                                     dataKey="appointments"

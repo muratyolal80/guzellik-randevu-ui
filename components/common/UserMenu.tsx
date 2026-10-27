@@ -41,7 +41,7 @@ export const UserMenu: React.FC = () => {
     // OTP ile kayıtta auth email'i sentetik olabiliyor: "<telefon>@pending.user".
     // Bunu split edip "5323334455" gösterMEK yerine; önce ismi, yoksa temiz formatlı
     // telefonu göster (isim profile'da; flaky oturumda yüklenmezse telefona düşeriz).
-    const meta = (user as any).user_metadata || {};
+    const meta = (user as typeof user & { user_metadata?: { first_name?: string; last_name?: string } }).user_metadata || {};
     const rawEmail = user.email || '';
     const isSyntheticEmail = rawEmail === '' || rawEmail.endsWith('@pending.user');
     const formatPhone = (p?: string) => {

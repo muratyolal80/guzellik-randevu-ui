@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -55,7 +56,7 @@ export async function POST(
             );
         }
 
-        const ownerId = (staffRow.salons as any)?.owner_id;
+        const ownerId = (staffRow.salons as { owner_id?: string } | null)?.owner_id;
         const isOwner = ownerId === user.id;
         let isAdmin = false;
         if (!isOwner) {
@@ -105,10 +106,10 @@ export async function POST(
         } catch { }
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[staff/disable-login] error:', err);
         return NextResponse.json(
-            { error: err?.message || 'Beklenmedik hata' },
+            { error: toErrorLike(err).message || 'Beklenmedik hata' },
             { status: 500 }
         );
     }

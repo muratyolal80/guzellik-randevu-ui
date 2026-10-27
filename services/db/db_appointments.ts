@@ -14,6 +14,10 @@ import type {
   WorkingHours,
   SalonWorkingHours,
   Appointment,
+  AppointmentWithRelations,
+  AppointmentDetail,
+  PendingAppointmentRow,
+  CustomerBookingRow,
   Review,
   IYSLog,
   SupportTicket,
@@ -67,6 +71,37 @@ export const AppointmentService = {
   },
 
   /**
+   * Full appointment detail with salon/staff/service and confirmed/completed/cancelled actor profiles
+   */
+  async getAppointmentDetail(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<AppointmentDetail | null> {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(`
+        id, status, start_time, end_time, customer_id, customer_name, customer_phone,
+        notes, coupon_code, discount_amount, deposit_amount, participant_count,
+        confirmed_by, confirmed_at, completed_by, completed_at,
+        cancelled_by, cancelled_at, cancellation_reason, created_at,
+        salon:salons(id, name, address, phone),
+        staff:staff(id, name, role, specialty),
+        salon_service:salon_services(
+          id, price, duration_min,
+          global_service:global_services(name)
+        ),
+        confirmed_by_profile:profiles!appointments_confirmed_by_fkey(id, first_name, last_name, email),
+        completed_by_profile:profiles!appointments_completed_by_fkey(id, first_name, last_name, email),
+        cancelled_by_profile:profiles!appointments_cancelled_by_fkey(id, first_name, last_name, email)
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as unknown as AppointmentDetail | null;
+  },
+
+  /**
    * Get appointments for a salon
    */
   async getAppointmentsBySalon(
@@ -102,6 +137,53 @@ export const AppointmentService = {
   },
 
   /**
+   * Salon appointments starting at/after `fromIso` (owner dashboard "upcoming" list)
+   */
+  async getSalonAppointmentsFrom(
+    salonId: string,
+    fromIso: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<AppointmentWithRelations[]> {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(`
+        *,
+        service:salon_services(price, duration_min, global_service:global_services(name)),
+        staff:staff(name, photo)
+      `)
+      .eq("salon_id", salonId)
+      .gte("start_time", fromIso)
+      .order("start_time", { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as unknown as AppointmentWithRelations[];
+  },
+
+  /**
+   * Next 20 upcoming PENDING appointments of a salon (awaiting owner/staff approval)
+   */
+  async getUpcomingPendingAppointments(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<PendingAppointmentRow[]> {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(`
+        id, start_time, customer_name, customer_phone, notes, staff_id,
+        salon_service:salon_services(duration_min, global_service:global_services(name)),
+        staff:staff(id, name, user_id)
+      `)
+      .eq("salon_id", salonId)
+      .eq("status", "PENDING")
+      .gte("start_time", new Date().toISOString())
+      .order("start_time", { ascending: true })
+      .limit(20);
+
+    if (error) throw error;
+    return (data || []) as unknown as PendingAppointmentRow[];
+  },
+
+  /**
    * Get appointments for a staff member
    */
   async getAppointmentsByStaff(
@@ -125,6 +207,99 @@ export const AppointmentService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  /**
+   * Staff appointments in a time range with service (and optionally salon name) embedded
+   */
+  async getStaffAppointmentsWithService(
+    staffId: string,
+    startIso: string,
+    endIso: string,
+    includeSalon = false,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<AppointmentWithRelations[]> {
+    const select = includeSalon
+      ? `*, salon:salons(name), service:salon_services(price, duration_min, global_service:global_services(name))`
+      : `*, service:salon_services(price, duration_min, global_service:global_services(name))`;
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(select)
+      .eq("staff_id", staffId)
+      .gte("start_time", startIso)
+      .lte("start_time", endIso)
+      .order("start_time", { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as unknown as AppointmentWithRelations[];
+  },
+
+  /**
+   * Signed-in customer's appointments for one tab of the customer panel
+   */
+  async getCustomerAppointments(
+    customerId: string,
+    tab: "upcoming" | "past" | "cancelled",
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<AppointmentWithRelations[]> {
+    let query = supabase
+      .from("appointments")
+      .select(`
+        *,
+        salon:salons(id, name, address, image),
+        service:salon_services(id, price, duration_min, global_service:global_services(name)),
+        staff:staff(id, name)
+      `)
+      .eq("customer_id", customerId)
+      .order("start_time", { ascending: tab === "upcoming" });
+
+    if (tab === "upcoming") {
+      query = query.in("status", ["PENDING", "CONFIRMED"]).gt("start_time", new Date().toISOString());
+    } else if (tab === "past") {
+      query = query.in("status", ["COMPLETED", "CONFIRMED", "NO_SHOW"]).lt("start_time", new Date().toISOString());
+    } else if (tab === "cancelled") {
+      query = query.eq("status", "CANCELLED");
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []) as unknown as AppointmentWithRelations[];
+  },
+
+  /**
+   * All appointments of a customer (newest first) for the /bookings list
+   */
+  async getCustomerBookingRows(
+    customerId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<CustomerBookingRow[]> {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(`
+        id,
+        start_time,
+        end_time,
+        status,
+        salon:salons (
+          name,
+          address
+        ),
+        staff:staff (
+          name
+        ),
+        salon_service:salon_services (
+          price,
+          duration_min,
+          global_service:global_services (
+            name
+          )
+        )
+      `)
+      .eq("customer_id", customerId)
+      .order("start_time", { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as unknown as CustomerBookingRow[];
   },
 
   /**
@@ -229,6 +404,27 @@ export const AppointmentService = {
   },
 
   /**
+   * Plain insert for an owner-entered (walk-in / phone) appointment — status PENDING,
+   * no capacity/resource allocation (unlike createAppointment).
+   */
+  async createManualAppointment(
+    input: Pick<
+      Appointment,
+      "salon_id" | "staff_id" | "salon_service_id" | "customer_name" | "customer_phone" | "start_time" | "end_time"
+    > & { notes: string | null },
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Appointment> {
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert({ ...input, status: "PENDING" })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Appointment;
+  },
+
+  /**
    * Complete appointment and record payment
    */
   async completeAppointmentWithPayment(
@@ -244,7 +440,7 @@ export const AppointmentService = {
       .from("appointments")
       .update({ 
         status: "COMPLETED",
-        payment_method: paymentMethod as any,
+        payment_method: paymentMethod,
         payment_status: "COMPLETED",
         updated_at: new Date().toISOString()
       })
@@ -507,7 +703,7 @@ export const CampaignService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as any) || [];
+    return (data as Coupon[] | null) || [];
   },
 
   /**
@@ -561,7 +757,7 @@ export const CampaignService = {
       .eq("is_active", true);
 
     if (error) throw error;
-    return (data as any) || [];
+    return (data as Package[] | null) || [];
   },
 
   /**
@@ -623,7 +819,7 @@ export const CampaignService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as any) || [];
+    return (data as CampaignRule[] | null) || [];
   },
 
   /**

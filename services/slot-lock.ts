@@ -48,8 +48,8 @@ export async function acquireSlotLock(params: {
 
     if (!data) return { reservationId: null, reason: 'taken' };
     return { reservationId: data as string };
-  } catch (err: any) {
-    console.error('[slot-lock] acquire threw:', err?.message || err);
+  } catch (err: unknown) {
+    console.error('[slot-lock] acquire threw:', err instanceof Error ? err.message : err);
     return { reservationId: null, reason: 'error' };
   }
 }
@@ -66,8 +66,8 @@ export async function releaseSlotLock(reservationId: string): Promise<boolean> {
       return false;
     }
     return true;
-  } catch (err: any) {
-    console.error('[slot-lock] release threw:', err?.message || err);
+  } catch (err: unknown) {
+    console.error('[slot-lock] release threw:', err instanceof Error ? err.message : err);
     return false;
   }
 }

@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { rateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
@@ -35,8 +36,8 @@ export async function POST(request: NextRequest) {
             message: 'Doğrulama kodu e-postanıza gönderildi.'
         });
 
-    } catch (error: any) {
-        console.error('Send Email OTP Error:', error.message);
+    } catch (error: unknown) {
+        console.error('Send Email OTP Error:', toErrorLike(error).message);
         return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
     }
 }

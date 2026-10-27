@@ -36,9 +36,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (Array.isArray(salons)) {
       const seen = new Set<string>();
       for (const s of salons) {
-        const id = (s as any).id as string | undefined;
-        const slug = (s as any).slug as string | undefined;
-        const updated = (s as any).updated_at as string | undefined;
+        const id = s.id as string | undefined;
+        const slug = s.slug as string | undefined;
+        const updated = s.updated_at as string | undefined;
         const lastModified = updated ? new Date(updated) : now;
 
         if (id && !seen.has(`id:${id}`)) {

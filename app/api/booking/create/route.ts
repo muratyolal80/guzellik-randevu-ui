@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -348,7 +349,7 @@ export async function POST(request: NextRequest) {
           .eq('key', 'platform_commission_rate')
           .single();
 
-        const commissionRate = (commissionSetting?.value as any)?.rate || 0;
+        const commissionRate = (commissionSetting?.value as { rate?: number } | null)?.rate || 0;
         const fullPriceTL = basePrice - (totalDiscount || 0);
         // If depositRate > 0, we only charge for the depositAmount sent from client
         // Otherwise, if this logic is active, we might charge full price.
@@ -405,10 +406,10 @@ export async function POST(request: NextRequest) {
 
       const cleanPhone = user.phone?.replace('+90', '') || '';
       await sendAppointmentSMS(salonId, cleanPhone, smsMessage);
-    } catch (smsErr: any) {
+    } catch (smsErr: unknown) {
       console.error('SMS Notification failed:', smsErr);
       smsDelivered = false;
-      smsError = smsErr?.message || 'unknown';
+      smsError = toErrorLike(smsErr).message || 'unknown';
     }
 
     // 9. Send Email Confirmation (best-effort, hata ana akışı bozmaz)
@@ -448,8 +449,8 @@ export async function POST(request: NextRequest) {
       message: 'Randevu başarıyla oluşturuldu!',
     });
 
-  } catch (err: any) {
-    console.error('Booking Create Error:', err.message);
+  } catch (err: unknown) {
+    console.error('Booking Create Error:', toErrorLike(err).message);
     return NextResponse.json({ error: 'Sunucu hatası' }, { status: 500 });
   }
 }

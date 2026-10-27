@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { WorkingHoursService } from '@/services/db';
+import { StaffService, WorkingHoursService } from '@/services/db';
 import { Clock, Save, AlertCircle, CalendarDays, Loader2, Check } from 'lucide-react';
 import { WorkingHours } from '@/types';
 import { useToast } from '@/components/ui/Toast';
@@ -27,20 +26,16 @@ export default function StaffHoursPage() {
         try {
             setLoading(true);
             // Get staff ID first
-            const { data: staffMember } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('user_id', user?.id)
-                .single();
+            const staffMemberId = user ? await StaffService.getStaffIdByUserId(user.id) : null;
 
-            if (!staffMember) {
+            if (!staffMemberId) {
                 console.warn('No staff profile found');
                 setLoading(false);
                 return;
             }
 
-            setStaffId(staffMember.id);
-            const data = await WorkingHoursService.getWorkingHoursByStaff(staffMember.id);
+            setStaffId(staffMemberId);
+            const data = await WorkingHoursService.getWorkingHoursByStaff(staffMemberId);
 
             // Ensure all days 0-6 exist, if not create placeholders
             const filledHours: WorkingHours[] = [];
@@ -52,7 +47,7 @@ export default function StaffHoursPage() {
                     filledHours.push(existing);
                 } else {
                     filledHours.push({
-                        staff_id: staffMember.id,
+                        staff_id: staffMemberId,
                         day_of_week: i,
                         start_time: '09:00:00',
                         end_time: '19:00:00',
@@ -97,7 +92,7 @@ export default function StaffHoursPage() {
                 // Remove id if it's a placeholder (undefined id) so upsert creates it
                 // But WorkingHours type might enforce id. For DB service upsert, we need proper object.
                 // Service method takes Omit<..., 'id'>
-                const { id, created_at, ...updateData } = h as any;
+                const { id: _id, created_at: _createdAt, ...updateData } = h;
                 return WorkingHoursService.setWorkingHours({
                     ...updateData,
                     start_time: updateData.start_time.length === 5 ? updateData.start_time + ':00' : updateData.start_time,

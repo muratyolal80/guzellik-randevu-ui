@@ -25,6 +25,8 @@ import type {
   SalonGallery,
   ReviewImage,
   Profile,
+  Subscription,
+  AppointmentFinanceRow,
   Coupon,
   Package,
   Transaction,
@@ -93,7 +95,7 @@ export const PaymentService = {
   /**
    * Record a payment in payment_history (New unified table)
    */
-  async recordPayment(payment: any, supabase: SupabaseClient = defaultSupabase) {
+  async recordPayment<T extends object>(payment: T, supabase: SupabaseClient = defaultSupabase) {
     const { data, error } = await supabase
       .from("payment_history")
       .insert(payment)
@@ -162,6 +164,25 @@ export const SubscriptionService = {
 
     if (error) throw error;
     return subscription;
+  },
+
+  /**
+   * Most recent subscription of a salon regardless of status (with plan)
+   */
+  async getLatestSalonSubscription(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Subscription | null> {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("salon_id", salonId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as Subscription | null;
   },
 
   /**
@@ -469,7 +490,7 @@ export const SubscriptionService = {
     // Usually we only have one ACTIVE/PENDING_APPROVAL subscription at a time per salon.
     const enriched = data?.map(s => {
       // Find the active/pending subscription
-      const activeSubs = Array.isArray(s.subscriptions) ? s.subscriptions.filter((sub: any) => 
+      const activeSubs = Array.isArray(s.subscriptions) ? s.subscriptions.filter((sub: { status: string }) => 
         sub.status === "ACTIVE" || sub.status === "PENDING_APPROVAL" || sub.status === "TRIAL"
       ) : [];
       let activeSub = activeSubs.length > 0 ? activeSubs[0] : null;
@@ -615,7 +636,7 @@ export const SubscriptionService = {
     }
 
     // Default: BANK_TRANSFER flow
-    const sub: any = await this.createSubscriptionRequest(
+    const sub = await this.createSubscriptionRequest(
       salonId,
       planId,
       paymentMethod,
@@ -760,9 +781,9 @@ export const SubscriptionService = {
   /**
    * Update a subscription plan (Admin only)
    */
-  async updatePlan(
+  async updatePlan<T extends object>(
     planId: string,
-    updates: any,
+    updates: T,
     supabase: SupabaseClient = defaultSupabase,
   ) {
     const { data, error } = await supabase
@@ -853,8 +874,8 @@ export const SubscriptionService = {
       if (ownerSalons && ownerSalons.length > 0) {
         // Tercih sırası: APPROVED (canlı) > SUBMITTED (onayda) > en eski salon
         finalSalonId =
-          ownerSalons.find((s: any) => s.status === 'APPROVED')?.id ||
-          ownerSalons.find((s: any) => s.status === 'SUBMITTED')?.id ||
+          ownerSalons.find((s: { id: string; status: string }) => s.status === 'APPROVED')?.id ||
+          ownerSalons.find((s: { id: string; status: string }) => s.status === 'SUBMITTED')?.id ||
           ownerSalons[0].id;
       }
     }
@@ -929,7 +950,7 @@ export const SubscriptionService = {
   /**
    * Admin: Create a new subscription plan
    */
-  async createPlan(plan: any, supabase: SupabaseClient = defaultSupabase) {
+  async createPlan<T extends object>(plan: T, supabase: SupabaseClient = defaultSupabase) {
     const { data, error } = await supabase
       .from("subscription_plans")
       .insert(plan)
@@ -994,9 +1015,9 @@ export const SubmerchantService = {
   /**
    * Upsert sub-merchant registration (Application)
    */
-  async saveRegistration(
+  async saveRegistration<T extends object>(
     salonId: string,
-    registrationData: any,
+    registrationData: T,
     supabase: SupabaseClient = defaultSupabase,
   ) {
     const { data, error } = await supabase
@@ -1015,6 +1036,46 @@ export const SubmerchantService = {
 };
 
 export const FinanceService = {
+  /**
+   * Appointment rows used for owner finance stats (newest first).
+   * One id → eq filter, several → in filter, none → no salon filter (RLS scopes the rows).
+   */
+  async getAppointmentFinanceRows(
+    salonIds: string[],
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<AppointmentFinanceRow[]> {
+    let query = supabase
+      .from("appointments")
+      .select(`
+        id,
+        customer_name,
+        start_time,
+        status,
+        deposit_amount,
+        refund_status,
+        refund_amount,
+        payment_method,
+        payment_status,
+        salon_id,
+        staff_id,
+        staff:staff(id, name),
+        salon_services (
+          price,
+          global_services (name)
+        )
+      `);
+
+    if (salonIds.length === 1) {
+      query = query.eq("salon_id", salonIds[0]);
+    } else if (salonIds.length > 1) {
+      query = query.in("salon_id", salonIds);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []) as unknown as AppointmentFinanceRow[];
+  },
+
   /**
    * Admin: Get Unified Finance Records (Combines payments and subscriptions without a payment record)
    */
@@ -1258,8 +1319,8 @@ export const FinanceService = {
     if (error) throw error;
 
     const transactions = data || [];
-    const stats = transactions.reduce(
-      (acc, t: any) => {
+    const stats = (transactions as unknown as { amount?: number | string | null; status?: string | null }[]).reduce(
+      (acc, t) => {
         const amount = Number(t.amount) || 0;
         if (t.status === 'SUCCESS') {
           acc.totalRevenue += amount;
@@ -1349,7 +1410,7 @@ export const FinanceService = {
     if (error) throw error;
 
     // Filter purely in JS for safety if the .or filter on joined table is tricky
-    return data.filter((sub: any) => 
+    return data.filter((sub: { salons?: { status?: string } | null; status: string; current_period_end: string }) => 
       !sub.salons || 
       sub.salons.status === 'DELETED' || 
       (sub.status === 'ACTIVE' && new Date(sub.current_period_end) < new Date())

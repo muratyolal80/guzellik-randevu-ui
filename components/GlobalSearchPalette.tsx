@@ -7,11 +7,24 @@ import { Search, Store, Scissors, X, Command } from 'lucide-react';
 import { GlobalSearchService } from '@/services/db';
 import { useRouter } from 'next/navigation';
 
+interface SearchSalonResult {
+    id: string;
+    name: string;
+    image?: string | null;
+    city_name?: string | null;
+}
+
+interface SearchServiceResult {
+    id: string;
+    name: string;
+    category_name?: string | null;
+}
+
 export default function GlobalSearchPalette() {
     const { showToast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<{ salons: any[], services: any[] }>({ salons: [], services: [] });
+    const [results, setResults] = useState<{ salons: SearchSalonResult[], services: SearchServiceResult[] }>({ salons: [], services: [] });
     const [loading, setLoading] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -64,7 +77,7 @@ export default function GlobalSearchPalette() {
         return () => { ignore = true; clearTimeout(timer); };
     }, [query]);
 
-    const handleSelect = (item: any, type: 'salon' | 'service') => {
+    const handleSelect = (item: SearchSalonResult | SearchServiceResult, type: 'salon' | 'service') => {
         setIsOpen(false);
         if (type === 'salon') {
             router.push(`/salon/${item.id}`);

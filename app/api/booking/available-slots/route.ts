@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { SlotService } from '@/services/slot';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -74,11 +75,11 @@ export async function GET(request: NextRequest) {
             count: uniqueSlots.length
         });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[available-slots] Error:', err);
         return NextResponse.json({
             success: false,
-            error: err.message || 'Sunucu hatası',
+            error: toErrorLike(err).message || 'Sunucu hatası',
             slots: []
         }, { status: 500 });
     }

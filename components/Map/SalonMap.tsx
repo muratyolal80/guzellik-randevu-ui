@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 
 import { Star, MapPin, ArrowRight } from 'lucide-react';
 // Helper: Strict Coordinate Validation
-const isValidLatLng = (lat: any, lng: any): boolean => {
+const isValidLatLng = (lat: unknown, lng: unknown): boolean => {
     if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
     const numLat = Number(lat);
     const numLng = Number(lng);
@@ -108,7 +108,8 @@ const createCustomIcon = (isHovered: boolean) => {
 };
 
 interface SalonMapProps {
-    center: { lat: number; lng: number };
+    /** Coordinates may be missing on the salon row; validated with isValidLatLng below. */
+    center: { lat?: number; lng?: number };
     salons: SalonDetail[];
     hoveredSalonId?: string | null;
     onSalonHover?: (id: string | null) => void;

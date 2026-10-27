@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import Link from 'next/link';
@@ -39,8 +40,8 @@ export default function ForgotPassword() {
             }
 
             setSuccess(true);
-        } catch (err: any) {
-            console.error('forgot-password error:', err?.message || err);
+        } catch (err: unknown) {
+            console.error('forgot-password error:', toErrorLike(err).message || err);
             setError('İşlem başarısız. Lütfen tekrar deneyin.');
         } finally {
             setLoading(false);

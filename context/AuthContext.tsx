@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import type { AuthResponse, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { ProfileService } from '@/services/db';
 import { Profile, UserRole } from '@/types';
 
 // Role constants for type safety
@@ -18,7 +20,7 @@ interface AuthContextType {
     loading: boolean;
     signInWithEmail: (email: string, password: string) => Promise<Profile | null>;
     signInWithGoogle: () => Promise<void>;
-    signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<{ user: any; session: any } | undefined>;
+    signUp: (email: string, password: string, firstName: string, lastName: string, role?: UserRole) => Promise<AuthResponse['data'] | undefined>;
     signOut: () => Promise<void>;
     refreshUser: () => Promise<void>;
     refreshProfile: () => Promise<void>;
@@ -39,68 +41,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
         if (!userId || userId === "") return null;
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (error) {
-                // Handle "not found" error - profile might not be created yet by trigger
-                if (error.code === 'PGRST116' && retryCount < 3) {
-                    // Profile may not yet exist (DB trigger lag after sign-up)
-                    const PROFILE_CREATION_RETRY_DELAY_MS = 500;
-                    await new Promise(resolve => setTimeout(resolve, PROFILE_CREATION_RETRY_DELAY_MS));
-                    return fetchProfile(userId, retryCount + 1);
-                }
-
-                // Only log if it's a real error (not just "not found")
-                if (error.code !== 'PGRST116') {
-                    console.warn('Profile fetch error:', error.message);
-                }
-                return null;
+            return await ProfileService.getProfileById(userId);
+        } catch (err: unknown) {
+            const code = (err as { code?: string } | null)?.code;
+            // Handle "not found" error - profile might not be created yet by trigger
+            if (code === 'PGRST116' && retryCount < 3) {
+                // Profile may not yet exist (DB trigger lag after sign-up)
+                const PROFILE_CREATION_RETRY_DELAY_MS = 500;
+                await new Promise(resolve => setTimeout(resolve, PROFILE_CREATION_RETRY_DELAY_MS));
+                return fetchProfile(userId, retryCount + 1);
             }
-
-            return data as Profile;
-        } catch (err) {
-            // Only log unexpected errors
-            if (err instanceof Error) {
-                console.warn('Unexpected profile fetch error:', err.message);
+            // Only log if it's a real error (not just "not found")
+            if (code !== 'PGRST116') {
+                const message = (err as { message?: string } | null)?.message;
+                console.warn(code ? 'Profile fetch error:' : 'Unexpected profile fetch error:', message);
             }
             return null;
         }
     };
 
     // Create profile manually if trigger failed
-    const createProfileManually = async (user: any): Promise<Profile | null> => {
+    const createProfileManually = async (user: User): Promise<Profile | null> => {
+        const meta = user.user_metadata ?? {};
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .insert({
-                    id: user.id,
-                    email: user.email,
-                    first_name: user.user_metadata?.first_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : null),
-                    last_name: user.user_metadata?.last_name || (user.user_metadata?.full_name ? user.user_metadata.full_name.split(' ').slice(1).join(' ') : null),
-                    avatar_url: user.user_metadata?.avatar_url || null,
-                    role: user.user_metadata?.role || ROLES.CUSTOMER
-                })
-                .select()
-                .single();
-
-            if (error) {
-                // If duplicate key, try to fetch existing profile
-                if (error.code === '23505') {
-                    return await fetchProfile(user.id, 0);
-                }
-                console.warn('Profile creation error:', error.message);
-                return null;
+            return await ProfileService.createProfile({
+                id: user.id,
+                email: user.email ?? '',
+                first_name: meta.first_name || (meta.full_name ? meta.full_name.split(' ')[0] : null),
+                last_name: meta.last_name || (meta.full_name ? meta.full_name.split(' ').slice(1).join(' ') : null),
+                avatar_url: meta.avatar_url || null,
+                role: meta.role || ROLES.CUSTOMER
+            });
+        } catch (err: unknown) {
+            const code = (err as { code?: string } | null)?.code;
+            // If duplicate key, try to fetch existing profile
+            if (code === '23505') {
+                return await fetchProfile(user.id, 0);
             }
-
-            return data as Profile;
-        } catch (err) {
-            if (err instanceof Error) {
-                console.warn('Unexpected profile creation error:', err.message);
-            }
+            const message = (err as { message?: string } | null)?.message;
+            console.warn(code ? 'Profile creation error:' : 'Unexpected profile creation error:', message);
             return null;
         }
     };
@@ -109,16 +88,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             // Force refresh session from server with a timeout
             // This prevents the app from hanging if the browser extension or network causes getSession to hang
-            const timeoutPromise = new Promise((_, reject) =>
+            const timeoutPromise = new Promise<never>((_, reject) =>
                 setTimeout(() => reject(new Error('Session check timeout')), 5000)
             );
 
             const { data, error } = await Promise.race([
                 supabase.auth.getSession(),
                 timeoutPromise
-            ]) as any;
+            ]);
 
-            const session = data?.session;
+            const session: Session | null = data?.session ?? null;
 
             if (error) throw error;
 
@@ -160,8 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setUser(null); // Explicitly set to null when no session
             }
-        } catch (error: any) {
-            if (error.message === 'Session check timeout') {
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message === 'Session check timeout') {
                 console.warn('[AuthContext] Session check timed out. Proceeding as unauthenticated.');
                 // Don't clear user here immediately if we want to be optimistic, but safest is to assume no session.
                 // However, falling back to unauthenticated is better than hanging.

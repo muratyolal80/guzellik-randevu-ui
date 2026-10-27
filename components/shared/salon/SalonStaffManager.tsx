@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Key, Loader2, RefreshCw, UserRound } from 'lucide-react';
@@ -9,7 +10,7 @@ import Skeleton from '@/components/Skeleton';
 import StaffCredentialModal from '@/components/owner/StaffCredentialModal';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
-import { Staff, WorkingHours, Invite } from '@/types';
+import { Staff, WorkingHours, Invite, SalonServiceDetail } from '@/types';
 import ImageUpload from '@/components/ImageUpload';
 import WorkingHoursEditor from './WorkingHoursEditor';
 import {
@@ -69,7 +70,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [showShiftModal, setShowShiftModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
     const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
-    const [salonServices, setSalonServices] = useState<any[]>([]);
+    const [salonServices, setSalonServices] = useState<(SalonServiceDetail & { global_service?: { name?: string } | null })[]>([]);
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
 
     // Form States
@@ -150,9 +151,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                 }
                 setStaffMissing(missing);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             // Boş {} hatasını anlamlı mesaja çevir, kullanıcıya GÖRÜNÜR yap
-            const detail = err?.message || err?.code || err?.details ||
+            const detail = toErrorLike(err).message || toErrorLike(err).code || toErrorLike(err).details ||
                 (typeof err === 'object' ? JSON.stringify(err) : String(err)) ||
                 'Bilinmeyen hata';
             console.error('[SalonStaffManager] Veri çekme hatası:', detail, err);
@@ -196,8 +197,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             await StaffService.assignStaffToBranch(staffMember.id, salonId);
             setShowAssignModal(false);
             fetchStaff();
-        } catch (err: any) {
-             if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+        } catch (err: unknown) {
+             if (toErrorLike(err).message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
                 showToast('Personel limitine ulaştınız. Atama yapabilmek için paketinizi yükseltmelisiniz.', 'warning');
             } else {
                 console.error('Atama hatası:', err);
@@ -224,8 +225,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setFormWorkingHours(DEFAULT_HOURS);
             setAddMode('direct');
             setShowModal(true);
-        } catch (err: any) {
-            if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
+        } catch (err: unknown) {
+            if (toErrorLike(err).message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
                 showToast('Personel limitine ulaştınız. Paket yükseltmelisiniz.', 'warning');
             } else {
                 console.error(err);
@@ -349,10 +350,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
         try {
             await StaffService.deleteStaff(staffId);
             setStaff(prev => prev.filter(s => s.id !== staffId));
-        } catch (err: any) {
+        } catch (err: unknown) {
             // STAFF_HAS_APPOINTMENTS → pasif yapma fallback'i öner
-            if (err?.code === 'STAFF_HAS_APPOINTMENTS') {
-                const cnt = err?.appointmentCount ?? '';
+            if (toErrorLike(err).code === 'STAFF_HAS_APPOINTMENTS') {
+                const cnt = toErrorLike(err).appointmentCount ?? '';
                 const msg = cnt
                     ? `Bu personel ${cnt} randevuya bağlı. Geçmiş kayıtları kaybetmemek için silinemez. Pasif personel listede gizlenir ama randevu geçmişi korunur.`
                     : 'Bu personel başka kayıtlara bağlı, silinemez. Pasif personel listede gizlenir ama geçmiş korunur.';
@@ -360,25 +361,25 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     try {
                         await StaffService.deactivateStaff(staffId);
                         setStaff(prev => prev.map(s => s.id === staffId ? { ...s, is_active: false } : s));
-                    } catch (deactivateErr: any) {
+                    } catch (deactivateErr: unknown) {
                         // RLS engeli (yetki) — net mesaj
-                        const code = deactivateErr?.code;
+                        const code = toErrorLike(deactivateErr).code;
                         if (code === '42501' || code === 'PGRST301') {
                             showToast('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel pasifleştirebilir.', 'error');
                         } else {
-                            showToast(`Pasif yapılamadı: ${deactivateErr?.message || 'Bilinmeyen hata'}`, 'error');
+                            showToast(`Pasif yapılamadı: ${toErrorLike(deactivateErr).message || 'Bilinmeyen hata'}`, 'error');
                         }
                     }
                 }
                 return;
             }
             // RLS engeli
-            if (err?.code === '42501' || err?.code === 'PGRST301') {
+            if (toErrorLike(err).code === '42501' || toErrorLike(err).code === 'PGRST301') {
                 showToast('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel silebilir.', 'error');
                 return;
             }
             console.error('Silme hatası:', err);
-            showToast(`Silme başarısız: ${err?.message || 'Bilinmeyen hata'}`, 'error');
+            showToast(`Silme başarısız: ${toErrorLike(err).message || 'Bilinmeyen hata'}`, 'error');
         }
     };
 
@@ -517,8 +518,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     kvkk_consent: true,
                                 });
                                 window.location.reload();
-                            } catch (err: any) {
-                                showToast('Eklenemedi: ' + (err?.message || 'Bilinmeyen hata'), 'error');
+                            } catch (err: unknown) {
+                                showToast('Eklenemedi: ' + (toErrorLike(err).message || 'Bilinmeyen hata'), 'error');
                             } finally {
                                 setSaving(false);
                             }
@@ -981,8 +982,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     </div>
                                     <div className="bg-surface-alt rounded-[40px] p-8 border border-border shadow-inner">
                                         <WorkingHoursEditor
-                                            hours={formWorkingHours as any}
-                                            onChange={setFormWorkingHours as any}
+                                            hours={formWorkingHours}
+                                            onChange={setFormWorkingHours}
                                             days={days}
                                         />
                                     </div>
@@ -1224,8 +1225,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                     onUpdated={() => {
                         // Tüm listeyi yenile (user_id link değişti)
                         if (salonId) {
-                            StaffService.getStaffBySalon(salonId).then((list: any[]) => {
-                                setStaff(list as any);
+                            StaffService.getStaffBySalon(salonId).then((list) => {
+                                setStaff(list);
                             }).catch(() => { });
                         }
                     }}

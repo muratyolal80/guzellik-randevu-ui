@@ -5,7 +5,10 @@ import { Star, ChevronRight } from 'lucide-react';
 
 interface PendingReviewsBannerProps {
     count: number;
-    pending: any[];
+    pending: {
+        salon?: { name?: string | null } | null;
+        service?: { global_service?: { name?: string | null } | null } | null;
+    }[];
 }
 
 export default function PendingReviewsBanner({ count, pending }: PendingReviewsBannerProps) {

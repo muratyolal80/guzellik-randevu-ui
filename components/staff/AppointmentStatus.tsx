@@ -12,7 +12,7 @@ import { ChevronDown, CheckCircle2, CircleCheckBig, XCircle } from 'lucide-react
 import { useToast } from '@/components/ui/Toast';
 
 interface AppointmentStatusProps {
-    appointment: any;
+    appointment: { id: string; status: string };
     onUpdate: () => void;
 }
 

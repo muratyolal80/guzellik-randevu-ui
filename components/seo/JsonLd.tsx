@@ -5,7 +5,7 @@
 import type { SalonDetail, Review } from '@/types';
 
 interface JsonLdProps {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 export function JsonLd({ data }: JsonLdProps) {
@@ -76,7 +76,7 @@ export const beautySalonSchema = (salon: SalonDetail, reviews: Review[] = []) =>
     description: salon.description || `${salon.name} - güzellik ve bakım hizmetleri`,
     image: salon.image || `${siteUrl}/placeholder-salon.jpg`,
     url: `${siteUrl}/salon/${salon.id}`,
-    telephone: (salon as any).phone || undefined,
+    telephone: salon.phone || undefined,
     address: {
       '@type': 'PostalAddress',
       addressLocality: salon.district_name,

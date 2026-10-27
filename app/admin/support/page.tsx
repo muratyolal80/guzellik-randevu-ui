@@ -23,6 +23,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
 import Skeleton from '@/components/Skeleton';
+import type { SupportTicket, TicketMessage } from '@/types';
 
 const ROLE_LABELS: Record<string, string> = {
     CUSTOMER: 'Müşteri', STAFF: 'Personel', MANAGER: 'Yönetici', SALON_OWNER: 'Salon Sahibi', ADMIN: 'Admin', SUPER_ADMIN: 'Destek Ekibi',
@@ -31,10 +32,10 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AdminSupportManagement() {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const [tickets, setTickets] = useState<any[]>([]);
+    const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedTicket, setSelectedTicket] = useState<any>(null);
-    const [messages, setMessages] = useState<any[]>([]);
+    const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+    const [messages, setMessages] = useState<TicketMessage[]>([]);
     const [reply, setReply] = useState('');
     const [sending, setSending] = useState(false);
     const [filterStatus, setFilterStatus] = useState('ALL');
@@ -58,7 +59,7 @@ export default function AdminSupportManagement() {
         }
     };
 
-    const handleSelectTicket = async (ticket: any) => {
+    const handleSelectTicket = async (ticket: SupportTicket) => {
         setSelectedTicket(ticket);
         try {
             const ticketMsgs = await SupportService.getTicketMessages(ticket.id);
@@ -94,7 +95,7 @@ export default function AdminSupportManagement() {
         if (!selectedTicket) return;
         try {
             await SupportService.resolveTicket(selectedTicket.id);
-            setSelectedTicket((prev: any) => ({ ...prev, status: 'RESOLVED' }));
+            setSelectedTicket((prev) => (prev ? { ...prev, status: 'RESOLVED' } : prev));
             fetchTickets();
             showToast('Talep çözüldü.', 'success');
         } catch (err) {

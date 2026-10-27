@@ -20,8 +20,7 @@ export const GeminiChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Use a wide type because this repo currently reports missing DOM lib typings in some builds.
-  const messagesEndRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
@@ -133,7 +132,7 @@ export const GeminiChat: React.FC = () => {
               <input
                 type="text"
                 value={input}
-                onChange={(e) => setInput((e.target as any).value)}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Bir şeyler sorun..."
                 className="w-full bg-gray-50 border border-gray-200 rounded-full py-3 pl-4 pr-12 text-sm text-text-main focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"

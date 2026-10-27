@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { SalonDataService, SubscriptionService } from '@/services/db';
@@ -121,8 +122,8 @@ export default function OwnerSalonsPage() {
             await SalonDataService.suspendSalonAndCancelSubscription(salonId);
             showToast('Salon pasife alındı.', 'success');
             fetchSalons();
-        } catch (error: any) {
-            showToast('Hata: ' + error.message, 'error');
+        } catch (error: unknown) {
+            showToast('Hata: ' + toErrorLike(error).message, 'error');
         }
     };
 
@@ -132,8 +133,8 @@ export default function OwnerSalonsPage() {
             await SalonDataService.submitForApproval(salonId);
             showToast('Aktivasyon isteğiniz gönderildi. Yönetici onayından sonra salonunuz aktif olacaktır.', 'success');
             fetchSalons();
-        } catch (error: any) {
-            showToast('Hata: ' + error.message, 'error');
+        } catch (error: unknown) {
+            showToast('Hata: ' + toErrorLike(error).message, 'error');
         }
     };
 

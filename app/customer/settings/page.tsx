@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Bell, Shield, User, Trash2, Mail, MessageSquare, Globe, MapPin, Loader2, Monitor } from 'lucide-react';
 import { ProfileService, MasterDataService } from '@/services/db';
 import { SessionManager } from '@/components/account/SessionManager';
-import { City } from '@/types';
+import { City, Profile } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
@@ -35,7 +35,7 @@ export default function SettingsPage() {
         loadCities();
     }, [showToast]);
 
-    const handleUpdatePref = async (updates: any) => {
+    const handleUpdatePref = async (updates: Partial<Profile>) => {
         if (!user) return;
         setLoading(true);
         try {
@@ -122,7 +122,7 @@ export default function SettingsPage() {
                                             className="w-full text-sm border-gray-200 rounded-lg focus:ring-primary"
                                         >
                                             <option value="">Seçiniz</option>
-                                            {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                 </div>

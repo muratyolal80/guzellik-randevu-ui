@@ -2,6 +2,7 @@
  * Resend tabanlı transactional email gönderici.
  * RESEND_API_KEY tanımlı değilse demo mode — sadece loglar.
  */
+import { toErrorLike } from '@/lib/error-mapping';
 import { Resend } from 'resend';
 
 const apiKey = process.env.RESEND_API_KEY;
@@ -37,9 +38,9 @@ export async function sendEmail(params: SendEmailParams): Promise<{ success: boo
     });
     if (result.error) return { success: false, error: result.error.message };
     return { success: true, id: result.data?.id };
-  } catch (err: any) {
-    console.error('[email] send failed:', err?.message || err);
-    return { success: false, error: err?.message || 'Bilinmeyen hata' };
+  } catch (err: unknown) {
+    console.error('[email] send failed:', toErrorLike(err).message || err);
+    return { success: false, error: toErrorLike(err).message || 'Bilinmeyen hata' };
   }
 }
 

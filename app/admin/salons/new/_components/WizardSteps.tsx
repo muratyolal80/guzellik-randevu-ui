@@ -15,7 +15,7 @@ import {
   Clock,
   Star
 } from "lucide-react";
-import { Profile, City, District, SalonType } from "@/types";
+import { Profile, City, District, SalonType, Subscription, SubscriptionPlan, SalonWizardForm } from "@/types";
 import { ProfileService, SubscriptionService, MasterDataService } from "@/services/db";
 import Skeleton from "@/components/Skeleton";
 import { useToast } from "@/components/ui/Toast";
@@ -27,6 +27,13 @@ import SalonWorkingHoursForm from "@/components/shared/salon/SalonWorkingHoursFo
 import SalonServicesManager from "@/components/shared/salon/SalonServicesManager";
 import SalonStaffManager from "@/components/shared/salon/SalonStaffManager";
 import SalonGalleryManager from "@/components/shared/salon/SalonGalleryManager";
+
+type WizardSalonData = Omit<SalonWizardForm, "features">;
+
+interface SalonDataProps {
+  salonData: WizardSalonData;
+  setSalonData: React.Dispatch<React.SetStateAction<WizardSalonData>>;
+}
 
 const AdminSalonMap = dynamic(
   () => import("@/components/Admin/AdminSalonMap").then(mod => mod.default),
@@ -194,7 +201,14 @@ export function Step2PlanLimits({
   plans, 
   selectedPlanId, 
   setSelectedPlanId 
-}: any) {
+}: {
+  selectedOwner: Profile | null;
+  ownerSubscription: Subscription | null;
+  limitStatus: { allowed: boolean; limit: number; current: number } | null;
+  plans: SubscriptionPlan[];
+  selectedPlanId: string | null;
+  setSelectedPlanId: (planId: string) => void;
+}) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="p-8 bg-white border border-slate-200 rounded-[2rem] shadow-sm relative overflow-hidden">
@@ -226,7 +240,7 @@ export function Step2PlanLimits({
                  <Plus className="w-5 h-5 text-primary" aria-hidden="true" /> Paket Seçimi
               </h4>
               <SubscriptionPlanSelector
-                plans={plans}
+                plans={plans.map(p => ({ ...p, description: p.description ?? "" }))}
                 selectedPlanId={selectedPlanId}
                 billingCycle="MONTHLY"
                 onSelect={setSelectedPlanId}
@@ -277,7 +291,7 @@ export function Step2PlanLimits({
 }
 
 // --- STEP 3: BASIC INFO ---
-export function Step3BasicInfo({ salonData, setSalonData, salonTypes }: any) {
+export function Step3BasicInfo({ salonData, setSalonData, salonTypes }: SalonDataProps & { salonTypes: SalonType[] }) {
   const formatPhone = (val: string) => {
     const cleaned = val.replace(/\D/g, "");
     if (cleaned.length === 0) return "";
@@ -319,7 +333,7 @@ export function Step3BasicInfo({ salonData, setSalonData, salonTypes }: any) {
               onChange={(e) => setSalonData({...salonData, primary_type_id: e.target.value, type_ids: [e.target.value]})}
             >
               <option value="">Seçiniz...</option>
-              {salonTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {salonTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div className="space-y-2 col-span-full">
@@ -338,7 +352,7 @@ export function Step3BasicInfo({ salonData, setSalonData, salonTypes }: any) {
 }
 
 // --- STEP 4: LOCATION & MAP ---
-export function Step4LocationMap({ salonData, setSalonData, cities, districts }: any) {
+export function Step4LocationMap({ salonData, setSalonData, cities, districts }: SalonDataProps & { cities: City[]; districts: District[] }) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -449,7 +463,12 @@ export function Step7Staff({ salonId }: { salonId: string }) {
 }
 
 // --- STEP 8: FINAL PREVIEW ---
-export function Step8FinalPreview({ salonData, salonType, selectedOwner }: any) {
+export function Step8FinalPreview({ salonData, salonType, selectedOwner }: {
+  salonData: WizardSalonData;
+  salonType?: string;
+  selectedOwner: Profile | null;
+  loading?: boolean;
+}) {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="relative p-10 bg-slate-900 rounded-[3rem] text-white overflow-hidden shadow-2xl shadow-slate-900/30">
@@ -484,7 +503,7 @@ export function Step8FinalPreview({ salonData, salonType, selectedOwner }: any) 
            </div>
 
            <div className="bg-white rounded-[2.5rem] overflow-hidden p-8 text-slate-900 shadow-xl">
-              <SalonGalleryManager salonId={salonData.id} />
+              <SalonGalleryManager salonId={salonData.id as string} />
            </div>
 
            <div className="flex gap-4 p-6 bg-amber-500/10 border border-amber-500/20 rounded-[1.5rem] text-amber-200 text-xs font-black uppercase tracking-tight leading-relaxed">

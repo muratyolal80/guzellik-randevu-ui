@@ -52,7 +52,7 @@ export default function Settings() {
     const [commissionRate, setCommissionRate] = useState(5);
 
     // Bank States (DB)
-    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [bankAccounts, setBankAccounts] = useState<{ bank: string; owner: string; iban: string; description: string }[]>([]);
 
     // Email/SMTP States (DB)
     const [emailConfig, setEmailConfig] = useState({
@@ -311,7 +311,7 @@ export default function Settings() {
                                         PAYTR:  { title: 'PayTR (Aktif önerilen)', desc: 'iFrame API · Demo kartlarla test', color: 'emerald' },
                                         IYZICO: { title: 'Iyzico (Pasif/Arşiv)',     desc: 'Sandbox · Onay alınınca aktif olur', color: 'purple' },
                                         NONE:   { title: 'Yok (Sadece havale)',      desc: 'Kredi kartı UI gizlenir',          color: 'slate' },
-                                    } as any;
+                                    };
                                     const c = labels[p];
                                     const selected = activeProvider === p;
                                     return (
@@ -443,7 +443,7 @@ export default function Settings() {
                                 </div>
                                 <select
                                     value={iyzicoMode}
-                                    onChange={(e) => setIyzicoMode(e.target.value as any)}
+                                    onChange={(e) => setIyzicoMode(e.target.value as 'sandbox' | 'live')}
                                     className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest outline-none border-2 ${iyzicoMode === 'live' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}
                                 >
                                     <option value="sandbox">Sandbox (Test)</option>

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Store, CircleCheck } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
-import { supabase as sharedSupabase } from '@/lib/supabase';
+import { ProfileService } from '@/services/db';
 import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 const KVKK_VERSION = 'v1.0';
@@ -80,19 +80,9 @@ export default function Register() {
 
             // Persist KVKK + marketing consent metadata after signUp succeeded
             try {
-                const supabase = sharedSupabase;
                 const userId = result?.user?.id;
                 if (userId) {
-                    const nowIso = new Date().toISOString();
-                    await supabase
-                        .from('profiles')
-                        .update({
-                            kvkk_accepted_at: nowIso,
-                            kvkk_version: KVKK_VERSION,
-                            marketing_opt_in: marketingAccepted,
-                            marketing_opt_in_at: marketingAccepted ? nowIso : null,
-                        })
-                        .eq('id', userId);
+                    await ProfileService.saveSignupConsent(userId, KVKK_VERSION, marketingAccepted);
                 }
             } catch (consentErr) {
                 console.warn('Consent metadata write failed (non-blocking):', consentErr);

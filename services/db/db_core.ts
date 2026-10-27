@@ -263,7 +263,7 @@ export const MasterDataService = {
 
     // Extract and deduplicate categories
     const uniqueCategories = new Map<string, ServiceCategory>();
-    data?.forEach((item: any) => {
+    (data as unknown as { category: ServiceCategory | null }[] | null)?.forEach((item) => {
       if (item.category) {
         uniqueCategories.set(item.category.id, item.category);
       }
@@ -397,21 +397,24 @@ export const GlobalSearchService = {
         .limit(5),
     ]);
 
-    const salons = (salonsResp.data || []).map((s: any) => ({
+    type SearchSalonRow = { id: string; name: string | null; image: string | null; slug: string; city: { name: string } | string | null };
+    type SearchServiceRow = { id: string; name: string | null; slug: string; category: { name: string } | string | null };
+
+    const salons = ((salonsResp.data || []) as unknown as SearchSalonRow[]).map((s) => ({
       ...s,
       name: String(s.name || ""),
       city_name:
         typeof s.city === "object"
-          ? String(s.city?.name || "Belirtilmemiş")
+          ? String((s.city as { name?: string } | null)?.name || "Belirtilmemiş")
           : String(s.city || "Belirtilmemiş"),
     }));
 
-    const services = (servicesResp.data || []).map((s: any) => ({
+    const services = ((servicesResp.data || []) as unknown as SearchServiceRow[]).map((s) => ({
       ...s,
       name: String(s.name || ""),
       category_name:
         typeof s.category === "object"
-          ? String(s.category?.name || "Diğer")
+          ? String((s.category as { name?: string } | null)?.name || "Diğer")
           : String(s.category || "Diğer"),
     }));
 
@@ -439,7 +442,7 @@ export const PlatformService = {
    */
   async updateSetting(
     key: string,
-    value: any,
+    value: unknown,
     supabase: SupabaseClient = defaultSupabase,
   ) {
     const { error } = await supabase

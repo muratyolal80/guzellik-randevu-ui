@@ -7,7 +7,7 @@ import {
   SubscriptionService,
 } from "@/services/db";
 import { supabase } from "@/lib/supabase";
-import { City, District, SalonType, Profile } from "@/types";
+import type { City, District, SalonType, Profile, Subscription, SubscriptionPlan, SalonWizardForm, Salon } from "@/types";
 import {
   ChevronRight,
   ChevronLeft,
@@ -56,15 +56,15 @@ export default function AdminNewSalonPage() {
   
   // Data States
   const [selectedOwner, setSelectedOwner] = useState<Profile | null>(null);
-  const [ownerSubscription, setOwnerSubscription] = useState<any>(null);
+  const [ownerSubscription, setOwnerSubscription] = useState<Subscription | null>(null);
   const [limitStatus, setLimitStatus] = useState<{ allowed: boolean; limit: number; current: number } | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [salonTypes, setSalonTypes] = useState<SalonType[]>([]);
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   
-  const [salonData, setSalonData] = useState<any>({
+  const [salonData, setSalonData] = useState<Omit<SalonWizardForm, "features">>({
     name: "",
     phone: "",
     type_ids: [] as string[],
@@ -129,12 +129,9 @@ export default function AdminNewSalonPage() {
     const checkOwnerStats = async () => {
       try {
         const sub = await SubscriptionService.getOwnerActiveSubscription(selectedOwner.id);
-        const { count: salonCount } = await supabase
-          .from('salons')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', selectedOwner.id)
-          .not('status', 'eq', 'DELETED');
-        
+        // Count errors are non-fatal (treated as 0 like before)
+        const salonCount = await SalonDataService.countOwnerSalons(selectedOwner.id).catch(() => 0);
+
         const limit = sub?.subscription_plans?.max_branches ?? 0;
         const current = salonCount || 0;
         const allowed = limit === -1 || current < limit;
@@ -175,13 +172,13 @@ export default function AdminNewSalonPage() {
               owner_id: selectedOwner!.id,
               type_id: salonData.primary_type_id,
               status: 'DRAFT'
-            },
+            } as Omit<Salon, "id" | "created_at" | "updated_at">,
             workingHours,
             [],
             supabase,
             true
           );
-          setSalonData((prev: any) => ({ ...prev, id: newSalon.id }));
+          setSalonData((prev) => ({ ...prev, id: newSalon.id }));
           showToast("Salon taslağı oluşturuldu.", "success");
         } else {
           await SalonDataService.updateSalon(salonData.id, {
@@ -211,7 +208,8 @@ export default function AdminNewSalonPage() {
       if (salonData.id) {
         await SalonDataService.setSalonStatus(salonData.id, 'APPROVED');
         if (!ownerSubscription && selectedPlanId) {
-          await SubscriptionService.adminAssignSubscription(salonData.id, selectedPlanId, "MONTHLY");
+          // target must be an object — a bare id string made the service throw "salonId veya ownerId zorunludur"
+          await SubscriptionService.adminAssignSubscription({ salonId: salonData.id }, selectedPlanId, "MONTHLY");
         }
         showToast("Salon başarıyla oluşturuldu ve aktifleştirildi.", "success");
         router.push("/admin/salons/approvals");
@@ -249,9 +247,9 @@ export default function AdminNewSalonPage() {
                 cities={cities} 
                 districts={districts} 
               />;
-      case 5: return <SalonWorkingHoursForm salonId={salonData.id} />;
-      case 6: return <SalonServicesManager salonId={salonData.id} />;
-      case 7: return <SalonStaffManager salonId={salonData.id} />;
+      case 5: return <SalonWorkingHoursForm salonId={salonData.id as string} />;
+      case 6: return <SalonServicesManager salonId={salonData.id as string} />;
+      case 7: return <SalonStaffManager salonId={salonData.id as string} />;
       case 8: return <Step8FinalPreview 
                 salonData={salonData} 
                 salonType={salonTypes.find(t => t.id === salonData.primary_type_id)?.name}

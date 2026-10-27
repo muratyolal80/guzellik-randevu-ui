@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -168,10 +169,10 @@ export async function POST(request: NextRequest) {
             merchant_oid,
             subscription_id: subscription.id,
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('PayTR create-token error:', err);
         return NextResponse.json(
-            { error: err?.message || 'Beklenmedik hata' },
+            { error: toErrorLike(err).message || 'Beklenmedik hata' },
             { status: 500 }
         );
     }

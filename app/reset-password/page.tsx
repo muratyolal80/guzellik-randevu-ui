@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import Skeleton from '@/components/Skeleton';
 import { Layout } from '@/components/Layout';
@@ -55,8 +56,8 @@ export default function ResetPassword() {
 
             setSuccess(true);
             setTimeout(() => router.push('/login'), 2500);
-        } catch (err: any) {
-            console.error('reset-password error:', err?.message || err);
+        } catch (err: unknown) {
+            console.error('reset-password error:', toErrorLike(err).message || err);
             setError('Şifre güncellenemedi. Lütfen tekrar deneyin.');
         } finally {
             setLoading(false);

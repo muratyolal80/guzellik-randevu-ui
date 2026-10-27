@@ -1,6 +1,7 @@
 import { supabase as defaultSupabase, supabaseUrl } from "@/lib/supabase";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AuditLogEntry,
   City,
   District,
   SalonType,
@@ -345,6 +346,17 @@ export const NotificationService = {
   },
 
   /**
+   * Delete a notification (RLS: own rows only)
+   */
+  async deleteNotification(
+    id: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<void> {
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) throw error;
+  },
+
+  /**
    * Mark all notifications as read for a user
    */
   async markAllAsRead(
@@ -371,12 +383,12 @@ export const AuditLogService = {
     action: string;
     resource_type: string;
     resource_id?: string;
-    changes?: any;
+    changes?: unknown;
     ip_address?: string;
     user_agent?: string;
     supabase?: SupabaseClient;
   }): Promise<void> {
-    const { supabase: passedSupabase, ...logData } = log as any;
+    const { supabase: passedSupabase, ...logData } = log;
     const client = passedSupabase || defaultSupabase;
 
     // audit_logs salon-kapsamlıdır (salon_id NOT NULL). Salon bağlamı olmayan
@@ -399,7 +411,7 @@ export const AuditLogService = {
     salonId: string,
     limit: number = 100,
     supabase: SupabaseClient = defaultSupabase,
-  ): Promise<any[]> {
+  ): Promise<AuditLogEntry[]> {
     const { data, error } = await supabase
       .from("audit_logs")
       .select(

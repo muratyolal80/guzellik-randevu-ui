@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
                 errorCode: result.errorCode
             }, { status: 400 });
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('iyzico sub-merchant creation error:', error);
         return NextResponse.json({ error: 'Uygulama hatası' }, { status: 500 });
     }

@@ -1,3 +1,4 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { isCronAuthorized } from '@/lib/auth/cron';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -71,9 +72,9 @@ export async function GET(request: NextRequest) {
                 
               totalSent++;
             }
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error(`Error sending reminder for appointment ${appt.id}:`, err);
-            errors.push({ id: appt.id, error: err.message });
+            errors.push({ id: appt.id, error: toErrorLike(err).message });
           }
         }
       }
@@ -86,8 +87,8 @@ export async function GET(request: NextRequest) {
       timestamp: now.toISOString()
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Reminder Cron Error:', err);
-    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: toErrorLike(err).message }, { status: 500 });
   }
 }

@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useTenant } from '@/context/TenantContext';
-import { supabase } from '@/lib/supabase';
-import { AppointmentService } from '@/services/db';
+import { AppointmentService, StaffService } from '@/services/db';
+import type { Appointment, AppointmentWithRelations } from '@/types';
 import PendingAppointmentsCard from '@/components/appointments/PendingAppointmentsCard';
 import {
     Clock,
@@ -24,7 +24,7 @@ export default function StaffDashboard() {
     const { user } = useAuth();
     const { salonId } = useTenant();
     const { showToast } = useToast();
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ today: 0, pending: 0, completed: 0 });
 
@@ -39,34 +39,20 @@ export default function StaffDashboard() {
             const today = new Date().toISOString().split('T')[0];
 
             // Get staff record first (to get their specific staff ID)
-            const { data: staffMember } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('user_id', user?.id)
-                .single();
+            const staffId = user ? await StaffService.getStaffIdByUserId(user.id) : null;
 
-            if (!staffMember) {
+            if (!staffId) {
                 console.warn('Current user is not linked to any staff profile');
                 setLoading(false);
                 return;
             }
 
             // Fetch today's appointments
-            const { data, error } = await supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    salon:salons(name),
-                    service:salon_services(price, duration_min, global_service:global_services(name))
-                `)
-                .eq('staff_id', staffMember.id)
-                .gte('start_time', `${today}T00:00:00Z`)
-                .lte('start_time', `${today}T23:59:59Z`)
-                .order('start_time', { ascending: true });
+            const data = await AppointmentService.getStaffAppointmentsWithService(
+                staffId, `${today}T00:00:00Z`, `${today}T23:59:59Z`, true
+            );
 
-            if (error) throw error;
-
-            setAppointments(data || []);
+            setAppointments(data);
 
             // Calculate Stats
             const todayAppts = data || [];
@@ -84,19 +70,14 @@ export default function StaffDashboard() {
         }
     };
 
-    const handleUpdateStatus = async (appointmentId: string, newStatus: string) => {
+    const handleUpdateStatus = async (appointmentId: string, newStatus: Appointment['status']) => {
         try {
             // Use DB service with tenant validation
             if (salonId) {
-                await AppointmentService.updateAppointmentStatus(appointmentId, newStatus as any, salonId);
+                await AppointmentService.updateAppointmentStatus(appointmentId, newStatus, salonId);
             } else {
                 // Fallback to direct update if no salonId (for safety)
-                const { error } = await supabase
-                    .from('appointments')
-                    .update({ status: newStatus, updated_at: new Date().toISOString() })
-                    .eq('id', appointmentId);
-
-                if (error) throw error;
+                await AppointmentService.updateAppointment(appointmentId, { status: newStatus, updated_at: new Date().toISOString() });
             }
 
             // Refresh local state
@@ -232,7 +213,7 @@ export default function StaffDashboard() {
                                         </td>
                                         <td className="px-6 py-4">
                                             {(() => {
-                                                const statusMap: Record<string, any> = {
+                                                const statusMap: Record<string, { label: string; color: string; bg: string }> = {
                                                     PENDING: { label: 'Bekliyor', color: 'bg-orange-500', bg: 'bg-orange-50' },
                                                     CONFIRMED: { label: 'Onaylı', color: 'bg-blue-500', bg: 'bg-blue-50' },
                                                     COMPLETED: { label: 'Tamamlandı', color: 'bg-green-500', bg: 'bg-green-50' },

@@ -14,6 +14,7 @@ import type {
   WorkingHours,
   SalonWorkingHours,
   Appointment,
+  AppointmentWithRelations,
   Review,
   IYSLog,
   SupportTicket,
@@ -36,6 +37,9 @@ import type {
 } from "@/types";
 import { SubscriptionService } from "./db_finance";
 import { STAFF_PUBLIC_COLUMNS, withStaffPrivate } from "./staff_columns";
+
+/** Error thrown by deleteStaff when the row is still referenced */
+type StaffDeleteError = Error & { code?: string; appointmentCount?: number | null; originalError?: unknown };
 
 // Helper to check if we have a real connection
 const isSupabaseConfigured = () => {
@@ -62,7 +66,7 @@ export const StaffService = {
     if (homeError) throw homeError;
 
     // Merge and Deduplicate
-    const allStaff = [...(homeStaff || [])];
+    const allStaff: Staff[] = [...((homeStaff || []) as unknown as Staff[])];
 
     // 2. Get staff assigned via staff_branches (table may not exist yet — non-critical)
     try {
@@ -78,23 +82,40 @@ export const StaffService = {
           assignedError.message || assignedError.code,
         );
       } else {
-        const assigned = (assignedStaffMap || [])
-          .map((item: any) => item.staff)
-          .filter((s: any) => s && s.is_active);
+        const assigned = ((assignedStaffMap || []) as unknown as { staff: Staff | null }[])
+          .map((item) => item.staff)
+          .filter((s): s is Staff => Boolean(s && s.is_active));
 
-        assigned.forEach((s: any) => {
+        assigned.forEach((s) => {
           if (!allStaff.find((existing) => existing.id === s.id)) {
             allStaff.push(s);
           }
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // staff_branches does not exist veya başka exception — non-blocking
-      console.warn("[getStaffBySalon] staff_branches threw (non-critical):", err?.message || err);
+      console.warn("[getStaffBySalon] staff_branches threw (non-critical):", err instanceof Error ? err.message : err);
     }
 
     allStaff.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     return withStaffPrivate(supabase, allStaff as Staff[]);
+  },
+
+  /**
+   * Lightweight list of active home-branch staff (id + name only)
+   */
+  async getActiveStaffNames(
+    salonId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<Pick<Staff, "id" | "name">[]> {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("id, name")
+      .eq("salon_id", salonId)
+      .eq("is_active", true);
+
+    if (error) throw error;
+    return (data || []) as Pick<Staff, "id" | "name">[];
   },
 
   /**
@@ -131,6 +152,39 @@ export const StaffService = {
     if (!data) return null;
     const [staff] = await withStaffPrivate(supabase, [data as Staff]);
     return staff;
+  },
+
+  /**
+   * Staff id of the signed-in staff member (null when the user is not linked to a staff row)
+   */
+  async getStaffIdByUserId(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string | null> {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data as { id: string } | null)?.id ?? null;
+  },
+
+  /**
+   * Salon ids the user works at as staff (first one = active salon)
+   */
+  async getSalonIdsByStaffUser(
+    userId: string,
+    supabase: SupabaseClient = defaultSupabase,
+  ): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("staff")
+      .select("salon_id")
+      .eq("user_id", userId);
+
+    if (error) throw error;
+    return ((data || []) as { salon_id: string }[]).map((r) => r.salon_id);
   },
 
   /**
@@ -300,7 +354,7 @@ export const StaffService = {
       .eq("staff_id", id);
 
     if (!countErr && (apptCount ?? 0) > 0) {
-      const err: any = new Error(
+      const err: StaffDeleteError = new Error(
         `Bu personel ${apptCount} randevuya bağlı; silmek yerine pasif yapın.`,
       );
       err.code = "STAFF_HAS_APPOINTMENTS";
@@ -312,9 +366,9 @@ export const StaffService = {
 
     if (error) {
       // Boş `{}` veya FK violation kodlarını anlamlı mesaja çevir
-      const code = (error as any).code;
+      const code = error.code;
       if (code === "23503" || !error.message) {
-        const wrap: any = new Error(
+        const wrap: StaffDeleteError = new Error(
           "Bu personel başka kayıtlara bağlı; pasif yapmayı deneyin.",
         );
         wrap.code = "STAFF_HAS_APPOINTMENTS";
@@ -512,7 +566,7 @@ export const StaffService = {
   async getStaffBranches(
     staffId: string,
     supabase: SupabaseClient = defaultSupabase,
-  ): Promise<any[]> {
+  ): Promise<{ id: string; staff_id: string; salon_id: string; salons: Salon | null }[]> {
     const { data, error } = await supabase
       .from("staff_branches")
       .select("*, salons(*)")
@@ -703,7 +757,7 @@ export const ServiceService = {
       requires_resource?: boolean;
     },
     supabase: SupabaseClient = defaultSupabase,
-  ): Promise<any> {
+  ): Promise<SalonService> {
     const { data, error } = await supabase
       .from("salon_services")
       .insert(serviceData)
@@ -728,7 +782,7 @@ export const ServiceService = {
     },
     salonId?: string,
     supabase: SupabaseClient = defaultSupabase,
-  ): Promise<any> {
+  ): Promise<SalonService> {
     let query = supabase.from("salon_services").update(updates).eq("id", id);
 
     if (salonId) {
@@ -979,7 +1033,7 @@ export const StaffAnalyticsService = {
        * duration / 30 mins
        */
       const bookedSlots =
-        appts?.reduce((sum, a: any) => {
+        (appts as unknown as { service?: { duration_min?: number } | null }[] | null)?.reduce((sum, a) => {
           const duration = a.service?.duration_min || 30;
           return sum + Math.ceil(duration / 30);
         }, 0) || 0;
@@ -1006,7 +1060,7 @@ export const StaffAnalyticsService = {
     supabase: SupabaseClient = defaultSupabase,
   ): Promise<{
     isAvailable: boolean;
-    currentAppointment?: any; // Using exact type would be better but keeping it flexible
+    currentAppointment?: AppointmentWithRelations;
     nextAvailableSlot?: string;
   }> {
     const now = new Date();
@@ -1030,7 +1084,7 @@ export const StaffAnalyticsService = {
     if (current) {
       return {
         isAvailable: false,
-        currentAppointment: current,
+        currentAppointment: current as AppointmentWithRelations,
         nextAvailableSlot: current.end_time,
       };
     }

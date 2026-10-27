@@ -17,11 +17,15 @@ import { useAuth } from '@/context/AuthContext';
 import { DashboardService } from '@/services/db';
 import type { SalonDetail } from '@/types';
 
+type DashboardResult = Awaited<ReturnType<typeof DashboardService.getDashboardData>>;
+/** Initial state has no loyalty entry yet, so topLoyalty may be null before the first fetch. */
+type DashboardData = Omit<DashboardResult, 'topLoyalty'> & { topLoyalty: DashboardResult['topLoyalty'] | null };
+
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<any>({
+    const [data, setData] = useState<DashboardData>({
         upcomingCount: 0,
         monthlySpending: 0,
         lastMonthSpending: 0,

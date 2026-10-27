@@ -26,6 +26,9 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import trLocale from '@fullcalendar/core/locales/tr';
+import type { DatesSetArg, EventDropArg, EventClickArg } from '@fullcalendar/core';
+import type { DateClickArg } from '@fullcalendar/interaction';
+import type { Staff, AppointmentWithRelations } from '@/types';
 
 // Randevu durumu → görsel meta (renk + etiket + nokta sınıfı).
 // Yönetim mantığı: PENDING dikkat çeksin (amber), CONFIRMED normal, COMPLETED gri, CANCELLED soluk/kırmızı.
@@ -51,14 +54,14 @@ export default function OwnerMasterCalendar() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
     const { showToast } = useToast();
-    const [staff, setStaff] = useState<any[]>([]);
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [staff, setStaff] = useState<Staff[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [preselectedSlot, setPreselectedSlot] = useState<Date | undefined>(undefined);
     const [preselectedStaff, setPreselectedStaff] = useState<string | undefined>(undefined);
     const [selectedStaffId, setSelectedStaffId] = useState<string | 'all'>('all');
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<(AppointmentWithRelations & { title: string; staff_name?: string }) | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [currentView, setCurrentView] = useState('timeGridWeek');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -121,7 +124,7 @@ export default function OwnerMasterCalendar() {
         if (range) fetchAppointments(range.start, range.end);
     };
 
-    const handleDatesSet = (arg: any) => {
+    const handleDatesSet = (arg: DatesSetArg) => {
         setCurrentView(arg.view.type);
         setRange({ start: arg.start.toISOString(), end: arg.end.toISOString() });
     };
@@ -162,14 +165,14 @@ export default function OwnerMasterCalendar() {
             };
         });
 
-    const handleEventDrop = async (info: any) => {
+    const handleEventDrop = async (info: EventDropArg) => {
         const { event } = info;
         try {
             await AppointmentService.updateAppointment(event.id, {
-                start_time: event.start.toISOString()
+                start_time: event.start!.toISOString()
             }, activeBranch?.id);
             setAppointments(prev => prev.map(apt =>
-                apt.id === event.id ? { ...apt, start_time: event.start.toISOString() } : apt
+                apt.id === event.id ? { ...apt, start_time: event.start!.toISOString() } : apt
             ));
         } catch (err) {
             console.error('Randevu taşınamadı:', err);
@@ -178,7 +181,7 @@ export default function OwnerMasterCalendar() {
         }
     };
 
-    const handleEventClick = (info: any) => {
+    const handleEventClick = (info: EventClickArg) => {
         const { event } = info;
         const apt = appointments.find(a => a.id === event.id);
         if (apt) {
@@ -198,7 +201,7 @@ export default function OwnerMasterCalendar() {
         setPreselectedStaff(staffId);
         setIsAddModalOpen(true);
     };
-    const handleDateClick = (arg: any) => {
+    const handleDateClick = (arg: DateClickArg) => {
         const now = Date.now();
         const ms = arg.date.getTime();
         if (now - lastSlotClick.current.t < 450 && lastSlotClick.current.ms === ms) {

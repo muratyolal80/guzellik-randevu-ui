@@ -1,5 +1,6 @@
+import { toErrorLike } from '@/lib/error-mapping';
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { verifyOTP, cleanPhone } from '@/lib/auth/otp';
 import { startSessionForUser } from '@/lib/auth/session';
 import { findAuthUserIdByPhone, findAuthUserIdByEmail } from '@/lib/auth/lookup';
@@ -9,7 +10,7 @@ import { sendAppointmentSMS } from '@/lib/messaging/sms';
 
 export async function POST(request: NextRequest) {
   // 1. Initialize Cookie Store
-  const cookieStore: { name: string, value: string, options: any }[] = [];
+  const cookieStore: { name: string, value: string, options: CookieOptions }[] = [];
 
   // 2. Initialize Supabase Client with Cookie Management
   const supabase = createServerClient(
@@ -187,8 +188,8 @@ export async function POST(request: NextRequest) {
 
     return finalResponse;
 
-  } catch (err: any) {
-    console.error('Fatal API Error:', err.message);
+  } catch (err: unknown) {
+    console.error('Fatal API Error:', toErrorLike(err).message);
     return NextResponse.json({ error: 'Sunucu hatası' }, { status: 500 });
   }
 }

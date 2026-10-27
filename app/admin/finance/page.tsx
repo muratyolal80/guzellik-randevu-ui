@@ -26,13 +26,38 @@ import {
 import Link from 'next/link';
 import RefundModal, { RefundableTransaction } from '@/components/Admin/RefundModal';
 
+interface PendingPayment {
+    id: string;
+    amount: number;
+    payment_type: string;
+    payment_method: string;
+    created_at: string;
+    salons?: { name?: string } | null;
+}
+
+interface ReportTransaction extends RefundableTransaction {
+    status: string;
+}
+
+interface FinancialReports {
+    transactions: ReportTransaction[];
+    stats: { totalRevenue: number; successCount: number; pendingCount: number; failedCount: number };
+}
+
+interface GhostSubscription {
+    id: string;
+    current_period_end: string;
+    salons?: { name?: string; status?: string } | null;
+    subscription_plans?: { name?: string } | null;
+}
+
 export default function FinanceAdmin() {
     const { showToast } = useToast();
     const { confirm, prompt } = useConfirm();
     const [view, setView] = useState<'approvals' | 'reports' | 'ghosts'>('approvals');
-    const [pendingPayments, setPendingPayments] = useState<any[]>([]);
-    const [ghostSubscriptions, setGhostSubscriptions] = useState<any[]>([]);
-    const [reports, setReports] = useState<any>(null);
+    const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+    const [ghostSubscriptions, setGhostSubscriptions] = useState<GhostSubscription[]>([]);
+    const [reports, setReports] = useState<FinancialReports | null>(null);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [refundTarget, setRefundTarget] = useState<RefundableTransaction | null>(null);
@@ -52,7 +77,8 @@ export default function FinanceAdmin() {
                 setGhostSubscriptions(data);
             } else {
                 const data = await FinanceService.getFinancialReports();
-                setReports(data);
+                // getFinancialReports builds its select string dynamically, so supabase-js types rows as GenericStringError.
+                setReports(data as unknown as FinancialReports);
             }
         } catch (err) {
             console.error('Data load error:', err);
@@ -183,7 +209,12 @@ export default function FinanceAdmin() {
     );
 }
 
-function PendingPaymentsList({ payments, onAction, processingId, formatCurrency }: any) {
+function PendingPaymentsList({ payments, onAction, processingId, formatCurrency }: {
+    payments: PendingPayment[];
+    onAction: (id: string, status: 'SUCCESS' | 'FAILED') => void;
+    processingId: string | null;
+    formatCurrency: (amount: number) => string;
+}) {
     if (payments.length === 0) {
         return (
             <div className="bg-white rounded-[40px] border-2 border-dashed border-gray-200 p-20 text-center">
@@ -196,7 +227,7 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
 
     return (
         <div className="grid grid-cols-1 gap-6">
-            {payments.map((payment: any) => (
+            {payments.map((payment) => (
                 <div key={payment.id} className="bg-white rounded-[32px] border border-border shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
                     <div className="flex flex-col lg:flex-row">
                         {/* Sol Bilgi Bölümü */}
@@ -251,11 +282,11 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
     );
 }
 
-function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: any, formatCurrency: any, onRefund?: (tr: RefundableTransaction) => void }) {
+function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: FinancialReports | null, formatCurrency: (amount: number) => string, onRefund?: (tr: RefundableTransaction) => void }) {
     const stats = reports?.stats ?? { totalRevenue: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
     const transactions = reports?.transactions ?? [];
 
-    const isRefundable = (tr: any) =>
+    const isRefundable = (tr: ReportTransaction) =>
         tr.status === 'SUCCESS' &&
         tr.amount > 0 &&
         (tr.metadata?.provider || '').toUpperCase() === 'PAYTR' &&
@@ -297,7 +328,7 @@ function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
-                            {transactions.map((tr: any) => (
+                            {transactions.map((tr) => (
                                 <tr key={tr.id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
@@ -325,7 +356,7 @@ function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: 
                                     <td className="px-8 py-6 text-right">
                                         {isRefundable(tr) && onRefund ? (
                                             <button
-                                                onClick={() => onRefund(tr as RefundableTransaction)}
+                                                onClick={() => onRefund(tr)}
                                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition"
                                                 title="PayTR üzerinden iade et"
                                             >
@@ -347,8 +378,8 @@ function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: 
     );
 }
 
-function StatCard({ label, value, icon: Icon, color }: { label: string, value: any, icon: LucideIcon, color: string }) {
-    const colorMap: any = {
+function StatCard({ label, value, icon: Icon, color }: { label: string, value: React.ReactNode, icon: LucideIcon, color: string }) {
+    const colorMap: Record<string, string> = {
         blue: 'bg-blue-50 text-blue-600',
         emerald: 'bg-emerald-50 text-emerald-600',
         amber: 'bg-amber-50 text-amber-600',
@@ -367,7 +398,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string, value: a
 }
 
 function StatusBadge({ status }: { status: string }) {
-    const styles: any = {
+    const styles: Record<string, string> = {
         SUCCESS: 'bg-emerald-100 text-emerald-700',
         PENDING: 'bg-amber-100 text-amber-700',
         FAILED: 'bg-red-100 text-red-700',
@@ -381,7 +412,11 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
+function GhostSubscriptionsList({ ghosts, onDelete, processingId }: {
+    ghosts: GhostSubscription[];
+    onDelete: (id: string) => void;
+    processingId: string | null;
+}) {
     if (ghosts.length === 0) {
         return (
             <div className="bg-white rounded-[40px] border border-border p-20 text-center">
@@ -405,7 +440,7 @@ function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-                {ghosts.map((ghost: any) => (
+                {ghosts.map((ghost) => (
                     <div key={ghost.id} className="bg-white p-8 rounded-[32px] border border-border flex flex-col md:flex-row items-center justify-between gap-6 hover:border-rose-200 transition-all">
                         <div className="flex items-center gap-6">
                             <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500">

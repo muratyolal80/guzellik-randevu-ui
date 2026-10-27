@@ -32,6 +32,9 @@ const SalonMap = dynamic(() => import('@/components/Map/SalonMap').then((mod) =>
     loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-2xl" />
 });
 
+/** Salon row plus the optional `min_price` column and the client-side distance cache used by nearby mode. */
+type SearchSalon = SalonDetail & { min_price?: number | string | null; _distanceKm?: number };
+
 const normalize = (text: string | undefined | null) => {
     if (!text) return '';
     return text.toLocaleLowerCase('tr').trim();
@@ -49,7 +52,7 @@ function SearchContent() {
     
     // State
     const { showToast } = useToast();
-    const [salons, setSalons] = useState<SalonDetail[]>([]);
+    const [salons, setSalons] = useState<SearchSalon[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
     const [cities, setCities] = useState<City[]>([]);
@@ -159,11 +162,11 @@ function SearchContent() {
         const typeIds = selectedTypeIds.length > 0 ? selectedTypeIds : (typeParam ? [typeParam] : []);
         const matchesType = typeIds.length === 0 ||
             typeIds.includes(salon.type_id || '') ||
-            salon.assigned_types?.some((t: any) => typeIds.includes(t.id));
+            salon.assigned_types?.some((t) => typeIds.includes(t.id));
         const matchesRating = (salon.rating || 0) >= minRating;
-        const matchesOpen = !onlyOpen || isSalonOpenNow(salon as any);
+        const matchesOpen = !onlyOpen || isSalonOpenNow(salon);
 
-        const salonMinPrice = Number((salon as any).min_price ?? 0);
+        const salonMinPrice = Number(salon.min_price ?? 0);
         const matchesPrice = maxPrice === null || salonMinPrice === 0 || salonMinPrice <= maxPrice;
 
         let matchesRadius = true;
@@ -174,7 +177,7 @@ function SearchContent() {
                 matchesRadius = false;
             } else {
                 const dist = haversineKm(geo.lat, geo.lng, sLat, sLng);
-                (salon as any)._distanceKm = dist;
+                salon._distanceKm = dist;
                 matchesRadius = dist <= radiusKm;
             }
         }
@@ -189,9 +192,9 @@ function SearchContent() {
             case 'rating_desc': return arr.sort((a, b) => (b.rating || 0) - (a.rating || 0));
             case 'rating_asc': return arr.sort((a, b) => (a.rating || 0) - (b.rating || 0));
             case 'newest': return arr.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-            case 'price_asc': return arr.sort((a, b) => Number((a as any).min_price ?? 9999) - Number((b as any).min_price ?? 9999));
-            case 'price_desc': return arr.sort((a, b) => Number((b as any).min_price ?? 0) - Number((a as any).min_price ?? 0));
-            case 'distance_asc': return arr.sort((a, b) => Number((a as any)._distanceKm ?? 9999) - Number((b as any)._distanceKm ?? 9999));
+            case 'price_asc': return arr.sort((a, b) => Number(a.min_price ?? 9999) - Number(b.min_price ?? 9999));
+            case 'price_desc': return arr.sort((a, b) => Number(b.min_price ?? 0) - Number(a.min_price ?? 0));
+            case 'distance_asc': return arr.sort((a, b) => Number(a._distanceKm ?? 9999) - Number(b._distanceKm ?? 9999));
             default: return arr.sort((a, b) => {
                 const sa = a.is_sponsored ? 1 : 0;
                 const sb = b.is_sponsored ? 1 : 0;
@@ -477,10 +480,10 @@ function SearchContent() {
                                                     <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                                                     <span className="text-xs font-black">{salon.rating || 0}</span>
                                                 </div>
-                                                {nearbyMode && (salon as any)._distanceKm !== undefined && (
+                                                {nearbyMode && salon._distanceKm !== undefined && (
                                                     <div className="absolute top-4 left-4 bg-primary text-white px-2 py-1 rounded-xl flex items-center gap-1 shadow-md text-[10px] font-black">
                                                         <MapPin className="w-3 h-3" />
-                                                        {Number((salon as any)._distanceKm).toFixed(1)} km
+                                                        {Number(salon._distanceKm).toFixed(1)} km
                                                     </div>
                                                 )}
                                             </div>
@@ -627,7 +630,7 @@ function SearchContent() {
                             <div className="flex-grow h-full bg-white rounded-[40px] border border-border overflow-hidden shadow-2xl relative z-10">
                                 <SalonMap 
                                     salons={sortedSalons}
-                                    center={sortedSalons.length > 0 ? { lat: sortedSalons[0].geo_latitude, lng: sortedSalons[0].geo_longitude } : undefined as any}
+                                    center={sortedSalons.length > 0 ? { lat: sortedSalons[0].geo_latitude, lng: sortedSalons[0].geo_longitude } : {}} // {} → SalonMap falls back to its default center
                                 />
                             </div>
                         </div>

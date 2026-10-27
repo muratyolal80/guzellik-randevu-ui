@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { useToast } from '@/components/ui/Toast';
@@ -47,6 +48,48 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 type ActiveTab = 'APPROVALS' | 'DEFINITIONS' | 'SUBSCRIPTIONS';
+type StatusFilter = 'PENDING' | 'SUCCESS' | 'FAILED' | 'ALL';
+
+interface FinanceRecord {
+    id: string;
+    amount: number;
+    status: string;
+    created_at: string;
+    payment_method: string;
+    salon_id?: string;
+    bank_transfer_proof_url?: string | null;
+    metadata?: { bank_name?: string; sender_name?: string } | null;
+    salons?: {
+        name?: string;
+        cities?: { name?: string } | null;
+        districts?: { name?: string } | null;
+        profiles?: { full_name?: string } | null;
+    } | null;
+    subscriptions?: { billing_cycle?: string; subscription_plans?: { display_name?: string } | null } | null;
+}
+
+interface PlanForm {
+    id?: string;
+    name: string;
+    display_name: string;
+    price_monthly: number;
+    price_yearly: number;
+    max_staff: number;
+    max_branches: number;
+    max_gallery_photos: number;
+    is_active: boolean;
+    sort_order?: number;
+    has_campaigns?: boolean;
+}
+
+interface SubscriptionRow {
+    id: string;
+    status: string;
+    current_period_start: string;
+    current_period_end: string;
+    salons?: { name: string; owner_id?: string } | null;
+    subscription_plans?: { name?: string; display_name?: string } | null;
+}
 
 export default function PackageManagementPage() {
     const router = useRouter();
@@ -57,23 +100,23 @@ export default function PackageManagementPage() {
     const [actionLoading, setActionLoading] = useState(false);
 
     // --- Tab 1: Approvals State ---
-    const [records, setRecords] = useState<any[]>([]);
-    const [statusFilter, setStatusFilter] = useState<'PENDING' | 'SUCCESS' | 'FAILED' | 'ALL'>('PENDING');
+    const [records, setRecords] = useState<FinanceRecord[]>([]);
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [selectedRecord, setSelectedRecord] = useState<any>(null);
+    const [selectedRecord, setSelectedRecord] = useState<FinanceRecord | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [globalStats, setGlobalStats] = useState({ total: 0, pending: 0, revenue: 0, trialActive: 0 });
 
     // --- Tab 2: Definitions State ---
-    const [plans, setPlans] = useState<any[]>([]);
+    const [plans, setPlans] = useState<(PlanForm & { id: string })[]>([]);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-    const [editingPlan, setEditingPlan] = useState<any>(null);
+    const [editingPlan, setEditingPlan] = useState<PlanForm | null>(null);
 
     // --- Tab 3: Subscriptions State ---
-    const [allSubscriptions, setAllSubscriptions] = useState<any[]>([]);
+    const [allSubscriptions, setAllSubscriptions] = useState<SubscriptionRow[]>([]);
     const [subSearch, setSubSearch] = useState('');
 
     // --- Debounce & Fetchers ---
@@ -117,7 +160,8 @@ export default function PackageManagementPage() {
         setLoading(true);
         try {
             const { subscriptions } = await SubscriptionService.getAllSubscriptions({ page: 1, pageSize: 100 });
-            setAllSubscriptions(subscriptions || []);
+            // getAllSubscriptions builds its select string dynamically, so supabase-js types rows as GenericStringError.
+            setAllSubscriptions((subscriptions as unknown as SubscriptionRow[]) || []);
         } catch (error) {
             showToast('Abonelikler yüklenirken hata oluştu', 'error');
         } finally { setLoading(false); }
@@ -135,13 +179,14 @@ export default function PackageManagementPage() {
             showToast('İşlem başarılı', 'success');
             fetchApprovals();
             setIsDetailsOpen(false);
-        } catch (error: any) {
-            showToast(error.message || 'Hata oluştu', 'error');
+        } catch (error: unknown) {
+            showToast(toErrorLike(error).message || 'Hata oluştu', 'error');
         } finally { setActionLoading(false); }
     };
 
     const handleSavePlan = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!editingPlan) return;
         setActionLoading(true);
         try {
             if (editingPlan.id) {
@@ -240,10 +285,10 @@ export default function PackageManagementPage() {
                         {/* Search & Status Filters */}
                         <div className="flex flex-col md:flex-row justify-between gap-4">
                             <div className="flex gap-2 p-1 bg-gray-50 rounded-xl">
-                                {['PENDING', 'SUCCESS', 'FAILED', 'ALL'].map(s => (
+                                {(['PENDING', 'SUCCESS', 'FAILED', 'ALL'] as const).map(s => (
                                     <button
                                         key={s}
-                                        onClick={() => setStatusFilter(s as any)}
+                                        onClick={() => setStatusFilter(s)}
                                         className={`px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${statusFilter === s ? 'bg-white text-primary shadow-sm' : 'text-text-muted'}`}
                                     >
                                         {s === 'PENDING' ? 'Bekleyenler' : s === 'SUCCESS' ? 'Onaylı' : s === 'FAILED' ? 'Red' : 'Hepsi'}

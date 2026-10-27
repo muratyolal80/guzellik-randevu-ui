@@ -44,7 +44,9 @@ export const CustomerService = {
     if (!appointments) return;
 
     // Aggregate by customer_id
-    const customerStats = appointments.reduce((acc: any, curr) => {
+    const customerStats = (appointments as { customer_id: string; price: number | null }[]).reduce<
+      Record<string, { count: number; spent: number }>
+    >((acc, curr) => {
       if (!acc[curr.customer_id]) {
         acc[curr.customer_id] = { count: 0, spent: 0 };
       }
@@ -53,7 +55,7 @@ export const CustomerService = {
       return acc;
     }, {});
 
-    for (const [customerId, stats] of Object.entries(customerStats) as any) {
+    for (const [customerId, stats] of Object.entries(customerStats)) {
       await supabase.from("salon_customers").upsert({
         salon_id: salonId,
         customer_id: customerId,

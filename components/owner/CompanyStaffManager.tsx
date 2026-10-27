@@ -1,5 +1,6 @@
 'use client';
 
+import { toErrorLike } from '@/lib/error-mapping';
 import React, { useState, useEffect } from 'react';
 import { StaffService, SalonDataService } from '@/services/db';
 import { Staff, SalonDetail } from '@/types';
@@ -27,19 +28,21 @@ import { useToast } from '@/components/ui/Toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import Skeleton from '@/components/Skeleton';
 
+type StaffWithBranches = Staff & { branches: string[] };
+
 interface CompanyStaffManagerProps {
     ownerId: string;
 }
 
 export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProps) {
-    const [staff, setStaff] = useState<any[]>([]);
+    const [staff, setStaff] = useState<StaffWithBranches[]>([]);
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     
     const [showAssignModal, setShowAssignModal] = useState(false);
-    const [selectedStaff, setSelectedStaff] = useState<any>(null);
+    const [selectedStaff, setSelectedStaff] = useState<StaffWithBranches | null>(null);
     const [assigningLoading, setAssigningLoading] = useState(false);
     const [staffBranches, setStaffBranches] = useState<string[]>([]); // Current assignments for modal
 
@@ -73,7 +76,7 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
         }
     };
 
-    const handleOpenAssign = (member: any) => {
+    const handleOpenAssign = (member: StaffWithBranches) => {
         setSelectedStaff(member);
         setStaffBranches(member.branches || []);
         setShowAssignModal(true);
@@ -92,8 +95,8 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
                 await StaffService.assignStaffToBranch(selectedStaff.id, salonId);
                 setStaffBranches(prev => [...prev, salonId]);
             }
-        } catch (err: any) {
-            showToast('Şube ataması güncellenemedi: ' + (err?.message || 'Bilinmeyen hata'), 'error');
+        } catch (err: unknown) {
+            showToast('Şube ataması güncellenemedi: ' + (toErrorLike(err).message || 'Bilinmeyen hata'), 'error');
         } finally {
             setAssigningLoading(false);
             // Refresh main list branch data in bg
