@@ -41,25 +41,27 @@ export default function GlobalSearchPalette() {
     }, [isOpen]);
 
     useEffect(() => {
+        let ignore = false; // an older, slower search must not overwrite newer results
         const timer = setTimeout(async () => {
             if (query.length >= 2) {
                 setLoading(true);
                 try {
                     const data = await GlobalSearchService.search(query);
+                    if (ignore) return;
                     setResults(data);
                     setSelectedIndex(0);
                 } catch (error) {
                     console.error('Search error:', error);
-                    showToast('Arama sırasında bir hata oluştu.', 'error');
+                    if (!ignore) showToast('Arama sırasında bir hata oluştu.', 'error');
                 } finally {
-                    setLoading(false);
+                    if (!ignore) setLoading(false);
                 }
             } else {
                 setResults({ salons: [], services: [] });
             }
         }, 300);
 
-        return () => clearTimeout(timer);
+        return () => { ignore = true; clearTimeout(timer); };
     }, [query]);
 
     const handleSelect = (item: any, type: 'salon' | 'service') => {

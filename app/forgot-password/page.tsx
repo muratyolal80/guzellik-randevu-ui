@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import Link from 'next/link';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase as sharedSupabase } from '@/lib/supabase';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');
@@ -23,10 +23,7 @@ export default function ForgotPassword() {
 
         setLoading(true);
         try {
-            const supabase = createBrowserClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
+            const supabase = sharedSupabase;
 
             const redirectTo =
                 typeof window !== 'undefined'

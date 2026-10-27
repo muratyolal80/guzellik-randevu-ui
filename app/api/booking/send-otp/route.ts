@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
     const isDemoMode = isOtpDemoMode();
 
     if (activeCode) {
-      console.log('Active OTP found for', cleanedPhone, 'skipping SMS');
       return NextResponse.json({
         success: true,
         message: isDemoMode

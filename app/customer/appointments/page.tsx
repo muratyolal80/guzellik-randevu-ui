@@ -70,6 +70,7 @@ export default function AppointmentsPage() {
 
     React.useEffect(() => {
         if (!user) return;
+        let ignore = false; // switching tabs quickly must not show the previous tab's list
 
         const fetchAppointments = async () => {
             try {
@@ -88,23 +89,24 @@ export default function AppointmentsPage() {
                 if (activeTab === 'upcoming') {
                     query = query.in('status', ['PENDING', 'CONFIRMED']).gt('start_time', new Date().toISOString());
                 } else if (activeTab === 'past') {
-                    query = query.in('status', ['COMPLETED', 'CONFIRMED']).lt('start_time', new Date().toISOString());
+                    query = query.in('status', ['COMPLETED', 'CONFIRMED', 'NO_SHOW']).lt('start_time', new Date().toISOString());
                 } else if (activeTab === 'cancelled') {
                     query = query.eq('status', 'CANCELLED');
                 }
 
                 const { data, error } = await query;
                 if (error) throw error;
-                setAppointments(data || []);
+                if (!ignore) setAppointments(data || []);
             } catch (error) {
                 console.error('Error fetching appointments:', error);
-                showToast('Randevular yüklenemedi.', 'error');
+                if (!ignore) showToast('Randevular yüklenemedi.', 'error');
             } finally {
-                setLoading(false);
+                if (!ignore) setLoading(false);
             }
         };
 
         fetchAppointments();
+        return () => { ignore = true; };
     }, [user, activeTab, showToast]);
 
     const handleCancelAppointment = async (appointmentId: string) => {

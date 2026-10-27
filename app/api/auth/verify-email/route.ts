@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
         // Log consent if given
         if (consent) {
-            console.log(`[IYS LOG] User ${userId} gave consent via email. Email: ${email}`);
+            console.log(`[IYS LOG] User ${userId} gave consent via email`);
         }
 
         // Return response

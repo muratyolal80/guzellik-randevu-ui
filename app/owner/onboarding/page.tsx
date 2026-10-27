@@ -516,12 +516,13 @@ export default function OnboardingWizard() {
   }, [salonData.type_ids, showToast]); // type_ids değiştiğinde çalış
 
   useEffect(() => {
-    if (salonData.city_id) {
-      MasterDataService.getDistrictsByCity(salonData.city_id).then(
-        setDistricts,
-      );
-    }
-  }, [salonData.city_id]);
+    if (!salonData.city_id) return;
+    let ignore = false; // a quick city change must not show the previous city's districts
+    MasterDataService.getDistrictsByCity(salonData.city_id)
+      .then((d) => { if (!ignore) setDistricts(d); })
+      .catch(() => { if (!ignore) showToast("İlçeler yüklenemedi.", "error"); });
+    return () => { ignore = true; };
+  }, [salonData.city_id, showToast]);
 
   // State for map loading indicator
   const [mapLoading, setMapLoading] = useState(false);

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
         const body = JSON.parse(rawBody);
         const signature = req.headers.get('x-iyzi-signature');
 
-        console.log('iyzico Webhook received:', JSON.stringify(body));
+        console.log('iyzico webhook:', body.iyziEventType, body.status);
 
         // 0. Verify Signature (V3 logic)
         const options = await IyzicoService.getOptions();

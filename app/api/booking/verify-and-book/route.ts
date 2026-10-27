@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       cookies: {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
-          console.log('🍪 Capturing cookies:', cookiesToSet.map(c => c.name));
           cookiesToSet.forEach((cookie) => {
             cookieStore.push(cookie);
           });
@@ -129,7 +128,6 @@ export async function POST(request: NextRequest) {
 
     // --- 3.5 Handle Rescheduling (Cancel Old) ---
     if (rescheduleId) {
-      console.log('🔄 Atomic Reschedule: Cancelling old appointment:', rescheduleId);
       await supabaseAdmin
         .from('appointments')
         .update({
@@ -183,7 +181,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Apply captured cookies to the final response
-    console.log('🍪 Final Response Cookies Count:', cookieStore.length);
     cookieStore.forEach((cookie) => {
       finalResponse.cookies.set(cookie.name, cookie.value, cookie.options);
     });

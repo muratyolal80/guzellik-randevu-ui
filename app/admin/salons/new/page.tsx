@@ -111,10 +111,13 @@ export default function AdminNewSalonPage() {
 
   // Reload districts on city change
   useEffect(() => {
-    if (salonData.city_id) {
-      MasterDataService.getDistrictsByCity(salonData.city_id).then(d => setDistricts(d || []));
-    }
-  }, [salonData.city_id]);
+    if (!salonData.city_id) return;
+    let ignore = false; // a quick city change must not show the previous city's districts
+    MasterDataService.getDistrictsByCity(salonData.city_id)
+      .then(d => { if (!ignore) setDistricts(d || []); })
+      .catch(() => { if (!ignore) showToast('İlçeler yüklenemedi.', 'error'); });
+    return () => { ignore = true; };
+  }, [salonData.city_id, showToast]);
 
   // Check Limits when owner selected
   useEffect(() => {

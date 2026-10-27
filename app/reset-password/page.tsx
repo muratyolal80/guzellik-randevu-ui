@@ -6,7 +6,7 @@ import { Layout } from '@/components/Layout';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, CheckCircle2 } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase as sharedSupabase } from '@/lib/supabase';
 import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 export default function ResetPassword() {
@@ -20,10 +20,7 @@ export default function ResetPassword() {
 
     useEffect(() => {
         // Supabase magic link tıklanınca hash'te access_token gelir → auth otomatik set olur
-        const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = sharedSupabase;
 
         supabase.auth.getSession().then(({ data }) => {
             if (data.session) {
@@ -51,10 +48,7 @@ export default function ResetPassword() {
 
         setLoading(true);
         try {
-            const supabase = createBrowserClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
+            const supabase = sharedSupabase;
 
             const { error: updateError } = await supabase.auth.updateUser({ password });
             if (updateError) throw new Error(updateError.message);

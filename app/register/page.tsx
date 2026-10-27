@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Store, CircleCheck } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase as sharedSupabase } from '@/lib/supabase';
 import { validatePassword, PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 const KVKK_VERSION = 'v1.0';
@@ -80,9 +80,7 @@ export default function Register() {
 
             // Persist KVKK + marketing consent metadata after signUp succeeded
             try {
-                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-                const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-                const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+                const supabase = sharedSupabase;
                 const userId = result?.user?.id;
                 if (userId) {
                     const nowIso = new Date().toISOString();

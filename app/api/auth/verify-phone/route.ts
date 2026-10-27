@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
 
       profile = existingProfile;
 
-      console.log(`[verify-phone] Updated phone for logged-in user ${userId}`);
     } else {
       // User is NOT logged in - find or create account.
       // Önceki kod: supabaseAdmin.auth.admin.listUsers() — TÜM kullanıcılar
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
       if (iysError) {
         console.error('[IYS] Failed to log SMS verification:', iysError.message);
       } else {
-        console.log(`[IYS LOG] User ${userId} gave consent. Phone: ${e164Phone}`);
+        console.log(`[IYS LOG] User ${userId} gave consent`);
 
         // Real IYS API call — non-blocking (booking flow devam eder, hata log'lanır)
         registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
@@ -185,7 +184,7 @@ export async function POST(request: NextRequest) {
             consent_given: true
           });
 
-        console.log(`[IYS LOG] Existing user ${userId} verified phone. Phone: ${e164Phone}`);
+        console.log(`[IYS LOG] Existing user ${userId} verified phone`);
 
         registerIYSConsent({ userId, phone: e164Phone, type: 'MESAJ', source: 'WEB', status: 'ONAY' })
           .then((res) => {
