@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarCheck, Building2, Wallet, MessageSquare } from 'lucide-react';
+import { CalendarCheck, Building2, Wallet, MessageSquare, Sparkles } from 'lucide-react';
 
 interface YearlyStatsProps {
     appointmentCount: number;
@@ -29,7 +29,7 @@ export default function YearlyStats({
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{year} ÖZETİN</p>
                     <h3 className="text-xl font-black mt-0.5">Bu yıl seninle ne yaptık?</h3>
                 </div>
-                <span className="text-3xl">✨</span>
+                <Sparkles className="w-8 h-8 text-amber-200" aria-hidden="true" />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

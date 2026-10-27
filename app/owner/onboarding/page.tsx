@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { GeocodingService } from "@/lib/geocoding/geocoding";
+import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 // Dynamic Map Component (Disabled SSR)
 import dynamic from "next/dynamic";
@@ -69,6 +71,8 @@ const STEPS = [
 export default function OnboardingWizard() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
@@ -277,9 +281,7 @@ export default function OnboardingWizard() {
         selectedPlan.max_staff !== -1 &&
         staffMembers.length >= selectedPlan.max_staff
       ) {
-        alert(
-          `Seçtiğiniz "${selectedPlan.display_name}" paketi maksimum ${selectedPlan.max_staff} personel eklemenize izin vermektedir. Limit doldu.`,
-        );
+        showToast(`Seçtiğiniz "${selectedPlan.display_name}" paketi maksimum ${selectedPlan.max_staff} personel eklemenize izin vermektedir. Limit doldu.`, 'warning');
         return;
       }
     }
@@ -313,8 +315,8 @@ export default function OnboardingWizard() {
       formElement.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const removeStaff = (index: number) => {
-    if (confirm("Bu personeli silmek istediğinize emin misiniz?")) {
+  const removeStaff = async (index: number) => {
+    if (await confirm({ title: "Bu personeli silmek istediğinize emin misiniz?", confirmText: "Sil", tone: "danger" })) {
       const newStaffMembers = [...staffMembers];
       newStaffMembers.splice(index, 1);
       setStaffMembers(newStaffMembers);
@@ -343,9 +345,7 @@ export default function OnboardingWizard() {
       selectedPlan.max_staff !== -1 &&
       staffMembers.length >= selectedPlan.max_staff
     ) {
-      alert(
-        `Seçtiğiniz "${selectedPlan.display_name}" paketi maksimum ${selectedPlan.max_staff} personel eklemenize izin vermektedir. Limit doldu.`,
-      );
+      showToast(`Seçtiğiniz "${selectedPlan.display_name}" paketi maksimum ${selectedPlan.max_staff} personel eklemenize izin vermektedir. Limit doldu.`, 'warning');
       return;
     }
 
@@ -403,10 +403,11 @@ export default function OnboardingWizard() {
         );
       } catch (error) {
         console.error("Master data fetch wrapper error:", error);
+        showToast("Başlangıç verileri yüklenemedi. Sayfayı yenileyin.", "error");
       }
     };
     fetchMasterData();
-  }, []);
+  }, [showToast]);
 
   // Check existing plan for branch limits AND draft salons
   useEffect(() => {
@@ -456,57 +457,45 @@ export default function OnboardingWizard() {
              setExistingPlan(null);
              setCanSkipPayment(false);
              if (limitRes.limit === -2) {
-                alert("3 Aylık Ücretsiz Deneme süreniz dolmuştur. Devam etmek için lütfen yeni bir paket satın alın.");
+                showToast("3 Aylık Ücretsiz Deneme süreniz dolmuştur. Devam etmek için lütfen yeni bir paket satın alın.", "warning");
              }
           }
         }
       } catch (e) { 
-        console.error('Mevcut plan kontrolü hatası:', e); 
+        console.error('Mevcut plan kontrolü hatası:', e);
+        showToast("Mevcut abonelik bilgisi kontrol edilemedi.", "error");
       }
     };
     loadState();
-  }, [user]);
+  }, [user, showToast]);
 
   // Auto-load services when salon types change
   useEffect(() => {
-    console.log("🔍 useEffect tetiklendi - type_ids:", salonData.type_ids);
 
     const loadServicesForSelectedTypes = async () => {
       // Salon tipi seçilmemişse hizmetleri temizle
       if (!salonData.type_ids || salonData.type_ids.length === 0) {
-        console.log("⚠️ Salon tipi seçili değil, hizmetler temizleniyor");
         setSelectedServices([]);
         return;
       }
 
-      console.log(
-        "✅ Salon tipleri seçili, hizmetler yükleniyor...",
-        salonData.type_ids,
-      );
 
       try {
         // 1. Seçilen salon tiplerine göre kategorileri al
-        console.log("1️⃣ Kategoriler getiriliyor...");
         const relatedCategories =
           await MasterDataService.getServiceCategoriesForSalonTypes(
             salonData.type_ids,
           );
-        console.log("📁 Bulunan kategoriler:", relatedCategories);
 
         if (relatedCategories.length === 0) {
-          console.warn(
-            "⚠️ Bu salon tipleri için tanımlanmış kategori bulunamadı",
-          );
           setSelectedServices([]);
           return;
         }
 
         // 2. Bu kategorilerdeki tüm hizmetleri al
         const categoryIds = relatedCategories.map((c) => c.id);
-        console.log("2️⃣ Hizmetler getiriliyor, kategori IDs:", categoryIds);
         const services =
           await MasterDataService.getGlobalServicesByCategories(categoryIds);
-        console.log("📋 Bulunan hizmetler:", services);
 
         // 3. Varsayılan fiyat ve süre ile otomatik ekle
         const autoServices = services.map((service) => ({
@@ -517,14 +506,14 @@ export default function OnboardingWizard() {
         }));
 
         setSelectedServices(autoServices);
-        console.log(`✅ ${autoServices.length} hizmet otomatik yüklendi`);
       } catch (error) {
-        console.error("❌ Hizmetler yüklenirken hata:", error);
+        console.error("Hizmetler yüklenirken hata:", error);
+        showToast("Salon tipine ait hizmetler yüklenemedi.", "error");
       }
     };
 
     loadServicesForSelectedTypes();
-  }, [salonData.type_ids]); // type_ids değiştiğinde çalış
+  }, [salonData.type_ids, showToast]); // type_ids değiştiğinde çalış
 
   useEffect(() => {
     if (salonData.city_id) {
@@ -606,13 +595,11 @@ export default function OnboardingWizard() {
       return;
     }
 
-    console.log("🔍 Geocoding search onBlur:", searchQuery);
     setMapLoading(true);
 
     try {
       const result = await GeocodingService.searchAddress(searchQuery);
       if (result) {
-        console.log("📍 Geocoding result found:", result);
         setSalonData((prev: any) => ({
           ...prev,
           geo_latitude: result.lat,
@@ -621,6 +608,7 @@ export default function OnboardingWizard() {
       }
     } catch (error) {
       console.error("Geocoding failed", error);
+      showToast("Adres haritada bulunamadı. Pini haritadan işaretleyebilirsiniz.", "warning");
     } finally {
       setMapLoading(false);
     }
@@ -699,7 +687,7 @@ export default function OnboardingWizard() {
       }
 
       if (!selectedPlanId) {
-        alert("Lütfen bir paket seçin.");
+        showToast("Lütfen bir paket seçin.", "warning");
         return;
       }
       
@@ -717,12 +705,12 @@ export default function OnboardingWizard() {
     if (currentStep === 2) {
       const plan = plans.find((p) => p.id === selectedPlanId);
       if (!paymentMethod) {
-        alert("Lütfen ödeme yöntemi seçin.");
+        showToast("Lütfen ödeme yöntemi seçin.", "warning");
         return;
       }
 
       if (paymentMethod === "CREDIT_CARD") {
-         alert("Kredi kartı entegrasyonu yakında eklenecektir. Lütfen banka havalesi seçin.");
+         showToast("Kredi kartı entegrasyonu yakında eklenecektir. Lütfen banka havalesi seçin.", "info");
          return;
       }
 
@@ -760,7 +748,7 @@ export default function OnboardingWizard() {
           setPaymentStatus("PENDING_APPROVAL");
         } catch(e) {
           console.error("Ödeme onay gönderimi hatası:", e);
-          alert("İşlem sırasında hata oluştu. Lütfen tekrar deneyin.");
+          showToast("İşlem sırasında hata oluştu. Lütfen tekrar deneyin.", "error");
         } finally {
           setLoading(false);
         }
@@ -768,7 +756,7 @@ export default function OnboardingWizard() {
       }
 
       if (paymentStatus === "PENDING_APPROVAL") {
-        alert("Admin onayı bekleniyor. Lütfen daha sonra tekrar kontrol edin.");
+        showToast("Admin onayı bekleniyor. Lütfen daha sonra tekrar kontrol edin.", "info");
         return;
       }
     }
@@ -776,7 +764,7 @@ export default function OnboardingWizard() {
     // Step 3: Basic Info Validation
     if (currentStep === 3) {
       if (!salonData.name || salonData.name === "Yeni Salon İşlemi" || !salonData.primary_type_id) {
-        alert("Lütfen geçerli bir salon adı ve ana işletme tipi seçin.");
+        showToast("Lütfen geçerli bir salon adı ve ana işletme tipi seçin.", "warning");
         return;
       }
     }
@@ -785,7 +773,7 @@ export default function OnboardingWizard() {
     if (currentStep === 4) {
       // Step 4 Validation
       if (!salonData.city_id || !salonData.district_id) {
-        alert("Lütfen şehir ve ilçe seçimini yapın.");
+        showToast("Lütfen şehir ve ilçe seçimini yapın.", "warning");
         return;
       }
 
@@ -815,7 +803,7 @@ export default function OnboardingWizard() {
              errorMsg = "3 Aylık Ücretsiz Deneme süreniz dolmuştur. Devam etmek için lütfen paketinizi yükseltin.";
           }
 
-          alert(errorMsg);
+          showToast(errorMsg, "error");
           setLoading(false);
           return;
         }
@@ -851,10 +839,8 @@ export default function OnboardingWizard() {
   const handleComplete = async () => {
     setLoading(true);
     try {
-      console.log("Onboarding step final: Processing subscription...");
       let salon = salonData;
 
-      console.log("Onboarding step 3: Recording Subscription...");
       
       // If payment was skipped and owner has an existing plan, bind this branch
       if (canSkipPayment && existingPlan && !salon.plan_id) {
@@ -867,7 +853,6 @@ export default function OnboardingWizard() {
         );
       }
 
-      console.log("Onboarding step 4: Submitting for approval...");
       // Submit for Approval
       await SalonDataService.submitForApproval(salon.id);
 
@@ -879,9 +864,7 @@ export default function OnboardingWizard() {
       window.location.href = "/owner/dashboard?onboarding=success";
     } catch (err) {
       console.error("Onboarding complete error:", err);
-      alert(
-        "İşlem tamamlanırken bir hata oluştu. Lütfen detaylar için konsolu kontrol edin.",
-      );
+      showToast("İşlem tamamlanırken bir hata oluştu. Lütfen tekrar deneyin.", "error");
     } finally {
       setLoading(false);
     }
@@ -1159,7 +1142,7 @@ export default function OnboardingWizard() {
       case 4:
         return (
           <div className="space-y-8 animate-in slide-in-from-right duration-300">
-            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
               <div className="group">
                 <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1 mb-3">
                   <MapPin className="w-3.5 h-3.5" /> Şehir

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Ticket, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Coupon, DiscountType } from '@/types';
+import { useToast } from '@/components/ui/Toast';
 
 interface AddCouponModalProps {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface AddCouponModalProps {
 }
 
 export default function AddCouponModal({ isOpen, onClose, onSuccess, salonId }: AddCouponModalProps) {
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         code: '',
@@ -40,7 +42,7 @@ export default function AddCouponModal({ isOpen, onClose, onSuccess, salonId }: 
             onClose();
         } catch (error) {
             console.error('Kupon oluşturulurken hata:', error);
-            alert('Kupon oluşturulurken bir hata oluştu.');
+            showToast('Kupon oluşturulurken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }

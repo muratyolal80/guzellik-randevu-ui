@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { StaffAnalyticsService, StaffService } from '@/services/db';
 import { Staff } from '@/types';
 import {
@@ -26,6 +27,7 @@ interface StaffAnalyticsProps {
 }
 
 export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
+    const { showToast } = useToast();
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
             }
         } catch (err) {
             console.error('Error fetching staff:', err);
+            showToast('Personel listesi yüklenemedi.', 'error');
         } finally {
             if (staff.length === 0) setLoading(false);
         }
@@ -75,6 +78,7 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
             setWeeklyData(occupancy);
         } catch (err) {
             console.error('Error fetching stats:', err);
+            showToast('Personel istatistikleri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -101,7 +105,7 @@ export default function StaffAnalytics({ salonId }: StaffAnalyticsProps) {
                             : 'bg-white text-text-muted border-border hover:bg-gray-50'
                             }`}
                     >
-                        <div className={`w-10 h-10 rounded-xl bg-cover bg-center border-2 ${selectedStaffId === member.id ? 'border-white/30' : 'border-gray-100'}`}
+                        <div role="img" aria-label={`${member.name} fotoğrafı`} className={`w-10 h-10 rounded-xl bg-cover bg-center border-2 ${selectedStaffId === member.id ? 'border-white/30' : 'border-gray-100'}`}
                             style={{ backgroundImage: `url(${member.photo || 'https://i.pravatar.cc/100'})` }}
                         />
                         <div className="text-left">

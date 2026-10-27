@@ -11,10 +11,14 @@ import { tr } from 'date-fns/locale';
 import AddCouponModal from '@/components/owner/AddCouponModal';
 import AddPackageModal from '@/components/owner/AddPackageModal';
 import AddCampaignRuleModal from '@/components/owner/AddCampaignRuleModal';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function OwnerCampaignsPage() {
     const { user } = useAuth();
     const { activeBranch } = useActiveBranch();
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [activeTab, setActiveTab] = useState<'coupons' | 'packages' | 'rules'>('coupons');
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
@@ -46,41 +50,42 @@ export default function OwnerCampaignsPage() {
             }
         } catch (error) {
             console.error('Veri yüklenirken hata:', error);
+            showToast('Kampanya verileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteCoupon = async (id: string) => {
-        if (!confirm('Bu kuponu silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu kuponu silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await CampaignService.deleteCoupon(id);
             setCoupons(coupons.filter(c => c.id !== id));
         } catch (error) {
             console.error('Kupon silinirken hata:', error);
-            alert('Silme işlemi başarısız oldu.');
+            showToast('Silme işlemi başarısız oldu.', 'error');
         }
     };
 
     const handleDeletePackage = async (id: string) => {
-        if (!confirm('Bu paketi silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu paketi silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await CampaignService.deletePackage(id);
             setPackages(packages.filter(p => p.id !== id));
         } catch (error) {
             console.error('Paket silinirken hata:', error);
-            alert('Silme işlemi başarısız oldu.');
+            showToast('Silme işlemi başarısız oldu.', 'error');
         }
     };
 
     const handleDeleteRule = async (id: string) => {
-        if (!confirm('Bu kampanyayı silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu kampanyayı silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await CampaignService.deleteCampaignRule(id);
             setRules(rules.filter(r => r.id !== id));
         } catch (error) {
             console.error('Kampanya silinirken hata:', error);
-            alert('Silme işlemi başarısız oldu.');
+            showToast('Silme işlemi başarısız oldu.', 'error');
         }
     };
 

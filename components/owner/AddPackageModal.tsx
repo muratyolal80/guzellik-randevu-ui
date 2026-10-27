@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package as PackageIcon, X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 import { Package, SalonServiceDetail } from '@/types';
+import { useToast } from '@/components/ui/Toast';
 
 interface AddPackageModalProps {
     isOpen: boolean;
@@ -12,6 +13,7 @@ interface AddPackageModalProps {
 }
 
 export default function AddPackageModal({ isOpen, onClose, onSuccess, salonId }: AddPackageModalProps) {
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [services, setServices] = useState<SalonServiceDetail[]>([]);
     const [formData, setFormData] = useState({
@@ -36,6 +38,7 @@ export default function AddPackageModal({ isOpen, onClose, onSuccess, salonId }:
             setServices(data);
         } catch (error) {
             console.error('Servisler yüklenirken hata:', error);
+            showToast('Salon hizmetleri yüklenemedi.', 'error');
         }
     };
 
@@ -59,7 +62,7 @@ export default function AddPackageModal({ isOpen, onClose, onSuccess, salonId }:
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedServices.length === 0) {
-            alert('Lütfen pakete en az bir servis ekleyin.');
+            showToast('Lütfen pakete en az bir servis ekleyin.', 'warning');
             return;
         }
 
@@ -74,7 +77,7 @@ export default function AddPackageModal({ isOpen, onClose, onSuccess, salonId }:
             onClose();
         } catch (error) {
             console.error('Paket oluşturulurken hata:', error);
-            alert('Paket oluşturulurken bir hata oluştu.');
+            showToast('Paket oluşturulurken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }

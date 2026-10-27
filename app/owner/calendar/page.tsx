@@ -6,6 +6,8 @@ import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { StaffService, AppointmentService } from '@/services/db';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import {
     Calendar as CalendarIcon,
     ChevronLeft,
@@ -48,6 +50,7 @@ const STATUS_CHIPS = [
 export default function OwnerMasterCalendar() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
+    const { showToast } = useToast();
     const [staff, setStaff] = useState<any[]>([]);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -85,8 +88,11 @@ export default function OwnerMasterCalendar() {
         if (!user || !activeBranch) return;
         StaffService.getStaffBySalon(activeBranch.id)
             .then(setStaff)
-            .catch(err => console.error('Personel çekilemedi:', err));
-    }, [user, activeBranch]);
+            .catch(err => {
+                console.error('Personel çekilemedi:', err);
+                showToast('Personel listesi yüklenemedi.', 'error');
+            });
+    }, [user, activeBranch, showToast]);
 
     const fetchAppointments = async (start: string, end: string) => {
         if (!activeBranch) return;
@@ -96,6 +102,7 @@ export default function OwnerMasterCalendar() {
             setAppointments(list);
         } catch (err) {
             console.error('Takvim verisi çekilemedi:', err);
+            showToast('Takvim verileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -166,6 +173,7 @@ export default function OwnerMasterCalendar() {
             ));
         } catch (err) {
             console.error('Randevu taşınamadı:', err);
+            showToast('Randevu taşınamadı. Lütfen tekrar deneyin.', 'error');
             info.revert();
         }
     };
@@ -202,14 +210,15 @@ export default function OwnerMasterCalendar() {
     };
 
     if (branchLoading) return (
-        <div className="flex items-center justify-center min-h-[400px]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="space-y-8" aria-busy="true" aria-label="Takvim yükleniyor">
+            <Skeleton className="h-40 w-full rounded-[40px]" />
+            <Skeleton className="h-[600px] w-full rounded-[40px]" />
         </div>
     );
 
     if (!activeBranch) {
         return (
-            <div className="flex flex-col items-center justify-center min-vh-60 text-center p-8">
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                     <Clock className="w-8 h-8 text-text-muted" />
                 </div>
@@ -241,6 +250,9 @@ export default function OwnerMasterCalendar() {
                                 className="bg-transparent border-none text-xs font-bold text-text-main focus:ring-0 cursor-pointer pr-6 w-full"
                             >
                                 <option value="all">Tüm Personel</option>
+                                {staff.length === 0 && (
+                                    <option value="" disabled>Henüz personel eklenmemiş</option>
+                                )}
                                 {staff.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}

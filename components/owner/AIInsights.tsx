@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Brain, TrendingUp, Lightbulb, RefreshCw, AlertCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AIInsightsProps {
     salonId?: string;
@@ -70,7 +71,21 @@ export default function AIInsights({ salonId, viewType }: AIInsightsProps) {
         );
     }
 
-    if (!insights) return null;
+    if (!insights) {
+        return (
+            <EmptyState
+                icon={Brain}
+                title="Henüz analiz yok"
+                description="Yapay zeka analizi için yeterli veri bulunamadı. Daha sonra tekrar deneyin."
+                action={
+                    <button onClick={fetchInsights} className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase">
+                        <RefreshCw className="w-4 h-4" aria-hidden="true" /> Analizi Başlat
+                    </button>
+                }
+                className="bg-white rounded-[40px] border border-border"
+            />
+        );
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -111,7 +126,10 @@ export default function AIInsights({ salonId, viewType }: AIInsightsProps) {
                         Önerilen Aksiyonlar
                     </h3>
                     <div className="space-y-3">
-                        {insights.tips.map((tip, idx) => (
+                        {(insights.tips?.length ?? 0) === 0 && (
+                            <p className="text-xs font-bold text-text-muted">Şu an için önerilen bir aksiyon bulunmuyor.</p>
+                        )}
+                        {(insights.tips ?? []).map((tip, idx) => (
                             <div key={idx} className="flex gap-4 items-start group">
                                 <div className="w-6 h-6 rounded-lg bg-gray-50 text-text-muted flex items-center justify-center text-[10px] font-black group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                     {idx + 1}

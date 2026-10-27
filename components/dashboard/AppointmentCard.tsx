@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Navigation, Info, XCircle, RotateCw, Star } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, Info, XCircle, RotateCw, Star, User } from 'lucide-react';
 import { Appointment, SalonDetail } from '@/types';
 
 // Using a simplified props interface for UI mock, but compatible with core types
@@ -92,7 +92,7 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
                         </div>
 
                         <div className="flex items-center bg-gray-50 px-3 py-1.5 rounded-lg">
-                            <span className="text-gray-400 mr-2">👤</span>
+                            <User className="w-4 h-4 text-gray-400 mr-2" aria-hidden="true" />
                             {staffName || 'Herhangi bir personel'}
                         </div>
 

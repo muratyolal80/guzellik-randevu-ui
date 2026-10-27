@@ -15,6 +15,9 @@ import {
     Trophy
 } from 'lucide-react';
 import Image from 'next/image';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 interface SalonGalleryManagerProps {
     salonId: string;
@@ -25,6 +28,8 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
     const [images, setImages] = useState<SalonGallery[]>([]);
     const [usageStats, setUsageStats] = useState<SalonUsageStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState<{ current: number, total: number } | null>(null);
@@ -120,7 +125,7 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bu görseli silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu görseli silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
 
         try {
             await GalleryService.deleteGalleryImage(id);
@@ -134,7 +139,7 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
             }
         } catch (err) {
             console.error('Delete error:', err);
-            alert('Görsel silinirken bir hata oluştu.');
+            showToast('Görsel silinirken bir hata oluştu.', 'error');
         }
     };
 
@@ -155,15 +160,19 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
             
         } catch (err) {
             console.error('Set cover error:', err);
-            alert('Kapak fotoğrafı güncellenirken bir hata oluştu.');
+            showToast('Kapak fotoğrafı güncellenirken bir hata oluştu.', 'error');
         }
     };
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-24 bg-white rounded-[48px] border border-border shadow-card animate-pulse">
-                <Loader2 className="w-12 h-12 text-primary animate-spin mb-6" />
-                <p className="text-sm font-black text-text-muted uppercase tracking-[0.2em]">Veriler Hazırlanıyor...</p>
+            <div className="space-y-8" aria-busy="true" aria-label="Galeri yükleniyor">
+                <Skeleton className="h-28 w-full rounded-[32px]" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="aspect-square w-full rounded-[32px]" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -265,7 +274,7 @@ export default function SalonGalleryManager({ salonId, onCoverChange }: SalonGal
                     <div key={img.id} className="group relative aspect-square rounded-[32px] overflow-hidden bg-white border-4 border-white shadow-card hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
                         <Image
                             src={img.image_url}
-                            alt="Salon Galeri"
+                            alt={img.is_cover ? "Salon kapak fotoğrafı" : "Salon galeri fotoğrafı"}
                             fill
                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
                             className="object-cover transition-transform duration-700 group-hover:scale-110"

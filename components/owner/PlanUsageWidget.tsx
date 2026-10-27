@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { SalonDataService } from '@/services/db';
 import { SalonUsageStats } from '@/types';
 import {
@@ -18,6 +19,7 @@ interface PlanUsageWidgetProps {
 }
 
 export default function PlanUsageWidget({ salonId }: PlanUsageWidgetProps) {
+    const { showToast } = useToast();
     const [usage, setUsage] = useState<SalonUsageStats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -34,6 +36,7 @@ export default function PlanUsageWidget({ salonId }: PlanUsageWidgetProps) {
             setUsage(data);
         } catch (err) {
             console.error('Usage stats fetch error:', err);
+            showToast('Paket kullanım bilgileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }

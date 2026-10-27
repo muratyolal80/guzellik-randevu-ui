@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 type TabType = 'ACTIVE' | 'PENDING' | 'DRAFT' | 'REJECTED' | 'PASSIVE';
 
@@ -45,6 +47,7 @@ const SALON_TABS: { key: TabType; label: string; icon: React.ElementType; status
 export default function OwnerSalonsPage() {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabType>('ACTIVE');
@@ -72,6 +75,7 @@ export default function OwnerSalonsPage() {
             }
         } catch (e) {
             console.error("Limit check error:", e);
+            showToast('Şube limiti kontrol edilemedi.', 'warning');
         }
     };
 
@@ -82,6 +86,7 @@ export default function OwnerSalonsPage() {
             setSalons(data);
         } catch (err) {
             console.error('Error fetching salons:', err);
+            showToast('Salonlarınız yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -111,7 +116,7 @@ export default function OwnerSalonsPage() {
     };
 
     const handleSuspend = async (salonId: string) => {
-        if (!confirm('Salonunuzu pasife almak istediğinize emin misiniz? (Mevcut aboneliğiniz de iptal edilecektir)')) return;
+        if (!(await confirm({ title: 'Salonunuzu pasife almak istediğinize emin misiniz?', message: 'Mevcut aboneliğiniz de iptal edilecektir.', confirmText: 'Pasife Al', tone: 'danger' }))) return;
         try {
             await SalonDataService.suspendSalonAndCancelSubscription(salonId);
             showToast('Salon pasife alındı.', 'success');
@@ -122,7 +127,7 @@ export default function OwnerSalonsPage() {
     };
 
     const handleRequestActivation = async (salonId: string) => {
-        if (!confirm('Salonunuzun tekrar aktif edilmesi için yöneticiye onay isteği gönderilecektir. Emin misiniz?')) return;
+        if (!(await confirm({ title: 'Aktivasyon isteği gönderilsin mi?', message: 'Salonunuzun tekrar aktif edilmesi için yöneticiye onay isteği gönderilecektir.', confirmText: 'İstek Gönder' }))) return;
         try {
             await SalonDataService.submitForApproval(salonId);
             showToast('Aktivasyon isteğiniz gönderildi. Yönetici onayından sonra salonunuz aktif olacaktır.', 'success');
@@ -136,10 +141,9 @@ export default function OwnerSalonsPage() {
     // (CLAUDE.md — owner 'salons' tablosunda DELETE yapamaz; pasife alma yapılır.)
     // Owner'a silme yerine doğru yolu açıklayan bir bilgilendirme gösterilir.
     const handleDeleteInfo = () => {
-        alert(
-            'Salonu kalıcı olarak silme işlemi yalnızca platform yöneticisi tarafından yapılabilir.\n\n' +
-            '• Salonunuzu kullanım dışı bırakmak isterseniz "Pasife Al"ı kullanın (randevulara kapanır, dilediğinizde tekrar aktive edebilirsiniz).\n' +
-            '• Kalıcı silme gerekiyorsa Destek üzerinden talep oluşturun; yönetici verileri kontrol edip işlemi gerçekleştirir.'
+        showToast(
+            'Kalıcı silme yalnızca platform yöneticisi tarafından yapılabilir. Salonu kullanım dışı bırakmak için "Pasife Al"ı kullanın veya Destek üzerinden silme talebi oluşturun.',
+            'info'
         );
     };
 
@@ -155,8 +159,14 @@ export default function OwnerSalonsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="space-y-8" aria-busy="true" aria-label="Salonlar yükleniyor">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-12 w-full max-w-xl rounded-2xl" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-72 w-full rounded-[32px]" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -226,7 +236,7 @@ export default function OwnerSalonsPage() {
                             <div key={salon.id} className="bg-white rounded-[32px] border border-border shadow-card overflow-hidden group hover:scale-[1.02] transition-all flex flex-col">
                                 {/* Image section */}
                                 <div className="h-48 bg-gray-100 relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" style={{ backgroundImage: `url(${salon.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop'})` }}></div>
+                                    <div role="img" aria-label={`${salon.name} salon görseli`} className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" style={{ backgroundImage: `url(${salon.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800&auto=format&fit=crop'})` }}></div>
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                                     <div className="absolute top-4 right-4">
                                         <div className={`px-4 py-1.5 rounded-full ${status.bg} ${status.color} border border-white/20 backdrop-blur-md shadow-sm flex items-center gap-2 text-[10px] font-black uppercase tracking-wider`}>

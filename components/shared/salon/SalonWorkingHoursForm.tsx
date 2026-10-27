@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { SalonDataService } from '@/services/db';
 import { SalonWorkingHours } from '@/types';
 import { Clock, CheckCircle2, XCircle, Plus } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 interface SalonWorkingHoursFormProps {
     salonId: string;
@@ -12,6 +14,7 @@ interface SalonWorkingHoursFormProps {
 export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursFormProps) {
     const [hours, setHours] = useState<SalonWorkingHours[]>([]);
     const [loading, setLoading] = useState(true);
+    const { showToast } = useToast();
 
     useEffect(() => {
         fetchHours();
@@ -24,6 +27,7 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
             setHours(data || []);
         } catch (err) {
             console.error('Error fetching hours:', err);
+            showToast('Çalışma saatleri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -34,10 +38,10 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
         try {
             const data = await SalonDataService.initializeDefaultWorkingHours(salonId);
             setHours(data);
-            alert('Standart çalışma saatleri başarıyla yüklendi.');
+            showToast('Standart çalışma saatleri başarıyla yüklendi.', 'success');
         } catch (err: any) {
             console.error('Init error:', err);
-            alert('Saatler yüklenirken hata oluştu: ' + (err.message || 'Yetki hatası'));
+            showToast('Saatler yüklenirken hata oluştu: ' + (err.message || 'Yetki hatası'), 'error');
         } finally {
             setLoading(false);
         }
@@ -49,7 +53,7 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
             setHours(prev => prev.map(h => h.id === hourId ? { ...h, is_closed: !currentStatus } : h));
         } catch (err: any) {
             console.error('Update error:', err);
-            alert('Güncelleme hatası: ' + (err.message || 'Yetki hatası'));
+            showToast('Güncelleme hatası: ' + (err.message || 'Yetki hatası'), 'error');
         }
     };
 
@@ -64,14 +68,23 @@ export default function SalonWorkingHoursForm({ salonId }: SalonWorkingHoursForm
             }
         } catch (err: any) {
             console.error('Time update error:', err);
-            alert('Saat güncelleme hatası: ' + (err.message || 'Yetki hatası'));
+            showToast('Saat güncelleme hatası: ' + (err.message || 'Yetki hatası'), 'error');
         }
     };
 
     const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
     if (loading) {
-        return <div className="text-center p-10"><div className="animate-spin inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div></div>;
+        return (
+            <div className="space-y-8" aria-busy="true" aria-label="Çalışma saatleri yükleniyor">
+                <Skeleton className="h-32 w-full rounded-[32px]" />
+                <div className="grid grid-cols-1 gap-4 md:gap-6">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-[32px]" />
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     return (

@@ -22,9 +22,12 @@ import {
     ChevronLeft,
     Layout,
     CheckCircle,
-    Ban
+    Ban,
+    BadgeCheck
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import SalonGalleryManager from '@/components/shared/salon/SalonGalleryManager';
 
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
@@ -61,6 +64,7 @@ export default function EditSalonPage() {
     const router = useRouter();
     const params = useParams();
     const salonId = params.id as string;
+    const { showToast } = useToast();
 
     const [activeTab, setActiveTab] = useState('profile');
     const [salon, setSalon] = useState<SalonDetail | null>(null);
@@ -146,21 +150,20 @@ export default function EditSalonPage() {
                 searchQuery = searchParts.join(', ');
             }
 
-            console.log(`🔍 Geocoding search (${isManual ? 'Manual' : 'Auto'}):`, searchQuery);
             const result = await GeocodingService.searchAddress(searchQuery);
 
             if (result) {
-                console.log('📍 Geocoding result found:', result);
                 setFormData(prev => ({
                     ...prev,
                     geo_latitude: result.lat,
                     geo_longitude: result.lon
                 }));
             } else if (isManual) {
-                alert('Belirtilen adres haritada bulunamadı. Lütfen kontrol edip tekrar deneyin veya haritadan manuel işaretleyin.');
+                showToast('Belirtilen adres haritada bulunamadı. Lütfen kontrol edip tekrar deneyin veya haritadan manuel işaretleyin.', 'warning');
             }
         } catch (error) {
             console.error('Geocoding error:', error);
+            if (isManual) showToast('Adres araması başarısız oldu. Konumu haritadan işaretleyebilirsiniz.', 'error');
         } finally {
             setIsGeocoding(false);
         }
@@ -176,6 +179,7 @@ export default function EditSalonPage() {
             setSalonTypes(typesData);
         } catch (error) {
             console.error('Master data load error:', error);
+            showToast('Şehir ve işletme tipi listeleri yüklenemedi.', 'error');
         }
     };
 
@@ -185,6 +189,7 @@ export default function EditSalonPage() {
             setDistricts(data);
         } catch (error) {
             console.error("Districts error:", error);
+            showToast('İlçeler yüklenemedi.', 'error');
         }
     };
 
@@ -233,6 +238,7 @@ export default function EditSalonPage() {
             }
         } catch (error) {
             console.error('Salon data load error:', error);
+            showToast('Salon bilgileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -256,7 +262,7 @@ export default function EditSalonPage() {
             .map(([, label]) => label);
 
         if (missingFields.length > 0) {
-            alert(`Lütfen şu zorunlu alanları doldurunuz: ${missingFields.join(', ')}`);
+            showToast(`Lütfen şu zorunlu alanları doldurunuz: ${missingFields.join(', ')}`, 'warning');
             return;
         }
 
@@ -291,10 +297,10 @@ export default function EditSalonPage() {
             }
 
             await SalonDataService.submitForApproval(salonId);
-            alert('Şube bilgileri güncellendi ve onaya gönderildi.');
+            showToast('Şube bilgileri güncellendi ve onaya gönderildi.', 'success');
         } catch (error) {
             console.error('Update error:', error);
-            alert('Güncelleme sırasında bir hata oluştu.');
+            showToast('Güncelleme sırasında bir hata oluştu.', 'error');
         } finally {
             setSaving(false);
         }
@@ -302,8 +308,20 @@ export default function EditSalonPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-white">
-                <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full" />
+            <div className="min-h-screen bg-gray-50/50" aria-busy="true" aria-label="Salon bilgileri yükleniyor">
+                <div className="bg-white border-b border-border">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 md:h-24 flex items-center gap-4">
+                        <Skeleton className="h-10 w-10 rounded-2xl" />
+                        <Skeleton className="h-6 w-56" />
+                    </div>
+                </div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+                    <Skeleton className="h-12 w-full max-w-2xl rounded-2xl" />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <Skeleton className="h-[480px] w-full rounded-[32px] lg:col-span-2" />
+                        <Skeleton className="h-[480px] w-full rounded-[32px]" />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -358,7 +376,7 @@ export default function EditSalonPage() {
 
                                     {salon?.status === 'APPROVED' && (
                                         <div className="hidden sm:flex px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full items-center gap-2">
-                                            <span className="material-symbols-outlined text-[14px]">verified</span>
+                                            <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
                                             <span className="text-[10px] font-black uppercase tracking-widest antialiased">Doğrulanmış</span>
                                         </div>
                                     )}
@@ -553,7 +571,7 @@ export default function EditSalonPage() {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 md:col-span-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-1">
                                         <div className="space-y-3">
                                             <label className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">
                                                 Bina No

@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
 import { StaffService, ServiceService, AppointmentService, SalonDataService } from '@/services/db';
 import { AuditService } from '@/services/audit';
@@ -38,6 +39,7 @@ export function AddAppointmentModal({
     preselectedStaffId,
     onSuccess
 }: AddAppointmentModalProps) {
+    const { showToast } = useToast();
     const [staff, setStaff] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
     const [workingHours, setWorkingHours] = useState<any[]>([]);
@@ -90,6 +92,7 @@ export function AddAppointmentModal({
             setWorkingHours(hoursList || []);
         } catch (err) {
             console.error('Error fetching data:', err);
+            showToast('Personel ve hizmet listesi yüklenemedi.', 'error');
         }
     };
 
@@ -264,7 +267,7 @@ export function AddAppointmentModal({
                     </div>
 
                     {/* Date & Time */}
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className="space-y-2.5">
                             <label className="flex items-center gap-2 text-[10px] font-black uppercase text-text-muted tracking-widest ml-1">
                                 <Calendar className="w-3.5 h-3.5" /> Tarih <span className="text-red-500">*</span>

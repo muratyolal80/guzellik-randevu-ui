@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Key, UserPlus, AlertCircle, CheckCircle2, Loader2, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { PASSWORD_HINT_TR } from '@/lib/auth/password';
 
 interface StaffCredentialModalProps {
@@ -76,7 +77,7 @@ export default function StaffCredentialModal({
                                     : 'border-transparent text-text-muted hover:text-text-main'
                             }`}
                         >
-                            Login Kapat
+                            Girişi Kapat
                         </button>
                     </div>
                 )}
@@ -193,12 +194,12 @@ function CreateAccountForm({
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs font-bold text-blue-800 flex items-start gap-2">
                 <UserPlus className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
-                    <p>Hesabı sen oluştur; personele email ve şifreyi ilet.</p>
+                    <p>Hesabı sen oluştur; personele e-posta ve şifreyi ilet.</p>
                     <p className="opacity-80 mt-0.5">Personel ilk giriş sonrası şifresini değiştirebilir.</p>
                 </div>
             </div>
 
-            <FormField label="Email">
+            <FormField label="E-posta">
                 <input
                     type="email"
                     required
@@ -323,12 +324,18 @@ function DisableLoginForm({
     staffId,
     onSuccess,
 }: { staffId: string; onSuccess: () => void }) {
+    const { confirm } = useConfirm();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
     const submit = async () => {
-        if (!window.confirm('Personelin login hesabını devre dışı bırakmak istediğinize emin misiniz?\n\n• Personel artık /staff/dashboard\'a giriş yapamayacak\n• Staff kaydı silinmeyecek (takvimde görünmeye devam edecek)\n• Sonradan tekrar hesap oluşturabilirsin')) return;
+        if (!(await confirm({
+            title: 'Personelin giriş hesabı devre dışı bırakılsın mı?',
+            message: 'Personel artık kendi paneline giriş yapamayacak. Personel kaydı silinmez (takvimde görünmeye devam eder) ve sonradan tekrar hesap oluşturabilirsiniz.',
+            confirmText: 'Devre Dışı Bırak',
+            tone: 'danger',
+        }))) return;
 
         setLoading(true);
         setError(null);
@@ -342,7 +349,7 @@ function DisableLoginForm({
                 setError(data.error || 'İşlem başarısız');
                 return;
             }
-            setSuccess('Login devre dışı bırakıldı.');
+            setSuccess('Giriş hesabı devre dışı bırakıldı.');
             onSuccess();
         } catch (err: any) {
             setError(err?.message || 'Ağ hatası');
@@ -357,12 +364,12 @@ function DisableLoginForm({
                 <p className="flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
-                        Personelin login hesabını devre dışı bırakırsan kendi paneline
+                        Personelin giriş hesabını devre dışı bırakırsan kendi paneline
                         giriş yapamaz. Ama:
                     </span>
                 </p>
                 <ul className="ml-6 list-disc space-y-1 opacity-90">
-                    <li>Staff kaydı silinmez (takvimde görünür)</li>
+                    <li>Personel kaydı silinmez (takvimde görünür)</li>
                     <li>Geçmiş randevu/yorum verisi kaybolmaz</li>
                     <li>Sonradan tekrar hesap oluşturabilirsin</li>
                 </ul>
@@ -377,7 +384,7 @@ function DisableLoginForm({
             >
                 {loading && <Loader2 className="w-3 h-3 animate-spin" />}
                 <Trash2 className="w-3 h-3" />
-                Login Hesabını Devre Dışı Bırak
+                Giriş Hesabını Devre Dışı Bırak
             </button>
         </div>
     );

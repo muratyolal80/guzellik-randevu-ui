@@ -7,6 +7,7 @@ import SalonStaffManager from '@/components/shared/salon/SalonStaffManager';
 import CompanyStaffManager from '@/components/owner/CompanyStaffManager';
 import { Store, Users, Briefcase } from 'lucide-react';
 import Link from 'next/link';
+import Skeleton from '@/components/Skeleton';
 
 export default function OwnerStaffPage() {
     const { activeBranch, loading: branchLoading } = useActiveBranch();
@@ -14,13 +15,18 @@ export default function OwnerStaffPage() {
     const [activeTab, setActiveTab] = useState<'BRANCH' | 'COMPANY'>(activeBranch ? 'BRANCH' : 'COMPANY');
 
     if (branchLoading) return (
-        <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="p-4 md:p-8 pb-20 max-w-7xl mx-auto space-y-8" aria-busy="true" aria-label="Personel sayfası yükleniyor">
+            <Skeleton className="h-10 w-64" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
+                ))}
+            </div>
         </div>
     );
 
     return (
-        <div className="p-8 pb-20 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 pb-20 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
                 <div>
                     <h1 className="text-3xl font-black text-text-main tracking-tight">Personel Yönetimi</h1>
@@ -28,7 +34,7 @@ export default function OwnerStaffPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="bg-surface-alt p-1 rounded-2xl border border-border flex items-center self-start shadow-sm">
+                <div className="bg-surface-alt p-1 rounded-2xl border border-border flex flex-wrap items-center self-start shadow-sm">
                     <button
                         onClick={() => setActiveTab('BRANCH')}
                         className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'BRANCH' ? 'bg-white shadow-md text-primary' : 'text-text-muted hover:text-text-main'}`}

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Trophy, Sparkles } from 'lucide-react';
+import { Trophy, Sparkles, Medal } from 'lucide-react';
 
 interface LoyaltyWidgetProps {
     topLoyalty: { salon: any; count: number } | null;
@@ -29,10 +29,10 @@ export default function LoyaltyWidget({ topLoyalty }: LoyaltyWidgetProps) {
 
     const tier =
         count >= 10
-            ? { label: 'ALTIN ÜYE', emoji: '🥇', next: null, color: 'from-amber-400 to-yellow-600', shadow: 'shadow-amber-200' }
+            ? { label: 'ALTIN ÜYE', next: null, color: 'from-amber-400 to-yellow-600', shadow: 'shadow-amber-200' }
             : count >= 5
-              ? { label: 'GÜMÜŞ ÜYE', emoji: '🥈', next: 10, color: 'from-slate-400 to-slate-600', shadow: 'shadow-slate-200' }
-              : { label: 'BRONZ ÜYE', emoji: '🥉', next: 5, color: 'from-orange-400 to-orange-700', shadow: 'shadow-orange-200' };
+              ? { label: 'GÜMÜŞ ÜYE', next: 10, color: 'from-slate-400 to-slate-600', shadow: 'shadow-slate-200' }
+              : { label: 'BRONZ ÜYE', next: 5, color: 'from-orange-400 to-orange-700', shadow: 'shadow-orange-200' };
 
     const toNext = tier.next ? tier.next - count : 0;
     const progress = tier.next ? (count / tier.next) * 100 : 100;
@@ -42,7 +42,7 @@ export default function LoyaltyWidget({ topLoyalty }: LoyaltyWidgetProps) {
             <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full" />
             <div className="relative space-y-3">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest opacity-90">
-                    {tier.emoji} {tier.label}
+                    <Medal className="w-3.5 h-3.5" aria-hidden="true" /> {tier.label}
                 </div>
 
                 <div>

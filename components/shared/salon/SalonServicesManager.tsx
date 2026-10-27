@@ -22,6 +22,10 @@ import {
 import ServiceResourceLinkModal from '@/components/owner/ServiceResourceLinkModal';
 import BulkAddServicesModal from '@/components/shared/salon/BulkAddServicesModal';
 import { Sparkles } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
 
 interface SalonServicesManagerProps {
     salonId: string;
@@ -31,6 +35,8 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
     const [services, setServices] = useState<SalonServiceDetail[]>([]);
     const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [loading, setLoading] = useState(true);
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [showAdd, setShowAdd] = useState(false);
     const [editingService, setEditingService] = useState<SalonServiceDetail | null>(null);
     const [saving, setSaving] = useState(false);
@@ -69,6 +75,7 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
             setGlobalServices(globalList);
         } catch (err) {
             console.error(err);
+            showToast('Hizmetler yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -119,7 +126,7 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
         } catch (err: any) {
             console.error('Hizmet kaydetme hatası:', err);
             const errorMsg = err.message || 'Hizmet kaydedilirken hata oluştu';
-            alert(errorMsg);
+            showToast(errorMsg, 'error');
         } finally {
             setSaving(false);
         }
@@ -132,20 +139,32 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bu hizmeti silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu hizmeti silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await ServiceService.deleteService(id, salonId);
             setServices(prev => prev.filter(s => s.id !== id));
         } catch (err) {
             console.error(err);
+            showToast('Hizmet silinemedi.', 'error');
         }
     };
 
-    if (loading) return <div className="p-10 text-center text-text-muted">Yükleniyor...</div>;
+    if (loading) {
+        return (
+            <div className="space-y-8" aria-busy="true" aria-label="Hizmetler yükleniyor">
+                <Skeleton className="h-24 w-full rounded-[32px]" />
+                <div className="grid grid-cols-1 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-24 w-full rounded-[28px]" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center bg-gray-50 p-6 rounded-[32px] border border-border">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-gray-50 p-6 rounded-[32px] border border-border">
                 <div>
                     <h3 className="text-lg font-black text-text-main">Hizmet Listesi</h3>
                     <p className="text-xs text-text-secondary mt-1">{services.length} farklı işlem sunuyorsunuz.</p>
@@ -317,6 +336,14 @@ export default function SalonServicesManager({ salonId }: SalonServicesManagerPr
             )}
 
             <div className="grid grid-cols-1 gap-4">
+                {services.length === 0 && (
+                    <EmptyState
+                        icon={Scissors}
+                        title="Henüz hizmet eklenmemiş"
+                        description="Standart hizmetleri tek tıkla ekleyebilir veya yeni bir hizmet oluşturabilirsiniz."
+                        className="bg-white rounded-[28px] border border-border"
+                    />
+                )}
                 {services.map(service => (
                     <div key={service.id} className="group bg-white p-6 rounded-[28px] border border-border shadow-sm hover:shadow-md transition-all flex items-center justify-between">
                         <div className="flex items-center gap-6">

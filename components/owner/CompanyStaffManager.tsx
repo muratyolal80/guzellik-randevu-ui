@@ -23,6 +23,9 @@ import {
     Settings
 } from 'lucide-react';
 import Image from 'next/image';
+import { useToast } from '@/components/ui/Toast';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
 
 interface CompanyStaffManagerProps {
     ownerId: string;
@@ -32,6 +35,7 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
     const [staff, setStaff] = useState<any[]>([]);
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
+    const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -63,6 +67,7 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
             setSalons(salonList);
         } catch (err) {
             console.error('Veri çekme hatası:', err);
+            showToast('Personel listesi yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -88,7 +93,7 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
                 setStaffBranches(prev => [...prev, salonId]);
             }
         } catch (err: any) {
-            alert("Hata: " + err.message);
+            showToast('Şube ataması güncellenemedi: ' + (err?.message || 'Bilinmeyen hata'), 'error');
         } finally {
             setAssigningLoading(false);
             // Refresh main list branch data in bg
@@ -104,8 +109,13 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="space-y-6" aria-busy="true" aria-label="Personeller yükleniyor">
+                <Skeleton className="h-14 w-full rounded-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-52 w-full rounded-[32px]" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -128,6 +138,14 @@ export default function CompanyStaffManager({ ownerId }: CompanyStaffManagerProp
 
             {/* Staff Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredStaff.length === 0 && (
+                    <EmptyState
+                        icon={Users}
+                        title={searchTerm ? 'Aramanızla eşleşen personel yok' : 'Henüz personel eklenmemiş'}
+                        description={searchTerm ? 'Farklı bir isim, görev veya e-posta ile tekrar deneyin.' : 'Şubelerinize personel eklediğinizde burada listelenir.'}
+                        className="col-span-full bg-white rounded-[32px] border border-border"
+                    />
+                )}
                 {filteredStaff.map((member) => (
                     <div key={member.id} className="bg-white rounded-[32px] border border-border shadow-card overflow-hidden group hover:shadow-xl transition-all border-l-4 border-l-primary">
                         <div className="p-6">

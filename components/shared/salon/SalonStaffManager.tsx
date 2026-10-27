@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Key } from 'lucide-react';
+import { Key, Loader2, RefreshCw, UserRound } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 import StaffCredentialModal from '@/components/owner/StaffCredentialModal';
 import { StaffService, SalonDataService, ServiceService } from '@/services/db';
 import { LimitEnforcer } from '@/lib/utils/limits';
@@ -57,6 +60,8 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     const [addMode, setAddMode] = useState<'direct' | 'invite'>('direct');
     const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [invites, setInvites] = useState<Invite[]>([]);
     const [showInviteSuccess, setShowInviteSuccess] = useState(false);
     const [lastInviteLink, setLastInviteLink] = useState('');
@@ -94,6 +99,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setInvites(pendingInvites);
         } catch (err) {
             console.error('Davetler çekilemedi:', err);
+            showToast('Bekleyen davetler yüklenemedi.', 'error');
         }
     };
 
@@ -103,6 +109,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setSalonServices(services);
         } catch (err) {
             console.error('Hizmetler çekilemedi:', err);
+            showToast('Salon hizmetleri yüklenemedi.', 'error');
         }
     };
 
@@ -112,6 +119,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setSalonName(salon?.name || '');
         } catch (err) {
             console.error('Salon bilgisi çekilemedi:', err);
+            showToast('Salon bilgisi yüklenemedi.', 'error');
         }
     };
 
@@ -175,6 +183,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setShowAssignModal(true);
         } catch (err) {
             console.error('Personeller çekilemedi:', err);
+            showToast('Diğer şubelerdeki personeller yüklenemedi.', 'error');
         } finally {
             setAssigningLoading(false);
         }
@@ -189,10 +198,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             fetchStaff();
         } catch (err: any) {
              if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
-                alert('Personel limitine ulaştınız. Atama yapabilmek için paketinizi yükseltmelisiniz.');
+                showToast('Personel limitine ulaştınız. Atama yapabilmek için paketinizi yükseltmelisiniz.', 'warning');
             } else {
                 console.error('Atama hatası:', err);
-                alert('Atama sırasında bir hata oluştu.');
+                showToast('Atama sırasında bir hata oluştu.', 'error');
             }
         } finally {
             setSaving(false);
@@ -217,9 +226,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setShowModal(true);
         } catch (err: any) {
             if (err.message?.startsWith('SUBSCRIPTION_LIMIT_REACHED')) {
-                alert('Personel limitine ulaştınız. Paket yükseltmelisiniz.');
+                showToast('Personel limitine ulaştınız. Paket yükseltmelisiniz.', 'warning');
             } else {
                 console.error(err);
+                showToast('Personel ekleme formu açılamadı.', 'error');
             }
         } finally {
             setLoading(false);
@@ -243,6 +253,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setSelectedServiceIds(linkedServices);
         } catch (err) {
             console.error('Servisler çekilemedi:', err);
+            showToast('Personelin hizmetleri yüklenemedi.', 'error');
         }
         
         setShowModal(true);
@@ -255,7 +266,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             if (modalType === 'add') {
                 if (addMode === 'invite') {
                     if (!formEmail) {
-                        alert('Davet göndermek için e-posta adresi zorunludur.');
+                        showToast('Davet göndermek için e-posta adresi zorunludur.', 'warning');
                         setSaving(false);
                         return;
                     }
@@ -305,7 +316,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             fetchStaff();
         } catch (err) {
             console.error('İşlem hatası:', err);
-            alert('Bir hata oluştu.');
+            showToast('Bir hata oluştu.', 'error');
         } finally {
             setSaving(false);
         }
@@ -319,6 +330,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setShowShiftModal(true);
         } catch (err) {
             console.error('Vardiya bilgisi çekilemedi:', err);
+            showToast('Mesai saatleri yüklenemedi.', 'error');
         }
     };
 
@@ -328,11 +340,12 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             setWorkingHours(prev => prev.map(h => h.id === hourId ? { ...h, ...updates } : h));
         } catch (err) {
             console.error('Vardiya güncelleme hatası:', err);
+            showToast('Mesai saati güncellenemedi.', 'error');
         }
     };
 
     const handleDeleteStaff = async (staffId: string) => {
-        if (!window.confirm('Bu personeli silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu personeli silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await StaffService.deleteStaff(staffId);
             setStaff(prev => prev.filter(s => s.id !== staffId));
@@ -341,9 +354,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             if (err?.code === 'STAFF_HAS_APPOINTMENTS') {
                 const cnt = err?.appointmentCount ?? '';
                 const msg = cnt
-                    ? `Bu personel ${cnt} randevuya bağlı. Geçmiş kayıtları kaybetmemek için silinemez.\n\nPasif yapmak ister misiniz? Pasif personel listede gizlenir ama randevu geçmişi korunur.`
-                    : 'Bu personel başka kayıtlara bağlı, silinemez.\n\nPasif yapmak ister misiniz? Listede gizlenir ama geçmiş korunur.';
-                if (window.confirm(msg)) {
+                    ? `Bu personel ${cnt} randevuya bağlı. Geçmiş kayıtları kaybetmemek için silinemez. Pasif personel listede gizlenir ama randevu geçmişi korunur.`
+                    : 'Bu personel başka kayıtlara bağlı, silinemez. Pasif personel listede gizlenir ama geçmiş korunur.';
+                if (await confirm({ title: 'Personel pasif yapılsın mı?', message: msg, confirmText: 'Pasif Yap' })) {
                     try {
                         await StaffService.deactivateStaff(staffId);
                         setStaff(prev => prev.map(s => s.id === staffId ? { ...s, is_active: false } : s));
@@ -351,9 +364,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         // RLS engeli (yetki) — net mesaj
                         const code = deactivateErr?.code;
                         if (code === '42501' || code === 'PGRST301') {
-                            alert('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel pasifleştirebilir.');
+                            showToast('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel pasifleştirebilir.', 'error');
                         } else {
-                            alert(`Pasif yapılamadı: ${deactivateErr?.message || 'Bilinmeyen hata'}`);
+                            showToast(`Pasif yapılamadı: ${deactivateErr?.message || 'Bilinmeyen hata'}`, 'error');
                         }
                     }
                 }
@@ -361,11 +374,11 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
             }
             // RLS engeli
             if (err?.code === '42501' || err?.code === 'PGRST301') {
-                alert('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel silebilir.');
+                showToast('Bu işlemi yapmaya yetkiniz yok. Yalnızca salon sahibi veya yönetici personel silebilir.', 'error');
                 return;
             }
             console.error('Silme hatası:', err);
-            alert(`Silme başarısız: ${err?.message || 'Bilinmeyen hata'}`);
+            showToast(`Silme başarısız: ${err?.message || 'Bilinmeyen hata'}`, 'error');
         }
     };
 
@@ -378,9 +391,17 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
 
     if (loading && staff.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 animate-pulse">
-                <Users className="w-12 h-12 text-gray-200 mb-4" />
-                <div className="h-4 w-32 bg-gray-100 rounded-full" />
+            <div className="space-y-8" aria-busy="true" aria-label="Personeller yükleniyor">
+                <Skeleton className="h-28 w-full rounded-[40px]" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-6 bg-white rounded-[32px] border border-border space-y-4">
+                            <Skeleton className="h-16 w-16 rounded-2xl" />
+                            <Skeleton className="h-5 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }
@@ -408,7 +429,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         onClick={() => fetchStaff()}
                         className="px-5 py-2.5 bg-white border border-rose-200 text-rose-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition whitespace-nowrap"
                     >
-                        🔄 Tekrar Dene
+                        <RefreshCw className="w-4 h-4 inline-block mr-1.5 -mt-0.5" aria-hidden="true" /> Tekrar Dene
                     </button>
                 </div>
             )}
@@ -497,7 +518,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 });
                                 window.location.reload();
                             } catch (err: any) {
-                                alert('Eklenemedi: ' + (err?.message || 'hata'));
+                                showToast('Eklenemedi: ' + (err?.message || 'Bilinmeyen hata'), 'error');
                             } finally {
                                 setSaving(false);
                             }
@@ -528,9 +549,13 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 <span>{inv.email}</span>
                                 <button 
                                     onClick={async () => {
-                                        if(window.confirm('Bu daveti iptal etmek istediğinize emin misiniz?')) {
-                                            await StaffService.cancelInvite(inv.id);
-                                            fetchInvites();
+                                        if (await confirm({ title: 'Bu daveti iptal etmek istediğinize emin misiniz?', confirmText: 'Daveti İptal Et', tone: 'danger' })) {
+                                            try {
+                                                await StaffService.cancelInvite(inv.id);
+                                                fetchInvites();
+                                            } catch {
+                                                showToast('Davet iptal edilemedi.', 'error');
+                                            }
                                         }
                                     }}
                                     className="text-red-500 hover:text-red-700 uppercase tracking-widest font-black text-[10px]"
@@ -550,7 +575,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                         <div className="p-6 flex-grow">
                             <div className="flex items-start justify-between mb-6">
                                 <div className="relative">
-                                    <div className="w-20 h-20 rounded-[24px] bg-surface-alt bg-cover bg-center border-2 border-white shadow-xl group-hover:scale-105 transition-transform duration-500 ring-4 ring-gray-50"
+                                    <div role="img" aria-label={`${member.name} fotoğrafı`} className="w-20 h-20 rounded-[24px] bg-surface-alt bg-cover bg-center border-2 border-white shadow-xl group-hover:scale-105 transition-transform duration-500 ring-4 ring-gray-50"
                                         style={{ backgroundImage: `url(${member.photo || member.image || 'https://i.pravatar.cc/150'})` }}
                                     />
                                     {member.is_active && (
@@ -577,7 +602,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     </button>
                                     <button
                                         onClick={() => setCredentialTarget(member)}
-                                        title={member.user_id ? 'Şifre yönetimi / Login kapat' : 'Login hesabı oluştur'}
+                                        title={member.user_id ? 'Şifre yönetimi / Girişi kapat' : 'Giriş hesabı oluştur'}
                                         className={`p-2.5 rounded-xl transition-all shadow-sm ${
                                             member.user_id
                                                 ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
@@ -603,12 +628,10 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     {member.role || member.specialty || 'Uzman'}
                                 </div>
                                 {/* Login durumu rozeti */}
-                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest w-fit px-2 py-0.5 rounded-md mt-1.5"
-                                    style={{
-                                        background: member.user_id ? '#ecfdf5' : '#f3f4f6',
-                                        color: member.user_id ? '#047857' : '#6b7280',
-                                    }}>
-                                    {member.user_id ? '🔑 Login aktif' : '👤 Sadece görünüm'}
+                                <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest w-fit px-2 py-0.5 rounded-md mt-1.5 ${member.user_id ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {member.user_id
+                                        ? <><Key className="w-3 h-3" aria-hidden="true" /> Giriş aktif</>
+                                        : <><UserRound className="w-3 h-3" aria-hidden="true" /> Sadece görünüm</>}
                                 </div>
                             </div>
 
@@ -696,7 +719,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                         title="Listeyi yenile"
                                         className="flex items-center gap-2.5 px-6 py-4 bg-white border border-border text-text-main rounded-[24px] font-bold text-sm hover:bg-gray-50 transition-all"
                                     >
-                                        🔄 Listeyi Yenile
+                                        <RefreshCw className="w-4 h-4" aria-hidden="true" /> Listeyi Yenile
                                     </button>
                                 </div>
                             </>
@@ -905,7 +928,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {salonServices.map((service) => {
                                         const isSelected = selectedServiceIds.includes(service.id);
                                         return (
@@ -1090,8 +1113,9 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                 {/* Copy Link */}
                                 <button
                                     onClick={() => {
-                                        navigator.clipboard.writeText(lastInviteLink);
-                                        alert('Bağlantı panoya kopyalandı!');
+                                        navigator.clipboard.writeText(lastInviteLink)
+                                            .then(() => showToast('Bağlantı panoya kopyalandı!', 'success'))
+                                            .catch(() => showToast('Bağlantı kopyalanamadı.', 'error'));
                                     }}
                                     className="w-full flex items-center justify-center gap-3 py-4 bg-surface-alt text-text-main border border-border rounded-[24px] font-black hover:bg-gray-50 transition-all"
                                 >
@@ -1158,7 +1182,7 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
                                     {allOwnerStaff.map((member) => (
                                         <div key={member.id} className="flex items-center justify-between p-6 bg-surface-alt rounded-[32px] border border-border group hover:border-primary/30 transition-all">
                                             <div className="flex items-center gap-5">
-                                                <div className="w-16 h-16 rounded-[20px] bg-cover bg-center border-2 border-white shadow-md"
+                                                <div role="img" aria-label={`${member.name} fotoğrafı`} className="w-16 h-16 rounded-[20px] bg-cover bg-center border-2 border-white shadow-md"
                                                     style={{ backgroundImage: `url(${member.photo || member.image || 'https://i.pravatar.cc/150'})` }}
                                                 />
                                                 <div>
@@ -1211,19 +1235,3 @@ export default function SalonStaffManager({ salonId }: SalonStaffManagerProps) {
     );
 }
 
-const Loader2 = ({ className }: { className?: string }) => (
-    <svg 
-        className={className} 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="2" 
-        strokeLinecap="round" 
-        strokeLinejoin="round"
-    >
-        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-);

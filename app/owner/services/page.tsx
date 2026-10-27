@@ -5,11 +5,21 @@ import { useActiveBranch } from '@/context/ActiveBranchContext';
 import SalonServicesManager from '@/components/shared/salon/SalonServicesManager';
 import { Store } from 'lucide-react';
 import Link from 'next/link';
+import Skeleton from '@/components/Skeleton';
 
 export default function OwnerServicesPage() {
     const { activeBranch, loading } = useActiveBranch();
 
-    if (loading) return <div>Yükleniyor...</div>;
+    if (loading) {
+        return (
+            <div className="space-y-8" aria-busy="true" aria-label="Hizmetler yükleniyor">
+                <Skeleton className="h-24 w-full rounded-[32px]" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full rounded-[28px]" />
+                ))}
+            </div>
+        );
+    }
 
     if (!activeBranch) {
         return (

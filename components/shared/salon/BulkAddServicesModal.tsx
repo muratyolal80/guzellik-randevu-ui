@@ -270,8 +270,8 @@ export default function BulkAddServicesModal({
                                                             <p className="text-sm font-bold text-text-main truncate">
                                                                 {s.name}
                                                                 {isExisting && (
-                                                                    <span className="ml-2 text-[10px] font-black uppercase text-emerald-700">
-                                                                        ✓ ZATEN VAR
+                                                                    <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-black uppercase text-emerald-700">
+                                                                        <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> ZATEN VAR
                                                                     </span>
                                                                 )}
                                                             </p>

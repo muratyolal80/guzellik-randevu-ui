@@ -106,7 +106,7 @@ export default function PayTRPaymentModal({
                 <div className="px-8 py-6 border-b border-border bg-gradient-to-r from-emerald-50 to-white flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                            <CreditCard size={24} />
+                            <CreditCard className="w-6 h-6" aria-hidden="true" />
                         </div>
                         <div>
                             <h3 className="text-lg font-black text-text-main tracking-tight">PayTR Kredi Kartı Ödemesi</h3>
@@ -120,14 +120,14 @@ export default function PayTRPaymentModal({
                         className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                         aria-label="Kapat"
                     >
-                        <X size={20} />
+                        <X className="w-5 h-5" aria-hidden="true" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
                     {loading && (
                         <div className="py-24 flex flex-col items-center gap-4 text-text-muted">
-                            <Loader2 size={32} className="animate-spin text-primary" />
+                            <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
                             <p className="text-sm font-bold uppercase tracking-widest">Güvenli ödeme sayfası hazırlanıyor…</p>
                         </div>
                     )}
@@ -162,7 +162,7 @@ export default function PayTRPaymentModal({
 
                 <div className="px-8 py-4 border-t border-border bg-gray-50 flex items-center justify-between text-[10px] font-bold text-text-muted">
                     <span className="flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-emerald-500" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" aria-hidden="true" />
                         Kart bilgileriniz PayTR'de korunur. Bizim sistemimize ulaşmaz.
                     </span>
                     {merchantOid && (

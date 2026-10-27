@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +22,7 @@ import { tr } from 'date-fns/locale';
 import AIInsights from '@/components/owner/AIInsights';
 
 export default function OwnerFinancePage() {
+    const { showToast } = useToast();
     const { user } = useAuth();
     const { branches, activeBranch, loading: branchLoading } = useActiveBranch();
     const [viewType, setViewType] = useState<'single' | 'all'>('single');
@@ -134,6 +136,7 @@ export default function OwnerFinancePage() {
 
         } catch (err) {
             console.error('Finance Fetch Error:', err);
+            showToast('Finansal veriler yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }

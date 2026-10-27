@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTenant } from '@/context/TenantContext';
 import BranchSelector from '@/components/owner/BranchSelector';
 import SubscriptionBanner from '@/components/owner/SubscriptionBanner';
+import Skeleton from '@/components/Skeleton';
 import {
     LayoutDashboard,
     Calendar,
@@ -45,7 +46,7 @@ const OwnerSidebar: React.FC = () => {
         {
             name: 'Genel',
             items: [
-                { name: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
+                { name: 'Panel', path: '/owner/dashboard', icon: LayoutDashboard },
                 { name: 'Paket ve Abonelik', path: '/owner/packages', icon: Package },
             ]
         },
@@ -173,8 +174,22 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
 
     if (loading || tenantLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="min-h-screen flex bg-gray-50" aria-busy="true" aria-label="Panel yükleniyor">
+                <div className="w-64 bg-white border-r border-border p-4 hidden lg:flex flex-col gap-4">
+                    <Skeleton className="h-12 w-full rounded-2xl" />
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <Skeleton key={i} className="h-9 w-full rounded-xl" />
+                    ))}
+                </div>
+                <div className="flex-1 p-4 md:p-8 lg:p-12 space-y-8">
+                    <Skeleton className="h-10 w-64" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <Skeleton key={i} className="h-32 w-full rounded-[32px]" />
+                        ))}
+                    </div>
+                    <Skeleton className="h-80 w-full rounded-[32px]" />
+                </div>
             </div>
         );
     }

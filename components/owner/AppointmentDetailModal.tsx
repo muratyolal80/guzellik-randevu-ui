@@ -23,6 +23,8 @@ import {
     Printer,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 interface AppointmentDetailModalProps {
     isOpen: boolean;
@@ -105,6 +107,7 @@ export default function AppointmentDetailModal({
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
     const [copied, setCopied] = useState<string | null>(null);
+    const { confirm, prompt } = useConfirm();
 
     const appointmentId = appointment?.id;
 
@@ -206,8 +209,16 @@ export default function AppointmentDetailModal({
         }
     };
 
-    const handleReject = () => {
-        const reason = window.prompt('Reddetme sebebi (opsiyonel, müşteriye SMS ile gider):', '');
+    const handleReject = async () => {
+        const reason = await prompt({
+            title: 'Randevuyu iptal et',
+            label: 'Reddetme sebebi (opsiyonel, müşteriye SMS ile gider)',
+            placeholder: 'Örn: Personel müsait değil',
+            multiline: true,
+            confirmText: 'İptal Et',
+            cancelText: 'Vazgeç',
+            tone: 'danger',
+        });
         if (reason === null) return;
         action('reject', { reason: reason || undefined });
     };
@@ -251,9 +262,13 @@ export default function AppointmentDetailModal({
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-5">
                     {loading ? (
-                        <div className="py-16 flex flex-col items-center gap-3">
-                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                            <p className="text-sm font-bold text-text-muted">Yükleniyor...</p>
+                        <div className="space-y-4" aria-busy="true" aria-label="Randevu detayı yükleniyor">
+                            <Skeleton className="h-24 w-full rounded-2xl" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Skeleton className="h-20 w-full rounded-2xl" />
+                                <Skeleton className="h-20 w-full rounded-2xl" />
+                            </div>
+                            <Skeleton className="h-28 w-full rounded-2xl" />
                         </div>
                     ) : error ? (
                         <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-start gap-3">
@@ -417,7 +432,7 @@ export default function AppointmentDetailModal({
                                     </li>
                                     {apt.confirmed_at && (
                                         <li className="flex items-baseline gap-2">
-                                            <span className="font-bold text-emerald-700 shrink-0">✓ Onaylandı:</span>
+                                            <span className="font-bold text-emerald-700 shrink-0 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3 self-center" aria-hidden="true" /> Onaylandı:</span>
                                             <span className="font-bold text-text-main">
                                                 {fullName(apt.confirmed_by_profile) || 'Sistem'} · {formatTr(apt.confirmed_at)}
                                             </span>
@@ -425,8 +440,10 @@ export default function AppointmentDetailModal({
                                     )}
                                     {apt.completed_at && (
                                         <li className="flex items-baseline gap-2">
-                                            <span className="font-bold text-blue-700 shrink-0">
-                                                {status === 'NO_SHOW' ? '⊘ No-show:' : '✓ Tamamlandı:'}
+                                            <span className="font-bold text-blue-700 shrink-0 inline-flex items-center gap-1">
+                                                {status === 'NO_SHOW'
+                                                    ? <><SkipForward className="w-3 h-3 self-center" aria-hidden="true" /> Gelmedi:</>
+                                                    : <><CheckCircle2 className="w-3 h-3 self-center" aria-hidden="true" /> Tamamlandı:</>}
                                             </span>
                                             <span className="font-bold text-text-main">
                                                 {fullName(apt.completed_by_profile) || 'Sistem'} · {formatTr(apt.completed_at)}
@@ -435,7 +452,7 @@ export default function AppointmentDetailModal({
                                     )}
                                     {apt.cancelled_at && (
                                         <li className="flex items-baseline gap-2">
-                                            <span className="font-bold text-rose-700 shrink-0">✗ İptal edildi:</span>
+                                            <span className="font-bold text-rose-700 shrink-0 inline-flex items-center gap-1"><XCircle className="w-3 h-3 self-center" aria-hidden="true" /> İptal edildi:</span>
                                             <span className="font-bold text-text-main">
                                                 {fullName(apt.cancelled_by_profile) || 'Müşteri/Sistem'} · {formatTr(apt.cancelled_at)}
                                                 {apt.cancellation_reason && (
@@ -497,8 +514,8 @@ export default function AppointmentDetailModal({
                                     Tamamlandı
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        if (window.confirm('Müşteri gelmedi olarak işaretlensin mi?')) action('noshow');
+                                    onClick={async () => {
+                                        if (await confirm({ title: 'Müşteri gelmedi olarak işaretlensin mi?', confirmText: 'Gelmedi' })) action('noshow');
                                     }}
                                     disabled={!!actionLoading}
                                     className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 font-black text-xs uppercase tracking-widest hover:bg-slate-200 disabled:opacity-50 flex items-center gap-1.5"

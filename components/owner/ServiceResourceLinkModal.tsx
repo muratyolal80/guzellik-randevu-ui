@@ -100,7 +100,7 @@ export default function ServiceResourceLinkModal({
         <div className="flex items-center justify-between p-6 border-b border-border bg-primary/5">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-              <Database className="text-primary" size={22} />
+              <Database className="w-[22px] h-[22px] text-primary" aria-hidden="true" />
             </div>
             <div>
               <h3 className="text-lg font-black text-text-main tracking-tight">KAYNAK GEREKSİNİMİ</h3>
@@ -115,18 +115,18 @@ export default function ServiceResourceLinkModal({
             className="p-2 rounded-xl text-text-muted hover:bg-gray-100 transition disabled:opacity-50"
             aria-label="Kapat"
           >
-            <X size={20} />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {loading ? (
             <div className="py-12 flex items-center justify-center">
-              <Loader2 className="animate-spin text-primary" size={32} />
+              <Loader2 className="w-8 h-8 animate-spin text-primary" aria-hidden="true" />
             </div>
           ) : resources.length === 0 ? (
             <div className="py-12 flex flex-col items-center gap-3 text-center">
-              <AlertCircle size={32} className="text-amber-500" />
+              <AlertCircle className="w-8 h-8 text-amber-500" aria-hidden="true" />
               <p className="text-sm font-bold text-text-main">Henüz kaynak tanımlanmamış</p>
               <p className="text-xs text-text-muted">
                 Önce <strong>/owner/resources</strong> sayfasından koltuk / oda / ekipman ekleyin.
@@ -189,7 +189,7 @@ export default function ServiceResourceLinkModal({
 
               {saved && (
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 flex items-center gap-2 text-xs font-bold text-emerald-700">
-                  <CheckCircle2 size={16} /> Kaynak gereksinimi güncellendi.
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Kaynak gereksinimi güncellendi.
                 </div>
               )}
             </>
@@ -209,8 +209,8 @@ export default function ServiceResourceLinkModal({
             disabled={saving || loading || resources.length === 0}
             className="flex-1 h-12 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-hover transition disabled:opacity-40 flex items-center justify-center gap-2"
           >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            <Save size={14} />
+            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />}
+            <Save className="w-3.5 h-3.5" aria-hidden="true" />
             {saved ? 'Kaydedildi' : saving ? 'Kaydediliyor' : 'Kaydet'}
           </button>
         </div>

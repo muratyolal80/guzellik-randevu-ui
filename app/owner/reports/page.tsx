@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { AppointmentService, SalonDataService, StaffService, ReportingService } from '@/services/db';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import {
     TrendingUp,
     DollarSign,
@@ -22,6 +24,7 @@ import {
 export default function OwnerReports() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [reportDays, setReportDays] = useState(30);
     const [reportData, setReportData] = useState<any>(null);
@@ -41,12 +44,28 @@ export default function OwnerReports() {
             setReportData(data);
         } catch (err) {
             console.error('Rapor hatası:', err);
+            showToast('Rapor verileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    if (branchLoading) return <div>Yükleniyor...</div>;
+    const reportSkeleton = (
+        <div className="space-y-10 pb-20" aria-busy="true" aria-label="Raporlar yükleniyor">
+            <Skeleton className="h-10 w-64" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-36 w-full rounded-[32px]" />
+                ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Skeleton className="h-80 w-full rounded-[32px]" />
+                <Skeleton className="h-80 w-full rounded-[32px]" />
+            </div>
+        </div>
+    );
+
+    if (branchLoading) return reportSkeleton;
 
     if (!activeBranch) {
         return (
@@ -60,13 +79,7 @@ export default function OwnerReports() {
         );
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-        );
-    }
+    if (loading) return reportSkeleton;
 
     return (
         <div className="space-y-10 animate-fade-in pb-20">

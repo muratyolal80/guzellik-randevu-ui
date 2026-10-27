@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, Loader2, PartyPopper } from 'lucide-react';
 import PendingApprovalActions from './PendingApprovalActions';
 
 interface PendingAppointmentsCardProps {
@@ -102,8 +102,9 @@ export default function PendingAppointmentsCard({
                 </div>
             ) : rows.length === 0 ? (
                 <div className="py-6 text-center">
-                    <p className="text-sm font-bold text-text-muted">
-                        Onay bekleyen yeni randevu yok 🎉
+                    <p className="text-sm font-bold text-text-muted inline-flex items-center gap-1.5">
+                        Onay bekleyen yeni randevu yok
+                        <PartyPopper className="w-4 h-4 text-primary" aria-hidden="true" />
                     </p>
                 </div>
             ) : (

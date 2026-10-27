@@ -5,9 +5,11 @@ import {
     Package, Building, Users, Image as ImageIcon, CheckCircle2,
     AlertCircle, Clock, CreditCard, Wallet, ArrowRight,
     ShieldCheck, Zap, Briefcase, Crown, Check, X,
-    History as HistoryIcon, Loader2, Landmark
+    History as HistoryIcon, Landmark
 } from 'lucide-react';
-// import { toast } from 'sonner'; // No toast lib installed in package.json
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
 import { useTenant } from '@/context/TenantContext';
 import { useAuth } from '@/context/AuthContext';
@@ -32,6 +34,8 @@ export default function BillingPage() {
     const { user } = useAuth();
     const { salonId, subscriptionStatus, refreshSalonId } = useTenant();
     const { activeBranch } = useActiveBranch();
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'HISTORY' | 'UPGRADE' | 'SUBSCRIPTIONS'>('OVERVIEW');
     const [plans, setPlans] = useState<any[]>([]);
@@ -82,7 +86,7 @@ export default function BillingPage() {
 
         } catch (err) {
             console.error("Billing fetch error:", err);
-            alert("Hata: Veriler yüklenirken bir hata oluştu.");
+            showToast('Abonelik verileri yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -99,8 +103,8 @@ export default function BillingPage() {
     const handleUpgradeWithSender = async (planId: string, senderName?: string, proofUrl?: string) => {
         if (!salonId || !activeBranch) return;
         const targetPlan = plans.find(p => p.id === planId);
-        const confirm = window.confirm(`"${targetPlan?.display_name}" paketine geçiş yapmak istediğinize emin misiniz?`);
-        if (!confirm) return;
+        const ok = await confirm({ title: `"${targetPlan?.display_name}" paketine geçiş yapmak istediğinize emin misiniz?`, confirmText: 'Geçiş Yap' });
+        if (!ok) return;
 
         setLoading(true);
         try {
@@ -115,13 +119,13 @@ export default function BillingPage() {
                     receiptUrl: proofUrl
                 }
             );
-            alert('Abonelik talebiniz oluşturuldu!');
+            showToast('Abonelik talebiniz oluşturuldu!', 'success');
             await refreshSalonId();
             await fetchData();
             setActiveTab('OVERVIEW');
         } catch (err: any) {
             console.error(err);
-            alert(err.message || 'Hata oluştu');
+            showToast(err.message || 'Hata oluştu', 'error');
         } finally {
             setLoading(false);
         }
@@ -158,8 +162,15 @@ export default function BillingPage() {
 
     if (loading && !limits) {
         return (
-            <div className="min-h-[60vh] flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="max-w-6xl mx-auto py-12 px-6 space-y-8" aria-busy="true" aria-label="Abonelik bilgileri yükleniyor">
+                <Skeleton className="h-10 w-72" />
+                <Skeleton className="h-12 w-full max-w-md rounded-2xl" />
+                <Skeleton className="h-48 w-full rounded-[32px]" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-28 w-full rounded-3xl" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -434,7 +445,7 @@ export default function BillingPage() {
                                             onClick={() => {
                                                 const senderName = (document.getElementById('senderNameInput') as HTMLInputElement)?.value;
                                                 if (plans.find(p => p.id === selectedPlanId)?.price_monthly !== 0 && !senderName) {
-                                                    alert('Lütfen gönderici Ad-Soyad veya Ünvan giriniz.');
+                                                    showToast('Lütfen gönderici Ad-Soyad veya Ünvan giriniz.', 'warning');
                                                     return;
                                                 }
                                                 handleUpgradeWithSender(selectedPlanId, senderName, receiptUrl);

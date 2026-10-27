@@ -20,9 +20,12 @@ import {
     ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function OwnerCustomers() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [salonId, setSalonId] = useState<string | null>(null);
     const [customers, setCustomers] = useState<SalonCustomer[]>([]);
     const [loading, setLoading] = useState(true);
@@ -56,6 +59,7 @@ export default function OwnerCustomers() {
             }
         } catch (err) {
             console.error('Salonlar çekilemedi:', err);
+            showToast('Salon bilgisi yüklenemedi.', 'error');
         }
     };
 
@@ -68,6 +72,7 @@ export default function OwnerCustomers() {
             setCustomers(data);
         } catch (err) {
             console.error('Müşteriler çekilemedi:', err);
+            showToast('Müşteri listesi yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -80,6 +85,7 @@ export default function OwnerCustomers() {
             setNotes(data);
         } catch (err) {
             console.error('Notlar çekilemedi:', err);
+            showToast('Müşteri notları yüklenemedi.', 'error');
         }
     };
 
@@ -102,6 +108,7 @@ export default function OwnerCustomers() {
             fetchNotes(selectedCustomer.customer_id);
         } catch (err) {
             console.error('Not eklenemedi:', err);
+            showToast('Not eklenemedi.', 'error');
         } finally {
             setSavingNote(false);
         }
@@ -114,8 +121,24 @@ export default function OwnerCustomers() {
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-8" aria-busy="true" aria-label="Müşteriler yükleniyor">
+                <Skeleton className="h-10 w-64" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-36 w-full rounded-[32px]" />
+                    ))}
+                </div>
+                <div className="bg-white rounded-[40px] border-2 border-border/50 p-8 space-y-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-4">
+                            <Skeleton className="h-14 w-14 rounded-2xl" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-5 w-48" />
+                                <Skeleton className="h-3 w-32" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }
@@ -184,7 +207,8 @@ export default function OwnerCustomers() {
 
             {/* Customer List */}
             <div className="bg-white rounded-[40px] border-2 border-border/50 shadow-card overflow-hidden">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left border-collapse">
                     <thead>
                         <tr className="bg-surface-alt border-b border-border">
                             <th className="px-8 py-6 text-[10px] font-black text-text-muted uppercase tracking-widest">Müşteri Bilgisi</th>
@@ -201,7 +225,7 @@ export default function OwnerCustomers() {
                                     <div className="flex items-center gap-4">
                                         <div className="w-14 h-14 rounded-2xl bg-surface-alt border border-border flex items-center justify-center overflow-hidden">
                                             {customer.profile?.avatar_url ? (
-                                                <img src={customer.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                <img src={customer.profile.avatar_url} alt={`${customer.profile?.full_name || 'Müşteri'} profil fotoğrafı`} className="w-full h-full object-cover" />
                                             ) : (
                                                 <UserCircle className="w-8 h-8 text-text-muted" />
                                             )}
@@ -243,6 +267,7 @@ export default function OwnerCustomers() {
                         ))}
                     </tbody>
                 </table>
+                </div>
                 
                 {filteredCustomers.length === 0 && (
                     <div className="p-20 text-center space-y-4">
@@ -261,7 +286,7 @@ export default function OwnerCustomers() {
                             <div className="flex items-center gap-6">
                                 <div className="w-20 h-20 rounded-3xl bg-white border-2 border-border flex items-center justify-center overflow-hidden shadow-xl shadow-primary/5">
                                     {selectedCustomer.profile?.avatar_url ? (
-                                        <img src={selectedCustomer.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                        <img src={selectedCustomer.profile.avatar_url} alt={`${selectedCustomer.profile?.full_name || 'Müşteri'} profil fotoğrafı`} className="w-full h-full object-cover" />
                                     ) : (
                                         <UserCircle className="w-10 h-10 text-text-muted" />
                                     )}

@@ -8,6 +8,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { StaffService, ServiceService } from '@/services/db';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 interface StaffSkillsProps {
     salonId: string;
@@ -19,6 +21,7 @@ export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
     const [assignments, setAssignments] = useState<Set<string>>(new Set()); // "staffId-serviceId"
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const { showToast } = useToast();
 
     useEffect(() => {
         fetchData();
@@ -52,6 +55,7 @@ export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
 
         } catch (err) {
             console.error('Error fetching skills:', err);
+            showToast('Personel yetkinlikleri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -71,32 +75,44 @@ export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
         try {
             if (isAssigned) {
                 // DELETE
-                await supabase
+                const { error } = await supabase
                     .from('staff_services')
                     .delete()
                     .eq('staff_id', staffId)
                     .eq('salon_service_id', serviceId);
+                if (error) throw error;
             } else {
                 // INSERT
-                await supabase
+                const { error } = await supabase
                     .from('staff_services')
                     .insert({
                         salon_id: salonId,
                         staff_id: staffId,
                         salon_service_id: serviceId
                     });
+                if (error) throw error;
             }
         } catch (err) {
             // Revert on error
             console.error('Failed to toggle skill', err);
             setAssignments(assignments);
-            alert('İşlem başarısız oldu.');
+            showToast('İşlem başarısız oldu.', 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div>Yükleniyor...</div>;
+    if (loading) {
+        return (
+            <div className="bg-white rounded-xl border border-border shadow-sm p-6 space-y-4" aria-busy="true" aria-label="Personel yetkinlikleri yükleniyor">
+                <Skeleton className="h-6 w-56" />
+                <Skeleton className="h-4 w-full max-w-md" />
+                {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl border border-border shadow-sm p-6">

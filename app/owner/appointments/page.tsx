@@ -7,6 +7,8 @@ import { AppointmentService } from '@/services/db';
 import AppointmentDetailModal from '@/components/owner/AppointmentDetailModal';
 import { AddAppointmentModal } from '@/components/owner/AddAppointmentModal';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -60,6 +62,7 @@ export default function OwnerAppointmentsPage() {
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -101,6 +104,7 @@ export default function OwnerAppointmentsPage() {
             ));
         } catch (err) {
             console.error('Randevular çekilemedi:', err);
+            showToast('Randevular yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -144,7 +148,7 @@ export default function OwnerAppointmentsPage() {
     );
 
     const quickAction = async (apt: any, status: 'CONFIRMED' | 'CANCELLED') => {
-        if (status === 'CANCELLED' && !confirm('Bu randevuyu iptal etmek istediğinize emin misiniz?')) return;
+        if (status === 'CANCELLED' && !(await confirm({ title: 'Bu randevuyu iptal etmek istediğinize emin misiniz?', confirmText: 'İptal Et', cancelText: 'Vazgeç', tone: 'danger' }))) return;
         try {
             setActingId(apt.id);
             await AppointmentService.updateAppointmentStatus(apt.id, status, apt.salon_id);
@@ -168,8 +172,12 @@ export default function OwnerAppointmentsPage() {
 
     if (branchLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="space-y-6" aria-busy="true" aria-label="Randevular yükleniyor">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-32 w-full rounded-[24px]" />
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                ))}
             </div>
         );
     }

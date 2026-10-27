@@ -19,9 +19,14 @@ import {
     Activity,
     Users
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 export default function OwnerResources() {
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [salonId, setSalonId] = useState<string | null>(null);
     const [resources, setResources] = useState<SalonResource[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,6 +60,7 @@ export default function OwnerResources() {
             }
         } catch (err) {
             console.error('Salonlar çekilemedi:', err);
+            showToast('Salon bilgisi yüklenemedi.', 'error');
         }
     };
 
@@ -65,6 +71,7 @@ export default function OwnerResources() {
             setResources(data);
         } catch (err) {
             console.error('Kaynaklar çekilemedi:', err);
+            showToast('Kaynaklar yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -108,25 +115,37 @@ export default function OwnerResources() {
             setShowModal(false);
         } catch (err) {
             console.error('Kaynak kaydedilemedi:', err);
+            showToast('Kaynak kaydedilemedi.', 'error');
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Bu kaynağı silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Bu kaynağı silmek istediğinize emin misiniz?', confirmText: 'Sil', tone: 'danger' }))) return;
         try {
             await ResourceService.deleteResource(id);
             if (salonId) fetchResources(salonId);
         } catch (err) {
             console.error('Kaynak silinemedi:', err);
+            showToast('Kaynak silinemedi.', 'error');
         }
     };
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-8" aria-busy="true" aria-label="Kaynaklar yükleniyor">
+                <Skeleton className="h-10 w-64" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-36 w-full rounded-[32px]" />
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-56 w-full rounded-[32px]" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -279,7 +298,7 @@ export default function OwnerResources() {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-xs font-black text-text-muted uppercase tracking-widest ml-1">Kapasite</label>
                                         <input 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
 import { SubmerchantService } from '@/services/db';
 import {
     CreditCard,
@@ -24,6 +25,7 @@ interface PaymentSettingsTabProps {
 }
 
 export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [registration, setRegistration] = useState<any>(null);
@@ -80,6 +82,7 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
             }
         } catch (err) {
             console.error('Error fetching salon/profile:', err);
+            showToast('Salon ve profil bilgileri yüklenemedi.', 'error');
         }
     };
 
@@ -96,6 +99,7 @@ export function PaymentSettingsTab({ salonId }: PaymentSettingsTabProps) {
             }
         } catch (err) {
             console.error('Registration fetch error:', err);
+            showToast('Ödeme hesabı bilgileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }

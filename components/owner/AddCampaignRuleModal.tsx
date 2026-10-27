@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sparkles, X, Clock, Calendar, CheckCircle2 } from 'lucide-react';
 import { CampaignRule, DiscountType } from '@/types';
+import { useToast } from '@/components/ui/Toast';
 
 interface AddCampaignRuleModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ const DAYS = [
 ];
 
 export default function AddCampaignRuleModal({ isOpen, onClose, onSuccess, salonId }: AddCampaignRuleModalProps) {
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -59,7 +61,7 @@ export default function AddCampaignRuleModal({ isOpen, onClose, onSuccess, salon
             onClose();
         } catch (error) {
             console.error('Kampanya kuralı oluşturulurken hata:', error);
-            alert('Kampanya kuralı oluşturulurken bir hata oluştu.');
+            showToast('Kampanya kuralı oluşturulurken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -99,7 +101,7 @@ export default function AddCampaignRuleModal({ isOpen, onClose, onSuccess, salon
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-text-muted uppercase tracking-wider ml-1">İndirim Tipi</label>
                                 <select 
@@ -128,7 +130,7 @@ export default function AddCampaignRuleModal({ isOpen, onClose, onSuccess, salon
                                 <Clock className="w-4 h-4" /> Zamanlama Ayarları
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-indigo-700 uppercase tracking-widest ml-1">Başlangıç</label>
                                     <input

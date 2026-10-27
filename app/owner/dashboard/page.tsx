@@ -31,11 +31,14 @@ import PlanUsageWidget from '@/components/owner/PlanUsageWidget';
 import PendingAppointmentsCard from '@/components/appointments/PendingAppointmentsCard';
 import OwnerQuickActions from '@/components/owner/OwnerQuickActions';
 import AIInsights from '@/components/owner/AIInsights';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function OwnerDashboard() {
     const router = useRouter();
     const { user } = useAuth();
     const { activeBranch, loading: branchLoading } = useActiveBranch();
+    const { showToast } = useToast();
     const [stats, setStats] = useState({
         todayCount: 0,
         todayRevenue: 0,
@@ -63,6 +66,7 @@ export default function OwnerDashboard() {
             ]);
         } catch (err) {
             console.error('Dashboard verisi çekilirken hata:', err);
+            showToast('Panel verileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -74,6 +78,7 @@ export default function OwnerDashboard() {
             setAnalyticsData(data);
         } catch (err) {
             console.error('Analytics error:', err);
+            showToast('Analiz verileri yüklenemedi.', 'error');
         }
     };
 
@@ -113,7 +118,20 @@ export default function OwnerDashboard() {
     };
 
     if (branchLoading) {
-        return <div>Yükleniyor...</div>;
+        return (
+            <div className="space-y-10 pb-20" aria-busy="true" aria-label="Panel yükleniyor">
+                <Skeleton className="h-10 w-72" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-32 w-full rounded-[32px]" />
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <Skeleton className="h-80 w-full rounded-[32px] lg:col-span-2" />
+                    <Skeleton className="h-80 w-full rounded-[32px]" />
+                </div>
+            </div>
+        );
     }
 
     if (!activeBranch) {
@@ -134,7 +152,7 @@ export default function OwnerDashboard() {
     return (
         <div className="space-y-10 animate-fade-in pb-20">
             {activeBranch.status !== 'APPROVED' && (
-                <div className={`p-5 rounded-[32px] flex items-center justify-between gap-5 border shadow-sm ${
+                <div className={`p-5 rounded-[32px] flex flex-col sm:flex-row sm:items-center justify-between gap-5 border shadow-sm ${
                     activeBranch.status === 'REJECTED' ? 'bg-red-50 border-red-100 text-red-800' :
                     activeBranch.status === 'SUSPENDED' ? 'bg-gray-50 border-gray-200 text-gray-700' :
                     activeBranch.status === 'REVISION_REQUESTED' ? 'bg-orange-50 border-orange-100 text-orange-800' :
@@ -293,7 +311,7 @@ export default function OwnerDashboard() {
                                             </td>
                                             <td className="px-8 py-6 text-center">
                                                 <div className="flex flex-col items-center gap-1.5">
-                                                    <div className="w-9 h-9 rounded-full bg-cover bg-center border-2 border-white shadow-sm" style={{ backgroundImage: `url(${apt.staff?.photo || 'https://i.pravatar.cc/100'})` }}></div>
+                                                    <div role="img" aria-label={`${apt.staff?.name || 'Personel'} fotoğrafı`} className="w-9 h-9 rounded-full bg-cover bg-center border-2 border-white shadow-sm" style={{ backgroundImage: `url(${apt.staff?.photo || 'https://i.pravatar.cc/100'})` }}></div>
                                                     <span className="text-[10px] font-black text-text-secondary uppercase">{apt.staff?.name.split(' ')[0]}</span>
                                                 </div>
                                             </td>

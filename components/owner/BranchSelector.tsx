@@ -91,6 +91,8 @@ export default function BranchSelector() {
                                 >
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                         <div
+                                            role="img"
+                                            aria-label={`${branch.name} şube görseli`}
                                             className="w-10 h-10 rounded-xl bg-cover bg-center border border-border flex-shrink-0"
                                             style={{
                                                 backgroundImage: branch.image
