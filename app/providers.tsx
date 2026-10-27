@@ -5,6 +5,7 @@ import { TenantProvider } from '@/context/TenantContext';
 import { ActiveBranchProvider } from '@/context/ActiveBranchContext';
 import { BookingProvider } from '@/context/BookingContext';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -13,7 +14,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <ActiveBranchProvider>
           <BookingProvider>
             <ToastProvider>
-              {children}
+              <ConfirmProvider>
+                {children}
+              </ConfirmProvider>
             </ToastProvider>
           </BookingProvider>
         </ActiveBranchProvider>
