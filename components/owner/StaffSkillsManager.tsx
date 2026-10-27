@@ -136,7 +136,7 @@ export function StaffSkillsManager({ salonId }: StaffSkillsProps) {
                                                 type="checkbox"
                                                 checked={isChecked}
                                                 onChange={() => toggleAssignment(s.id, service.id)}
-                                                className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer accent-[#CFA76D]"
+                                                className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer accent-primary"
                                             />
                                         </td>
                                     );

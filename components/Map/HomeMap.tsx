@@ -128,7 +128,7 @@ const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHo
                                     <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{String(salon.name || '')}</h3>
                                     <p className="text-[10px] text-gray-500 truncate mb-2">{typeof salon.district === 'object' ? '' : String(salon.district || '')}</p>
                                     <div className="flex justify-between items-center border-t border-gray-100 pt-2">
-                                        <span className="text-[#C59F59] font-bold text-sm">{salon.startPrice} ₺</span>
+                                        <span className="text-primary font-bold text-sm">{salon.startPrice} ₺</span>
                                         <span className="text-[10px] text-gray-400">başlayan</span>
                                     </div>
                                 </div>

@@ -166,7 +166,7 @@ function LoginContent() {
                     {/* Header */}
                     <div className="text-center mb-10">
                         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#FAF5F0] mb-4">
-                            <span className="material-symbols-outlined text-[#CFA76D] filled">spa</span>
+                            <span className="material-symbols-outlined text-primary filled">spa</span>
                         </div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-2 font-display">Hoş Geldiniz</h2>
                         <p className="text-gray-500">Hesabınıza giriş yaparak devam edin.</p>
@@ -177,14 +177,14 @@ function LoginContent() {
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-gray-900 ml-1">E-posta Adresi</label>
                             <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#CFA76D]">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary">
                                     <span className="material-symbols-outlined text-[20px]">mail</span>
                                 </div>
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CFA76D]/20 focus:border-[#CFA76D] transition-all sm:text-sm font-medium"
+                                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm font-medium"
                                     placeholder="ornek@email.com"
                                     disabled={loading}
                                 />
@@ -194,14 +194,14 @@ function LoginContent() {
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-gray-900 ml-1">Şifre</label>
                             <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#CFA76D]">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary">
                                     <span className="material-symbols-outlined text-[20px]">lock</span>
                                 </div>
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CFA76D]/20 focus:border-[#CFA76D] transition-all sm:text-sm font-medium"
+                                    className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all sm:text-sm font-medium"
                                     placeholder="••••••••"
                                     disabled={loading}
                                 />
@@ -220,7 +220,7 @@ function LoginContent() {
                         <div className="flex items-center justify-between">
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <div className="relative flex items-center">
-                                    <input type="checkbox" className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-gray-300 shadow-sm transition-all checked:border-[#CFA76D] checked:bg-[#CFA76D] hover:border-[#CFA76D]" />
+                                    <input type="checkbox" className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-gray-300 shadow-sm transition-all checked:border-primary checked:bg-primary hover:border-primary" />
                                     <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -230,7 +230,7 @@ function LoginContent() {
                                 <span className="text-sm text-gray-500 group-hover:text-gray-700 select-none">Beni hatırla</span>
                             </label>
 
-                            <Link href="/forgot-password" className="text-sm font-bold text-[#CFA76D] hover:text-[#b08d55] transition-colors">
+                            <Link href="/forgot-password" className="text-sm font-bold text-primary hover:text-primary-hover transition-colors">
                                 Şifremi unuttum?
                             </Link>
                         </div>
@@ -259,7 +259,7 @@ function LoginContent() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full h-12 bg-[#CFA76D] text-white font-bold rounded-xl hover:bg-[#b08d55] transition-all shadow-lg shadow-[#CFA76D]/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-[0.98]"
+                            className="w-full h-12 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-[0.98]"
                         >
                             {loading ? (
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -304,7 +304,7 @@ function LoginContent() {
                     <div className="mt-8 text-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <p className="text-sm text-gray-600">
                             Hesabınız yok mu?{' '}
-                            <Link href="/register" className="text-[#CFA76D] font-bold hover:text-[#b08d55] transition-colors ml-1">
+                            <Link href="/register" className="text-primary font-bold hover:text-primary-hover transition-colors ml-1">
                                 Hemen Kayıt Olun
                             </Link>
                         </p>

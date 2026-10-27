@@ -70,7 +70,7 @@ export function SessionManager({ userId }: { userId: string }) {
     };
 
     if (loading && sessions.length === 0) {
-        return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-amber-500" /></div>;
+        return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
     }
 
     return (
@@ -80,7 +80,7 @@ export function SessionManager({ userId }: { userId: string }) {
                 {sessions.length > 1 && (
                     <button
                         onClick={handleTerminateOthers}
-                        className="text-xs font-bold text-amber-600 hover:text-amber-700 underline underline-offset-4"
+                        className="text-xs font-bold text-primary hover:text-primary underline underline-offset-4"
                     >
                         Diğer Cihazları Kapat
                     </button>

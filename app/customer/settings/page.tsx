@@ -56,7 +56,7 @@ export default function SettingsPage() {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center gap-3 text-amber-600 mb-1">
+                    <div className="flex items-center gap-3 text-primary mb-1">
                         <Bell className="w-5 h-5" />
                         <h2 className="font-bold text-gray-900">Bildirim Tercihleri</h2>
                     </div>
@@ -103,7 +103,7 @@ export default function SettingsPage() {
                                         <select
                                             value={notifications.language_preference}
                                             onChange={(e) => handleUpdatePref({ language_preference: e.target.value })}
-                                            className="w-full text-sm border-gray-200 rounded-lg focus:ring-amber-500"
+                                            className="w-full text-sm border-gray-200 rounded-lg focus:ring-primary"
                                         >
                                             <option value="tr">Türkçe</option>
                                             <option value="en">English</option>
@@ -114,7 +114,7 @@ export default function SettingsPage() {
                                         <select
                                             value={notifications.default_city_id}
                                             onChange={(e) => handleUpdatePref({ default_city_id: e.target.value })}
-                                            className="w-full text-sm border-gray-200 rounded-lg focus:ring-amber-500"
+                                            className="w-full text-sm border-gray-200 rounded-lg focus:ring-primary"
                                         >
                                             <option value="">Seçiniz</option>
                                             {cities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -214,7 +214,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
         <button
             onClick={onChange}
             disabled={disabled}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 ${checked ? 'bg-amber-500' : 'bg-gray-200'}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 ${checked ? 'bg-primary' : 'bg-gray-200'}`}
         >
             <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}

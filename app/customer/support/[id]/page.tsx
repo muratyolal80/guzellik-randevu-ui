@@ -196,7 +196,7 @@ export default function TicketDetailPage() {
                                 <div className={`size-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
                                     {isMe ? <User className="w-4 h-4" /> : <UserCog className="w-4 h-4" />}
                                 </div>
-                                <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${isMe ? 'bg-amber-500 text-white rounded-tr-none' : 'bg-white border border-gray-100 rounded-tl-none shadow-sm'} ${isPending ? 'opacity-70' : ''}`}>
+                                <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${isMe ? 'bg-primary text-white rounded-tr-none' : 'bg-white border border-gray-100 rounded-tl-none shadow-sm'} ${isPending ? 'opacity-70' : ''}`}>
                                     {!isMe && <p className="text-[11px] font-bold text-blue-600 mb-1">Destek Ekibi</p>}
                                     <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isMe ? 'text-white' : 'text-gray-700'}`}>{msg.content}</p>
                                     <p className={`text-[10px] mt-1 text-right opacity-70 ${isMe ? 'text-amber-100' : 'text-gray-400'}`}>
@@ -223,12 +223,12 @@ export default function TicketDetailPage() {
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 placeholder="Mesajınızı yazın..."
-                                className="flex-1 px-4 py-3 bg-gray-50 border-gray-100 rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                                className="flex-1 px-4 py-3 bg-gray-50 border-gray-100 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                             />
                             <button
                                 type="submit"
                                 disabled={sending || !newMessage.trim()}
-                                className="bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-xl shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-primary hover:bg-primary text-white p-3 rounded-xl shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                             </button>

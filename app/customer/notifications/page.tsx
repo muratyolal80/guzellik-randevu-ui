@@ -50,7 +50,7 @@ export default function NotificationsPage() {
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'REMINDER': return <Calendar className="w-5 h-5 text-amber-600" />;
+            case 'REMINDER': return <Calendar className="w-5 h-5 text-primary" />;
             case 'PROMOTION': return <Tag className="w-5 h-5 text-pink-600" />;
             case 'SYSTEM': return <Info className="w-5 h-5 text-blue-600" />;
             default: return <Bell className="w-5 h-5 text-gray-600" />;
@@ -67,7 +67,7 @@ export default function NotificationsPage() {
     };
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>;
+        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
     }
 
     return (
@@ -101,7 +101,7 @@ export default function NotificationsPage() {
                             {!notif.is_read && (
                                 <button
                                     onClick={(e) => markAsRead(notif.id, e)}
-                                    className="p-2 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-amber-600" title="Okundu işaretle"
+                                    className="p-2 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-primary" title="Okundu işaretle"
                                 >
                                     <Check className="w-4 h-4" />
                                 </button>

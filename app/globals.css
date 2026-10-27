@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* `text-primary` contrast (WCAG AA): brand gold #C59F59 is only 2.5:1 on white, so text
+   uses dark gold on light surfaces and brand gold on dark ones. The nearest ancestor
+   that sets the variable wins, so a white card inside a dark hero is handled too. */
+:root,
+.bg-white, .bg-surface, .bg-background, .bg-surface-alt {
+  --text-primary: 138 106 47;   /* #8A6A2F */
+}
+.bg-text-main, .bg-black, .bg-primary-dark,
+.bg-slate-800, .bg-slate-900, .bg-gray-800, .bg-gray-900,
+.bg-neutral-900, .bg-zinc-900, .bg-stone-900,
+[class*="from-black"], [class*="from-slate-9"], [class*="from-gray-9"],
+[class*="bg-[#0"], [class*="bg-[#1"] {
+  --text-primary: 197 159 89;   /* #C59F59 */
+}
+
 /* Custom scrollbar styles */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

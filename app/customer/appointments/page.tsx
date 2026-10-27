@@ -228,7 +228,7 @@ export default function AppointmentsPage() {
                                         </div>
                                         {apt.notes && (
                                             <div className="mt-3 text-xs text-text-secondary bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                                                <span className="font-bold text-amber-700">Not:</span> {apt.notes}
+                                                <span className="font-bold text-primary">Not:</span> {apt.notes}
                                             </div>
                                         )}
                                     </div>

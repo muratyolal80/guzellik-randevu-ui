@@ -65,7 +65,7 @@ export default function DashboardPage() {
     if (authLoading || loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -163,7 +163,7 @@ export default function DashboardPage() {
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <span className="absolute top-2 right-2 bg-white px-2 py-0.5 rounded-md text-xs font-bold shadow-sm flex items-center">
-                                    <Star className="w-3 h-3 text-amber-500 mr-1" fill="currentColor" />{' '}
+                                    <Star className="w-3 h-3 text-primary mr-1" fill="currentColor" />{' '}
                                     {salon.average_rating || salon.rating || 0}
                                 </span>
                             </div>
@@ -177,7 +177,7 @@ export default function DashboardPage() {
                     )) : (
                         <div className="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
                             <p className="text-gray-500 text-sm">Şu an sana özel bir önerimiz yok. Salonları keşfederek başlayabilirsin.</p>
-                            <Link href="/" className="inline-block mt-3 px-5 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors">Salonları Keşfet</Link>
+                            <Link href="/" className="inline-block mt-3 px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary transition-colors">Salonları Keşfet</Link>
                         </div>
                     )}
                 </div>

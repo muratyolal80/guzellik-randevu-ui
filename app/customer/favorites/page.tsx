@@ -50,7 +50,7 @@ export default function FavoritesPage() {
     };
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>;
+        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
     }
 
     return (
@@ -78,7 +78,7 @@ export default function FavoritesPage() {
                                     <Heart className="w-5 h-5 fill-current" />
                                 </button>
                                 {/* Rating */}
-                                <div className="absolute top-3 left-3 flex items-center gap-1 bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
+                                <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
                                     <Star className="w-3 h-3 fill-current" /> {fav.salon?.average_rating || 0}
                                 </div>
                             </div>
@@ -95,7 +95,7 @@ export default function FavoritesPage() {
                                     <Link href={`/salon/${fav.salon?.id}`} className="flex items-center justify-center py-2.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm">
                                         İncele
                                     </Link>
-                                    <Link href={`/booking/${fav.salon?.id}/staff`} className="flex items-center justify-center py-2.5 px-4 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 shadow-sm shadow-amber-200 transition-colors text-sm">
+                                    <Link href={`/booking/${fav.salon?.id}/staff`} className="flex items-center justify-center py-2.5 px-4 rounded-xl bg-primary text-white font-medium hover:bg-primary shadow-sm shadow-amber-200 transition-colors text-sm">
                                         Randevu Al
                                     </Link>
                                 </div>

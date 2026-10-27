@@ -128,8 +128,8 @@ export default function Dashboard() {
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorRandevu" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#CFA76D" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="#CFA76D" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#C59F59" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#C59F59" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -147,12 +147,12 @@ export default function Dashboard() {
                                 />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                                    cursor={{ stroke: '#CFA76D', strokeWidth: 1 }}
+                                    cursor={{ stroke: '#C59F59', strokeWidth: 1 }}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="randevu"
-                                    stroke="#CFA76D"
+                                    stroke="#C59F59"
                                     fillOpacity={1}
                                     fill="url(#colorRandevu)"
                                     strokeWidth={3}

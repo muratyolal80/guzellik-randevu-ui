@@ -39,10 +39,10 @@ function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
     return (
         <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col gap-2 text-left">
             <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                <span className="material-symbols-outlined text-primary text-xl mt-0.5">warning</span>
                 <div className="flex-1">
                     <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
-                    <p className="text-xs text-amber-700 mt-0.5">
+                    <p className="text-xs text-primary mt-0.5">
                         Randevunuz oluşturuldu fakat SMS gönderiminde sorun yaşandı. Aşağıdaki butonla
                         tekrar deneyebilir veya bu sayfanın çıktısını alarak salonu arayabilirsiniz.
                     </p>
@@ -52,7 +52,7 @@ function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
                 <button
                     onClick={resend}
                     disabled={loading || !appointmentId}
-                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                    className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
                 >
                     <span className="material-symbols-outlined text-base">sms</span>
                     {loading ? 'Gönderiliyor...' : 'SMS Tekrar Gönder'}
@@ -246,7 +246,7 @@ export default function Confirmation() {
                         <div className="mb-6">
                             {/* Status'a göre dinamik başlık + ikon */}
                             <div className={`w-20 h-20 ${appointment?.status === 'CONFIRMED' ? 'bg-green-100' : 'bg-amber-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                                <span className={`material-symbols-outlined text-5xl ${appointment?.status === 'CONFIRMED' ? 'text-green-600' : 'text-amber-600'}`}>
+                                <span className={`material-symbols-outlined text-5xl ${appointment?.status === 'CONFIRMED' ? 'text-green-600' : 'text-primary'}`}>
                                     {appointment?.status === 'CONFIRMED' ? 'check_circle' : 'hourglass_top'}
                                 </span>
                             </div>

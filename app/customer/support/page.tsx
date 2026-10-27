@@ -140,7 +140,7 @@ export default function SupportPage() {
                 </div>
                 <button
                     onClick={() => setShowNewTicketForm((v) => !v)}
-                    className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-amber-200 active:scale-95"
+                    className="flex items-center justify-center gap-2 bg-primary hover:bg-primary text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-amber-200 active:scale-95"
                 >
                     {showNewTicketForm ? <><X className="w-5 h-5" /> Vazgeç</> : <><Plus className="w-5 h-5" /> Yeni Talep Oluştur</>}
                 </button>
@@ -160,7 +160,7 @@ export default function SupportPage() {
             {showNewTicketForm && (
                 <div className="bg-white p-6 md:p-8 rounded-2xl border border-amber-100 shadow-xl shadow-amber-500/5 animate-in slide-in-from-top-4 duration-300">
                     <h3 className="font-bold text-xl mb-6 text-gray-900 flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-amber-500" />
+                        <MessageSquare className="w-5 h-5 text-primary" />
                         Yeni Destek Talebi
                     </h3>
                     <form onSubmit={handleCreateTicket} className="space-y-5">
@@ -173,7 +173,7 @@ export default function SupportPage() {
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
                                     placeholder="Örn: Ödeme hatası hakkında"
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                                 />
                                 {subject.length > 0 && !subjectValid && (
                                     <p className="text-xs text-rose-500 mt-1.5">Konu en az {SUBJECT_MIN} karakter olmalı.</p>
@@ -184,7 +184,7 @@ export default function SupportPage() {
                                 <select
                                     value={category}
                                     onChange={(e) => setCategory(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium bg-white"
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium bg-white"
                                 >
                                     {SUPPORT_CATEGORIES.map((cat) => (
                                         <option key={cat.id} value={cat.id}>{cat.label}</option>
@@ -204,7 +204,7 @@ export default function SupportPage() {
                                             key={opt.id}
                                             type="button"
                                             onClick={() => setPriority(opt.id)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${active ? `${meta.bg} ${meta.color} ${meta.border} ring-2 ring-offset-1 ring-amber-400/40` : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${active ? `${meta.bg} ${meta.color} ${meta.border} ring-2 ring-offset-1 ring-primary/40` : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
                                         >
                                             {opt.label}
                                         </button>
@@ -227,7 +227,7 @@ export default function SupportPage() {
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 placeholder="Lütfen sorununuzu detaylı bir şekilde açıklayın..."
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium resize-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium resize-none"
                             />
                             {message.length > 0 && !messageValid && (
                                 <p className="text-xs text-rose-500 mt-1.5">Mesaj en az {MESSAGE_MIN} karakter olmalı.</p>
@@ -238,7 +238,7 @@ export default function SupportPage() {
                             <button
                                 type="submit"
                                 disabled={submitting || !formValid}
-                                className="flex items-center gap-2 px-8 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 font-bold shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary font-bold shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Talebi Gönder</>}
                             </button>
@@ -268,13 +268,13 @@ export default function SupportPage() {
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Talep ara..."
-                                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             />
                         </div>
                         <select
                             value={categoryFilter}
                             onChange={(e) => setCategoryFilter(e.target.value)}
-                            className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                            className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         >
                             <option value="ALL">Tüm kategoriler</option>
                             {SUPPORT_CATEGORIES.map((cat) => (
@@ -339,7 +339,7 @@ export default function SupportPage() {
                                                 )}
                                                 <span className="text-gray-400 text-xs font-mono">#{ticket.id.slice(0, 8)}</span>
                                             </div>
-                                            <h4 className="font-bold text-gray-900 text-lg group-hover:text-amber-600 transition-colors truncate">{ticket.subject}</h4>
+                                            <h4 className="font-bold text-gray-900 text-lg group-hover:text-primary transition-colors truncate">{ticket.subject}</h4>
                                             <p className="text-gray-500 text-sm mt-1 line-clamp-1">{ticket.message}</p>
                                         </div>
 
@@ -352,7 +352,7 @@ export default function SupportPage() {
                                                 <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                                                 {status.label}
                                             </div>
-                                            <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-amber-500 transition-colors hidden md:block" />
+                                            <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary transition-colors hidden md:block" />
                                         </div>
                                     </div>
                                 </Link>
@@ -368,7 +368,7 @@ export default function SupportPage() {
                         <p className="text-gray-500 text-sm mt-1">Filtre ve aramayı değiştirmeyi deneyin.</p>
                         <button
                             onClick={() => { setStatusFilter('ALL'); setCategoryFilter('ALL'); setSearch(''); }}
-                            className="mt-4 text-sm font-bold text-amber-600 hover:text-amber-700"
+                            className="mt-4 text-sm font-bold text-primary hover:text-primary"
                         >
                             Filtreleri temizle
                         </button>
@@ -376,13 +376,13 @@ export default function SupportPage() {
                 ) : (
                     <div className="flex flex-col items-center justify-center p-16 text-center">
                         <div className="size-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                            <Inbox className="w-8 h-8 text-amber-400" />
+                            <Inbox className="w-8 h-8 text-primary" />
                         </div>
                         <h3 className="font-bold text-gray-900 text-lg">Henüz talebiniz yok</h3>
                         <p className="text-gray-500 text-sm mt-1 max-w-xs">Sorun bildirmek veya yardım almak için yeni bir destek talebi oluşturabilirsiniz.</p>
                         <button
                             onClick={() => setShowNewTicketForm(true)}
-                            className="mt-5 flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 shadow-lg shadow-amber-200 transition-all active:scale-95"
+                            className="mt-5 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary shadow-lg shadow-amber-200 transition-all active:scale-95"
                         >
                             <Plus className="w-5 h-5" /> İlk Talebini Oluştur
                         </button>

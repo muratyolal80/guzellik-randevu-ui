@@ -49,7 +49,7 @@ export default function ReviewsPage() {
     }, []);
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>;
+        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
     }
 
     return (
@@ -59,7 +59,7 @@ export default function ReviewsPage() {
                     <h1 className="text-2xl font-bold text-gray-900 leading-tight">Değerlendirmelerim</h1>
                     <p className="text-gray-500 text-sm mt-1">Hizmet aldığınız salonlar hakkındaki görüşleriniz.</p>
                 </div>
-                <Link href="/customer/appointments" className="px-6 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 font-bold shadow-lg shadow-amber-200 transition-all active:scale-95 text-sm flex items-center justify-center">
+                <Link href="/customer/appointments" className="px-6 py-2 bg-primary text-white rounded-xl hover:bg-primary font-bold shadow-lg shadow-amber-200 transition-all active:scale-95 text-sm flex items-center justify-center">
                     Yeni Değerlendirme Yap
                 </Link>
             </div>
@@ -96,7 +96,7 @@ export default function ReviewsPage() {
                                     className={`w-4 h-4 ${star <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
                                 />
                             ))}
-                            <span className="ml-2 text-sm font-bold text-amber-600">{review.rating}.0</span>
+                            <span className="ml-2 text-sm font-bold text-primary">{review.rating}.0</span>
                         </div>
 
                         <div className="bg-gray-50 rounded-xl p-4 relative">
@@ -105,7 +105,7 @@ export default function ReviewsPage() {
                         </div>
 
                         <div className="mt-4 flex justify-end">
-                            <Link href={`/salon/${review.salon?.id}`} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center">
+                            <Link href={`/salon/${review.salon?.id}`} className="text-xs font-bold text-primary hover:text-primary flex items-center">
                                 Salonu Görüntüle <ExternalLink className="w-3 h-3 ml-1" />
                             </Link>
                         </div>
@@ -113,13 +113,13 @@ export default function ReviewsPage() {
                 )) : (
                     <div className="col-span-full py-16 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-dashed border-gray-200">
                         <div className="size-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                            <Star className="w-8 h-8 text-amber-400" />
+                            <Star className="w-8 h-8 text-primary" />
                         </div>
                         <h3 className="font-bold text-gray-900 text-lg">Henüz değerlendirmeniz yok</h3>
                         <p className="text-gray-500 text-sm mt-2 max-w-sm">
                             Geçmiş randevularınızı değerlendirerek diğer kullanıcılara yardımcı olabilirsiniz.
                         </p>
-                        <Link href="/customer/appointments" className="mt-6 text-amber-600 font-bold text-sm hover:underline">
+                        <Link href="/customer/appointments" className="mt-6 text-primary font-bold text-sm hover:underline">
                             Geçmiş Randevularıma Git
                         </Link>
                     </div>

@@ -65,7 +65,7 @@ export default function ProfilePage() {
     if (loading) {
         return (
             <div className="flex justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -109,7 +109,7 @@ export default function ProfilePage() {
                                         type="text"
                                         value={formData.first_name}
                                         onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                     />
                                 </div>
                                 <div>
@@ -118,7 +118,7 @@ export default function ProfilePage() {
                                         type="text"
                                         value={formData.last_name}
                                         onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                     />
                                 </div>
                             </div>
@@ -136,7 +136,7 @@ export default function ProfilePage() {
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                                             placeholder="0xxx xxx xx xx"
-                                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                         />
                                     </div>
                                 </div>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
                                         type="date"
                                         value={formData.birth_date}
                                         onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                     />
                                 </div>
                             </div>
@@ -171,7 +171,7 @@ export default function ProfilePage() {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-amber-200 transition-colors flex items-center gap-2 disabled:opacity-70"
+                                    className="bg-primary hover:bg-primary text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-amber-200 transition-colors flex items-center gap-2 disabled:opacity-70"
                                 >
                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
@@ -234,7 +234,7 @@ function PasswordChangeForm() {
                     required
                     value={formData.newPassword}
                     onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                 />
             </div>
             <div>
@@ -244,7 +244,7 @@ function PasswordChangeForm() {
                     required
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                 />
             </div>
             <div className="flex justify-end">

@@ -40,7 +40,7 @@ export default function CustomerPaymentsPage() {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'COMPLETED': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-            case 'PENDING': return <Clock className="w-4 h-4 text-amber-500" />;
+            case 'PENDING': return <Clock className="w-4 h-4 text-primary" />;
             case 'FAILED': return <XCircle className="w-4 h-4 text-red-500" />;
             case 'REFUNDED': return <ArrowDownLeft className="w-4 h-4 text-blue-500" />;
             default: return null;
@@ -78,7 +78,7 @@ export default function CustomerPaymentsPage() {
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-border shadow-sm flex items-center gap-4">
                     <div className="bg-amber-50 p-3 rounded-xl">
-                        <Clock className="w-6 h-6 text-amber-600" />
+                        <Clock className="w-6 h-6 text-primary" />
                     </div>
                     <div>
                         <p className="text-xs text-text-secondary font-medium">Bekleyen Ödemeler</p>

@@ -41,7 +41,7 @@
 | **F4** | **Alignment:** `prod-pull-db.sh` iyileştirme + PII maskeleme + storage sync script | Prod verisini local'e güvenle indirmek (KVKK + yanlışlıkla SMS) | [§6](../infrastructure/deployment-and-alignment.md) | ✅ (local test edildi) |
 | **F5** | **Yedekleme:** prod günlük yedek + sunucu dışı kopya + aylık restore testi | Müşteri verisi kaybı = iş kaybı | [§8](../infrastructure/deployment-and-alignment.md) | ✅ script · ⏳ sunucuya cron kurulumu senin |
 | **F6** 🟡 | **Güvenlik orta seviye:** bildirim/audit üretimini server'a taşı + `INSERT WITH CHECK(true)` daralt, kod tarafı güvenlik taraması (API route yetki, IDOR, webhook imza, OTP rate-limit) | Defense in depth | — | ✅ local (bkz. "F6 detay") |
-| **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ⏳ |
+| **F7** | **Renk & kontrast:** `primary-dark` token (#C59F59 beyazda 2.5:1 → WCAG fail), tanımsız `shadow-card` (82 kullanım, etkisiz), login'deki ikinci altın `#CFA76D`, müşteri panelindeki amber → `primary` | Marka tutarlılığı + erişilebilirlik | UI denetimi | ✅ (buton zemini kararı senin — aşağıda) |
 | **F8** | **İkonlar:** booking akışı + `Layout.tsx` Material Symbols → lucide (139 kullanım), emoji ikonlar, boyut skalası | Tek ikon sistemi, font yükü kalkar | UI denetimi | ⏳ |
 | **F9** | **UX:** 134 `alert/confirm/prompt` → toast + ConfirmDialog, spinner → Skeleton, boş durumlar, mobil grid'ler (staff/hours, schedule) | CLAUDE.md UI standartları | UI denetimi | ⏳ |
 | **F10** | **SEO/a11y:** 59 sayfada metadata eksik (layout ile), background-image alt, İngilizce UI metinleri | SEO + erişilebilirlik | UI denetimi | ⏳ |
@@ -84,6 +84,15 @@
 | 🟡 DB | `notifications`/`audit_logs` `INSERT WITH CHECK(true)`; `slot_reservations` anon INSERT ile takvim kalıcı kilitlenebiliyordu | New-34: kapsamlı INSERT politikaları, slot sadece RPC, `acquire_slot_lock` client user_id'ye güvenmez | ✅ |
 | 🐞 | `auth` şeması PostgREST'e açık değil → 5 yerde `schema('auth')` sorgusu hep boştu: **geri dönen telefonlu müşteri randevu alamıyor/giriş yapamıyordu (500)**, ayrıca telefon formatı (`+90` vs `90`) uyuşmuyordu | New-36: service_role-only `auth_user_id_by_phone/email` RPC | ✅ |
 | 🟢 L1–L7 | Math.random OTP, PayTR hash sabit-zaman değil, admin varsayılan şifre, audit forgery, JSON-LD `</script>`, e-posta OTP limiti, middleware `is_active` | Hepsi düzeltildi | ✅ |
+
+#### F7 detay — renk & kontrast
+
+- `primary-dark #8A6A2F` (beyazda 5.0:1) eklendi; **`text-primary` artık zemine göre renk alır**: açık zeminde koyu altın, koyu zeminde (`bg-text-main`, `bg-black`, `bg-slate-900`…) marka altını (`app/globals.css` `--text-primary`). 93 dosyaya tek tek dokunmadan AA kontrast.
+- `text-muted` #999999 (2.9:1) → #6F6F6F (4.7:1).
+- Tanımsız olduğu için **hiç çalışmayan** `shadow-card` (82 kullanım) ve `shadow-premium` tanımlandı.
+- Login'deki ikinci altın `#CFA76D/#b08d55` ve sınıflardaki hex altınlar → `primary` token'ları.
+- Müşteri panelinde marka rengi olarak kullanılan amber (82 sınıf) → `primary`; durum rozetleri (`amber-50/100`) ve yıldızlar korundu.
+- ⚠️ **Karar senin:** `bg-primary text-white` butonlar 2.5:1 (WCAG fail, ~191 yer). Seçenek A: buton yazısı koyu (`text-text-main`, 7.4:1) · B: buton zemini `primary-hover/dark` · C: olduğu gibi kalsın (marka görünümü). Söylersen tek seferde uygularım.
 
 ### 🧩 Denetimde çıkan ek bulgular (karar bekleyen)
 
