@@ -9,6 +9,7 @@ import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, MasterDataService, ServiceService, FavoriteService } from '@/services/db';
 import { SalonDetail, SalonType, GlobalService, City, District } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(() => import('@/components/Map/SalonMap').then((mod) => mod.SalonMap), {
@@ -16,32 +17,7 @@ const SalonMap = dynamic(() => import('@/components/Map/SalonMap').then((mod) =>
     loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-2xl" />
 });
 
-import {
-    Star,
-    Clock,
-    Filter,
-    SlidersHorizontal,
-    MapPin,
-    Scissors,
-    Sparkles,
-    Smile,
-    Flower2,
-    Waves,
-    Zap,
-    Sun,
-    Activity,
-    Search,
-    Map as MapIcon,
-    LayoutGrid,
-    ChevronRight,
-    ChevronDown,
-    Heart,
-    ArrowRight,
-    ArrowRightLeft,
-    Store,
-    Info,
-    X
-} from 'lucide-react';
+import { Star, Clock, Filter, SlidersHorizontal, MapPin, Scissors, Sparkles, Smile, Flower2, Waves, Zap, Sun, Activity, Search, Map as MapIcon, LayoutGrid, ChevronRight, ChevronDown, Heart, ArrowRight, ArrowRightLeft, Store, Info, X, CalendarCheck, Users, ChartLine, ShieldCheck } from 'lucide-react';
 
 // Fallback Cache for Coordinates
 const CITY_COORDINATES_CACHE: Record<string, { lat: number; lng: number }> = {};
@@ -131,6 +107,7 @@ export default function HomeClient() {
     const [globalServices, setGlobalServices] = useState<GlobalService[]>([]);
     const [cities, setCities] = useState<City[]>([]);
     const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const { showToast } = useToast();
     const [showUnauthorizedError, setShowUnauthorizedError] = useState(false);
 
     const typeParam = searchParams.get('type');
@@ -174,7 +151,7 @@ export default function HomeClient() {
         e.preventDefault();
         e.stopPropagation();
         if (!user) {
-            alert("Favorilere eklemek için giriş yapmalısınız.");
+            showToast("Favorilere eklemek için giriş yapmalısınız.", 'warning');
             return;
         }
 
@@ -187,6 +164,7 @@ export default function HomeClient() {
             }
         } catch (error) {
             console.error("Favori işlemi sırasında hata:", error);
+            showToast("Favori işlemi sırasında bir hata oluştu.", "error");
         }
     };
 
@@ -270,6 +248,7 @@ export default function HomeClient() {
 
             } catch (err: any) {
                 console.error('Error fetching initial data (main block):', err?.message || err);
+                showToast('Salonlar yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.', 'error');
                 if (err?.code) console.error('Error code:', err.code);
                 if (err?.details) console.error('Error details:', err.details);
             } finally {
@@ -848,7 +827,7 @@ export default function HomeClient() {
                                     <Link href={`/?type=${type.slug}`} key={type.id} className="group relative aspect-[4/3] rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500">
                                         <div
                                             className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                                            style={{ backgroundImage: `url("${type.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600'}")` }}
+                                            style={{ backgroundImage: `url("${type.image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600'}")` }} role="img" aria-label={type.name}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 group-hover:opacity-90 transition-opacity duration-300" />
                                         <div className="absolute inset-0 p-6 flex flex-col justify-end">
@@ -945,7 +924,7 @@ export default function HomeClient() {
                                 <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-white">
                                     <div className="space-y-5">
                                         <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest w-fit">
-                                            <span className="material-symbols-outlined text-base">storefront</span>
+                                            <Store className="w-4 h-4" aria-hidden="true" />
                                             Salon mu işletiyorsun?
                                         </div>
                                         <h2 className="text-3xl md:text-4xl font-black tracking-tight font-display">
@@ -961,7 +940,7 @@ export default function HomeClient() {
                                                 href="/register/business"
                                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-orange-600 font-black text-sm rounded-2xl shadow-lg hover:scale-105 transition-all"
                                             >
-                                                <span className="material-symbols-outlined">add_business</span>
+                                                <Store className="w-6 h-6" aria-hidden="true" />
                                                 İşletmeni Ekle — Ücretsiz
                                             </Link>
                                             <Link
@@ -975,18 +954,16 @@ export default function HomeClient() {
 
                                     <div className="grid grid-cols-2 gap-3 md:gap-4">
                                         {[
-                                            { icon: 'event_available', label: 'Online Randevu', desc: '7/24 müşteri alımı' },
-                                            { icon: 'groups', label: 'Personel Takibi', desc: 'Mesai + performans' },
-                                            { icon: 'insights', label: 'Akıllı Analiz', desc: 'AI destekli içgörü' },
-                                            { icon: 'verified_user', label: 'KVKK Uyumlu', desc: 'Yasal güvence' },
+                                            { icon: CalendarCheck, label: 'Online Randevu', desc: '7/24 müşteri alımı' },
+                                            { icon: Users, label: 'Personel Takibi', desc: 'Mesai + performans' },
+                                            { icon: ChartLine, label: 'Akıllı Analiz', desc: 'AI destekli içgörü' },
+                                            { icon: ShieldCheck, label: 'KVKK Uyumlu', desc: 'Yasal güvence' },
                                         ].map((item) => (
                                             <div
                                                 key={item.label}
                                                 className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20"
                                             >
-                                                <span className="material-symbols-outlined text-2xl opacity-90">
-                                                    {item.icon}
-                                                </span>
+                                                <item.icon className="w-6 h-6 opacity-90" aria-hidden="true" />
                                                 <p className="text-sm font-black mt-2">{item.label}</p>
                                                 <p className="text-[11px] font-bold opacity-80 mt-0.5">{item.desc}</p>
                                             </div>

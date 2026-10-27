@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Salon, Staff, Service, SalonServiceDetail, SalonDetail } from '@/types';
 
+import { X, Tag, ArrowRight, CircleHelp, Star } from 'lucide-react';
 interface BookingSummaryProps {
   salon: Salon | SalonDetail;
   staff?: Staff | null;
@@ -32,12 +33,12 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
         {/* Step 2+ Visuals (Salon Image Card for Time/User-Info/Confirm pages) */}
         {step >= 2 && (
              <div className="rounded-xl bg-white border border-border overflow-hidden shadow-md mb-2">
-             <div className="h-32 w-full bg-cover bg-center relative" style={{ backgroundImage: `url(\"${salon.image}\")` }}>
+             <div className="h-32 w-full bg-cover bg-center relative" style={{ backgroundImage: `url(\"${salon.image}\")` }} role="img" aria-label={salon.name}>
                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent"></div>
                <div className="absolute bottom-4 left-4">
                  <h3 className="text-white text-lg font-bold leading-tight">{salon.name}</h3>
                  <div className="flex items-center gap-1 text-primary text-sm mt-1">
-                   <span className="material-symbols-outlined text-[16px] fill-current" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                   <Star className="w-4 h-4 fill-current" aria-hidden="true" />
                    <span className="font-bold">{'average_rating' in salon ? salon.average_rating : 0}</span>
                    <span className="text-gray-300 font-normal">• {'city_name' in salon ? `${salon.district_name}, ${salon.city_name}` : salon.address}</span>
                  </div>
@@ -73,14 +74,14 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
             {staff && (
               <div className="mt-2 pt-4 border-t border-dashed border-gray-200">
                 <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-border relative">
-                  <div className="size-8 rounded-full bg-cover bg-center border border-gray-200" style={{ backgroundImage: `url(\"${staff.image}\")` }}></div>
+                  <div className="size-8 rounded-full bg-cover bg-center border border-gray-200" style={{ backgroundImage: `url(\"${staff.image}\")` }} role="img" aria-label={staff.name}></div>
                   <div className="flex flex-col">
                     <span className="text-text-main text-xs font-bold">{staff.name}</span>
                     <span className="text-primary text-[10px]">{staff.role}</span>
                   </div>
                   {step === 1 && (
-                     <button className="ml-auto text-text-muted hover:text-red-500 transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">close</span>
+                     <button className="ml-auto text-text-muted hover:text-red-500 transition-colors" aria-label="Kaldır">
+                        <X className="w-4 h-4" aria-hidden="true" />
                      </button>
                   )}
                    {(step === 2 || step === 3) && (
@@ -106,7 +107,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                     <span className="text-primary text-xl font-bold">{totalPrice} TL</span>
                     {campaignName && (
                       <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
-                        <span className="material-symbols-outlined text-[12px]">sell</span>
+                        <Tag className="w-3 h-3" aria-hidden="true" />
                         {campaignName}
                       </div>
                     )}
@@ -123,7 +124,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
                   className={`w-full h-12 rounded-lg font-bold text-base transition-colors shadow-md flex items-center justify-center gap-2 ${staff ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-text-muted cursor-not-allowed pointer-events-none'}`}
                 >
                   {staff ? 'Devam Et' : 'Personel Seçiniz'}
-                  <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  <ArrowRight className="w-5 h-5" aria-hidden="true" />
                 </Link>
             )}
           </div>
@@ -132,7 +133,7 @@ export const BookingSummary: React.FC<BookingSummaryProps> = ({
         {/* Help Box - Only show on step 1 */}
         {step === 1 && (
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 flex items-start gap-3">
-            <span className="material-symbols-outlined text-blue-600 mt-0.5">help</span>
+            <CircleHelp className="w-6 h-6 text-blue-600 mt-0.5" aria-hidden="true" />
             <div>
                 <p className="text-blue-900 text-sm font-bold">Yardıma mı ihtiyacınız var?</p>
                 <p className="text-blue-700 text-xs mt-1">Personel seçimi konusunda kararsız kaldıysanız bizi arayabilirsiniz.</p>

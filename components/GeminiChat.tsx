@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
 
+import { X, Bot, Send } from 'lucide-react';
 interface Message {
   id: string;
   sender: 'user' | 'bot';
@@ -78,12 +79,13 @@ export const GeminiChat: React.FC = () => {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Asistanı kapat" : "Asistanı aç"}
         className="fixed bottom-6 right-6 z-50 p-4 bg-primary hover:bg-primary-hover text-white rounded-full shadow-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
       >
         {isOpen ? (
-          <span className="material-symbols-outlined text-2xl">close</span>
+          <X className="w-6 h-6" aria-hidden="true" />
         ) : (
-          <span className="material-symbols-outlined text-2xl">smart_toy</span>
+          <Bot className="w-6 h-6" aria-hidden="true" />
         )}
       </button>
 
@@ -92,7 +94,7 @@ export const GeminiChat: React.FC = () => {
         <div className="fixed bottom-24 right-6 z-50 w-80 md:w-96 h-[500px] bg-white border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
           <div className="bg-primary/10 p-4 border-b border-border flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-white text-sm">smart_toy</span>
+              <Bot className="w-3.5 h-3.5 text-white" aria-hidden="true" />
             </div>
             <div>
               <h4 className="text-text-main font-bold text-sm">AI Asistan</h4>
@@ -138,10 +140,11 @@ export const GeminiChat: React.FC = () => {
               />
               <button
                 onClick={handleSend}
+                aria-label="Gönder"
                 disabled={!input.trim() || loading}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary text-white rounded-full hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
-                <span className="material-symbols-outlined text-sm">send</span>
+                <Send className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>

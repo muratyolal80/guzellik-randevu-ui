@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { BookingStepSkeleton } from '@/components/common/PageSkeletons';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { SalonDataService, StaffService, ServiceService } from '@/services/db';
@@ -10,6 +12,7 @@ import { GeminiChat } from '@/components/GeminiChat';
 import { useBooking } from '@/context/BookingContext';
 import type { SalonDetail, Staff } from '@/types';
 
+import { CircleCheck, ChevronRight, Star, Award, Zap, Check, ArrowRight, Users } from 'lucide-react';
 export default function StaffSelection() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -162,14 +165,7 @@ export default function StaffSelection() {
   if (loading) {
     return (
       <Layout>
-        <div className="layout-container px-4 md:px-10 py-8 max-w-[1440px] mx-auto w-full bg-background min-h-screen">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-text-secondary">Personel bilgileri yükleniyor...</p>
-            </div>
-          </div>
-        </div>
+        <BookingStepSkeleton />
       </Layout>
     );
   }
@@ -194,17 +190,17 @@ export default function StaffSelection() {
         <div className="mb-8 w-full max-w-[960px] mx-auto">
           <div className="flex flex-wrap items-center gap-2 text-sm md:text-base">
             <span className="text-text-secondary flex items-center gap-1">
-              <span className="material-symbols-outlined text-[18px] text-green-500">check_circle</span>
+              <CircleCheck className="w-[18px] h-[18px] text-green-500" aria-hidden="true" />
               Hizmetler
             </span>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <span className="text-primary font-bold flex items-center gap-1">
               <span className="flex items-center justify-center size-5 rounded-full bg-primary text-white text-xs font-bold">2</span>
               Personel Seçimi
             </span>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <span className="text-text-muted">Randevu Zamanı</span>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <span className="text-text-muted">Onay</span>
           </div>
         </div>
@@ -219,8 +215,8 @@ export default function StaffSelection() {
             {/* Filters */}
             <div className="flex gap-3 mb-6 overflow-x-auto pb-2 no-scrollbar">
               <button className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary text-white px-4 transition-transform active:scale-95 font-bold text-sm shadow-md">Tüm Personel</button>
-              <button className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white border border-border hover:border-primary text-text-secondary hover:text-primary px-4 transition-colors text-sm font-medium shadow-sm"><span className="material-symbols-outlined text-[18px]">star</span>En Yüksek Puan</button>
-              <button className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white border border-border hover:border-primary text-text-secondary hover:text-primary px-4 transition-colors text-sm font-medium shadow-sm"><span className="material-symbols-outlined text-[18px]">workspace_premium</span>Kıdemli Uzman</button>
+              <button className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white border border-border hover:border-primary text-text-secondary hover:text-primary px-4 transition-colors text-sm font-medium shadow-sm"><Star className="w-[18px] h-[18px]" aria-hidden="true" />En Yüksek Puan</button>
+              <button className="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white border border-border hover:border-primary text-text-secondary hover:text-primary px-4 transition-colors text-sm font-medium shadow-sm"><Award className="w-[18px] h-[18px]" aria-hidden="true" />Kıdemli Uzman</button>
             </div>
 
             {/* Any Staff Option */}
@@ -232,7 +228,7 @@ export default function StaffSelection() {
                 <div className="relative p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                      <span className="material-symbols-outlined !text-3xl">bolt</span>
+                      <Zap className="w-8 h-8" aria-hidden="true" />
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-text-main group-hover:text-primary transition-colors">Herhangi Bir Personel</h3>
@@ -241,7 +237,7 @@ export default function StaffSelection() {
                   </div>
                   {selectedStaffId === 'any' && (
                     <div className="shrink-0 h-10 px-6 rounded-lg bg-primary text-white font-bold text-sm flex items-center gap-2 justify-center animate-fade-in-up shadow-md">
-                      Seçildi <span className="material-symbols-outlined text-[18px]">check</span>
+                      Seçildi <Check className="w-[18px] h-[18px]" aria-hidden="true" />
                     </div>
                   )}
                 </div>
@@ -251,9 +247,7 @@ export default function StaffSelection() {
             {/* Staff Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {staff.length === 0 ? (
-                <div className="col-span-2 text-center py-12">
-                  <p className="text-text-secondary">Bu salon için kayıtlı personel bulunamadı.</p>
-                </div>
+                <EmptyState icon={Users} title="Personel bulunamadı" description="Bu salon için kayıtlı personel bulunamadı." className="md:col-span-2" />
               ) : (
                 staff.map((s) => (
                   <div
@@ -263,19 +257,19 @@ export default function StaffSelection() {
                   >
                     {selectedStaffId === s.id && (
                       <div className="absolute top-3 right-3 text-primary z-10">
-                        <span className="material-symbols-outlined filled">check_circle</span>
+                        <CircleCheck className="w-6 h-6 fill-primary text-white" aria-hidden="true" />
                       </div>
                     )}
                     <div className="p-5 flex gap-4">
                       <div className="relative shrink-0">
-                        <div className="size-20 rounded-full bg-cover bg-center border border-gray-100 shadow-inner" style={{ backgroundImage: `url("${s.image}")` }}></div>
-                        {s.isOnline && <div className="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white size-4 rounded-full" title="Online"></div>}
+                        <div className="size-20 rounded-full bg-cover bg-center border border-gray-100 shadow-inner" style={{ backgroundImage: `url("${s.image}")` }} role="img" aria-label={s.name}></div>
+                        {s.isOnline && <div className="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white size-4 rounded-full" title="Çevrimiçi"></div>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <h3 className="text-lg font-bold text-text-main truncate">{s.name}</h3>
                           <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded text-xs font-bold text-yellow-600 border border-yellow-100">
-                            <span className="material-symbols-outlined text-[14px] filled">star</span> {s.rating}
+                            <Star className="w-3.5 h-3.5 fill-current" aria-hidden="true" /> {s.rating}
                           </div>
                         </div>
                         <p className="text-primary text-sm font-medium mb-1">{s.role}</p>
@@ -304,7 +298,7 @@ export default function StaffSelection() {
                   className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary-hover hover:shadow-primary/40 transition-all text-lg"
                 >
                   Devam Et
-                  <span className="material-symbols-outlined">arrow_forward</span>
+                  <ArrowRight className="w-6 h-6" aria-hidden="true" />
                 </button>
               </div>
             </div>

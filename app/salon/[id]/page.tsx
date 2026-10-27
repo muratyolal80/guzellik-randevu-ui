@@ -9,6 +9,7 @@ import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, ReviewService, ServiceService, FavoriteService, GalleryService, StaffReviewService } from '@/services/db';
 import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Appointment, StaffReview, SalonGallery } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { useBooking } from '@/context/BookingContext';
 import GallerySlider from '@/components/GallerySlider';
 import ImageUpload from '@/components/ImageUpload';
@@ -27,12 +28,7 @@ const SalonMap = dynamic(
     {
         ssr: false,
         loading: () => (
-            <div className="h-full w-full flex items-center justify-center bg-gray-100 rounded-2xl">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-                    <p className="text-gray-400 text-xs">Harita yükleniyor...</p>
-                </div>
-            </div>
+            <div className="h-full w-full animate-pulse bg-gray-200 rounded-2xl" aria-busy="true" aria-label="Harita yükleniyor" />
         )
     }
 );
@@ -51,6 +47,7 @@ export default function SalonDetailPage() {
     const params = useParams();
     const id = params.id as string;
     const { user } = useAuth();
+    const { showToast } = useToast();
     const { setSalon: setBookingSalon, setSelectedServices } = useBooking();
 
     const [salon, setSalon] = useState<SalonDetail | null>(null);
@@ -90,6 +87,7 @@ export default function SalonDetailPage() {
             })));
         } catch (error) {
             console.error('Error fetching staff reviews:', error);
+            showToast('Personel yorumları yüklenemedi.', 'error');
         } finally {
             setLoadingStaffReviews(false);
         }
@@ -160,6 +158,7 @@ export default function SalonDetailPage() {
                 if (galleryResult.status === 'rejected') logReason('Gallery fetch failed', galleryResult.reason);
             } catch (error) {
                 console.error('Salon detay verisi yüklenirken hata:', error);
+                showToast('Salon bilgileri yüklenemedi. Lütfen sayfayı yenileyin.', 'error');
             } finally {
                 setLoading(false);
             }
@@ -168,12 +167,13 @@ export default function SalonDetailPage() {
     }, [id, setBookingSalon, user]);
 
     const handleToggleFavorite = async () => {
-        if (!user || !salon) { alert("Favorilere eklemek için giriş yapmalısınız."); return; }
+        if (!user || !salon) { showToast("Favorilere eklemek için giriş yapmalısınız.", 'warning'); return; }
         try {
             setTogglingFavorite(true);
             setIsFavorite(await FavoriteService.toggleFavorite(user.id, salon.id));
         } catch (error) {
             console.error("Favori işlemi sırasında hata:", error);
+            showToast("Favori işlemi sırasında bir hata oluştu.", "error");
         } finally {
             setTogglingFavorite(false);
         }
@@ -182,8 +182,8 @@ export default function SalonDetailPage() {
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !salon) return;
-        if (!selectedAppointmentId) { alert("Lütfen değerlendirmek istediğiniz hizmeti seçiniz."); return; }
-        if (newRating === 0) { alert("Lütfen bir puan seçiniz."); return; }
+        if (!selectedAppointmentId) { showToast("Lütfen değerlendirmek istediğiniz hizmeti seçiniz.", 'warning'); return; }
+        if (newRating === 0) { showToast("Lütfen bir puan seçiniz.", 'warning'); return; }
         setSubmitting(true);
         try {
             const newReviewData = await ReviewService.createReview({
@@ -209,7 +209,7 @@ export default function SalonDetailPage() {
             const updatedSalon = await SalonDataService.getSalonById(salon.id);
             if (updatedSalon) setSalon(updatedSalon);
         } catch (error: any) {
-            alert(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`);
+            showToast(`Yorum eklenirken hata oluştu: ${error?.message || "Lütfen tekrar deneyin"}`, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -305,7 +305,7 @@ export default function SalonDetailPage() {
                     <>
                         <div
                             className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
-                            style={{ backgroundImage: `url("${salon.image || '/placeholder-salon.jpg'}")` }}
+                            style={{ backgroundImage: `url("${salon.image || '/placeholder-salon.jpg'}")` }} role="img" aria-label={salon.name}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                     </>

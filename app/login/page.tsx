@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { AuthCardSkeleton } from '@/components/common/PageSkeletons';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
+import { Flower2, Mail, Lock, Eye, EyeOff, ShieldAlert, CircleAlert } from 'lucide-react';
 function LoginContent() {
     const { signInWithGoogle, signInWithEmail, isAuthenticated, loading: authLoading, user } = useAuth();
     const router = useRouter();
@@ -62,7 +64,6 @@ function LoginContent() {
 
         if (!authLoading && isAuthenticated && user) {
             const dest = getRedirectUrl();
-            console.log('Redirecting authenticated user to:', dest, 'Role:', user.role);
             router.push(dest);
         }
     }, [authLoading, isAuthenticated, user, router, searchParams]);
@@ -80,25 +81,20 @@ function LoginContent() {
         }
 
         try {
-            console.log('[Login] Attempting sign in with:', email);
             // Get profile directly from sign in action to avoid race conditions
             const profile = await signInWithEmail(email, password);
-            console.log('[Login] Sign in result profile:', profile);
 
             // Success is handled by auth state change in context or useAuth
             router.refresh(); // Refresh server components to update auth state
 
             if (profile && profile.role) {
                 const dest = getRoleBasedRedirect(profile.role);
-                console.log('[Login] Login success. Role found:', profile.role);
-                console.log('[Login] Redirecting to:', dest);
                 router.replace(dest); // Use replace to prevent back navigation loop
             } else {
-                console.warn('[Login] Profile or role missing after login. Profile:', profile);
+                console.warn('[Login] Profile or role missing after login.');
                 // Fallback if no profile returned (shouldn't happen on success)
                 setTimeout(() => {
                     const dest = getRedirectUrl();
-                    console.log('[Login] Fallback redirecting to:', dest);
                     router.push(dest);
                 }, 500);
             }
@@ -142,9 +138,7 @@ function LoginContent() {
 
     if (authLoading && !forceShow) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
+            <AuthCardSkeleton />
         );
     }
 
@@ -166,7 +160,7 @@ function LoginContent() {
                     {/* Header */}
                     <div className="text-center mb-10">
                         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#FAF5F0] mb-4">
-                            <span className="material-symbols-outlined text-primary filled">spa</span>
+                            <Flower2 className="w-6 h-6 text-primary" aria-hidden="true" />
                         </div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-2 font-display">Hoş Geldiniz</h2>
                         <p className="text-gray-500">Hesabınıza giriş yaparak devam edin.</p>
@@ -178,7 +172,7 @@ function LoginContent() {
                             <label className="text-xs font-bold text-gray-900 ml-1">E-posta Adresi</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary">
-                                    <span className="material-symbols-outlined text-[20px]">mail</span>
+                                    <Mail className="w-5 h-5" aria-hidden="true" />
                                 </div>
                                 <input
                                     type="email"
@@ -195,7 +189,7 @@ function LoginContent() {
                             <label className="text-xs font-bold text-gray-900 ml-1">Şifre</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary">
-                                    <span className="material-symbols-outlined text-[20px]">lock</span>
+                                    <Lock className="w-5 h-5" aria-hidden="true" />
                                 </div>
                                 <input
                                     type={showPassword ? "text" : "password"}
@@ -208,11 +202,12 @@ function LoginContent() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
                                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
                                 >
-                                    <span className="material-symbols-outlined text-[20px]">
-                                        {showPassword ? 'visibility_off' : 'visibility'}
-                                    </span>
+                                    {showPassword
+                                        ? <EyeOff className="w-5 h-5" aria-hidden="true" />
+                                        : <Eye className="w-5 h-5" aria-hidden="true" />}
                                 </button>
                             </div>
                         </div>
@@ -240,9 +235,9 @@ function LoginContent() {
                                 const isDeactivated = error.includes('dondurulmuş') || error.includes('askıya');
                                 return (
                                     <div className={`p-4 rounded-lg flex items-start gap-3 ${isDeactivated ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
-                                        <span className={`material-symbols-outlined ${isDeactivated ? 'text-amber-600' : 'text-red-600'} text-base mt-0.5`}>
-                                            {isDeactivated ? 'gpp_maybe' : 'error'}
-                                        </span>
+                                        {isDeactivated
+                                            ? <ShieldAlert className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" aria-hidden="true" />
+                                            : <CircleAlert className="w-4 h-4 text-red-600 mt-0.5 shrink-0" aria-hidden="true" />}
                                         <div className="flex-1">
                                             <p className={`${isDeactivated ? 'text-amber-800' : 'text-red-700'} text-sm font-medium leading-relaxed`}>{error}</p>
                                             {isDeactivated && (
@@ -324,9 +319,7 @@ function LoginContent() {
 export default function Login() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
+            <AuthCardSkeleton />
         }>
             <LoginContent />
         </Suspense>

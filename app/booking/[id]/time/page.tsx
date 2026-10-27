@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
+import { BookingStepSkeleton } from '@/components/common/PageSkeletons';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { SalonDataService, StaffService, ServiceService, AppointmentService } from '@/services/db';
@@ -11,6 +14,7 @@ import { useBooking } from '@/context/BookingContext';
 import type { SalonDetail, Staff, SalonServiceDetail } from '@/types';
 import { localDateString } from '@/lib/tz';
 
+import { ChevronRight, ChevronLeft, Sun, CalendarX, Clock, Check, SunMedium, ArrowLeft, ArrowRight } from 'lucide-react';
 export default function TimeSelection() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -48,6 +52,7 @@ export default function TimeSelection() {
   // Recovery: BookingContext boşsa (örn. hard refresh, geri tuşu sonrası) URL'deki
   // serviceId'den restore et. Aksi halde aşağıdaki guard /salon/{id}'ye yönlendirir.
   const urlServiceId = searchParams.get('serviceId');
+  const { showToast } = useToast();
   const [recovering, setRecovering] = useState(false);
   useEffect(() => {
     if (selectedServices.length === 0 && urlServiceId && !recovering) {
@@ -228,6 +233,7 @@ export default function TimeSelection() {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+        showToast('Randevu bilgileri yüklenemedi. Lütfen sayfayı yenileyin.', 'error');
       } finally {
         setLoading(false);
       }
@@ -316,14 +322,7 @@ export default function TimeSelection() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-text-secondary">Yükleniyor...</p>
-            </div>
-          </div>
-        </div>
+        <BookingStepSkeleton />
       </Layout>
     );
   }
@@ -348,9 +347,9 @@ export default function TimeSelection() {
           {/* Breadcrumb */}
           <div className="flex flex-wrap items-center gap-2 px-4">
             <Link href="/" className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Salon Seçimi</Link>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <Link href={`/booking/${id}/staff`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Hizmet Seçimi</Link>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <span className="text-primary text-sm font-bold border-b border-primary pb-0.5">Zaman Slotları (Adım 3)</span>
           </div>
 
@@ -384,7 +383,7 @@ export default function TimeSelection() {
                     disabled={dateOffset === 0}
                     className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined">chevron_left</span>
+                    <ChevronLeft className="w-6 h-6" aria-hidden="true" />
                   </button>
                   {dates.map((d, i) => (
                     <button
@@ -404,7 +403,7 @@ export default function TimeSelection() {
                     onClick={handleNextDates}
                     className="flex-shrink-0 size-10 rounded-full border border-border bg-white text-text-secondary hover:bg-gray-100 flex items-center justify-center transition-colors shadow-sm"
                   >
-                    <span className="material-symbols-outlined">chevron_right</span>
+                    <ChevronRight className="w-6 h-6" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -419,20 +418,20 @@ export default function TimeSelection() {
                   {/* Morning */}
                   <div className="mb-8">
                     <h3 className="flex items-center gap-2 text-text-main text-sm font-bold uppercase tracking-wider mb-4">
-                      <span className="material-symbols-outlined text-primary text-lg">wb_sunny</span> Sabah (09:00 - 12:00)
+                      <Sun className="w-[18px] h-[18px] text-primary" aria-hidden="true" /> Sabah (09:00 - 12:00)
                     </h3>
                     {loadingSlots ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3" aria-busy="true" aria-label="Saatler yükleniyor">
+                        {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                       </div>
                     ) : slotsError ? (
                       <div className="text-center py-8">
-                        <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">event_busy</span>
+                        <CalendarX className="w-9 h-9 text-gray-400 mb-2 mx-auto" aria-hidden="true" />
                         <p className="text-text-secondary text-sm">{slotsError}</p>
                       </div>
                     ) : morningSlots.length === 0 ? (
                       <div className="text-center py-8">
-                        <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
+                        <Clock className="w-9 h-9 text-gray-300 mb-2 mx-auto" aria-hidden="true" />
                         <p className="text-text-muted text-sm">Sabah saatlerinde müsait slot yok</p>
                         <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya öğleden sonrayı deneyin</p>
                       </div>
@@ -444,7 +443,7 @@ export default function TimeSelection() {
                             onClick={() => setSelectedSlot(time)}
                             className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
                           >
-                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
+                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><Check className="w-3.5 h-3.5" aria-hidden="true" /></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
                           </button>
                         ))}
@@ -455,20 +454,20 @@ export default function TimeSelection() {
                   {/* Afternoon */}
                   <div>
                     <h3 className="flex items-center gap-2 text-text-main text-sm font-bold uppercase tracking-wider mb-4">
-                      <span className="material-symbols-outlined text-primary text-lg">light_mode</span> Öğleden Sonra (12:00 - 19:00)
+                      <SunMedium className="w-[18px] h-[18px] text-primary" aria-hidden="true" /> Öğleden Sonra (12:00 - 19:00)
                     </h3>
                     {loadingSlots ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3" aria-busy="true" aria-label="Saatler yükleniyor">
+                        {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                       </div>
                     ) : slotsError ? (
                       <div className="text-center py-8">
-                        <span className="material-symbols-outlined text-gray-400 text-4xl mb-2">event_busy</span>
+                        <CalendarX className="w-9 h-9 text-gray-400 mb-2 mx-auto" aria-hidden="true" />
                         <p className="text-text-secondary text-sm">{slotsError}</p>
                       </div>
                     ) : afternoonSlots.length === 0 ? (
                       <div className="text-center py-8">
-                        <span className="material-symbols-outlined text-gray-300 text-4xl mb-2">schedule</span>
+                        <Clock className="w-9 h-9 text-gray-300 mb-2 mx-auto" aria-hidden="true" />
                         <p className="text-text-muted text-sm">Öğleden sonra müsait slot yok</p>
                         <p className="text-text-muted text-xs mt-1">Lütfen başka bir tarih veya sabahı deneyin</p>
                       </div>
@@ -480,7 +479,7 @@ export default function TimeSelection() {
                             onClick={() => setSelectedSlot(time)}
                             className={`group relative min-h-[48px] py-3 px-2 rounded-lg border transition-all flex flex-col justify-center items-center gap-0.5 ${selectedSlot === time ? 'bg-primary text-white border-primary shadow-md transform scale-105 z-10' : 'border-border bg-white hover:border-primary hover:text-primary active:bg-gray-50'}`}
                           >
-                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><span className="material-symbols-outlined text-[14px] font-bold">check</span></div>}
+                            {selectedSlot === time && <div className="absolute -top-2 -right-2 size-5 bg-white text-primary border border-primary rounded-full flex items-center justify-center"><Check className="w-3.5 h-3.5" aria-hidden="true" /></div>}
                             <span className={`text-sm font-bold ${selectedSlot === time ? 'text-white' : 'text-text-main'}`}>{time}</span>
                           </button>
                         ))}
@@ -491,14 +490,14 @@ export default function TimeSelection() {
 
                 <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                   <Link href={`/booking/${id}/staff`} className="flex items-center gap-2 px-6 py-3 rounded-lg text-text-secondary font-medium hover:bg-gray-100 transition-colors">
-                    <span className="material-symbols-outlined">arrow_back</span> Geri Dön
+                    <ArrowLeft className="w-6 h-6" aria-hidden="true" /> Geri Dön
                   </Link>
                   <button
                     onClick={handleContinue}
                     className={`flex items-center gap-2 px-8 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary-hover hover:shadow-primary/40 hover:-translate-y-0.5 transition-all ${!selectedSlot ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     Devam Et
-                    <span className="material-symbols-outlined">arrow_forward</span>
+                    <ArrowRight className="w-6 h-6" aria-hidden="true" />
                   </button>
                 </div>
               </div>

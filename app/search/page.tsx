@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import { SalonGridSkeleton } from '@/components/common/PageSkeletons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
@@ -20,7 +22,8 @@ import {
     X,
     AlertCircle,
     SlidersHorizontal,
-    Store
+    Store,
+    Check
 } from 'lucide-react';
 
 // Dynamic Map
@@ -45,6 +48,7 @@ function SearchContent() {
     const typeParam = searchParams.get('type') || '';
     
     // State
+    const { showToast } = useToast();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -129,6 +133,7 @@ function SearchContent() {
             setCities(citiesData);
         } catch (error) {
             console.error("Search fetch error:", error);
+            showToast('Arama sonuçları yüklenemedi. Lütfen tekrar deneyin.', 'error');
         } finally {
             setLoading(false);
         }
@@ -290,7 +295,7 @@ function SearchContent() {
                                             onClick={() => setMinRating(minRating === rating ? 0 : rating)}
                                             className={`px-3 py-2 rounded-xl text-xs font-black transition-all border ${minRating === rating ? 'bg-yellow-400 text-white border-yellow-500' : 'bg-white text-text-muted border-border'}`}
                                         >
-                                            {rating}+ ★
+                                            <span className="inline-flex items-center gap-0.5">{rating}+ <Star className="w-3 h-3 fill-current" aria-hidden="true" /></span>
                                         </button>
                                     ))}
                                 </div>
@@ -409,7 +414,7 @@ function SearchContent() {
                                         }`}
                                     >
                                         <MapPin className="w-3.5 h-3.5" />
-                                        {geo.status === 'pending' ? 'Konum...' : nearbyMode ? 'Yakındaki ✓' : 'Yakındakini Bul'}
+                                        {geo.status === 'pending' ? 'Konum...' : nearbyMode ? <>Yakındaki <Check className="w-3.5 h-3.5" aria-hidden="true" /></> : 'Yakındakini Bul'}
                                     </button>
 
                                     {nearbyMode && (
@@ -640,7 +645,7 @@ function SearchContent() {
 export default function AdvancedSearchPage() {
     return (
         <Layout>
-            <Suspense fallback={<div className="p-20 text-center">Yükleniyor...</div>}>
+            <Suspense fallback={<SalonGridSkeleton />}>
                 <SearchContent />
             </Suspense>
         </Layout>

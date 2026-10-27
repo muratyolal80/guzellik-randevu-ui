@@ -143,7 +143,7 @@ export default function SaaSLandingPage() {
                             </div>
                             <span className="text-2xl font-black text-text-main font-display">Güzellik Randevu SaaS</span>
                         </div>
-                        <p className="text-sm font-bold text-text-muted uppercase tracking-[0.2em]">© 2025 Antigravity Cloud Framework</p>
+                        <p className="text-sm font-bold text-text-muted uppercase tracking-[0.2em]">© 2025 Güzellik Randevu</p>
                     </div>
                 </footer>
             </div>

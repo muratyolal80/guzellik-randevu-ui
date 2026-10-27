@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { SalonDetailSkeleton } from '@/components/common/PageSkeletons';
 import { useParams } from 'next/navigation';
 import { SalonDataService } from '@/services/db';
 import { SalonDetail } from '@/types';
@@ -29,9 +30,7 @@ export default function SalonBySlugPage() {
     }, [slug]);
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
+        <SalonDetailSkeleton />
     );
 
     if (!salonId) return (

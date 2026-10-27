@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { SalonDetail } from '@/types';
+import { Star } from 'lucide-react';
 
 // --- Fix Leaflet Default Icons in Next.js ---
 // Leaflet icons often break in Next.js/Webpack environments without this fix
@@ -119,9 +120,9 @@ const HomeMap: React.FC<HomeMapProps> = ({ center, salons, hoveredSalonId, setHo
                     >
                         <Popup className="custom-popup" closeButton={false} offset={[0, -52]}>
                             <div className="p-0 w-48 overflow-hidden rounded-xl shadow-lg border-0">
-                                <div className="h-28 bg-cover bg-center relative" style={{ backgroundImage: `url("${salon.image}")` }}>
+                                <div className="h-28 bg-cover bg-center relative" style={{ backgroundImage: `url("${salon.image}")` }} role="img" aria-label={salon.name}>
                                     <div className="absolute top-2 right-2 bg-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm flex items-center gap-0.5">
-                                        <span className="text-yellow-500">★</span> {salon.rating}
+                                        <Star className="w-3 h-3 text-yellow-500 fill-current" aria-hidden="true" /> {salon.rating}
                                     </div>
                                 </div>
                                 <div className="p-3 bg-white">

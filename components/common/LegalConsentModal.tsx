@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 
+import { X } from 'lucide-react';
 interface LegalConsentModalProps {
     open: boolean;
     title: string;
@@ -48,7 +49,7 @@ export default function LegalConsentModal({ open, title, content, onClose }: Leg
                         className="shrink-0 size-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-text-secondary hover:text-text-main transition-colors"
                         aria-label="Kapat"
                     >
-                        <span className="material-symbols-outlined text-[22px]">close</span>
+                        <X className="w-[22px] h-[22px]" aria-hidden="true" />
                     </button>
                 </header>
 

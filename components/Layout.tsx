@@ -10,18 +10,10 @@ import { UserMenu } from './common/UserMenu';
 import { SalonType, ServiceCategory, SalonDetail } from '@/types';
 import NotificationCenter from './NotificationCenter';
 import GlobalSearchPalette from './GlobalSearchPalette';
-import {
-  Building2,
-  ChevronDown,
-  Bell,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Search
-} from 'lucide-react';
+import { Building2, ChevronDown, Bell, Clock, CheckCircle2, AlertCircle, Search, Store, Menu, X, ShieldUser, IdCard, LayoutGrid, Scissors, Wind, Flower2, Smile, Brush, HandHeart, Activity, Sun, PenTool, PersonStanding, Zap, Sparkles, Droplets, type LucideIcon } from 'lucide-react';
 import BranchSelector from './owner/BranchSelector';
 
-// Salon tipi slug → iş temalı material-symbol ikonu.
+// Salon type slug → business-themed icon name.
 // (salon_types.icon DB'de boş olduğundan slug bazlı, anlamlı fallback.)
 const SALON_TYPE_ICONS: Record<string, string> = {
   berber: 'content_cut',
@@ -38,6 +30,16 @@ const SALON_TYPE_ICONS: Record<string, string> = {
 const salonTypeIcon = (type: SalonType): string =>
   type.icon || SALON_TYPE_ICONS[type.slug] || 'storefront';
 
+// DB icon values are Material Symbol names; map them to lucide components.
+const NAV_ICONS: Record<string, LucideIcon> = {
+  content_cut: Scissors, styler: Wind, spa: Flower2, face: Smile, brush: Brush,
+  self_care: HandHeart, healing: Activity, wb_sunny: Sun, draw: PenTool, storefront: Store,
+  accessibility_new: PersonStanding, flash_on: Zap, face_retouching_natural: Sparkles, clean_hands: Droplets,
+};
+
+const NavIcon = ({ name, className }: { name: string; className: string }) =>
+  React.createElement(NAV_ICONS[name] ?? Flower2, { className, 'aria-hidden': true });
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, signOut, isAdmin, isOwner } = useAuth();
   const pathname = usePathname();
@@ -52,17 +54,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   useEffect(() => {
     const fetchMenuData = async () => {
       try {
-        console.log('🔄 Fetching Menu Data...');
         const data = await MasterDataService.getNavMenuData();
-        console.log('✅ Menu Data Fetched:', {
-          typesCount: data.salonTypes?.length,
-          catsCount: data.categories?.length
-        });
         setSalonTypes(data.salonTypes || []);
         setCategories(data.categories || []);
         setServicesByCat(data.servicesByCatId || {});
       } catch (err: any) {
-        console.error('❌ Error in fetchMenuData:', err?.message || err?.code || JSON.stringify(err) || err);
+        console.error('Error in fetchMenuData:', err?.message || err?.code || JSON.stringify(err) || err);
       }
     };
 
@@ -131,7 +128,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               href="/register/business"
               className="hidden lg:flex items-center justify-center gap-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-full shadow-lg shadow-amber-200 transition-all hover:scale-105 whitespace-nowrap"
             >
-              <span className="material-symbols-outlined text-base">store</span>
+              <Store className="w-4 h-4" aria-hidden="true" />
               İşletmeni Ekle
             </Link>
           )}
@@ -141,9 +138,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <button
             onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Menüyü aç"
             className="lg:hidden text-text-main p-2 hover:bg-surface-alt rounded-full transition-colors"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <Menu className="w-6 h-6" aria-hidden="true" />
           </button>
         </div>
         </div>
@@ -162,9 +160,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 className={`text-sm font-bold transition-colors flex items-center gap-1 group-hover:text-primary whitespace-nowrap ${pathname === '/' ? 'text-primary' : 'text-text-secondary'}`}
                 suppressHydrationWarning
               >
-                <span className="material-symbols-outlined text-[18px]">storefront</span>
+                <Store className="w-[18px] h-[18px]" aria-hidden="true" />
                 Salonlar
-                <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                <ChevronDown className="w-4 h-4" aria-hidden="true" />
               </Link>
 
               <div className="absolute top-full left-0 mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-left overflow-hidden z-50 max-h-[80vh] overflow-y-auto">
@@ -176,7 +174,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       href={`/?type=${type.slug}`}
                       className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-secondary hover:bg-surface-alt hover:text-primary hover:pl-5 transition-all"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-primary/70">{salonTypeIcon(type)}</span>
+                      <NavIcon name={salonTypeIcon(type)} className="w-[18px] h-[18px] text-primary/70" />
                       {type.name}
                     </Link>
                   ))}
@@ -197,9 +195,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       href={`/?search=${encodeURIComponent(cat.name)}`}
                       className="text-sm font-medium text-text-secondary hover:text-primary transition-colors flex items-center gap-1 whitespace-nowrap"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
+                      <NavIcon name={cat.icon || 'spa'} className="w-[18px] h-[18px] text-primary/70" />
                       {cat.name}
-                      <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     </Link>
                     <div className={`absolute top-full mt-0 w-64 bg-surface border border-border rounded-xl shadow-soft opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform overflow-hidden z-50 max-h-[80vh] overflow-y-auto custom-scrollbar ${isRightAligned ? 'right-0 origin-top-right' : 'left-0 origin-top-left'}`}>
                       <div className="py-2">
@@ -227,7 +225,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   href={`/?search=${encodeURIComponent(cat.name)}`}
                   className="px-2 py-2 text-sm font-medium text-text-secondary hover:text-primary transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-primary/70">{cat.icon || 'spa'}</span>
+                  <NavIcon name={cat.icon || 'spa'} className="w-[18px] h-[18px] text-primary/70" />
                   {cat.name}
                 </Link>
               );
@@ -253,9 +251,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
+                  aria-label="Menüyü kapat"
                   className="text-text-secondary hover:text-text-main p-2 rounded-full hover:bg-surface-alt transition-colors"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <X className="w-6 h-6" aria-hidden="true" />
                 </button>
               </div>
 
@@ -267,19 +266,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <div className="flex flex-col gap-2">
                       {isAdmin && (
                         <Link href="/admin" className="flex items-center gap-3 p-3 rounded-xl bg-text-main text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
-                          <span className="material-symbols-outlined">admin_panel_settings</span>
+                          <ShieldUser className="w-6 h-6" aria-hidden="true" />
                           Yönetim Paneli
                         </Link>
                       )}
                       {isOwner && (
                         <Link href="/owner/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
-                          <span className="material-symbols-outlined">storefront</span>
+                          <Store className="w-6 h-6" aria-hidden="true" />
                           İşletme Paneli
                         </Link>
                       )}
                       {user?.role === 'STAFF' && !isOwner && (
                         <Link href="/staff/dashboard" className="flex items-center gap-3 p-3 rounded-xl bg-primary text-white font-bold transition-all active:scale-95" onClick={() => setIsMobileMenuOpen(false)}>
-                          <span className="material-symbols-outlined">badge</span>
+                          <IdCard className="w-6 h-6" aria-hidden="true" />
                           Personel Paneli
                         </Link>
                       )}
@@ -291,7 +290,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <p className="text-xs font-black text-text-muted uppercase tracking-wider">Kategoriler</p>
                   <div className="flex flex-col gap-1">
                     <Link href="/?type=all" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-main font-bold transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                      <span className="material-symbols-outlined text-primary">apps</span>
+                      <LayoutGrid className="w-6 h-6 text-primary" aria-hidden="true" />
                       Tüm Salonlar
                     </Link>
                     {salonTypes.map(type => (
@@ -301,7 +300,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-alt active:bg-surface-alt text-text-secondary hover:text-primary font-medium transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <span className="material-symbols-outlined text-[20px] text-primary/70">{salonTypeIcon(type)}</span>
+                        <NavIcon name={salonTypeIcon(type)} className="w-5 h-5 text-primary/70" />
                         {type.name}
                       </Link>
                     ))}
@@ -319,7 +318,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-[20px] text-primary/70">{cat.icon || 'spa'}</span>
+                          <NavIcon name={cat.icon || 'spa'} className="w-5 h-5 text-primary/70" />
                           {cat.name}
                         </span>
                         <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full text-text-muted">{servicesByCat[cat.id]?.length || 0}</span>

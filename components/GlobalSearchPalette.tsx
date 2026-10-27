@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import { Search, Store, Scissors, X, Command } from 'lucide-react';
 import { GlobalSearchService } from '@/services/db';
 import { useRouter } from 'next/navigation';
 
 export default function GlobalSearchPalette() {
+    const { showToast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<{ salons: any[], services: any[] }>({ salons: [], services: [] });
@@ -47,6 +50,7 @@ export default function GlobalSearchPalette() {
                     setSelectedIndex(0);
                 } catch (error) {
                     console.error('Search error:', error);
+                    showToast('Arama sırasında bir hata oluştu.', 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -115,9 +119,16 @@ export default function GlobalSearchPalette() {
 
                 <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
                     {loading ? (
-                        <div className="py-20 flex flex-col items-center justify-center gap-4">
-                            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                            <p className="text-sm font-bold text-text-secondary">Aranıyor...</p>
+                        <div className="space-y-3" aria-busy="true" aria-label="Aranıyor">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="flex items-center gap-3 p-2">
+                                    <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-4 w-1/2" />
+                                        <Skeleton className="h-3 w-1/3" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : totalResults > 0 ? (
                         <>
@@ -194,7 +205,7 @@ export default function GlobalSearchPalette() {
                         <span className="flex items-center gap-1.5 underline-offset-4"><span className="p-1 bg-white border border-gray-100 rounded shadow-sm">↓↑</span> Gezin</span>
                         <span className="flex items-center gap-1.5 underline-offset-4"><span className="p-1 bg-white border border-gray-100 rounded shadow-sm">ENTER</span> Seç</span>
                     </div>
-                    <span>Antigravity Search v1.0</span>
+                    <span>Hızlı Arama</span>
                 </div>
             </div>
         </div>

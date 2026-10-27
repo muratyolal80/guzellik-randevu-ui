@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { AuthCardSkeleton } from '@/components/common/PageSkeletons';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { StaffService } from '@/services/db';
@@ -15,6 +16,7 @@ import {
     ArrowRight,
     ShieldCheck,
     Store,
+    PartyPopper,
 } from 'lucide-react';
 
 type InviteState =
@@ -138,15 +140,7 @@ function InviteAcceptContent() {
 
     if (state === 'LOADING') {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
-                <div className="text-center animate-pulse">
-                    <div className="w-20 h-20 bg-primary/10 rounded-[28px] flex items-center justify-center mx-auto mb-6">
-                        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                    </div>
-                    <p className="text-lg font-black text-text-main">Davet kontrol ediliyor...</p>
-                    <p className="text-sm text-text-muted font-bold mt-2">Lütfen bekleyin</p>
-                </div>
-            </div>
+            <AuthCardSkeleton />
         );
     }
 
@@ -246,7 +240,7 @@ function InviteAcceptContent() {
                         {state === 'SUCCESS' && inviteData && (
                             <div className="text-center py-4 space-y-6">
                                 <div className="bg-green-50 rounded-[24px] p-6 border border-green-100">
-                                    <p className="text-green-800 font-black text-lg">🎉 Tebrikler!</p>
+                                    <p className="text-green-800 font-black text-lg flex items-center justify-center gap-2"><PartyPopper className="w-5 h-5" aria-hidden="true" /> Tebrikler!</p>
                                     <p className="text-green-700 font-bold text-sm mt-2">
                                         <strong>{inviteData.salonName}</strong> ekibine başarıyla katıldınız.
                                     </p>
@@ -389,11 +383,7 @@ function InviteAcceptContent() {
 
 export default function InviteAcceptPage() {
     return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-        }>
+        <Suspense fallback={<AuthCardSkeleton />}>
             <InviteAcceptContent />
         </Suspense>
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Skeleton from '@/components/Skeleton';
 import { Layout } from '@/components/Layout';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -141,9 +142,11 @@ export default function ResetPassword() {
                                 </button>
                             </form>
                         ) : (
-                            <div className="text-center py-12">
-                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
-                                <p className="text-sm text-text-muted mt-4">Bağlantı doğrulanıyor...</p>
+                            <div className="space-y-4 py-6" aria-busy="true">
+                                <Skeleton className="h-12 w-full" />
+                                <Skeleton className="h-12 w-full" />
+                                <Skeleton className="h-12 w-full" />
+                                <p className="text-sm text-text-muted text-center">Bağlantı doğrulanıyor...</p>
                             </div>
                         )}
                     </div>

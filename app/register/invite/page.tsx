@@ -1,21 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { AuthCardSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { InviteService } from '@/services/db';
 import { Invite } from '@/types';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Users, ShieldCheck, Mail, Loader2, Sparkles } from 'lucide-react';
+import { Users, ShieldCheck, Mail, Sparkles } from 'lucide-react';
 
 export default function InviteRegister() {
     return (
         <Layout>
-            <Suspense fallback={
-                <div className="flex-1 flex items-center justify-center">
-                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                </div>
-            }>
+            <Suspense fallback={<AuthCardSkeleton />}>
                 <InviteRegisterContent />
             </Suspense>
         </Layout>
@@ -107,12 +104,7 @@ function InviteRegisterContent() {
 
     if (inviteLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
-                    <p className="text-sm font-black text-text-secondary uppercase tracking-widest">Davet Doğrulanıyor...</p>
-                </div>
-            </div>
+            <AuthCardSkeleton />
         );
     }
 

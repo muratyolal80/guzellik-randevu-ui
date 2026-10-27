@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SalonDetailSkeleton } from '@/components/common/PageSkeletons';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/Layout';
@@ -8,11 +10,11 @@ import { GeminiChat } from '@/components/GeminiChat';
 import { SalonDataService, ReviewService, ServiceService, FavoriteService, GalleryService, StaffReviewService } from '@/services/db';
 import { SalonDetail, Review, SalonServiceDetail, SalonWorkingHours, Favorite, Appointment, StaffReview, SalonGallery } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { useBooking } from '@/context/BookingContext';
 import GallerySlider from '@/components/GallerySlider';
-import Skeleton from '@/components/Skeleton';
 import Lightbox from '@/components/common/Lightbox';
-import { ShoppingBag, ChevronRight, X, Plus, MapPin } from 'lucide-react';
+import { ShoppingBag, ChevronRight, X, Plus, MapPin, Star, Store, Scissors, MessageSquareText, BadgeCheck, MapPinned, Clock, Heart } from 'lucide-react';
 
 // Dynamically import Map component with no SSR
 const SalonMap = dynamic(
@@ -20,12 +22,7 @@ const SalonMap = dynamic(
     {
         ssr: false,
         loading: () => (
-            <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-text-muted text-xs">Harita yükleniyor...</p>
-                </div>
-            </div>
+            <div className="h-full w-full animate-pulse bg-gray-200" aria-busy="true" aria-label="Harita yükleniyor" />
         )
     }
 );
@@ -36,6 +33,7 @@ interface SalonDetailContentProps {
 
 export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const { salon: bookingSalon, setSalon: setBookingSalon, selectedServices, addService, removeService } = useBooking();
 
     const [salon, setSalon] = useState<SalonDetail | null>(null);
@@ -79,6 +77,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
             setStaffReviews(data);
         } catch (error) {
             console.error('Error fetching staff reviews:', error);
+            showToast('Personel yorumları yüklenemedi.', 'error');
         } finally {
             setLoadingStaffReviews(false);
         }
@@ -133,6 +132,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
             setGallery(galleryData || []);
         } catch (err) {
             console.error('Salon verileri yüklenirken hata oluştu:', err);
+            showToast('Salon bilgileri yüklenemedi. Lütfen sayfayı yenileyin.', 'error');
         } finally {
             setLoading(false);
         }
@@ -144,7 +144,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
 
     const handleToggleFavorite = async () => {
         if (!user || !salon) {
-            alert("Favorilere eklemek için giriş yapmalısınız.");
+            showToast("Favorilere eklemek için giriş yapmalısınız.", 'warning');
             return;
         }
 
@@ -154,6 +154,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
             setIsFavorite(newState);
         } catch (error) {
             console.error("Favori işlemi sırasında hata:", error);
+            showToast("Favori işlemi sırasında bir hata oluştu.", "error");
         } finally {
             setTogglingFavorite(false);
         }
@@ -164,12 +165,12 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
         if (!user || !salon) return;
 
         if (!selectedAppointmentId) {
-            alert("Lütfen değerlendirmek istediğiniz hizmeti seçiniz.");
+            showToast("Lütfen değerlendirmek istediğiniz hizmeti seçiniz.", 'warning');
             return;
         }
 
         if (newRating === 0) {
-            alert("Lütfen bir puan seçiniz.");
+            showToast("Lütfen bir puan seçiniz.", 'warning');
             return;
         }
 
@@ -201,7 +202,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
             setReviewImagesUrls([]);
         } catch (error: unknown) {
             console.error("Yorum eklenirken hata oluştu:", error);
-            alert(`Yorum eklenirken hata oluştu: ${error instanceof Error ? error.message : "Lütfen tekrar deneyin"}`);
+            showToast(`Yorum eklenirken hata oluştu: ${error instanceof Error ? error.message : "Lütfen tekrar deneyin"}`, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -209,22 +210,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
 
     if (loading || !salon) {
         return (
-            <div className="bg-background min-h-screen">
-                <Skeleton className="h-[480px] w-full rounded-none" />
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        <div className="lg:col-span-8">
-                            <div className="bg-white rounded-[32px] p-8 md:p-10 border border-border shadow-card mb-8">
-                                <Skeleton className="h-10 w-2/3 mb-4" />
-                                <div className="flex flex-wrap gap-4 mb-6"><Skeleton className="h-6 w-32" /><Skeleton className="h-6 w-48" /></div>
-                            </div>
-                            <div className="space-y-4">
-                                {[1, 2, 3].map(i => <div key={i} className="bg-white p-6 rounded-2xl border border-border"><Skeleton className="h-20 w-full" /></div>)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <SalonDetailSkeleton />
         );
     }
 
@@ -249,7 +235,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                 ) : (
                     <div
                         className="absolute inset-0 bg-cover bg-center"
-                        style={{ backgroundImage: `url("${salon.image}")` }}
+                        style={{ backgroundImage: `url("${salon.image}")` }} role="img" aria-label={salon.name}
                     >
                         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
                     </div>
@@ -261,13 +247,13 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                             <div className="flex items-center gap-3">
                                 {salon.is_sponsored && <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full shadow-md">ÖNERİLEN</span>}
                                 <div className="flex items-center gap-1.5 text-sm font-bold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white border border-white/20">
-                                    <span className="material-symbols-outlined text-base filled text-yellow-400">star</span>
+                                    <Star className="w-4 h-4 fill-current text-yellow-400" aria-hidden="true" />
                                     {salon.rating || salon.average_rating} <span className="text-gray-300 font-normal">({reviews.length})</span>
                                 </div>
                             </div>
                             <h1 className="text-5xl md:text-6xl font-display font-black text-white tracking-tight leading-none drop-shadow-lg">{salon.name}</h1>
                             <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10 backdrop-blur-sm w-fit text-white text-sm">
-                                <span className="material-symbols-outlined text-primary text-sm">location_on</span>
+                                <MapPin className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
                                 {[
                                     salon.neighborhood && `${salon.neighborhood} Mah.`,
                                     salon.avenue && `${salon.avenue} Cad.`,
@@ -285,7 +271,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                                 disabled={togglingFavorite}
                                 className={`flex items-center gap-2 px-6 py-3 rounded-xl border backdrop-blur-md transition-all font-bold ${isFavorite ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white/20 hover:bg-white/30 border-white/20 text-white'}`}
                             >
-                                <span className={`material-symbols-outlined text-xl ${isFavorite ? 'filled' : ''}`}>favorite</span>
+                                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} aria-hidden="true" />
                                 {isFavorite ? 'Kaydedildi' : 'Kaydet'}
                             </button>
                         </div>
@@ -299,7 +285,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                         {/* Hakkında */}
                         <section className="bg-white rounded-3xl p-8 border border-border shadow-card">
                             <h3 className="text-2xl font-display font-bold text-text-main mb-6 flex items-center gap-3">
-                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">storefront</span></span>
+                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><Store className="w-6 h-6" aria-hidden="true" /></span>
                                 Hakkında
                             </h3>
                             <p className="text-text-secondary leading-relaxed">{salon.description}</p>
@@ -308,10 +294,13 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                         {/* Hizmetler */}
                         <section>
                             <h3 className="text-2xl font-display font-bold text-text-main mb-8 flex items-center gap-3">
-                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">content_cut</span></span>
+                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><Scissors className="w-6 h-6" aria-hidden="true" /></span>
                                 Hizmetler
                             </h3>
                             <div className="space-y-6">
+                                {services.length === 0 && (
+                                    <EmptyState icon={Scissors} title="Henüz hizmet eklenmemiş" description="Salon hizmetlerini güncelliyor. Çok yakında burada olacak." className="bg-white rounded-3xl border border-border" />
+                                )}
                                 {Object.entries(groupedServices).map(([category, items]) => (
                                     <div key={category} className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
                                         <div className="p-6 bg-surface-alt font-black uppercase text-text-main border-b border-border">{category}</div>
@@ -351,10 +340,13 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                         {/* Yorumlar (Basitleştirilmiş) */}
                         <section className="space-y-6">
                             <h3 className="text-2xl font-display font-bold text-text-main flex items-center gap-3">
-                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><span className="material-symbols-outlined">rate_review</span></span>
+                                <span className="p-2 bg-primary/10 rounded-lg text-primary"><MessageSquareText className="w-6 h-6" aria-hidden="true" /></span>
                                 Yorumlar ({reviews.length})
                             </h3>
                             <div className="bg-white rounded-3xl border border-border shadow-card divide-y divide-gray-100">
+                                {reviews.length === 0 && (
+                                    <EmptyState icon={MessageSquareText} title="Henüz yorum yok" description="Bu salonu ilk değerlendiren siz olun." />
+                                )}
                                 {reviews.map((review) => (
                                     <div key={review.id} className="p-8">
                                         <div className="flex justify-between items-start mb-4">
@@ -367,14 +359,14 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                                                         {review.user_name}
                                                         {review.is_verified && (
                                                             <span className="flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-100 font-bold uppercase tracking-tighter shrink-0">
-                                                                <span className="material-symbols-outlined text-[12px] filled text-green-600">verified</span>
+                                                                <BadgeCheck className="w-3 h-3 text-green-600" aria-hidden="true" />
                                                                 Hizmet Aldı
                                                             </span>
                                                         )}
                                                     </h5>
                                                     <div className="flex text-yellow-400">
                                                         {[...Array(5)].map((_, i) => (
-                                                            <span key={i} className={`material-symbols-outlined text-xs ${i < review.rating ? 'filled' : ''}`}>star</span>
+                                                            <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : ''}`} aria-hidden="true" />
                                                         ))}
                                                     </div>
                                                 </div>
@@ -392,7 +384,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
                     <div className="lg:col-span-4 space-y-8">
                         <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
                             <h4 className="font-bold text-text-main mb-5 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">pin_drop</span> Konum
+                                <MapPinned className="w-6 h-6 text-primary" aria-hidden="true" /> Konum
                             </h4>
                             <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-5 border border-border relative">
                                 {salon.geo_latitude && salon.geo_longitude && (
@@ -429,7 +421,7 @@ export function SalonDetailContent({ salonId }: SalonDetailContentProps) {
 
                         <div className="bg-white rounded-3xl p-6 border border-border shadow-card">
                             <h4 className="font-bold text-text-main mb-5 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">schedule</span> Çalışma Saatleri
+                                <Clock className="w-6 h-6 text-primary" aria-hidden="true" /> Çalışma Saatleri
                             </h4>
                             <div className="space-y-3">
                                 {workingHours.map((hour, idx) => (

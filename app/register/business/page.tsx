@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Store, ShieldCheck, CheckCircle2, TrendingUp, Users, Star, Sparkles, Calculator } from 'lucide-react';
+import { Store, ShieldCheck, CheckCircle2, TrendingUp, Users, Star, Sparkles, Calculator, Check, User, Briefcase } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 import { createBrowserClient } from '@supabase/ssr';
@@ -166,19 +166,19 @@ export default function BusinessRegister() {
                                 <div className="opacity-60">Diğerleri</div>
 
                                 <div className="opacity-90">Komisyon</div>
-                                <div className="text-emerald-400">✓ Yok</div>
+                                <div className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" aria-hidden="true" /> Yok</div>
                                 <div className="opacity-50">%5-15</div>
 
                                 <div className="opacity-90">Türkçe destek</div>
-                                <div className="text-emerald-400">✓ 7/24</div>
+                                <div className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" aria-hidden="true" /> 7/24</div>
                                 <div className="opacity-50">Sınırlı</div>
 
                                 <div className="opacity-90">KVKK + İYS</div>
-                                <div className="text-emerald-400">✓ Yerel</div>
+                                <div className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" aria-hidden="true" /> Yerel</div>
                                 <div className="opacity-50">Eksik</div>
 
                                 <div className="opacity-90">Demo paneli</div>
-                                <div className="text-emerald-400">✓ Anında</div>
+                                <div className="text-emerald-400 flex items-center gap-1"><Check className="w-3.5 h-3.5" aria-hidden="true" /> Anında</div>
                                 <div className="opacity-50">Kayıt sonrası</div>
                             </div>
                         </div>
@@ -302,13 +302,13 @@ export default function BusinessRegister() {
 
                             <div className="bg-gray-50 rounded-2xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] text-text-muted font-bold">
                                 <a href="/register" className="hover:text-primary transition flex items-center gap-1 justify-center">
-                                    👤 Müşteri Olarak Kayıt Ol
+                                    <User className="w-3.5 h-3.5" aria-hidden="true" /> Müşteri Olarak Kayıt Ol
                                 </a>
-                                <div className="text-center sm:border-x border-border text-primary">
-                                    🏪 İşletme Hesabı (Bu Sayfa)
+                                <div className="flex items-center gap-1 justify-center sm:border-x border-border text-primary">
+                                    <Store className="w-3.5 h-3.5" aria-hidden="true" /> İşletme Hesabı (Bu Sayfa)
                                 </div>
-                                <span className="text-center opacity-60 cursor-not-allowed">
-                                    💼 Personel? Sahip seni davet eder
+                                <span className="flex items-center gap-1 justify-center opacity-60 cursor-not-allowed">
+                                    <Briefcase className="w-3.5 h-3.5" aria-hidden="true" /> Personel? Sahip seni davet eder
                                 </span>
                             </div>
                         </div>

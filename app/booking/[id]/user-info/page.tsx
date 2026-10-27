@@ -8,9 +8,10 @@ import { BookingSummary } from '@/components/BookingSummary';
 import { useBooking } from '@/context/BookingContext';
 import { trTime } from '@/lib/tz';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { CampaignService } from '@/services/db';
 import type { SalonDetail, Staff, SalonServiceDetail, Coupon } from '@/types';
-import { Ticket, Tag, CheckCircle2, XCircle, Users, AlertCircle } from 'lucide-react';
+import { Ticket, Tag, CheckCircle2, XCircle, Users, AlertCircle, ChevronRight, MessageSquare, CircleCheck, FlaskConical, Info, ArrowLeft, Banknote, CalendarClock, CalendarCheck, CircleAlert } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 
@@ -52,6 +53,7 @@ export default function BookingUserInfoPage() {
     refreshUser,
     user
   } = useAuth();
+  const { showToast } = useToast();
 
   // Step 1: Phone Input
   // Step 2: OTP Input
@@ -327,7 +329,7 @@ export default function BookingUserInfoPage() {
         }
       } else {
         if (response.status === 409 || data.error?.includes('dolu')) {
-          alert('Seçtiğiniz saat dilimi doldu. Lütfen başka bir saat seçin.');
+          showToast('Seçtiğiniz saat dilimi doldu. Lütfen başka bir saat seçin.', 'warning');
           router.push(`/booking/${id}/time`);
         } else {
           setError(data.error || 'Randevu oluşturulamadı');
@@ -366,11 +368,11 @@ export default function BookingUserInfoPage() {
           {/* Breadcrumb */}
           <div className="flex flex-wrap items-center gap-2 px-4">
             <Link href="/" className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Salon Seçimi</Link>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <Link href={`/booking/${id}/staff`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Hizmet Seçimi</Link>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <Link href={`/booking/${id}/time`} className="text-text-secondary text-sm font-medium hover:text-text-main transition-colors">Tarih/Saat</Link>
-            <span className="material-symbols-outlined text-text-muted text-sm">chevron_right</span>
+            <ChevronRight className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
             <span className="text-primary text-sm font-bold border-b border-primary pb-0.5">Bilgileriniz (Adım 4)</span>
           </div>
 
@@ -416,7 +418,9 @@ export default function BookingUserInfoPage() {
                 {error && (
                   <div className={`mb-6 p-4 rounded-lg border ${demoMode ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg">{demoMode ? 'info' : 'error'}</span>
+                      {demoMode
+                        ? <Info className="w-[18px] h-[18px]" aria-hidden="true" />
+                        : <CircleAlert className="w-[18px] h-[18px]" aria-hidden="true" />}
                       <span className="text-sm font-medium">{error}</span>
                     </div>
                   </div>
@@ -453,7 +457,7 @@ export default function BookingUserInfoPage() {
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined">sms</span>
+                          <MessageSquare className="w-6 h-6" aria-hidden="true" />
                           Doğrulama Kodu Gönder
                         </>
                       )}
@@ -466,7 +470,7 @@ export default function BookingUserInfoPage() {
                   <div className="space-y-6">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-green-800 mb-2">
-                        <span className="material-symbols-outlined">check_circle</span>
+                        <CircleCheck className="w-6 h-6" aria-hidden="true" />
                         <span className="font-bold">SMS Gönderildi!</span>
                       </div>
                       {countdown > 0 && (
@@ -481,7 +485,7 @@ export default function BookingUserInfoPage() {
                         Doğrulama Kodu *
                         {demoMode && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <span className="material-symbols-outlined text-[12px]">science</span>
+                            <FlaskConical className="w-3 h-3" aria-hidden="true" />
                             Demo modu — kod otomatik dolduruldu
                           </span>
                         )}
@@ -540,7 +544,7 @@ export default function BookingUserInfoPage() {
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined">check_circle</span>
+                          <CircleCheck className="w-6 h-6" aria-hidden="true" />
                           Doğrula ve Devam Et
                         </>
                       )}
@@ -566,7 +570,7 @@ export default function BookingUserInfoPage() {
                     {!isNewUser && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <div className="flex items-start gap-2">
-                          <span className="material-symbols-outlined text-blue-600 mt-0.5">info</span>
+                          <Info className="w-6 h-6 text-blue-600 mt-0.5" aria-hidden="true" />
                           <div className="text-sm text-blue-800">
                             <p className="font-bold">Hoşgeldiniz, {fullName}!</p>
                             <p>Bilgileriniz otomatik olarak dolduruldu. {user?.phone && `(${user.phone})`}</p>
@@ -743,7 +747,11 @@ export default function BookingUserInfoPage() {
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined">{depositAmount > 0 ? 'payments' : (appointmentId ? 'edit_calendar' : 'event_available')}</span>
+                          {depositAmount > 0
+                            ? <Banknote className="w-6 h-6" aria-hidden="true" />
+                            : appointmentId
+                              ? <CalendarClock className="w-6 h-6" aria-hidden="true" />
+                              : <CalendarCheck className="w-6 h-6" aria-hidden="true" />}
                           {depositAmount > 0 ? 'Ödeme Yap ve Onayla' : (appointmentId ? 'Randevuyu Güncelle' : 'Randevuyu Onayla')}
                         </>
                       )}
@@ -756,7 +764,7 @@ export default function BookingUserInfoPage() {
                     href={`/booking/${id}/time`}
                     className="flex items-center gap-2 px-6 py-3 rounded-lg text-text-secondary font-medium hover:bg-gray-100 transition-colors"
                   >
-                    <span className="material-symbols-outlined">arrow_back</span> Geri Dön
+                    <ArrowLeft className="w-6 h-6" aria-hidden="true" /> Geri Dön
                   </Link>
                 </div>
               </div>

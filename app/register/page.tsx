@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { AuthCardSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Store } from 'lucide-react';
+import { Store, CircleCheck } from 'lucide-react';
 import LegalConsentModal from '@/components/common/LegalConsentModal';
 import { KVKK_AYDINLATMA_METNI, TICARI_ELEKTRONIK_ILETI_ONAYI } from '@/lib/legal-texts';
 import { createBrowserClient } from '@supabase/ssr';
@@ -134,12 +135,7 @@ export default function Register() {
     if (authLoading) {
         return (
             <Layout>
-                <div className="flex-1 flex items-center justify-center p-4">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                        <p className="text-text-secondary">Yükleniyor...</p>
-                    </div>
-                </div>
+                <AuthCardSkeleton />
             </Layout>
         );
     }
@@ -154,7 +150,7 @@ export default function Register() {
 
                         {success && (
                             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p className="text-green-700 text-sm text-center">✓ Kayıt başarılı! Hoş geldiniz, ana sayfaya yönlendiriliyorsunuz...</p>
+                                <p className="text-green-700 text-sm text-center flex items-center justify-center gap-1.5"><CircleCheck className="w-4 h-4 shrink-0" aria-hidden="true" /> Kayıt başarılı! Hoş geldiniz, ana sayfaya yönlendiriliyorsunuz...</p>
                             </div>
                         )}
 

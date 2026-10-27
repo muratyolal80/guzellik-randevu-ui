@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import HomeClient from './HomeClient';
+import { SalonGridSkeleton } from '@/components/common/PageSkeletons';
 import { Suspense } from 'react';
 import { JsonLd, organizationSchema, websiteSchema } from '@/components/seo/JsonLd';
 import { buildPageMetadata } from '@/lib/seo/metadata';
@@ -16,14 +17,7 @@ export default function HomePage() {
         <>
             <JsonLd data={organizationSchema()} />
             <JsonLd data={websiteSchema()} />
-            <Suspense fallback={
-                <div className="min-h-screen flex items-center justify-center bg-background">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-                        <p className="text-text-muted text-lg">Yükleniyor...</p>
-                    </div>
-                </div>
-            }>
+            <Suspense fallback={<div className="min-h-screen bg-background"><SalonGridSkeleton /></div>}>
                 <HomeClient />
             </Suspense>
         </>

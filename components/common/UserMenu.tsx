@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
+import { ShieldUser, Store, Scissors, CalendarDays, Heart, User, Settings, LogOut } from 'lucide-react';
 export const UserMenu: React.FC = () => {
     const { user, signOut, isAdmin, isOwner, isStaff } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
@@ -76,7 +77,7 @@ export const UserMenu: React.FC = () => {
                 </span>
                 <div
                     className={`bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 border-2 cursor-pointer transition-all ${isOpen ? 'border-primary ring-2 ring-primary/20' : 'border-border group-hover:border-primary'}`}
-                    style={{ backgroundImage: `url("${avatarUrl}")` }}
+                    style={{ backgroundImage: `url("${avatarUrl}")` }} role="img" aria-label="Profil fotoğrafı"
                 ></div>
             </button>
 
@@ -97,7 +98,7 @@ export const UserMenu: React.FC = () => {
                             onClick={() => setIsOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors font-semibold"
                         >
-                            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                            <ShieldUser className="w-[18px] h-[18px]" aria-hidden="true" />
                             Admin Paneli
                         </Link>
                     )}
@@ -108,7 +109,7 @@ export const UserMenu: React.FC = () => {
                             onClick={() => setIsOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors font-semibold"
                         >
-                            <span className="material-symbols-outlined text-[18px]">store</span>
+                            <Store className="w-[18px] h-[18px]" aria-hidden="true" />
                             İşletme Yönetimi
                         </Link>
                     )}
@@ -119,7 +120,7 @@ export const UserMenu: React.FC = () => {
                             onClick={() => setIsOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors font-semibold"
                         >
-                            <span className="material-symbols-outlined text-[18px]">content_cut</span>
+                            <Scissors className="w-[18px] h-[18px]" aria-hidden="true" />
                             Personel Paneli
                         </Link>
                     )}
@@ -132,7 +133,7 @@ export const UserMenu: React.FC = () => {
                                 onClick={() => setIsOpen(false)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                             >
-                                <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+                                <CalendarDays className="w-[18px] h-[18px]" aria-hidden="true" />
                                 Randevularım
                             </Link>
 
@@ -141,7 +142,7 @@ export const UserMenu: React.FC = () => {
                                 onClick={() => setIsOpen(false)}
                                 className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                             >
-                                <span className="material-symbols-outlined text-[18px]">favorite</span>
+                                <Heart className="w-[18px] h-[18px]" aria-hidden="true" />
                                 Favorilerim
                             </Link>
                         </>
@@ -153,7 +154,7 @@ export const UserMenu: React.FC = () => {
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                     >
-                        <span className="material-symbols-outlined text-[18px]">person</span>
+                        <User className="w-[18px] h-[18px]" aria-hidden="true" />
                         Profilim
                     </Link>
 
@@ -162,7 +163,7 @@ export const UserMenu: React.FC = () => {
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
                     >
-                        <span className="material-symbols-outlined text-[18px]">settings</span>
+                        <Settings className="w-[18px] h-[18px]" aria-hidden="true" />
                         Ayarlar
                     </Link>
 
@@ -172,7 +173,7 @@ export const UserMenu: React.FC = () => {
                         onClick={handleSignOut}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors text-left"
                     >
-                        <span className="material-symbols-outlined text-[18px]">logout</span>
+                        <LogOut className="w-[18px] h-[18px]" aria-hidden="true" />
                         Çıkış Yap
                     </button>
                 </div>

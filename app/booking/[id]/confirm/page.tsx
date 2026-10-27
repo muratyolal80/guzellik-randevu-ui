@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { BookingStepSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
 import { SalonDataService, StaffService, ServiceService, AppointmentService } from '@/services/db';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -11,6 +12,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { downloadIcs } from '@/lib/calendar/ics';
 import PrintTicket from '@/components/booking/PrintTicket';
+import { TriangleAlert, MessageSquare, CircleAlert, ShieldCheck, UserX, Store, Scissors, User, Calendar, Clock, Timer, Banknote, Tag, CircleUserRound, Info, House, RotateCcw, CalendarPlus, Printer, CircleCheck, Hourglass } from 'lucide-react';
 import '@/components/booking/print-ticket.css';
 
 function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
@@ -39,7 +41,7 @@ function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
     return (
         <div className="mt-4 mx-auto max-w-lg p-3 bg-amber-50 border border-amber-200 rounded-lg flex flex-col gap-2 text-left">
             <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-primary text-xl mt-0.5">warning</span>
+                <TriangleAlert className="w-5 h-5 text-primary mt-0.5" aria-hidden="true" />
                 <div className="flex-1">
                     <p className="text-sm font-bold text-amber-800">SMS gönderilemedi</p>
                     <p className="text-xs text-primary mt-0.5">
@@ -54,7 +56,7 @@ function SmsResendPanel({ appointmentId }: { appointmentId: string }) {
                     disabled={loading || !appointmentId}
                     className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
                 >
-                    <span className="material-symbols-outlined text-base">sms</span>
+                    <MessageSquare className="w-4 h-4" aria-hidden="true" />
                     {loading ? 'Gönderiliyor...' : 'SMS Tekrar Gönder'}
                 </button>
                 {result && (
@@ -98,11 +100,9 @@ export default function Confirmation() {
     // Force refresh auth state on mount to catch the new cookie
     useEffect(() => {
         const checkAuth = async () => {
-            console.log('🔄 Checking auth state on confirmation page...');
 
             // 1. Check current session
             const { data: { session } } = await supabase.auth.getSession();
-            console.log('   Current Session:', session ? 'Active' : 'None');
 
             if (session) {
                 // 2. If session exists, refresh user context
@@ -111,15 +111,12 @@ export default function Confirmation() {
                 // 3. If no session, try refreshing it (sometimes cookies take a moment)
                 const { data: refreshedSession } = await supabase.auth.refreshSession();
                 if (refreshedSession.session) {
-                    console.log('   Session refreshed successfully');
                     await refreshUser();
                 } else {
                     // 4. If still no session, try one more time after a short delay
                     setTimeout(async () => {
-                        console.log('   Retrying session check after delay...');
                         const { data: retrySession } = await supabase.auth.getSession();
                         if (retrySession.session) {
-                            console.log('   Session found on retry!');
                             await refreshUser();
                         }
                     }, 1000);
@@ -137,7 +134,6 @@ export default function Confirmation() {
 
                 // Context'te zaten tüm bilgiler varsa API'ye gerek yok
                 if (bookingSalon && selectedServices.length > 0 && bookingStaff && selectedDate && selectedTime) {
-                    console.log('Using context data - no API call needed');
                     setServices(selectedServices);
                     setLoading(false);
                     return;
@@ -148,7 +144,7 @@ export default function Confirmation() {
                     const appointmentData = await AppointmentService.getAppointmentById(appointmentId);
 
                     if (!appointmentData) {
-                        setError('Randevu bulunamadi');
+                        setError('Randevu bulunamadı');
                         setLoading(false);
                         return;
                     }
@@ -178,7 +174,7 @@ export default function Confirmation() {
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching booking data:', err);
-                setError('Randevu bilgileri yuklenirken bir hata olustu');
+                setError('Randevu bilgileri yüklenirken bir hata oluştu');
                 setLoading(false);
             }
         };
@@ -207,14 +203,7 @@ export default function Confirmation() {
     if (loading) {
         return (
             <Layout>
-                <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
-                    <div className="flex items-center justify-center min-h-[400px]">
-                        <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                            <p className="text-text-secondary">Randevu bilgileri yukleniyor...</p>
-                        </div>
-                    </div>
-                </div>
+                <BookingStepSkeleton />
             </Layout>
         );
     }
@@ -225,7 +214,7 @@ export default function Confirmation() {
                 <div className="flex-1 flex justify-center py-8 px-4 md:px-10 lg:px-20 bg-background min-h-screen">
                     <div className="flex items-center justify-center min-h-[400px]">
                         <div className="bg-white rounded-xl border border-red-200 p-8 text-center max-w-md">
-                            <span className="material-symbols-outlined text-6xl text-red-500">error</span>
+                            <CircleAlert className="w-14 h-14 text-red-500 mx-auto" aria-hidden="true" />
                             <h2 className="text-2xl font-bold text-text-main mt-4">Hata</h2>
                             <p className="text-text-secondary mt-2">{error}</p>
                             <Link href="/" className="mt-6 inline-block px-6 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-hover">
@@ -246,9 +235,9 @@ export default function Confirmation() {
                         <div className="mb-6">
                             {/* Status'a göre dinamik başlık + ikon */}
                             <div className={`w-20 h-20 ${appointment?.status === 'CONFIRMED' ? 'bg-green-100' : 'bg-amber-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                                <span className={`material-symbols-outlined text-5xl ${appointment?.status === 'CONFIRMED' ? 'text-green-600' : 'text-primary'}`}>
-                                    {appointment?.status === 'CONFIRMED' ? 'check_circle' : 'hourglass_top'}
-                                </span>
+                                {appointment?.status === 'CONFIRMED'
+                                    ? <CircleCheck className="w-12 h-12 text-green-600" aria-hidden="true" />
+                                    : <Hourglass className="w-12 h-12 text-primary" aria-hidden="true" />}
                             </div>
                             <h1 className="text-3xl font-bold text-text-main">
                                 {appointment?.status === 'CONFIRMED'
@@ -269,12 +258,12 @@ export default function Confirmation() {
                             <div className="mt-4 flex justify-center">
                                 {user ? (
                                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">
-                                        <span className="material-symbols-outlined text-lg">verified_user</span>
+                                        <ShieldCheck className="w-[18px] h-[18px]" aria-hidden="true" />
                                         Giriş Yapıldı: {`${user.first_name || ''} ${user.last_name || ''}`.trim() || user.phone}
                                     </div>
                                 ) : (
                                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-sm font-medium border border-gray-200">
-                                        <span className="material-symbols-outlined text-lg">person_off</span>
+                                        <UserX className="w-[18px] h-[18px]" aria-hidden="true" />
                                         Misafir Kullanıcı (Giriş Yapılmadı)
                                     </div>
                                 )}
@@ -285,7 +274,7 @@ export default function Confirmation() {
                             <div className="mt-8 text-left bg-gray-50 p-6 rounded-lg border border-border space-y-4">
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">store</span>
+                                        <Store className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Salon
                                     </span>
                                     <span className="font-bold text-text-main">{salon.name}</span>
@@ -293,7 +282,7 @@ export default function Confirmation() {
 
                                 <div className="space-y-3 pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">content_cut</span>
+                                        <Scissors className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Hizmetler
                                     </span>
                                     {services.map((svc) => (
@@ -306,7 +295,7 @@ export default function Confirmation() {
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">person</span>
+                                        <User className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Personel
                                     </span>
                                     <span className="font-bold text-text-main">{staff.name}</span>
@@ -314,7 +303,7 @@ export default function Confirmation() {
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">calendar_today</span>
+                                        <Calendar className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Tarih
                                     </span>
                                     <span className="font-bold text-text-main">
@@ -324,7 +313,7 @@ export default function Confirmation() {
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">schedule</span>
+                                        <Clock className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Saat
                                     </span>
                                     <span className="font-bold text-text-main">
@@ -334,7 +323,7 @@ export default function Confirmation() {
 
                                 <div className="flex justify-between items-center pb-3 border-b border-gray-200">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">timer</span>
+                                        <Timer className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Toplam Süre
                                     </span>
                                     <span className="font-bold text-text-main">
@@ -344,7 +333,7 @@ export default function Confirmation() {
 
                                 <div className="flex justify-between items-center">
                                     <span className="font-semibold text-text-secondary flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">payments</span>
+                                        <Banknote className="w-6 h-6 text-primary" aria-hidden="true" />
                                         Toplam Ücret
                                     </span>
                                     <div className="text-right">
@@ -358,7 +347,7 @@ export default function Confirmation() {
                                                         {services.reduce((acc, s) => acc + (s.price || 0), 0) - (appointment.discount_amount || 0)} TL
                                                     </span>
                                                     <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
-                                                        <span className="material-symbols-outlined text-xs">sell</span>
+                                                        <Tag className="w-3 h-3" aria-hidden="true" />
                                                         {appointment.coupon_code} Uygulandı
                                                     </div>
                                                 </div>
@@ -376,7 +365,7 @@ export default function Confirmation() {
                         {(customerName || customerPhone || appointment) && (
                             <div className="mt-6 text-left bg-blue-50 p-6 rounded-lg border border-blue-200">
                                 <h3 className="font-bold text-text-main mb-3 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">account_circle</span>
+                                    <CircleUserRound className="w-6 h-6 text-primary" aria-hidden="true" />
                                     Musteri Bilgileri
                                 </h3>
                                 <div className="space-y-2 text-sm">
@@ -398,7 +387,7 @@ export default function Confirmation() {
 
                         <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <div className="flex items-start gap-2 text-left">
-                                <span className="material-symbols-outlined text-yellow-600 flex-shrink-0">info</span>
+                                <Info className="w-6 h-6 text-yellow-600 flex-shrink-0" aria-hidden="true" />
                                 <div className="text-sm text-yellow-800">
                                     <p className="font-semibold mb-1">Onemli Hatirlatma</p>
                                     <p>Randevu saatinizden en az 15 dakika once salonda olmaniz onerilir. Iptal veya degisiklik icin lutfen salonu arayin.</p>
@@ -412,7 +401,7 @@ export default function Confirmation() {
                                 onClick={() => resetBooking()}
                                 className="px-8 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-hover transition-colors flex items-center justify-center gap-2"
                             >
-                                <span className="material-symbols-outlined">home</span>
+                                <House className="w-6 h-6" aria-hidden="true" />
                                 Ana Sayfaya Don
                             </Link>
 
@@ -421,7 +410,7 @@ export default function Confirmation() {
                                     href="/customer/profile"
                                     className="px-8 py-3 bg-white border-2 border-primary text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <span className="material-symbols-outlined">person</span>
+                                    <User className="w-6 h-6" aria-hidden="true" />
                                     Profilime Git
                                 </Link>
                             )}
@@ -431,7 +420,7 @@ export default function Confirmation() {
                                     href={`/salon/${salon.id}`}
                                     className="px-8 py-3 bg-white border-2 border-emerald-300 text-emerald-700 rounded-lg font-bold hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <span className="material-symbols-outlined">replay</span>
+                                    <RotateCcw className="w-6 h-6" aria-hidden="true" />
                                     Yeni Randevu Al
                                 </Link>
                             )}
@@ -455,7 +444,7 @@ export default function Confirmation() {
                                     }}
                                     className="px-8 py-3 bg-white border-2 border-primary/40 text-primary rounded-lg font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <span className="material-symbols-outlined">calendar_add_on</span>
+                                    <CalendarPlus className="w-6 h-6" aria-hidden="true" />
                                     Takvime Ekle
                                 </button>
                             )}
@@ -464,7 +453,7 @@ export default function Confirmation() {
                                 onClick={() => window.print()}
                                 className="px-8 py-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                             >
-                                <span className="material-symbols-outlined">print</span>
+                                <Printer className="w-6 h-6" aria-hidden="true" />
                                 Yazdir
                             </button>
                         </div>

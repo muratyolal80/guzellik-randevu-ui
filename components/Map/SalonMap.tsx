@@ -6,6 +6,7 @@ import * as L from 'leaflet';
 import { SalonDetail } from '@/types';
 import { useRouter } from 'next/navigation';
 
+import { Star, MapPin, ArrowRight } from 'lucide-react';
 // Helper: Strict Coordinate Validation
 const isValidLatLng = (lat: any, lng: any): boolean => {
     if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
@@ -172,10 +173,10 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
                         onClick();
                     }}
                 >
-                    <div className="h-36 bg-cover bg-center relative" style={{ backgroundImage: `url("${salon.image}")` }}>
+                    <div className="h-36 bg-cover bg-center relative" style={{ backgroundImage: `url("${salon.image}")` }} role="img" aria-label={salon.name}>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                         <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px] filled text-yellow-500">star</span> {salon.rating}
+                            <Star className="w-3.5 h-3.5 fill-current text-yellow-500" aria-hidden="true" /> {salon.rating}
                         </div>
                         {salon.is_sponsored && (
                             <div className="absolute top-3 left-3 bg-primary text-white text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider shadow-sm">
@@ -186,7 +187,7 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
                     <div className="p-4 bg-white relative z-10">
                         <h3 className="font-display font-bold text-lg text-gray-900 truncate mb-1 leading-tight">{salon.name}</h3>
                         <p className="text-xs text-gray-500 truncate mb-4 flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
+                            <MapPin className="w-4 h-4 text-primary" aria-hidden="true" />
                             {typeof salon.district === 'object' ? '' : String(salon.district || salon.district_name || '')}{(salon.district || salon.district_name) ? ', ' : ''}{typeof salon.city_name === 'object' ? '' : String(salon.city_name || '')}
                         </p>
                         <div className="flex justify-between items-center border-t border-gray-100 pt-3 mt-1">
@@ -195,7 +196,7 @@ const SalonMarker: React.FC<SalonMarkerProps> = ({ salon, isHovered, onHover, on
                                 <span className="text-primary font-black text-xl">{salon.startPrice} ₺</span>
                             </div>
                             <button className="bg-gray-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2">
-                                İncele <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                İncele <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                         </div>
                     </div>

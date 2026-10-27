@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import { CardListSkeleton } from '@/components/common/PageSkeletons';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -8,9 +10,11 @@ import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import type { BookingDisplay } from '@/types';
 
+import { Calendar, Scissors, User, CalendarDays, Clock } from 'lucide-react';
 export default function BookingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
   const [bookings, setBookings] = useState<BookingDisplay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,6 +85,7 @@ export default function BookingsPage() {
       setBookings(formattedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      showToast('Randevularınız yüklenemedi. Lütfen tekrar deneyin.', 'error');
     } finally {
       setLoading(false);
     }
@@ -120,8 +125,10 @@ export default function BookingsPage() {
   if (authLoading) {
     return (
       <Layout>
-        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="flex-1 bg-gray-50 py-12 px-4 md:px-8">
+          <div className="max-w-5xl mx-auto">
+            <CardListSkeleton />
+          </div>
         </div>
       </Layout>
     );
@@ -141,13 +148,11 @@ export default function BookingsPage() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <CardListSkeleton />
           ) : bookings.length === 0 ? (
             <div className="bg-white rounded-xl border border-border p-12 text-center shadow-sm">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl text-gray-400">calendar_today</span>
+                <Calendar className="w-8 h-8 text-gray-400" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-bold text-text-main mb-2">Henüz randevunuz yok</h3>
               <p className="text-text-secondary mb-6">Güzellik ve bakım ihtiyaçlarınız için hemen randevu oluşturun.</p>
@@ -168,19 +173,19 @@ export default function BookingsPage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8 text-sm text-text-secondary mt-3">
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">content_cut</span>
+                          <Scissors className="w-[18px] h-[18px] text-primary" aria-hidden="true" />
                           <span className="font-medium text-text-main">{booking.service.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">person</span>
+                          <User className="w-[18px] h-[18px] text-primary" aria-hidden="true" />
                           <span>{booking.staff.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">event</span>
+                          <CalendarDays className="w-[18px] h-[18px] text-primary" aria-hidden="true" />
                           <span>{formatDate(booking.start_time)}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-[18px]">schedule</span>
+                          <Clock className="w-[18px] h-[18px] text-primary" aria-hidden="true" />
                           <span>{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</span>
                         </div>
                       </div>

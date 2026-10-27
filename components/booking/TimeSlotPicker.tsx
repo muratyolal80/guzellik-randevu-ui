@@ -6,9 +6,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Skeleton from '@/components/Skeleton';
 import { SlotService, TimeSlot } from '@/services/slot';
 import { useBooking } from '@/context/BookingContext';
 
+import { CircleAlert, CalendarX, User } from 'lucide-react';
 interface TimeSlotPickerProps {
     salonId: string;
     serviceId: string;
@@ -86,17 +88,19 @@ export function TimeSlotPicker({
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                <span className="ml-3 text-text-secondary">Uygun saatler yükleniyor...</span>
+            <div className="space-y-3 py-4" aria-busy="true" aria-label="Uygun saatler yükleniyor">
+                <Skeleton className="h-5 w-40" />
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-                <span className="material-symbols-outlined text-red-600 mr-2">error</span>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 flex items-center">
+                <CircleAlert className="w-6 h-6 text-red-600 mr-2 shrink-0" aria-hidden="true" />
                 {error}
             </div>
         );
@@ -105,7 +109,7 @@ export function TimeSlotPicker({
     if (slots.length === 0) {
         return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                <span className="material-symbols-outlined text-yellow-600 text-4xl mb-2">event_busy</span>
+                <CalendarX className="w-9 h-9 text-yellow-600 mb-2 mx-auto" aria-hidden="true" />
                 <p className="text-text-main font-semibold mb-1">Bu tarihte uygun saat bulunamadı</p>
                 <p className="text-text-secondary text-sm">Lütfen başka bir tarih seçin veya farklı bir personel deneyin.</p>
             </div>
@@ -129,7 +133,7 @@ export function TimeSlotPicker({
             {Object.entries(slotsByStaff).map(([staffId, data]) => (
                 <div key={staffId} className="space-y-3">
                     <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">person</span>
+                        <User className="w-6 h-6 text-primary" aria-hidden="true" />
                         {data.staffName}
                     </h3>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
