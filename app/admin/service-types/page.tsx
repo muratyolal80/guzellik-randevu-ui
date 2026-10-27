@@ -3,13 +3,32 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { MasterDataService } from '@/services/db';
-import { ServiceCategory } from '../../../types';
+import { ServiceCategory } from '@/types';
+import { Plus, Pencil, Trash2, X, Sparkles, Scissors, Brush, Smile, PersonStanding, Zap, User, Flower2, Hand, Tags, type LucideIcon } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
+
+// service_categories.icon stores legacy Material Symbol names; map them to lucide for display.
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+    content_cut: Scissors,
+    brush: Brush,
+    face: Smile,
+    accessibility_new: PersonStanding,
+    flash_on: Zap,
+    face_retouching_natural: User,
+    spa: Flower2,
+    clean_hands: Hand,
+};
 
 export default function ServiceCategoryManager() {
     const [categories, setCategories] = useState<ServiceCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Partial<ServiceCategory> | null>(null);
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     // Load data from database
     useEffect(() => {
@@ -33,14 +52,14 @@ export default function ServiceCategoryManager() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Bu hizmet tipini silmek istediğinize emin misiniz?')) {
-            try {
-                await MasterDataService.deleteServiceCategory(id);
-                setCategories(prev => prev.filter(c => c.id !== id));
-            } catch (error) {
-                console.error('Error deleting service category:', error);
-                alert('Hizmet tipi silinirken bir hata oluştu.');
-            }
+        if (!(await confirm({ title: 'Hizmet tipi silinsin mi?', message: 'Bu hizmet tipini silmek istediğinize emin misiniz?', tone: 'danger' }))) return;
+        try {
+            await MasterDataService.deleteServiceCategory(id);
+            setCategories(prev => prev.filter(c => c.id !== id));
+            showToast('Hizmet tipi silindi.', 'success');
+        } catch (error) {
+            console.error('Error deleting service category:', error);
+            showToast('Hizmet tipi silinirken bir hata oluştu.', 'error');
         }
     };
 
@@ -69,7 +88,7 @@ export default function ServiceCategoryManager() {
             setCategories(data);
         } catch (error) {
             console.error('Error saving service category:', error);
-            alert('Hizmet tipi kaydedilirken bir hata oluştu.');
+            showToast('Hizmet tipi kaydedilirken bir hata oluştu.', 'error');
         }
     };
 
@@ -81,36 +100,54 @@ export default function ServiceCategoryManager() {
                     <p className="text-text-secondary">Hizmet kategorilerini yönetin (Örn: Saç, Tırnak, Makyaj).</p>
                 </div>
                 <button onClick={handleCreate} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover shadow-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined">add</span> Yeni Kategori Ekle
+                    <Plus className="w-5 h-5" aria-hidden="true" /> Yeni Kategori Ekle
                 </button>
             </div>
 
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[0, 1, 2].map(i => (
+                        <div key={i} className="bg-white rounded-xl border border-border p-6 shadow-sm flex items-center gap-4">
+                            <Skeleton className="size-12 rounded-full" />
+                            <div className="space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-20" /></div>
+                        </div>
+                    ))}
+                </div>
+            ) : categories.length === 0 ? (
+                <div className="bg-white rounded-xl border border-border shadow-sm">
+                    <EmptyState icon={Tags} title="Henüz hizmet tipi yok" description="Yeni Kategori Ekle butonuyla ilk hizmet kategorisini oluşturun." />
+                </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {categories.map(cat => (
+                {categories.map(cat => {
+                    const CatIcon = CATEGORY_ICONS[cat.icon || 'spa'] ?? Sparkles;
+                    return (
                     <div key={cat.id} className="bg-white rounded-xl border border-border p-6 shadow-sm flex items-center justify-between group">
                         <div className="flex items-center gap-4">
                             <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                <span className="material-symbols-outlined">{cat.icon || 'spa'}</span>
+                                <CatIcon className="w-6 h-6" aria-hidden="true" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-text-main">{cat.name}</h3>
                                 <p className="text-xs text-text-secondary">{cat.slug}</p>
                             </div>
                         </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleEdit(cat)} className="p-2 text-text-secondary hover:text-primary bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">edit</span></button>
-                            <button onClick={() => handleDelete(cat.id)} className="p-2 text-text-secondary hover:text-red-500 bg-gray-50 rounded-lg"><span className="material-symbols-outlined text-lg">delete</span></button>
+                        <div className="flex gap-2 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            <button onClick={() => handleEdit(cat)} aria-label="Düzenle" className="p-2 text-text-secondary hover:text-primary bg-gray-50 rounded-lg"><Pencil className="w-[18px] h-[18px]" aria-hidden="true" /></button>
+                            <button onClick={() => handleDelete(cat.id)} aria-label="Sil" className="p-2 text-text-secondary hover:text-red-500 bg-gray-50 rounded-lg"><Trash2 className="w-[18px] h-[18px]" aria-hidden="true" /></button>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
+            )}
 
             {isModalOpen && editingCategory && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                         <div className="p-6 border-b border-border flex justify-between items-center">
                             <h3 className="text-xl font-bold text-text-main">{editingCategory.id ? 'Kategoriyi Düzenle' : 'Yeni Kategori Ekle'}</h3>
-                            <button onClick={() => setIsModalOpen(false)}><span className="material-symbols-outlined">close</span></button>
+                            <button onClick={() => setIsModalOpen(false)} aria-label="Kapat"><X className="w-6 h-6" aria-hidden="true" /></button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>
@@ -124,7 +161,7 @@ export default function ServiceCategoryManager() {
                             <div>
                                 <label className="block text-sm font-bold text-text-main mb-2">İkon (Material Symbol)</label>
                                 <input className="w-full h-11 px-4 rounded-lg border border-border bg-gray-50 focus:bg-white focus:border-primary outline-none" value={editingCategory.icon} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingCategory({ ...editingCategory, icon: e.target.value })} />
-                                <a href="https://fonts.google.com/icons" target="_blank" className="text-xs text-primary mt-1 inline-block hover:underline">İkonları buradan bulabilirsiniz</a>
+                                <a href="https://fonts.google.com/icons" target="_blank" rel="noopener noreferrer" className="text-xs text-primary mt-1 inline-block hover:underline">İkonları buradan bulabilirsiniz</a>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 rounded-lg border border-border text-text-secondary font-bold">İptal</button>

@@ -8,6 +8,8 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ReviewService } from '@/services/db';
+import { Star } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 interface RatingModalProps {
     isOpen: boolean;
@@ -18,13 +20,14 @@ interface RatingModalProps {
 }
 
 export function RatingModal({ isOpen, onClose, appointment, salonId, onSubmit }: RatingModalProps) {
+    const { showToast } = useToast();
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
         if (rating === 0) {
-            alert('Lütfen bir puan seçiniz.');
+            showToast('Lütfen bir puan seçiniz.', 'warning');
             return;
         }
 
@@ -41,12 +44,12 @@ export function RatingModal({ isOpen, onClose, appointment, salonId, onSubmit }:
                 is_verified: true
             });
 
-            alert('Değerlendirmeniz için teşekkürler!');
+            showToast('Değerlendirmeniz için teşekkürler!', 'success');
             onSubmit?.();
             onClose();
         } catch (err) {
             console.error('Review submission failed:', err);
-            alert('Değerlendirme gönderilemedi. Lütfen tekrar deneyin.');
+            showToast('Değerlendirme gönderilemedi. Lütfen tekrar deneyin.', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -68,12 +71,11 @@ export function RatingModal({ isOpen, onClose, appointment, salonId, onSubmit }:
                         <button
                             key={star}
                             onClick={() => setRating(star)}
+                            aria-label={`${star} yıldız`}
+                            aria-pressed={star <= rating}
                             className="transition-all hover:scale-110"
                         >
-                            <span className={`material-symbols-outlined text-4xl ${star <= rating ? 'text-yellow-400 filled' : 'text-gray-300'
-                                }`}>
-                                star
-                            </span>
+                            <Star className={`w-9 h-9 ${star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} aria-hidden="true" />
                         </button>
                     ))}
                 </div>

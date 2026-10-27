@@ -13,9 +13,14 @@ import {
     XCircle,
     Info
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 export default function StaffSchedule() {
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const { prompt } = useConfirm();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,6 +70,7 @@ export default function StaffSchedule() {
 
         } catch (err) {
             console.error('Error fetching weekly appointments:', err);
+            showToast('Haftalık randevular yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -107,17 +113,18 @@ export default function StaffSchedule() {
                 </div>
 
                 <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-border shadow-sm">
-                    <button onClick={prevWeek} className="p-2 hover:bg-gray-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-text-secondary" /></button>
+                    <button onClick={prevWeek} aria-label="Önceki hafta" className="p-2 hover:bg-gray-50 rounded-xl transition-colors"><ChevronLeft className="w-5 h-5 text-text-secondary" aria-hidden="true" /></button>
                     <div className="px-4 font-bold text-sm text-text-main flex items-center gap-2">
-                        <CalendarIcon className="w-4 h-4 text-primary" />
+                        <CalendarIcon className="w-4 h-4 text-primary" aria-hidden="true" />
                         {weekDays[0].toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} - {weekDays[6].toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
-                    <button onClick={nextWeek} className="p-2 hover:bg-gray-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-text-secondary" /></button>
+                    <button onClick={nextWeek} aria-label="Sonraki hafta" className="p-2 hover:bg-gray-50 rounded-xl transition-colors"><ChevronRight className="w-5 h-5 text-text-secondary" aria-hidden="true" /></button>
                 </div>
             </div>
 
             {/* Weekly Grid */}
-            <div className="bg-white rounded-3xl border border-border shadow-card overflow-hidden">
+            <div className="bg-white rounded-3xl border border-border shadow-card overflow-x-auto">
+                <div className="min-w-[840px]">
                 <div className="grid grid-cols-7 border-b border-border bg-gray-50/50">
                     {weekDays.map((day, idx) => (
                         <div key={idx} className={`p-4 text-center border-r border-border last:border-r-0 ${day.toDateString() === new Date().toDateString() ? 'bg-primary/5' : ''}`}>
@@ -127,16 +134,17 @@ export default function StaffSchedule() {
                     ))}
                 </div>
 
-                <div className="grid grid-cols-7 h-[600px] overflow-y-auto">
+                <div className="grid grid-cols-7 h-[60vh] min-h-[420px] md:h-[600px] overflow-y-auto">
                     {weekDays.map((day, dayIdx) => {
                         const dayAppts = appointments.filter(a => new Date(a.start_time).toDateString() === day.toDateString());
 
                         return (
                             <div key={dayIdx} className="min-h-full border-r border-border last:border-r-0 p-2 space-y-2 bg-gray-50/20">
                                 {loading ? (
-                                    <div className="h-full flex items-center justify-center opacity-20">
-                                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                    </div>
+                                    <>
+                                        <Skeleton className="h-16 w-full rounded-xl" />
+                                        <Skeleton className="h-16 w-full rounded-xl" />
+                                    </>
                                 ) : dayAppts.length > 0 ? (
                                     dayAppts.map((apt) => (
                                         <button
@@ -153,7 +161,7 @@ export default function StaffSchedule() {
                                                     {new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                                 <span className="text-xs font-black text-text-main truncate line-clamp-1">{apt.customer_name}</span>
-                                                <span className="text-[9px] font-bold text-text-muted uppercase tracking-tight truncate">{apt.service?.global_service?.name}</span>
+                                                <span className="text-[10px] font-bold text-text-muted uppercase tracking-tight truncate">{apt.service?.global_service?.name}</span>
                                             </div>
                                             {/* Status indicator pill */}
                                             <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-current"></div>
@@ -161,12 +169,13 @@ export default function StaffSchedule() {
                                     ))
                                 ) : (
                                     <div className="h-full flex items-center justify-center opacity-10">
-                                        <CalendarIcon className="w-8 h-8 text-text-muted rotate-12" />
+                                        <CalendarIcon className="w-8 h-8 text-text-muted rotate-12" aria-hidden="true" />
                                     </div>
                                 )}
                             </div>
                         );
                     })}
+                </div>
                 </div>
             </div>
 
@@ -176,13 +185,13 @@ export default function StaffSchedule() {
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b border-border bg-gray-50 flex justify-between items-center">
                             <h3 className="text-lg font-black text-text-main">Randevu Detayı</h3>
-                            <button onClick={() => setSelectedAppointment(null)} className="p-2 hover:bg-gray-200 rounded-xl transition-colors"><XCircle className="w-5 h-5 text-text-secondary" /></button>
+                            <button onClick={() => setSelectedAppointment(null)} aria-label="Kapat" className="p-2 hover:bg-gray-200 rounded-xl transition-colors"><XCircle className="w-5 h-5 text-text-secondary" aria-hidden="true" /></button>
                         </div>
 
                         <div className="p-8 space-y-6">
                             <div className="flex items-center gap-4">
                                 <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                                    <User className="w-8 h-8" />
+                                    <User className="w-8 h-8" aria-hidden="true" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-text-muted uppercase tracking-widest">MÜŞTERİ</p>
@@ -195,7 +204,7 @@ export default function StaffSchedule() {
                                 <div className="p-4 bg-gray-50 rounded-2xl border border-border">
                                     <p className="text-[10px] font-bold text-text-muted uppercase mb-1">TARİH & SAAT</p>
                                     <div className="flex items-center gap-2 text-text-main font-black">
-                                        <Clock className="w-4 h-4 text-primary" />
+                                        <Clock className="w-4 h-4 text-primary" aria-hidden="true" />
                                         {new Date(selectedAppointment.start_time).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} | {new Date(selectedAppointment.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                 </div>
@@ -215,7 +224,7 @@ export default function StaffSchedule() {
 
                             {selectedAppointment.notes && (
                                 <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex gap-3">
-                                    <Info className="w-5 h-5 text-blue-500 shrink-0" />
+                                    <Info className="w-5 h-5 text-blue-500 shrink-0" aria-hidden="true" />
                                     <div>
                                         <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">MÜŞTERİ NOTU</p>
                                         <p className="text-sm text-blue-800 leading-relaxed font-medium">{selectedAppointment.notes}</p>
@@ -227,24 +236,24 @@ export default function StaffSchedule() {
                                 {selectedAppointment.status === 'CONFIRMED' && (
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => alert('Müşteri geldi olarak işaretlendi (Demo)')}
+                                            onClick={() => showToast('Müşteri geldi olarak işaretlendi (Demo)', 'info')}
                                             className="py-3 bg-blue-50 text-blue-700 rounded-2xl font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <User className="w-5 h-5" />
+                                            <User className="w-5 h-5" aria-hidden="true" />
                                             Müşteri Geldi
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                const delay = prompt('Gecikme süresi (dakika):', '15');
-                                                if (delay) alert(`${selectedAppointment.customer_name} adlı müşteriye ${delay} dakika gecikme bilgisi SMS olarak gönderildi.`);
+                                            onClick={async () => {
+                                                const delay = await prompt({ title: 'Gecikme bildir', label: 'Gecikme süresi (dakika)', defaultValue: '15', required: true, confirmText: 'Gönder' });
+                                                if (delay) showToast(`${selectedAppointment.customer_name} adlı müşteriye ${delay} dakika gecikme bilgisi SMS olarak gönderildi.`, 'info');
                                             }}
                                             className="py-3 bg-orange-50 text-orange-700 rounded-2xl font-bold hover:bg-orange-100 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <Clock className="w-5 h-5" />
+                                            <Clock className="w-5 h-5" aria-hidden="true" />
                                             Gecikme Bildir
                                         </button>
                                         <button className="col-span-2 w-full py-4 bg-primary text-white rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all flex items-center justify-center gap-2">
-                                            <CheckCircle2 className="w-5 h-5" /> Randevuyu Tamamla
+                                            <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> Randevuyu Tamamla
                                         </button>
                                     </div>
                                 )}

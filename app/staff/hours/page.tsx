@@ -6,9 +6,12 @@ import { supabase } from '@/lib/supabase';
 import { WorkingHoursService } from '@/services/db';
 import { Clock, Save, AlertCircle, CalendarDays, Loader2, Check } from 'lucide-react';
 import { WorkingHours } from '@/types';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function StaffHoursPage() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [hours, setHours] = useState<WorkingHours[]>([]);
@@ -61,6 +64,7 @@ export default function StaffHoursPage() {
 
         } catch (error) {
             console.error('Error fetching hours:', error);
+            showToast('Çalışma saatleri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -101,12 +105,12 @@ export default function StaffHoursPage() {
                 });
             }));
 
-            alert('Çalışma saatleri güncellendi.');
+            showToast('Çalışma saatleri güncellendi.', 'success');
             // Refresh to get new IDs
             fetchHours();
         } catch (error) {
             console.error('Save error:', error);
-            alert('Kaydedilirken bir hata oluştu.');
+            showToast('Kaydedilirken bir hata oluştu.', 'error');
         } finally {
             setSaving(false);
         }
@@ -121,8 +125,11 @@ export default function StaffHoursPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="space-y-6 max-w-4xl mx-auto" aria-busy="true" aria-label="Yükleniyor">
+                <Skeleton className="h-24 w-full rounded-[32px]" />
+                <div className="bg-white rounded-[32px] border border-border p-6 space-y-4">
+                    {[0, 1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
+                </div>
             </div>
         );
     }
@@ -130,7 +137,7 @@ export default function StaffHoursPage() {
     if (!staffId) {
         return (
             <div className="p-8 text-center bg-red-50 rounded-3xl border border-red-100 max-w-lg mx-auto mt-20">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" aria-hidden="true" />
                 <h3 className="text-lg font-bold text-red-800">Personel Kaydı Bulunamadı</h3>
                 <p className="text-red-600 mt-2">Bu hesaba bağlı bir personel profili sistemde kayıtlı değil.</p>
                 <div className="mt-6 bg-white p-4 rounded-xl border border-red-100 text-left">
@@ -150,7 +157,7 @@ export default function StaffHoursPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[32px] border border-border shadow-sm">
                 <div>
                     <h1 className="text-2xl font-black text-text-main tracking-tight flex items-center gap-3">
-                        <Clock className="w-8 h-8 text-primary" />
+                        <Clock className="w-8 h-8 text-primary" aria-hidden="true" />
                         Çalışma Saatleri
                     </h1>
                     <p className="text-text-secondary font-medium">Haftalık çalışma planınızı buradan düzenleyebilirsiniz.</p>
@@ -160,18 +167,18 @@ export default function StaffHoursPage() {
                     disabled={saving}
                     className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 disabled:opacity-70 disabled:scale-100"
                 >
-                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <Save className="w-5 h-5" aria-hidden="true" />}
                     {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
                 </button>
             </div>
 
             <div className="bg-white rounded-[32px] border border-border shadow-card overflow-hidden">
-                <div className="p-6 border-b border-border bg-gray-50/50">
-                    <div className="grid grid-cols-12 gap-4 text-xs font-bold text-text-muted uppercase tracking-wider">
-                        <div className="col-span-3">Gün</div>
-                        <div className="col-span-3">Durum</div>
-                        <div className="col-span-3">Başlangıç</div>
-                        <div className="col-span-3">Bitiş</div>
+                <div className="hidden md:block p-6 border-b border-border bg-gray-50/50">
+                    <div className="hidden md:grid grid-cols-12 gap-4 text-xs font-bold text-text-muted uppercase tracking-wider">
+                        <div className="col-span-1 md:col-span-3">Gün</div>
+                        <div className="col-span-1 md:col-span-3">Durum</div>
+                        <div className="col-span-1 md:col-span-3">Başlangıç</div>
+                        <div className="col-span-1 md:col-span-3">Bitiş</div>
                     </div>
                 </div>
                 <div className="divide-y divide-gray-100">
@@ -179,13 +186,13 @@ export default function StaffHoursPage() {
                         const isOff = h.is_day_off;
                         return (
                             <div key={h.day_of_week} className={`p-6 transition-colors ${isOff ? 'bg-gray-50/50' : 'hover:bg-blue-50/30'}`}>
-                                <div className="grid grid-cols-12 gap-4 items-center">
-                                    <div className="col-span-3">
+                                <div className="grid grid-cols-2 md:grid-cols-12 gap-4 items-center">
+                                    <div className="col-span-1 md:col-span-3">
                                         <span className={`font-black text-lg ${isOff ? 'text-text-muted' : 'text-text-main'}`}>
                                             {DAYS_MAP[h.day_of_week]}
                                         </span>
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-1 md:col-span-3">
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
@@ -199,23 +206,25 @@ export default function StaffHoursPage() {
                                             </span>
                                         </label>
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-1 md:col-span-3">
                                         <div className="relative">
                                             <input
                                                 type="time"
                                                 value={h.start_time.substring(0, 5)}
                                                 onChange={(e) => handleTimeChange(h.day_of_week, 'start_time', e.target.value)}
+                                                aria-label={`${DAYS_MAP[h.day_of_week]} başlangıç saati`}
                                                 disabled={isOff}
                                                 className="w-full bg-white border border-border rounded-xl px-4 py-2 text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-center"
                                             />
                                         </div>
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-1 md:col-span-3">
                                         <div className="relative">
                                             <input
                                                 type="time"
                                                 value={h.end_time.substring(0, 5)}
                                                 onChange={(e) => handleTimeChange(h.day_of_week, 'end_time', e.target.value)}
+                                                aria-label={`${DAYS_MAP[h.day_of_week]} bitiş saati`}
                                                 disabled={isOff}
                                                 className="w-full bg-white border border-border rounded-xl px-4 py-2 text-text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-gray-100 disabled:text-gray-400 transition-all text-center"
                                             />
@@ -229,7 +238,7 @@ export default function StaffHoursPage() {
             </div>
 
             <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" aria-hidden="true" />
                 <div>
                     <h4 className="font-bold text-blue-900 text-sm">Bilgilendirme</h4>
                     <p className="text-blue-700 text-sm mt-1">

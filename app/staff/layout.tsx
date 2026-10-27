@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/context/AuthContext';
+import PanelSkeleton from '@/components/PanelSkeleton';
 import {
     Calendar,
     LayoutDashboard,
@@ -33,7 +34,7 @@ const StaffSidebar: React.FC = () => {
                     {user?.avatar_url ? (
                         <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-full object-cover" />
                     ) : (
-                        <User className="w-5 h-5" />
+                        <User className="w-5 h-5" aria-hidden="true" />
                     )}
                 </div>
                 <div className="overflow-hidden">
@@ -60,7 +61,7 @@ const StaffSidebar: React.FC = () => {
 
             <div className="pt-4 border-t border-border mt-auto">
                 <button className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-bold text-sm text-red-500 hover:bg-red-50 transition-all w-full text-left">
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4" aria-hidden="true" />
                     Çıkış Yap
                 </button>
             </div>
@@ -71,13 +72,7 @@ const StaffSidebar: React.FC = () => {
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-        );
-    }
+    if (loading) return <PanelSkeleton />;
 
     // Role Protection (Only STAFF or SALON_OWNER acting as staff can enter)
     if (!user || (user.role !== 'STAFF' && user.role !== 'SALON_OWNER' && user.role !== 'SUPER_ADMIN')) {
@@ -85,7 +80,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
                 <div className="p-8 bg-white rounded-3xl border border-border shadow-card text-center max-w-md w-full">
                     <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6">
-                        <AlertCircle className="w-10 h-10" />
+                        <AlertCircle className="w-10 h-10" aria-hidden="true" />
                     </div>
                     <h1 className="text-2xl font-bold text-text-main mb-2">Erişim Reddedildi</h1>
                     <p className="text-text-secondary mb-8">Bu sayfayı görüntülemek için personel yetkisine sahip olmanız gerekmektedir.</p>

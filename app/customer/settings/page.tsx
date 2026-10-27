@@ -7,9 +7,13 @@ import { Bell, Shield, User, Trash2, Mail, MessageSquare, Globe, MapPin, Loader2
 import { ProfileService, MasterDataService } from '@/services/db';
 import { SessionManager } from '@/components/account/SessionManager';
 import { City } from '@/types';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function SettingsPage() {
     const { user, refreshProfile } = useAuth();
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [loading, setLoading] = useState(false);
     const [cities, setCities] = useState<City[]>([]);
     const [notifications, setNotifications] = useState({
@@ -25,10 +29,11 @@ export default function SettingsPage() {
                 setCities(data);
             } catch (err) {
                 console.error(err);
+                showToast('Şehir listesi yüklenemedi.', 'error');
             }
         }
         loadCities();
-    }, []);
+    }, [showToast]);
 
     const handleUpdatePref = async (updates: any) => {
         if (!user) return;
@@ -39,7 +44,7 @@ export default function SettingsPage() {
             setNotifications(prev => ({ ...prev, ...updates }));
         } catch (error) {
             console.error('Update preference error:', error);
-            alert('Ayarlar kaydedilirken bir hata oluştu.');
+            showToast('Ayarlar kaydedilirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -57,7 +62,7 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 text-primary mb-1">
-                        <Bell className="w-5 h-5" />
+                        <Bell className="w-5 h-5" aria-hidden="true" />
                         <h2 className="font-bold text-gray-900">Bildirim Tercihleri</h2>
                     </div>
                 </div>
@@ -66,7 +71,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex gap-4">
                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg h-fit">
-                                <Mail className="w-5 h-5" />
+                                <Mail className="w-5 h-5" aria-hidden="true" />
                             </div>
                             <div>
                                 <h3 className="font-medium text-gray-900">E-Posta Bildirimleri</h3>
@@ -91,7 +96,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex gap-4">
                             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg h-fit">
-                                <Globe className="w-5 h-5" />
+                                <Globe className="w-5 h-5" aria-hidden="true" />
                             </div>
                             <div className="flex-1">
                                 <h3 className="font-medium text-gray-900">Bölgesel Tercihler</h3>
@@ -131,7 +136,7 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 text-blue-600 mb-1">
-                        <Monitor className="w-5 h-5" />
+                        <Monitor className="w-5 h-5" aria-hidden="true" />
                         <h2 className="font-bold text-gray-900">Aktif Oturumlar</h2>
                     </div>
                 </div>
@@ -143,7 +148,7 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 text-gray-700 mb-1">
-                        <Shield className="w-5 h-5" />
+                        <Shield className="w-5 h-5" aria-hidden="true" />
                         <h2 className="font-bold text-gray-900">Güvenlik</h2>
                     </div>
                 </div>
@@ -163,7 +168,7 @@ export default function SettingsPage() {
             <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-red-50 bg-red-50/30">
                     <div className="flex items-center gap-3 text-red-600 mb-1">
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-5 h-5" aria-hidden="true" />
                         <h2 className="font-bold text-red-700">Tehlikeli Bölge</h2>
                     </div>
                 </div>
@@ -190,12 +195,12 @@ export default function SettingsPage() {
                         </div>
                         <button
                             onClick={async () => {
-                                if (confirm('Hesabınızı silmek istediğinize emin misiniz? 30 gün içinde geri alabilirsiniz.')) {
+                                if (await confirm({ title: 'Hesabınız silinsin mi?', message: 'Hesabınızı silmek istediğinize emin misiniz? 30 gün içinde geri alabilirsiniz.', tone: 'danger', confirmText: 'Silme Talebi Oluştur' })) {
                                     try {
                                         await ProfileService.requestAccountDeletion();
-                                        alert('Hesap silme talebiniz alındı. Oturumunuz kapatılıyor.');
+                                        showToast('Hesap silme talebiniz alındı. Oturumunuz kapatılıyor.', 'success');
                                         // Sign out logic...
-                                    } catch (e) { alert('Hata oluştu.'); }
+                                    } catch { showToast('Hata oluştu.', 'error'); }
                                 }
                             }}
                             className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-200"

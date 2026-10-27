@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
 import { FinanceService, NotificationService, SubscriptionService } from '@/services/db';
 import { 
     Clock, 
@@ -48,6 +51,7 @@ type ActiveTab = 'APPROVALS' | 'DEFINITIONS' | 'SUBSCRIPTIONS';
 export default function PackageManagementPage() {
     const router = useRouter();
     const { showToast } = useToast();
+    const { confirm, prompt } = useConfirm();
     const [activeTab, setActiveTab] = useState<ActiveTab>('APPROVALS');
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -121,7 +125,9 @@ export default function PackageManagementPage() {
 
     // --- Actions ---
     const handleUpdatePayment = async (paymentId: string, status: 'SUCCESS' | 'FAILED') => {
-        const note = window.prompt(status === 'SUCCESS' ? 'Onay notu:' : 'Red nedeni:');
+        const note = await prompt(status === 'SUCCESS'
+            ? { title: 'Ödemeyi onayla', label: 'Onay notu', placeholder: 'Opsiyonel', multiline: true, confirmText: 'Onayla' }
+            : { title: 'Ödemeyi reddet', label: 'Red nedeni', multiline: true, tone: 'danger', confirmText: 'Reddet' });
         if (note === null) return;
         setActionLoading(true);
         try {
@@ -153,7 +159,7 @@ export default function PackageManagementPage() {
     };
 
     const handleDeletePlan = async (planId: string) => {
-        if (!window.confirm('Bu paketi silmek veya pasife çekmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Paket silinsin mi?', message: 'Bu paketi silmek veya pasife çekmek istediğinize emin misiniz?', tone: 'danger' }))) return;
         try {
             const res = await SubscriptionService.deletePlan(planId);
             showToast(res.action === 'DEACTIVATED' ? 'Paket kullanımda olduğu için pasife çekildi.' : 'Paket silindi.', 'success');
@@ -164,9 +170,9 @@ export default function PackageManagementPage() {
     };
 
     const getPlanIcon = (name: string) => {
-        if (name.includes('STARTER')) return <Zap className="text-blue-500" />;
-        if (name.includes('BUSINESS')) return <Trophy className="text-amber-500" />;
-        return <Shield className="text-purple-500" />;
+        if (name.includes('STARTER')) return <Zap className="text-blue-500" aria-hidden="true" />;
+        if (name.includes('BUSINESS')) return <Trophy className="text-amber-500" aria-hidden="true" />;
+        return <Shield className="text-purple-500" aria-hidden="true" />;
     };
 
     return (
@@ -176,7 +182,7 @@ export default function PackageManagementPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest">
-                            <Layers className="w-4 h-4" /> Paket Yönetim Merkezi
+                            <Layers className="w-4 h-4" aria-hidden="true" /> Paket Yönetim Merkezi
                         </div>
                         <h1 className="text-3xl font-black text-text-main tracking-tight uppercase">
                             Paket & <span className="text-primary italic">Finans Yönetimi</span>
@@ -245,9 +251,9 @@ export default function PackageManagementPage() {
                                 ))}
                             </div>
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                                 <input 
-                                    className="pl-12 pr-4 py-2 bg-white border border-border rounded-xl text-sm font-bold min-w-[300px]"
+                                    className="pl-12 pr-4 py-2 bg-white border border-border rounded-xl text-sm font-bold w-full sm:min-w-[300px]"
                                     placeholder="Arama yap..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
@@ -256,8 +262,8 @@ export default function PackageManagementPage() {
                         </div>
 
                         {/* Table */}
-                        <div className="bg-white border-2 border-gray-50 rounded-[32px] overflow-hidden shadow-sm">
-                            <table className="w-full text-left">
+                        <div className="bg-white border-2 border-gray-50 rounded-[32px] overflow-x-auto shadow-sm">
+                            <table className="w-full min-w-[720px] text-left">
                                 <thead className="bg-gray-50/50 border-b border-border">
                                     <tr className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">
                                         <th className="px-8 py-5">İşletme</th>
@@ -268,17 +274,29 @@ export default function PackageManagementPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {records.map(record => (
+                                    {loading && [0, 1, 2].map(i => (
+                                        <tr key={`sk-${i}`}>
+                                            <td className="px-8 py-6" colSpan={5}><Skeleton className="h-10 w-full" /></td>
+                                        </tr>
+                                    ))}
+                                    {!loading && records.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5}>
+                                                <EmptyState icon={CheckCircle} title="Kayıt bulunamadı" description="Bu filtreye uygun ödeme kaydı yok." />
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {!loading && records.map(record => (
                                         <tr key={record.id} className="hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => { setSelectedRecord(record); setIsDetailsOpen(true); }}>
                                             <td className="px-8 py-6">
                                                 <div className="font-black text-text-main uppercase text-[12px]">{record.salons?.name}</div>
                                                 <div className="text-[10px] text-text-muted font-bold flex items-center gap-1">
-                                                    <User size={10} /> {record.salons?.profiles?.full_name}
+                                                    <User className="w-2.5 h-2.5" aria-hidden="true" /> {record.salons?.profiles?.full_name}
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
                                                 <div className="font-bold text-text-secondary text-[11px] uppercase">{record.subscriptions?.subscription_plans?.display_name}</div>
-                                                <span className="text-[9px] font-black bg-surface-alt px-2 py-0.5 rounded text-text-muted uppercase leading-none">
+                                                <span className="text-[10px] font-black bg-surface-alt px-2 py-0.5 rounded text-text-muted uppercase leading-none">
                                                     {record.subscriptions?.billing_cycle === 'YEARLY' ? 'Yıllık' : 'Aylık'}
                                                 </span>
                                             </td>
@@ -286,7 +304,7 @@ export default function PackageManagementPage() {
                                                 {record.amount === 0 ? 'ÜCRETSİZ' : `₺${(record.amount / 100).toLocaleString('tr-TR')}`}
                                             </td>
                                             <td className="px-8 py-6 text-center">
-                                                <span className={`px-2.5 py-1 rounded-full text-[9px] font-black border uppercase ${
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border uppercase ${
                                                     record.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                     record.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     'bg-red-50 text-red-600 border-red-100'
@@ -295,7 +313,7 @@ export default function PackageManagementPage() {
                                                 </span>
                                             </td>
                                             <td className="px-8 py-6 text-right">
-                                                <ChevronRight className="w-5 h-5 text-text-muted ml-auto group-hover:text-primary transition-colors" />
+                                                <ChevronRight className="w-5 h-5 text-text-muted ml-auto group-hover:text-primary transition-colors" aria-hidden="true" />
                                             </td>
                                         </tr>
                                     ))}
@@ -310,17 +328,26 @@ export default function PackageManagementPage() {
                     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                         <div className="flex justify-between items-center">
                             <div className="p-3 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-xl flex items-center gap-2">
-                                <Info className="w-4 h-4" />
+                                <Info className="w-4 h-4" aria-hidden="true" />
                                 "Pasif" paketler satıştan kaldırılmış ancak geçmiş kayıtlar için veritabanında saklanan paketlerdir.
                             </div>
                             <button 
                                 onClick={() => { setEditingPlan({ display_name: '', name: '', price_monthly: 0, price_yearly: 0, max_staff: 1, max_branches: 1, max_gallery_photos: 5, is_active: true, sort_order: 10 }); setIsPlanModalOpen(true); }}
                                 className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-primary/20 hover:scale-105 transition-all"
                             >
-                                <Plus size={16} /> Yeni Paket Tanımla
+                                <Plus className="w-4 h-4" aria-hidden="true" /> Yeni Paket Tanımla
                             </button>
                         </div>
 
+                        {loading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {[0, 1, 2].map(i => <Skeleton key={i} className="h-80 rounded-[40px]" />)}
+                            </div>
+                        ) : plans.length === 0 ? (
+                            <div className="bg-white rounded-[32px] border-2 border-gray-50">
+                                <EmptyState icon={Layers} title="Henüz paket tanımlanmamış" description="Yeni Paket Tanımla butonuyla ilk abonelik paketini oluşturun." />
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {plans.map(plan => (
                                 <div key={plan.id} className={`bg-white rounded-[40px] border-2 transition-all overflow-hidden ${plan.is_active ? 'border-border hover:border-primary/20 shadow-card' : 'border-dashed border-red-200 opacity-80 grayscale-[0.5]'}`}>
@@ -339,13 +366,13 @@ export default function PackageManagementPage() {
                                                 onClick={() => { setEditingPlan(plan); setIsPlanModalOpen(true); }}
                                                 className="p-2.5 bg-white border border-border text-text-main rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"
                                             >
-                                                <Edit2 size={16} />
+                                                <Edit2 className="w-4 h-4" aria-hidden="true" />
                                             </button>
                                             <button 
                                                 onClick={() => handleDeletePlan(plan.id)}
                                                 className="p-2.5 bg-white border border-border text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 className="w-4 h-4" aria-hidden="true" />
                                             </button>
                                         </div>
                                     </div>
@@ -365,7 +392,7 @@ export default function PackageManagementPage() {
                                             ].map((lim, i) => (
                                                 <div key={i} className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 text-[10px] font-black text-text-muted uppercase tracking-widest">
-                                                        <lim.icon size={12} className="text-primary/60" /> {lim.label}
+                                                        <lim.icon className="w-3 h-3 text-primary/60" /> {lim.label}
                                                     </div>
                                                     <span className="text-xs font-black text-text-main">{lim.val}</span>
                                                 </div>
@@ -383,16 +410,17 @@ export default function PackageManagementPage() {
                                 </div>
                             ))}
                         </div>
+                        )}
                     </div>
                 )}
 
                 {/* --- TAB 3: SUBSCRIPTIONS --- */}
                 {activeTab === 'SUBSCRIPTIONS' && (
                     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                             <h3 className="text-lg font-black text-text-main uppercase tracking-tight">Mevcut Salon Abonelikleri</h3>
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                                 <input 
                                     className="pl-12 pr-4 py-2 bg-white border border-border rounded-xl text-sm font-bold min-w-[300px]"
                                     placeholder="Salon/Owner ara..."
@@ -402,8 +430,8 @@ export default function PackageManagementPage() {
                             </div>
                         </div>
 
-                        <div className="bg-white border-2 border-gray-50 rounded-[32px] overflow-hidden shadow-sm">
-                            <table className="w-full text-left">
+                        <div className="bg-white border-2 border-gray-50 rounded-[32px] overflow-x-auto shadow-sm">
+                            <table className="w-full min-w-[720px] text-left">
                                 <thead className="bg-gray-50/50 border-b border-border">
                                     <tr className="text-[10px] font-black text-text-muted uppercase tracking-[0.1em]">
                                         <th className="px-8 py-5">Salon</th>
@@ -414,7 +442,19 @@ export default function PackageManagementPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {allSubscriptions.filter(s => s.salons?.name.toLowerCase().includes(subSearch.toLowerCase())).map(sub => (
+                                    {loading && [0, 1, 2].map(i => (
+                                        <tr key={`sk-${i}`}>
+                                            <td className="px-8 py-5" colSpan={5}><Skeleton className="h-10 w-full" /></td>
+                                        </tr>
+                                    ))}
+                                    {!loading && allSubscriptions.filter(s => s.salons?.name.toLowerCase().includes(subSearch.toLowerCase())).length === 0 && (
+                                        <tr>
+                                            <td colSpan={5}>
+                                                <EmptyState icon={Users} title="Abonelik bulunamadı" description={subSearch ? 'Aramanıza uygun abonelik yok.' : 'Henüz salon aboneliği bulunmuyor.'} />
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {!loading && allSubscriptions.filter(s => s.salons?.name.toLowerCase().includes(subSearch.toLowerCase())).map(sub => (
                                         <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-8 py-5">
                                                 <div className="font-black text-text-main uppercase text-[12px]">{sub.salons?.name}</div>
@@ -433,7 +473,7 @@ export default function PackageManagementPage() {
                                                 {sub.current_period_end ? format(new Date(sub.current_period_end), 'dd MMM yyyy', { locale: tr }) : '-'}
                                             </td>
                                             <td className="px-8 py-5 text-right">
-                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                                     sub.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' :
                                                     sub.status === 'TRIAL' ? 'bg-blue-50 text-blue-600' :
                                                     sub.status === 'PENDING_APPROVAL' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
@@ -461,10 +501,10 @@ export default function PackageManagementPage() {
                         <div className="p-8 border-b border-border flex justify-between items-center bg-gray-50/50">
                             <div>
                                 <h3 className="text-xl font-black text-text-main uppercase tracking-tight">Ödeme Detayı</h3>
-                                <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">{selectedRecord.id}</p>
+                                <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">{selectedRecord.id}</p>
                             </div>
                             <button onClick={() => setIsDetailsOpen(false)} className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center transition-all bg-gray-100">
-                                <X size={20} />
+                                <X className="w-5 h-5" aria-hidden="true" />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 space-y-8">
@@ -472,7 +512,7 @@ export default function PackageManagementPage() {
                             <div className="p-8 bg-gray-50 border-2 border-gray-100 rounded-[32px] space-y-4">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm border border-border">
-                                        <Building2 size={24} />
+                                        <Building2 className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-black text-text-main uppercase">{selectedRecord.salons?.name}</p>
@@ -489,7 +529,7 @@ export default function PackageManagementPage() {
                             <div className="p-6 bg-purple-50/30 border border-purple-100 rounded-2xl">
                                 <div className="flex items-center justify-between mb-4">
                                     <span className="text-[10px] font-black text-purple-700 uppercase tracking-widest italic">Talep Edilen Paket</span>
-                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${selectedRecord.subscriptions?.billing_cycle === 'YEARLY' ? 'bg-purple-600' : 'bg-blue-600'} text-white`}>
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${selectedRecord.subscriptions?.billing_cycle === 'YEARLY' ? 'bg-purple-600' : 'bg-blue-600'} text-white`}>
                                         {selectedRecord.subscriptions?.billing_cycle === 'YEARLY' ? 'Yıllık' : 'Aylık'}
                                     </span>
                                 </div>
@@ -502,7 +542,7 @@ export default function PackageManagementPage() {
                             {selectedRecord.payment_method === 'BANK_TRANSFER' && (
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                                        <AlertTriangle size={14} className="text-amber-500" /> Havale Bildirimi
+                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" /> Havale Bildirimi
                                     </h4>
                                     <div className="bg-amber-50/50 border border-amber-100 rounded-3xl p-6 space-y-4">
                                         <div className="flex justify-between">
@@ -515,7 +555,7 @@ export default function PackageManagementPage() {
                                         </div>
                                         {selectedRecord.bank_transfer_proof_url && (
                                             <a href={selectedRecord.bank_transfer_proof_url} target="_blank" className="flex items-center justify-center gap-2 w-full py-4 bg-white border border-amber-200 rounded-2xl text-[10px] font-black text-amber-900 uppercase">
-                                                <ImageIcon size={16} /> Dekontu Gör
+                                                <ImageIcon className="w-4 h-4" aria-hidden="true" /> Dekontu Gör
                                             </a>
                                         )}
                                     </div>
@@ -525,11 +565,11 @@ export default function PackageManagementPage() {
                              {/* Financial Info */}
                              <div className="grid grid-cols-2 gap-4">
                                 <div className="p-6 bg-white border border-border rounded-[28px]">
-                                    <span className="text-[9px] font-black text-text-muted uppercase">Tutar</span>
+                                    <span className="text-[10px] font-black text-text-muted uppercase">Tutar</span>
                                     <p className="text-2xl font-black text-text-main tracking-tighter">₺{(selectedRecord.amount / 100).toLocaleString('tr-TR')}</p>
                                 </div>
                                 <div className="p-6 bg-white border border-border rounded-[28px]">
-                                    <span className="text-[9px] font-black text-text-muted uppercase">Tarih</span>
+                                    <span className="text-[10px] font-black text-text-muted uppercase">Tarih</span>
                                     <p className="text-xl font-black text-text-main tracking-tighter">{new Date(selectedRecord.created_at).toLocaleDateString('tr-TR')}</p>
                                 </div>
                             </div>
@@ -556,7 +596,7 @@ export default function PackageManagementPage() {
                     <form onSubmit={handleSavePlan} className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-8 border-b border-border flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-xl font-black text-text-main uppercase tracking-tight">{editingPlan.id ? 'Paketi Düzenle' : 'Yeni Paket Tanımla'}</h3>
-                            <button type="button" onClick={() => setIsPlanModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center transition-all bg-gray-100"><X /></button>
+                            <button type="button" onClick={() => setIsPlanModalOpen(false)} className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center transition-all bg-gray-100"><X aria-hidden="true" /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-8 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
@@ -579,7 +619,7 @@ export default function PackageManagementPage() {
                                     <input type="number" required className="w-full p-4 bg-surface-alt border border-border rounded-2xl text-sm font-bold" value={editingPlan.price_yearly} onChange={e => setEditingPlan({...editingPlan, price_yearly: parseInt(e.target.value)})} placeholder="YILLIK FİYAT (KURUŞ)" />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-text-muted uppercase px-1">Max Personel (-1: Sınırsız)</label>
                                     <input type="number" required className="w-full p-4 bg-surface-alt border border-border rounded-2xl text-sm font-bold" value={editingPlan.max_staff} onChange={e => setEditingPlan({...editingPlan, max_staff: parseInt(e.target.value)})} />
@@ -607,7 +647,7 @@ export default function PackageManagementPage() {
                         <div className="p-8 border-t border-border bg-gray-50/50 flex gap-4">
                             <button type="button" onClick={() => setIsPlanModalOpen(false)} className="px-8 py-4 bg-white border border-border text-text-secondary rounded-2xl font-black text-[11px] uppercase tracking-widest">İptal</button>
                             <button type="submit" disabled={actionLoading} className="flex-1 py-4 bg-primary text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-2">
-                                <Save size={16} /> {editingPlan.id ? 'Değişiklikleri Kaydet' : 'Paketi Oluştur'}
+                                <Save className="w-4 h-4" aria-hidden="true" /> {editingPlan.id ? 'Değişiklikleri Kaydet' : 'Paketi Oluştur'}
                             </button>
                         </div>
                     </form>

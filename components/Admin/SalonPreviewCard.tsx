@@ -31,7 +31,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
           
           <button className="absolute top-4 right-4 p-2.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
-            <Heart className="w-5 h-5" />
+            <Heart className="w-5 h-5" aria-hidden="true" />
           </button>
 
           {typeName && (
@@ -50,7 +50,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
                 {data.name || "Salon İsmi Henüz Girilmedi"}
               </h4>
               <div className="flex items-center gap-1.5 text-slate-500">
-                <MapPin className="w-4 h-4 text-primary" />
+                <MapPin className="w-4 h-4 text-primary" aria-hidden="true" />
                 <span className="text-sm font-bold uppercase tracking-wide">
                   {cityName ? `${cityName}, ${districtName || ""}` : "Konum Seçilmedi"}
                 </span>
@@ -58,7 +58,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
             </div>
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-2.5 py-1 rounded-full border border-amber-100">
-                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                <Star className="w-4 h-4 fill-amber-500 text-amber-500" aria-hidden="true" />
                 <span className="font-black text-sm">4.9</span>
               </div>
               <span className="text-[10px] text-slate-400 mt-1 font-bold">120+ Değerlendirme</span>
@@ -68,7 +68,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm border border-slate-100">
-                <Phone className="w-4 h-4" />
+                <Phone className="w-4 h-4" aria-hidden="true" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">Telefon</span>
@@ -77,7 +77,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
             </div>
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm border border-slate-100">
-                <Clock className="w-4 h-4" />
+                <Clock className="w-4 h-4" aria-hidden="true" />
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">Açılış</span>
@@ -97,7 +97,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
           </div>
 
           <button className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
-             Randevu Al <Clock className="w-5 h-5" />
+             Randevu Al <Clock className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
         <div className="p-6 bg-slate-900 rounded-[2rem] text-white flex items-center gap-4 border border-white/10 shadow-xl shadow-slate-900/40 animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
             {owner.avatar_url ? (
-              <img src={owner.avatar_url} alt="" className="w-full h-full object-cover" />
+              <img src={owner.avatar_url} alt={`${owner.full_name || "Salon sahibi"} profil fotoğrafı`} className="w-full h-full object-cover" />
             ) : (
               <span className="text-xl font-black text-primary">
                 {owner.full_name?.charAt(0) || "S"}
@@ -117,10 +117,10 @@ export function SalonPreviewCard({ data, owner, cityName, districtName, typeName
             <h5 className="font-black text-sm truncate uppercase tracking-tight">{owner.full_name}</h5>
             <p className="text-xs text-slate-400 truncate font-medium">{owner.email}</p>
             <div className="flex items-center gap-1 mt-1.5">
-              <span className="bg-primary/20 text-primary-foreground text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">
+              <span className="bg-primary/20 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">
                 SALON SAHİBİ
               </span>
-              <span className="bg-white/10 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">
+              <span className="bg-white/10 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">
                 AKTİF
               </span>
             </div>

@@ -9,7 +9,9 @@ import PendingReviewsBanner from '@/components/dashboard/PendingReviewsBanner';
 import YearlyStats from '@/components/dashboard/YearlyStats';
 import PaymentHistory from '@/components/dashboard/PaymentHistory';
 import Link from 'next/link';
-import { Calendar, CreditCard, Star, Building2, Loader2 } from 'lucide-react';
+import { Calendar, CreditCard, Star, Building2, Hand } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardService } from '@/services/db';
@@ -17,6 +19,7 @@ import type { SalonDetail } from '@/types';
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>({
         upcomingCount: 0,
@@ -55,17 +58,23 @@ export default function DashboardPage() {
                 setRecommendations(recommendedData);
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
+                showToast('Panel verileri yüklenemedi.', 'error');
             } finally {
                 setLoading(false);
             }
         }
         fetchData();
-    }, [user, authLoading, router]);
+    }, [user, authLoading, router, showToast]);
 
     if (authLoading || loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="space-y-6" aria-busy="true" aria-label="Yükleniyor">
+                <Skeleton className="h-9 w-64" />
+                <Skeleton className="h-32 w-full rounded-2xl" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+                </div>
+                <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
         );
     }
@@ -76,7 +85,7 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                        Hoşgeldin, {user?.first_name || 'Misafir'}! 👋
+                        Hoşgeldin, {user?.first_name || 'Misafir'}! <Hand className="inline w-7 h-7 text-primary align-[-4px]" aria-hidden="true" />
                     </h1>
                     <p className="text-gray-500 mt-1">Hesap özetin ve yaklaşan randevuların.</p>
                 </div>
@@ -163,7 +172,7 @@ export default function DashboardPage() {
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 />
                                 <span className="absolute top-2 right-2 bg-white px-2 py-0.5 rounded-md text-xs font-bold shadow-sm flex items-center">
-                                    <Star className="w-3 h-3 text-primary mr-1" fill="currentColor" />{' '}
+                                    <Star className="w-3 h-3 text-primary mr-1" fill="currentColor" aria-hidden="true" />{' '}
                                     {salon.average_rating || salon.rating || 0}
                                 </span>
                             </div>

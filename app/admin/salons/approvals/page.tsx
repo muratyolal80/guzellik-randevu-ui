@@ -5,6 +5,7 @@ import { AdminLayout } from '@/components/AdminLayout';
 import { SalonDataService, ServiceService, NotificationService, MasterDataService } from '@/services/db';
 import { SalonDetail, SalonServiceDetail } from '@/types';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import {
     Eye,
@@ -41,8 +42,11 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 const AdminSalonMap = dynamic(() => import('@/components/Admin/AdminSalonMap'), { ssr: false });
 
+const PLAN_LABELS: Record<string, string> = { STARTER: 'Starter', PRO: 'Pro', BUSINESS: 'Business', ELITE: 'Elite' };
+
 export default function AdminApprovalsPage() {
     const { showToast } = useToast();
+    const { confirm, prompt } = useConfirm();
     const router = useRouter();
     const [salons, setSalons] = useState<SalonDetail[]>([]);
     const [loading, setLoading] = useState(true);
@@ -90,6 +94,7 @@ export default function AdminApprovalsPage() {
             setSalonTypes(typeData);
         } catch (err) {
             console.error('Master data fetch error:', err);
+            showToast('Filtre verileri yüklenemedi.', 'error');
         }
     };
 
@@ -99,6 +104,7 @@ export default function AdminApprovalsPage() {
             setDistricts(data);
         } catch (err) {
             console.error('District fetch error:', err);
+            showToast('İlçeler yüklenemedi.', 'error');
         }
     };
 
@@ -109,6 +115,7 @@ export default function AdminApprovalsPage() {
             setSalons(data);
         } catch (err) {
             console.error('Error fetching salons for approval:', err);
+            showToast('Salonlar yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -123,13 +130,14 @@ export default function AdminApprovalsPage() {
             setSalonServices(services);
         } catch (err) {
             console.error('Error fetching salon services for review:', err);
+            showToast('Salon hizmetleri yüklenemedi.', 'error');
         } finally {
             setReviewLoading(false);
         }
     };
 
     const handleApprove = async (id: string) => {
-        if (!confirm('Bu salonu onaylamak istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Salon onaylansın mı?', message: 'Bu salonu onaylamak istediğinize emin misiniz?', confirmText: 'Onayla' }))) return;
         try {
             await SalonDataService.approveSalon(id);
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'APPROVED' } : s));
@@ -158,7 +166,7 @@ export default function AdminApprovalsPage() {
     };
 
     const handleReject = async (id: string) => {
-        const reason = prompt('Reddetme nedeni (Düzeltilmesi gerekenleri belirtin):');
+        const reason = await prompt({ title: 'Başvuruyu reddet', label: 'Reddetme nedeni', placeholder: 'Düzeltilmesi gerekenleri belirtin', required: true, multiline: true, tone: 'danger', confirmText: 'Reddet' });
         if (reason === null || reason.trim() === '') return;
         try {
             await SalonDataService.rejectSalon(id, reason);
@@ -188,7 +196,7 @@ export default function AdminApprovalsPage() {
     };
 
     const handleRequestRevision = async (id: string) => {
-        const reason = prompt('Revizyon isteği nedeni (Sahibinin neleri düzeltmesi gerektiğini detaylıca yazın):');
+        const reason = await prompt({ title: 'Revizyon iste', label: 'Revizyon isteği nedeni', placeholder: 'Sahibinin neleri düzeltmesi gerektiğini detaylıca yazın', required: true, multiline: true, confirmText: 'Gönder' });
         if (reason === null || reason.trim() === '') return;
         try {
             await SalonDataService.requestRevision(id, reason);
@@ -218,7 +226,7 @@ export default function AdminApprovalsPage() {
     };
 
     const handleDeactivate = async (id: string) => {
-        if (!confirm('Bu salonu pasife almak istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Salon pasife alınsın mı?', message: 'Bu salonu pasife almak istediğinize emin misiniz?', tone: 'danger', confirmText: 'Pasife Al' }))) return;
         try {
             await SalonDataService.deactivateSalon(id);
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'PASSIVE' } : s));
@@ -231,7 +239,7 @@ export default function AdminApprovalsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('DİKKAT: Bu salonu silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Salon silinsin mi?', message: 'DİKKAT: Bu salonu silmek istediğinize emin misiniz?', tone: 'danger', confirmText: 'Sil' }))) return;
         try {
             await SalonDataService.softDeleteSalon(id);
             setSalons(prev => prev.map(s => s.id === id ? { ...s, status: 'DELETED' } : s));
@@ -301,7 +309,7 @@ export default function AdminApprovalsPage() {
                         <p className="text-text-secondary font-medium mt-1">Sisteme yeni kaydedilen şubeleri inceleyin ve onaylayın.</p>
                     </div>
                     <div className="bg-primary/10 px-4 py-2 rounded-2xl flex items-center gap-2 border border-primary/20">
-                        <ShieldCheck className="w-5 h-5 text-primary" />
+                        <ShieldCheck className="w-5 h-5 text-primary" aria-hidden="true" />
                         <span className="text-xs font-black text-primary uppercase">{salons.filter(s => s.status === 'SUBMITTED').length} Bekleyen Başvuru</span>
                     </div>
                 </div>
@@ -336,7 +344,7 @@ export default function AdminApprovalsPage() {
                         {/* Advanced Filters Bar */}
                         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 bg-white p-6 rounded-[32px] border border-border shadow-sm">
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                                 <input 
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
@@ -346,7 +354,7 @@ export default function AdminApprovalsPage() {
                             </div>
                             
                             <div className="relative">
-                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" aria-hidden="true" />
                                 <select 
                                     value={selectedType}
                                     onChange={e => setSelectedType(e.target.value)}
@@ -355,11 +363,11 @@ export default function AdminApprovalsPage() {
                                     <option value="">Tüm Salon Tipleri</option>
                                     {salonTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" aria-hidden="true" />
                             </div>
 
                             <div className="relative">
-                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" aria-hidden="true" />
                                 <select 
                                     value={selectedCity}
                                     onChange={e => setSelectedCity(e.target.value)}
@@ -368,11 +376,11 @@ export default function AdminApprovalsPage() {
                                     <option value="">Tüm İller</option>
                                     {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" aria-hidden="true" />
                             </div>
 
                             <div className="relative">
-                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" aria-hidden="true" />
                                 <select 
                                     value={selectedStatus}
                                     onChange={e => setSelectedStatus(e.target.value)}
@@ -386,11 +394,11 @@ export default function AdminApprovalsPage() {
                                     <option value="PASSIVE">Pasif</option>
                                     <option value="DELETED">Silinmiş</option>
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" aria-hidden="true" />
                             </div>
 
                             <div className="relative">
-                                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" />
+                                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted z-10" aria-hidden="true" />
                                 <select 
                                     value={selectedPlan}
                                     onChange={e => setSelectedPlan(e.target.value)}
@@ -402,7 +410,7 @@ export default function AdminApprovalsPage() {
                                     <option value="BUSINESS">Business</option>
                                     <option value="ELITE">Elite</option>
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" aria-hidden="true" />
                             </div>
                         </div>
 
@@ -441,7 +449,7 @@ export default function AdminApprovalsPage() {
                                 }}
                                 className="flex items-center gap-2 text-[10px] font-black text-text-muted hover:text-primary transition-colors tracking-widest uppercase bg-white px-4 py-2 rounded-xl border border-border shadow-sm"
                             >
-                                <X className="w-3 h-3" /> Filtreleri Temizle
+                                <X className="w-3 h-3" aria-hidden="true" /> Filtreleri Temizle
                             </button>
                         </div>
 
@@ -497,18 +505,18 @@ export default function AdminApprovalsPage() {
                                                     <td className="px-8 py-7">
                                                         <div className="flex items-center gap-5">
                                                             <div className="relative">
-                                                                <div className="w-14 h-14 rounded-2xl bg-cover bg-center border-2 border-white shadow-md" style={{ backgroundImage: `url(${salon.image})` }}></div>
+                                                                <div role="img" aria-label={`${salon.name} salon görseli`} className="w-14 h-14 rounded-2xl bg-cover bg-center border-2 border-white shadow-md" style={{ backgroundImage: `url(${salon.image})` }}></div>
                                                                 {salon.status === 'SUBMITTED' && <span className="absolute -top-2 -right-2 w-5 h-5 bg-amber-500 rounded-full border-4 border-white animate-pulse"></span>}
                                                             </div>
                                                             <div>
                                                                 <p className="text-base font-black text-text-main group-hover:text-primary transition-colors">{salon.name}</p>
                                                                 <div className="flex items-center gap-2 mt-1">
-                                                                    <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-black text-text-muted uppercase tracking-tighter">{salon.type_name}</span>
-                                                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${
+                                                                    <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[10px] font-black text-text-muted uppercase tracking-tighter">{salon.type_name}</span>
+                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tighter ${
                                                                         salon.plan === 'ELITE' ? 'bg-purple-100 text-purple-700' :
                                                                         salon.plan === 'BUSINESS' ? 'bg-indigo-100 text-indigo-700' :
                                                                         salon.plan === 'PRO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-text-muted'
-                                                                    }`}>{salon.plan || 'STARTER'}</span>
+                                                                    }`}>{PLAN_LABELS[salon.plan || 'STARTER'] ?? salon.plan}</span>
                                                                     <span className="text-[10px] font-bold text-text-muted italic">{new Date(salon.created_at || '').toLocaleDateString('tr-TR')}</span>
                                                                 </div>
                                                             </div>
@@ -517,14 +525,14 @@ export default function AdminApprovalsPage() {
                                                     <td className="px-8 py-7">
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center gap-1.5 text-sm font-black text-text-main">
-                                                                <MapPin className="w-3.5 h-3.5 text-text-muted" /> {salon.city_name}
+                                                                <MapPin className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" /> {salon.city_name}
                                                             </div>
                                                             <span className="text-xs font-bold text-text-secondary pl-5">{salon.district_name}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-7">
                                                         <div className="flex items-center gap-2 text-sm font-bold text-text-secondary">
-                                                            <Phone className="w-3.5 h-3.5 text-text-muted" /> {salon.phone || 'Belirtilmedi'}
+                                                            <Phone className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" /> {salon.phone || 'Belirtilmedi'}
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-7">
@@ -536,7 +544,7 @@ export default function AdminApprovalsPage() {
                                                                 onClick={() => handleOpenReview(salon)}
                                                                 className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-text-secondary hover:bg-primary hover:text-white transition-all shadow-sm border border-border/50"
                                                             >
-                                                                <ChevronRight className="w-5 h-5" />
+                                                                <ChevronRight className="w-5 h-5" aria-hidden="true" />
                                                             </button>
                                                         </div>
                                                     </td>
@@ -545,7 +553,7 @@ export default function AdminApprovalsPage() {
                                         ) : (
                                             <tr>
                                                 <td colSpan={5} className="px-8 py-32 text-center text-text-muted italic">
-                                                    <Info className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                                    <Info className="w-12 h-12 mx-auto mb-4 opacity-20" aria-hidden="true" />
                                                     Gösterilecek salon bulunamadı.
                                                 </td>
                                             </tr>
@@ -568,7 +576,7 @@ export default function AdminApprovalsPage() {
                             <div className="px-8 py-6 border-b border-border flex justify-between items-center bg-gray-50/50">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                        <Store className="w-6 h-6" />
+                                        <Store className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-black text-text-main">{selectedSalon.name}</h3>
@@ -576,7 +584,7 @@ export default function AdminApprovalsPage() {
                                     </div>
                                 </div>
                                 <button onClick={() => setIsReviewOpen(false)} className="w-10 h-10 rounded-full hover:bg-white flex items-center justify-center transition-colors border border-transparent hover:border-border">
-                                    <X className="w-5 h-5 text-text-muted" />
+                                    <X className="w-5 h-5 text-text-muted" aria-hidden="true" />
                                 </button>
                             </div>
 
@@ -587,14 +595,14 @@ export default function AdminApprovalsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="bg-gray-50 rounded-[32px] p-6 border border-border/50 space-y-3">
                                         <div className="flex items-center gap-2 text-text-muted">
-                                            <Calendar className="w-4 h-4" />
+                                            <Calendar className="w-4 h-4" aria-hidden="true" />
                                             <span className="text-[10px] font-black uppercase tracking-wider">KAYIT TARİHİ</span>
                                         </div>
                                         <p className="text-lg font-black text-text-main">{new Date(selectedSalon.created_at || '').toLocaleDateString('tr-TR')}</p>
                                     </div>
                                     <div className="bg-gray-50 rounded-[32px] p-6 border border-border/50 space-y-3 md:col-span-2">
                                         <div className="flex items-center gap-2 text-text-muted">
-                                            <MapPin className="w-4 h-4" />
+                                            <MapPin className="w-4 h-4" aria-hidden="true" />
                                             <span className="text-[10px] font-black uppercase tracking-wider">LOKASYON BİLGİSİ</span>
                                         </div>
                                         <p className="text-lg font-black text-text-main">{selectedSalon.city_name}, {selectedSalon.district_name}</p>
@@ -612,7 +620,7 @@ export default function AdminApprovalsPage() {
                                     {/* Map & Visuals */}
                                     <div className="space-y-6">
                                         <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <MapIcon className="w-4 h-4" /> KONUM VE HARİTA
+                                            <MapIcon className="w-4 h-4" aria-hidden="true" /> KONUM VE HARİTA
                                         </h4>
                                         <div className="h-[250px] rounded-[32px] overflow-hidden border-2 border-border shadow-inner relative group">
                                             <AdminSalonMap
@@ -620,21 +628,21 @@ export default function AdminApprovalsPage() {
                                                 markerPosition={selectedSalon.geo_latitude && selectedSalon.geo_longitude ? { lat: selectedSalon.geo_latitude, lng: selectedSalon.geo_longitude } : null}
                                             />
                                             <div className="absolute inset-x-4 bottom-4 flex justify-between gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-[9px] font-black border border-border shadow-sm">LAT: {selectedSalon.geo_latitude}</div>
-                                                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-[9px] font-black border border-border shadow-sm">LNG: {selectedSalon.geo_longitude}</div>
+                                                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-[10px] font-black border border-border shadow-sm">LAT: {selectedSalon.geo_latitude}</div>
+                                                <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-[10px] font-black border border-border shadow-sm">LNG: {selectedSalon.geo_longitude}</div>
                                             </div>
                                         </div>
 
                                         <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2 pt-4">
-                                            <Camera className="w-4 h-4" /> PROFİL GÖRSELİ
+                                            <Camera className="w-4 h-4" aria-hidden="true" /> PROFİL GÖRSELİ
                                         </h4>
-                                        <div className="aspect-video rounded-[32px] bg-cover bg-center border-2 border-border/50 shadow-md" style={{ backgroundImage: `url(${selectedSalon.image})` }}></div>
+                                        <div role="img" aria-label={`${selectedSalon.name} salon kapak görseli`} className="aspect-video rounded-[32px] bg-cover bg-center border-2 border-border/50 shadow-md" style={{ backgroundImage: `url(${selectedSalon.image})` }}></div>
                                     </div>
 
                                     {/* Services & Offerings */}
                                     <div className="space-y-6">
                                         <h4 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
-                                            <Star className="w-4 h-4" /> TANIMLANAN HİZMETLER ({salonServices.length})
+                                            <Star className="w-4 h-4" aria-hidden="true" /> TANIMLANAN HİZMETLER ({salonServices.length})
                                         </h4>
                                         <div className="bg-gray-50 rounded-[32px] p-8 border border-border/50 space-y-6 max-h-[460px] overflow-y-auto no-scrollbar">
                                             {reviewLoading ? (
@@ -651,7 +659,7 @@ export default function AdminApprovalsPage() {
                                                 ))
                                             ) : (
                                                 <div className="text-center py-10 space-y-2 opacity-50">
-                                                    <AlertCircle className="w-8 h-8 mx-auto text-text-muted" />
+                                                    <AlertCircle className="w-8 h-8 mx-auto text-text-muted" aria-hidden="true" />
                                                     <p className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Henüz hizmet eklenmemiş</p>
                                                 </div>
                                             )}
@@ -660,7 +668,7 @@ export default function AdminApprovalsPage() {
                                         <div className="bg-amber-50 rounded-[28px] p-6 border border-amber-100 space-y-4">
                                             <div className="flex gap-4">
                                                 <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-600 flex-shrink-0">
-                                                    <ShieldCheck className="w-5 h-5" />
+                                                    <ShieldCheck className="w-5 h-5" aria-hidden="true" />
                                                 </div>
                                                 <div className="space-y-1">
                                                     <p className="text-xs font-black text-amber-800 uppercase">Onay Öncesi Kontrol Listesi</p>
@@ -686,7 +694,7 @@ export default function AdminApprovalsPage() {
                                         onClick={() => handleReject(selectedSalon.id)}
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-red-600 border-2 border-red-100 hover:border-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <XCircle className="w-4 h-4" /> Reddet
+                                        <XCircle className="w-4 h-4" aria-hidden="true" /> Reddet
                                     </button>
                                     {selectedSalon.status !== 'DELETED' && (
                                         <button
@@ -694,7 +702,7 @@ export default function AdminApprovalsPage() {
                                             className="flex items-center gap-3 px-4 py-4 bg-white text-gray-400 border-2 border-gray-100 hover:text-red-700 hover:border-red-200 rounded-2xl font-black text-[10px] uppercase transition-all shadow-sm"
                                             title="Salonu Sil"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-4 h-4" aria-hidden="true" />
                                         </button>
                                     )}
 
@@ -702,7 +710,7 @@ export default function AdminApprovalsPage() {
                                         href={`/admin/finance/purchase`}
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-emerald-600 border-2 border-emerald-100 hover:border-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <ShoppingCart className="w-4 h-4" /> Paket Satın Al
+                                        <ShoppingCart className="w-4 h-4" aria-hidden="true" /> Paket Satın Al
                                     </Link>
                                 </div>
 
@@ -712,7 +720,7 @@ export default function AdminApprovalsPage() {
                                             onClick={() => handleDeactivate(selectedSalon.id)}
                                             className="flex items-center gap-3 px-6 py-4 bg-white text-gray-600 border-2 border-border hover:border-gray-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                         >
-                                            <PowerOff className="w-4 h-4" /> Pasife Al
+                                            <PowerOff className="w-4 h-4" aria-hidden="true" /> Pasife Al
                                         </button>
                                     )}
 
@@ -720,14 +728,14 @@ export default function AdminApprovalsPage() {
                                         onClick={() => handleRequestRevision(selectedSalon.id)}
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-amber-600 border-2 border-amber-100 hover:border-amber-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <AlertCircle className="w-4 h-4" /> Revizyon İste
+                                        <AlertCircle className="w-4 h-4" aria-hidden="true" /> Revizyon İste
                                     </button>
 
                                     <Link
                                         href={`/admin/salons/${selectedSalon.id}/edit`}
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-blue-600 border-2 border-blue-100 hover:border-blue-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <PenLine className="w-4 h-4" /> Bilgileri Düzenle
+                                        <PenLine className="w-4 h-4" aria-hidden="true" /> Bilgileri Düzenle
                                     </Link>
 
                                     <Link
@@ -735,7 +743,7 @@ export default function AdminApprovalsPage() {
                                         target="_blank"
                                         className="flex items-center gap-3 px-6 py-4 bg-white text-text-main border-2 border-border hover:border-text-main rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm"
                                     >
-                                        <ExternalLink className="w-4 h-4 text-text-muted" /> Önizleme
+                                        <ExternalLink className="w-4 h-4 text-text-muted" aria-hidden="true" /> Önizleme
                                     </Link>
 
                                     {(selectedSalon.status === 'SUBMITTED' || selectedSalon.status === 'REJECTED' || selectedSalon.status === 'REVISION_REQUESTED') && (
@@ -743,7 +751,7 @@ export default function AdminApprovalsPage() {
                                             onClick={() => handleApprove(selectedSalon.id)}
                                             className="flex items-center gap-3 px-10 py-4 bg-green-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-600/20 hover:scale-[1.02] active:scale-95 transition-all"
                                         >
-                                            <CheckCircle className="w-4 h-4" /> Onayla
+                                            <CheckCircle className="w-4 h-4" aria-hidden="true" /> Onayla
                                         </button>
                                     )}
                                 </div>
@@ -772,7 +780,7 @@ function StatusBadge({ status, reason }: { status: any, reason?: string }) {
     if (!s) return null;
     return (
         <div className="flex flex-col gap-1">
-            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${s.bg} ${s.color} border ${s.border} shadow-sm flex items-center gap-2 w-fit`}>
+            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${s.bg} ${s.color} border ${s.border} shadow-sm flex items-center gap-2 w-fit`}>
                 <s.icon className="w-3.5 h-3.5" />
                 {s.label}
             </span>
@@ -787,9 +795,9 @@ function CheckListItem({ label, checked }: { label: string, checked: boolean }) 
     return (
         <div className="flex items-center gap-2">
             {checked ? (
-                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                <CheckCircle className="w-3.5 h-3.5 text-green-500" aria-hidden="true" />
             ) : (
-                <XCircle className="w-3.5 h-3.5 text-red-400" />
+                <XCircle className="w-3.5 h-3.5 text-red-400" aria-hidden="true" />
             )}
             <span className={`text-[11px] font-bold ${checked ? 'text-text-main' : 'text-text-muted'}`}>{label}</span>
         </div>

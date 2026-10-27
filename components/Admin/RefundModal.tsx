@@ -85,7 +85,7 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
         <div className="flex items-center justify-between p-6 border-b border-border bg-rose-50/50">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center">
-              <RotateCcw className="text-rose-600" size={22} />
+              <RotateCcw className="w-[22px] h-[22px] text-rose-600" />
             </div>
             <div>
               <h3 className="text-lg font-black text-text-main tracking-tight">İADE İŞLEMİ</h3>
@@ -98,14 +98,14 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
             className="p-2 rounded-xl text-text-muted hover:bg-gray-100 transition disabled:opacity-50"
             aria-label="Kapat"
           >
-            <X size={20} />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-5">
           {!isPaytr && (
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
-              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0 mt-0.5" />
               <p className="text-xs font-bold text-amber-800">
                 Bu işlem PayTR üzerinden alınmamış (provider: {transaction.metadata?.provider || 'bilinmiyor'}).
                 Otomatik iade desteklenmiyor — manuel olarak işlemen gerekir.
@@ -115,7 +115,7 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
 
           {isPaytr && !merchantOid && (
             <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4">
-              <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+              <AlertTriangle className="w-[18px] h-[18px] text-rose-600 shrink-0 mt-0.5" />
               <p className="text-xs font-bold text-rose-800">
                 Bu kayıtta PayTR <code>merchant_oid</code> yok. İade gönderilemez.
               </p>
@@ -166,7 +166,7 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
 
           {done && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 flex items-center gap-2 text-xs font-bold text-emerald-700">
-              <CheckCircle2 size={16} /> İade başarıyla işleme alındı.
+              <CheckCircle2 className="w-4 h-4" /> İade başarıyla işleme alındı.
             </div>
           )}
         </div>
@@ -184,7 +184,7 @@ export default function RefundModal({ transaction, onClose, onSuccess }: RefundM
             disabled={!canSubmit}
             className="flex-1 h-12 rounded-2xl bg-rose-600 text-white font-black text-xs uppercase tracking-widest hover:bg-rose-700 transition disabled:opacity-40 flex items-center justify-center gap-2"
           >
-            {submitting && <Loader2 size={14} className="animate-spin" />}
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {done ? 'Tamamlandı' : submitting ? 'Gönderiliyor' : 'İadeyi Onayla'}
           </button>
         </div>

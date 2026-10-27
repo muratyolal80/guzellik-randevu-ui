@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, Loader2, X, UploadCloud } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/Toast';
 
 interface ImageUploadProps {
     /**
@@ -45,6 +46,7 @@ export default function ImageUpload({
     label = 'Resim Yükle',
     userId
 }: ImageUploadProps) {
+    const { showToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
@@ -82,11 +84,11 @@ export default function ImageUpload({
 
             // 1. Basic validation
             if (!file.type.startsWith('image/')) {
-                alert('Lütfen geçerli bir resim dosyası seçin (JPG, PNG, WebP).');
+                showToast('Lütfen geçerli bir resim dosyası seçin (JPG, PNG, WebP).', 'warning');
                 return;
             }
             if (file.size > 5 * 1024 * 1024) { // 5MB
-                alert('Dosya boyutu 5MB\'dan küçük olmalıdır.');
+                showToast('Dosya boyutu 5MB\'dan küçük olmalıdır.', 'warning');
                 return;
             }
 
@@ -132,9 +134,9 @@ export default function ImageUpload({
 
             onUpload(data.publicUrl);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Upload Error:', error);
-            alert(`Yükleme hatası: ${error.message}`);
+            showToast(`Yükleme hatası: ${error instanceof Error ? error.message : String(error)}`, 'error');
             // Revert preview on error
             setPreviewUrl(currentImage || null);
         } finally {
@@ -176,7 +178,7 @@ export default function ImageUpload({
 
             {uploading && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                    <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" aria-hidden="true" />
                     <span className="text-xs font-bold text-gray-500">Yükleniyor...</span>
                 </div>
             )}
@@ -190,7 +192,7 @@ export default function ImageUpload({
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-2">
-                            <Camera className="w-4 h-4" /> Değiştir
+                            <Camera className="w-4 h-4" aria-hidden="true" /> Değiştir
                         </span>
                         {/* 
                          * Optional: Clear button. 
@@ -200,14 +202,14 @@ export default function ImageUpload({
                             onClick={clearImage}
                             className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                         >
-                            <X className="w-4 h-4" />
+                            <X className="w-4 h-4" aria-hidden="true" />
                         </button>
                     </div>
                 </>
             ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 gap-3 p-4 text-center">
                     <div className={`p-4 rounded-full bg-gray-50 ${dragActive ? 'bg-primary/10 text-primary' : ''}`}>
-                        <UploadCloud className={`w-6 h-6 ${dragActive ? 'scale-110' : ''} transition-transform`} />
+                        <UploadCloud className={`w-6 h-6 ${dragActive ? 'scale-110' : ''} transition-transform`} aria-hidden="true" />
                     </div>
                     <div className="space-y-1">
                         <p className="text-sm font-bold text-gray-600 group-hover:text-primary transition-colors">

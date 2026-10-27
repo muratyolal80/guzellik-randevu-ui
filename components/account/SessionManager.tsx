@@ -3,6 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { Monitor, Smartphone, Globe, XCircle, Loader2, Clock, ShieldCheck } from 'lucide-react';
 import { ProfileService } from '@/services/db';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 
 interface UserSession {
     id: string;
@@ -15,6 +18,8 @@ interface UserSession {
 }
 
 export function SessionManager({ userId }: { userId: string }) {
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [sessions, setSessions] = useState<UserSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [terminatingId, setTerminatingId] = useState<string | null>(null);
@@ -26,6 +31,7 @@ export function SessionManager({ userId }: { userId: string }) {
             setSessions(data);
         } catch (error) {
             console.error('Error fetching sessions:', error);
+            showToast('Oturumlar yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -41,14 +47,14 @@ export function SessionManager({ userId }: { userId: string }) {
             await ProfileService.terminateSession(sessionId);
             setSessions(prev => prev.filter(s => s.id !== sessionId));
         } catch (error) {
-            alert('Oturum sonlandırılırken bir hata oluştu.');
+            showToast('Oturum sonlandırılırken bir hata oluştu.', 'error');
         } finally {
             setTerminatingId(null);
         }
     };
 
     const handleTerminateOthers = async () => {
-        if (!confirm('Diğer tüm cihazlardaki oturumlarınızı kapatmak istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Diğer oturumlar kapatılsın mı?', message: 'Diğer tüm cihazlardaki oturumlarınızı kapatmak istediğinize emin misiniz?', tone: 'danger', confirmText: 'Kapat' }))) return;
 
         try {
             // Not: Mevcut oturum ID'sini tespit etmek için logic gerekebilir, 
@@ -57,7 +63,7 @@ export function SessionManager({ userId }: { userId: string }) {
             await ProfileService.terminateAllOtherSessions(userId, 'current-id-placeholder');
             await fetchSessions();
         } catch (error) {
-            alert('İşlem başarısız.');
+            showToast('İşlem başarısız.', 'error');
         } finally {
             setLoading(false);
         }
@@ -65,12 +71,16 @@ export function SessionManager({ userId }: { userId: string }) {
 
     const getDeviceIcon = (userAgent: string) => {
         const ua = userAgent.toLowerCase();
-        if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) return <Smartphone className="w-5 h-5" />;
-        return <Monitor className="w-5 h-5" />;
+        if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) return <Smartphone className="w-5 h-5" aria-hidden="true" />;
+        return <Monitor className="w-5 h-5" aria-hidden="true" />;
     };
 
     if (loading && sessions.length === 0) {
-        return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+        return (
+            <div className="space-y-3" aria-busy="true" aria-label="Yükleniyor">
+                {[0, 1].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+            </div>
+        );
     }
 
     return (
@@ -90,8 +100,8 @@ export function SessionManager({ userId }: { userId: string }) {
             <div className="space-y-3">
                 {sessions.length === 0 ? (
                     <div className="text-center py-6 border-2 border-dashed border-gray-100 rounded-xl">
-                        <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-400">Aktif oturum kaydı bulunamadı.</p>
+                        <ShieldCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" aria-hidden="true" />
+                        <p className="text-sm text-text-muted">Aktif oturum kaydı bulunamadı.</p>
                     </div>
                 ) : (
                     sessions.map((session) => (
@@ -106,8 +116,8 @@ export function SessionManager({ userId }: { userId: string }) {
                                         <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-black rounded uppercase">Aktif</span>
                                     </div>
                                     <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
-                                        <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" /> {new Date(session.last_active_at).toLocaleString('tr-TR')}</span>
-                                        <span className="flex items-center gap-1 font-medium"><Globe className="w-3 h-3" /> {session.ip_address}</span>
+                                        <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" aria-hidden="true" /> {new Date(session.last_active_at).toLocaleString('tr-TR')}</span>
+                                        <span className="flex items-center gap-1 font-medium"><Globe className="w-3 h-3" aria-hidden="true" /> {session.ip_address}</span>
                                     </div>
                                 </div>
                             </div>
@@ -117,7 +127,7 @@ export function SessionManager({ userId }: { userId: string }) {
                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                                 title="Oturumu Kapat"
                             >
-                                {terminatingId === session.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-5 h-5" />}
+                                {terminatingId === session.id ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <XCircle className="w-5 h-5" aria-hidden="true" />}
                             </button>
                         </div>
                     ))

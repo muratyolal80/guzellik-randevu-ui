@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Star, MapPin, Calendar, ExternalLink, Loader2, MessageSquare } from 'lucide-react';
+import { Star, MapPin, Calendar, ExternalLink, MessageSquare } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function ReviewsPage() {
+    const { showToast } = useToast();
     const [reviews, setReviews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -41,15 +44,23 @@ export default function ReviewsPage() {
 
             } catch (error) {
                 console.error('Error fetching reviews:', error);
+                showToast('Değerlendirmeler yüklenemedi.', 'error');
             } finally {
                 setLoading(false);
             }
         }
         fetchReviews();
-    }, []);
+    }, [showToast]);
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+        return (
+            <div className="space-y-6 max-w-5xl" aria-busy="true" aria-label="Yükleniyor">
+                <div className="space-y-2"><Skeleton className="h-8 w-56" /><Skeleton className="h-4 w-72" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -79,7 +90,7 @@ export default function ReviewsPage() {
                                 <div>
                                     <h3 className="font-bold text-gray-900 text-lg">{review.salon?.name}</h3>
                                     <div className="flex items-center text-gray-500 text-xs mt-0.5">
-                                        <MapPin className="w-3 h-3 mr-1" />
+                                        <MapPin className="w-3 h-3 mr-1" aria-hidden="true" />
                                         {review.salon?.district?.name}, {review.salon?.city?.name}
                                     </div>
                                 </div>
@@ -100,20 +111,20 @@ export default function ReviewsPage() {
                         </div>
 
                         <div className="bg-gray-50 rounded-xl p-4 relative">
-                            <MessageSquare className="w-4 h-4 text-gray-300 absolute top-4 right-4" />
+                            <MessageSquare className="w-4 h-4 text-gray-300 absolute top-4 right-4" aria-hidden="true" />
                             <p className="text-gray-600 text-sm leading-relaxed italic">"{review.comment}"</p>
                         </div>
 
                         <div className="mt-4 flex justify-end">
                             <Link href={`/salon/${review.salon?.id}`} className="text-xs font-bold text-primary hover:text-primary flex items-center">
-                                Salonu Görüntüle <ExternalLink className="w-3 h-3 ml-1" />
+                                Salonu Görüntüle <ExternalLink className="w-3 h-3 ml-1" aria-hidden="true" />
                             </Link>
                         </div>
                     </div>
                 )) : (
                     <div className="col-span-full py-16 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-dashed border-gray-200">
                         <div className="size-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
-                            <Star className="w-8 h-8 text-primary" />
+                            <Star className="w-8 h-8 text-primary" aria-hidden="true" />
                         </div>
                         <h3 className="font-bold text-gray-900 text-lg">Henüz değerlendirmeniz yok</h3>
                         <p className="text-gray-500 text-sm mt-2 max-w-sm">

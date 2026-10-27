@@ -15,9 +15,12 @@ import {
     Phone,
     CheckCircle2
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function StaffProfile() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [staffData, setStaffData] = useState<Staff | null>(null);
@@ -49,6 +52,7 @@ export default function StaffProfile() {
             }
         } catch (err) {
             console.error('Profil yüklenirken hata:', err);
+            showToast('Profil yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -80,8 +84,12 @@ export default function StaffProfile() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="max-w-4xl mx-auto space-y-8" aria-busy="true" aria-label="Yükleniyor">
+                <div className="space-y-2"><Skeleton className="h-9 w-48" /><Skeleton className="h-4 w-80" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <Skeleton className="h-72 rounded-3xl" />
+                    <Skeleton className="md:col-span-2 h-96 rounded-3xl" />
+                </div>
             </div>
         );
     }
@@ -96,7 +104,7 @@ export default function StaffProfile() {
             {message && (
                 <div className={`p-4 rounded-2xl flex items-center gap-3 border shadow-sm ${message.type === 'success' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'
                     }`}>
-                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> : <ShieldCheck className="w-5 h-5" aria-hidden="true" />}
                     <span className="text-sm font-bold">{message.text}</span>
                 </div>
             )}
@@ -110,11 +118,11 @@ export default function StaffProfile() {
                                 {photo ? (
                                     <img src={photo} alt={name} className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className="w-12 h-12" />
+                                    <User className="w-12 h-12" aria-hidden="true" />
                                 )}
                             </div>
                             <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg border-2 border-white group-hover:scale-110 transition-transform">
-                                <Camera className="w-5 h-5" />
+                                <Camera className="w-5 h-5" aria-hidden="true" />
                             </div>
                         </div>
                         <h3 className="font-black text-text-main text-lg leading-tight">{name || 'İsimsiz Personel'}</h3>
@@ -122,11 +130,11 @@ export default function StaffProfile() {
 
                         <div className="w-full pt-6 mt-6 border-t border-gray-100 space-y-3">
                             <div className="flex items-center gap-3 text-text-secondary">
-                                <Mail className="w-4 h-4" />
+                                <Mail className="w-4 h-4" aria-hidden="true" />
                                 <span className="text-xs font-medium truncate">{user?.email}</span>
                             </div>
                             <div className="flex items-center gap-3 text-text-secondary">
-                                <Phone className="w-4 h-4" />
+                                <Phone className="w-4 h-4" aria-hidden="true" />
                                 <span className="text-xs font-medium">{user?.phone || 'Telefon Yok'}</span>
                             </div>
                         </div>
@@ -134,7 +142,7 @@ export default function StaffProfile() {
 
                     <div className="bg-primary/5 rounded-3xl p-6 border border-primary/10">
                         <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4" /> Güvenlik Logosu
+                            <ShieldCheck className="w-4 h-4" aria-hidden="true" /> Güvenlik Logosu
                         </h4>
                         <p className="text-[11px] text-primary/70 leading-relaxed font-medium">Bilgileriniz sistem yöneticisi tarafından doğrulanmıştır. Uzmanlık alanınızdaki değişiklikler yöneticiniz tarafından onaylanabilir.</p>
                     </div>
@@ -147,7 +155,7 @@ export default function StaffProfile() {
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-text-muted uppercase tracking-widest ml-1">Tam İsim</label>
                                 <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                                     <input
                                         type="text"
                                         value={name}
@@ -162,7 +170,7 @@ export default function StaffProfile() {
                             <div className="space-y-2">
                                 <label className="text-xs font-black text-text-muted uppercase tracking-widest ml-1">Uzmanlık Alanı</label>
                                 <div className="relative">
-                                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                                     <input
                                         type="text"
                                         value={specialty}
@@ -204,7 +212,7 @@ export default function StaffProfile() {
                             >
                                 {saving ? 'Güncelleniyor...' : (
                                     <>
-                                        <Save className="w-5 h-5" />
+                                        <Save className="w-5 h-5" aria-hidden="true" />
                                         Değişiklikleri Kaydet
                                     </>
                                 )}
@@ -215,7 +223,7 @@ export default function StaffProfile() {
                     <div className="bg-white rounded-3xl border border-border shadow-card p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
-                                <ShieldCheck className="w-6 h-6" />
+                                <ShieldCheck className="w-6 h-6" aria-hidden="true" />
                             </div>
                             <div>
                                 <h4 className="text-sm font-black text-text-main">Şifre Değiştir</h4>

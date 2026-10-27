@@ -37,6 +37,7 @@ export default function TicketDetailPage() {
             setMessages(messageData);
         } catch (error) {
             console.error('Error fetching details:', error);
+            showToast('Talep detayları yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }

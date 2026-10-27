@@ -4,6 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { MasterDataService } from '@/services/db';
 import { GlobalService, ServiceCategory } from '@/types';
+import { Plus, Pencil, Trash2, X, Scissors } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
 
 export default function ServiceManager() {
     const [services, setServices] = useState<GlobalService[]>([]);
@@ -12,6 +17,8 @@ export default function ServiceManager() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingService, setEditingService] = useState<Partial<GlobalService> | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>('Tümü');
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     // Load data from database
     useEffect(() => {
@@ -40,14 +47,14 @@ export default function ServiceManager() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Bu hizmeti silmek istediğinize emin misiniz?')) {
-            try {
-                await MasterDataService.deleteGlobalService(id);
-                setServices(prev => prev.filter(s => s.id !== id));
-            } catch (error) {
-                console.error('Error deleting service:', error);
-                alert('Hizmet silinirken bir hata oluştu.');
-            }
+        if (!(await confirm({ title: 'Hizmet silinsin mi?', message: 'Bu hizmeti silmek istediğinize emin misiniz?', tone: 'danger' }))) return;
+        try {
+            await MasterDataService.deleteGlobalService(id);
+            setServices(prev => prev.filter(s => s.id !== id));
+            showToast('Hizmet silindi.', 'success');
+        } catch (error) {
+            console.error('Error deleting service:', error);
+            showToast('Hizmet silinirken bir hata oluştu.', 'error');
         }
     };
 
@@ -81,7 +88,7 @@ export default function ServiceManager() {
             setServices(servicesData);
         } catch (error) {
             console.error('Error saving service:', error);
-            alert('Hizmet kaydedilirken bir hata oluştu.');
+            showToast('Hizmet kaydedilirken bir hata oluştu.', 'error');
         }
     };
 
@@ -100,7 +107,7 @@ export default function ServiceManager() {
                     <p className="text-text-secondary">Sistemde tanımlı tüm hizmetleri yönetin.</p>
                 </div>
                 <button onClick={handleCreate} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover shadow-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined">add</span> Yeni Hizmet Ekle
+                    <Plus className="w-5 h-5" aria-hidden="true" /> Yeni Hizmet Ekle
                 </button>
             </div>
 
@@ -123,7 +130,7 @@ export default function ServiceManager() {
                 ))}
             </div>
 
-            <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-border shadow-sm overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase tracking-wider text-text-secondary font-semibold">
@@ -135,7 +142,27 @@ export default function ServiceManager() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {filteredServices.map(service => {
+                        {loading && [0, 1, 2, 3].map(i => (
+                            <tr key={`sk-${i}`}>
+                                <td className="p-4"><Skeleton className="h-5 w-40" /></td>
+                                <td className="p-4"><Skeleton className="h-5 w-20" /></td>
+                                <td className="p-4"><Skeleton className="h-4 w-12" /></td>
+                                <td className="p-4"><Skeleton className="h-4 w-16" /></td>
+                                <td className="p-4"><Skeleton className="h-8 w-20 ml-auto" /></td>
+                            </tr>
+                        ))}
+                        {!loading && filteredServices.length === 0 && (
+                            <tr>
+                                <td colSpan={5}>
+                                    <EmptyState
+                                        icon={Scissors}
+                                        title={services.length === 0 ? 'Henüz hizmet yok' : 'Bu kategoride hizmet bulunamadı'}
+                                        description={services.length === 0 ? 'Yeni Hizmet Ekle butonuyla ilk global hizmeti oluşturun.' : 'Farklı bir kategori seçin veya bu kategoriye yeni hizmet ekleyin.'}
+                                    />
+                                </td>
+                            </tr>
+                        )}
+                        {!loading && filteredServices.map(service => {
                             const category = categories.find(c => c.id === service.category_id);
                             return (
                                 <tr key={service.id} className="hover:bg-gray-50 transition-colors">
@@ -147,8 +174,8 @@ export default function ServiceManager() {
                                     <td className="p-4 text-sm font-bold text-text-main">{service.avg_price ? `${service.avg_price} ₺` : '-'}</td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => handleEdit(service)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
-                                            <button onClick={() => handleDelete(service.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                                            <button onClick={() => handleEdit(service)} aria-label="Düzenle" className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><Pencil className="w-[18px] h-[18px]" aria-hidden="true" /></button>
+                                            <button onClick={() => handleDelete(service.id)} aria-label="Sil" className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-[18px] h-[18px]" aria-hidden="true" /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -163,7 +190,7 @@ export default function ServiceManager() {
                     <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
                         <div className="p-6 border-b border-border flex justify-between items-center">
                             <h3 className="text-xl font-bold text-text-main">{editingService.id ? 'Hizmeti Düzenle' : 'Yeni Hizmet Ekle'}</h3>
-                            <button onClick={() => setIsModalOpen(false)}><span className="material-symbols-outlined">close</span></button>
+                            <button onClick={() => setIsModalOpen(false)} aria-label="Kapat"><X className="w-6 h-6" aria-hidden="true" /></button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>

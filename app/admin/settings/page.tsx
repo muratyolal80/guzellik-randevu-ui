@@ -16,8 +16,10 @@ import {
     Mail,
     Send
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 export default function Settings() {
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'sms' | 'payment' | 'bank' | 'email'>('sms');
 
     // SMS States (LocalStorage - existing)
@@ -116,6 +118,7 @@ export default function Settings() {
             }
         } catch (err) {
             console.error('Settings fetch error:', err);
+            showToast('Ayarlar yüklenirken hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -153,7 +156,7 @@ export default function Settings() {
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
-            alert('Ayarlar kaydedilirken hata oluştu.');
+            showToast('Ayarlar kaydedilirken hata oluştu.', 'error');
         }
     };
 
@@ -164,7 +167,7 @@ export default function Settings() {
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
-            alert('Banka hesapları kaydedilirken hata oluştu.');
+            showToast('Banka hesapları kaydedilirken hata oluştu.', 'error');
         }
     };
 
@@ -178,7 +181,7 @@ export default function Settings() {
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
-            alert('E-posta ayarları kaydedilirken hata oluştu.');
+            showToast('E-posta ayarları kaydedilirken hata oluştu.', 'error');
         }
     };
 
@@ -191,7 +194,7 @@ export default function Settings() {
                 </div>
                 {saved && (
                     <div className="bg-emerald-50 text-emerald-700 px-6 py-3 rounded-2xl border border-emerald-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                        <ShieldCheck className="w-5 h-5" />
+                        <ShieldCheck className="w-5 h-5" aria-hidden="true" />
                         <span className="font-bold">Değişiklikler Kaydedildi</span>
                     </div>
                 )}
@@ -203,25 +206,25 @@ export default function Settings() {
                     onClick={() => setActiveTab('sms')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'sms' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
-                    <MessageSquare size={18} /> SMS (Netgsm)
+                    <MessageSquare className="w-[18px] h-[18px]" aria-hidden="true" /> SMS (Netgsm)
                 </button>
                 <button
                     onClick={() => setActiveTab('payment')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'payment' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
-                    <CreditCard size={18} /> Ödeme Sağlayıcıları
+                    <CreditCard className="w-[18px] h-[18px]" aria-hidden="true" /> Ödeme Sağlayıcıları
                 </button>
                 <button
                     onClick={() => setActiveTab('bank')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'bank' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
-                    <Building2 size={18} /> Banka Hesapları
+                    <Building2 className="w-[18px] h-[18px]" aria-hidden="true" /> Banka Hesapları
                 </button>
                 <button
                     onClick={() => setActiveTab('email')}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'email' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                 >
-                    <Mail size={18} /> E-Posta (SMTP)
+                    <Mail className="w-[18px] h-[18px]" aria-hidden="true" /> E-Posta (SMTP)
                 </button>
             </div>
 
@@ -232,7 +235,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
-                                        <MessageSquare size={24} />
+                                        <MessageSquare className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">SMS Gateway Yapılandırması</h3>
@@ -278,7 +281,7 @@ export default function Settings() {
                                 </div>
                                 <div className="pt-6 border-t border-border flex justify-end">
                                     <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-                                        <Save size={20} /> SMS Ayarlarını Kaydet
+                                        <Save className="w-5 h-5" aria-hidden="true" /> SMS Ayarlarını Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -294,7 +297,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gradient-to-r from-amber-50 to-white">
                                 <div className="flex items-center gap-4 mb-2">
                                     <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
-                                        <ShieldCheck size={24} />
+                                        <ShieldCheck className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">Aktif Ödeme Sağlayıcısı</h3>
@@ -337,7 +340,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                                        <CreditCard size={24} />
+                                        <CreditCard className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">PayTR iFrame API</h3>
@@ -406,7 +409,7 @@ export default function Settings() {
 
                                 <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6">
                                     <div className="flex items-start gap-3">
-                                        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
                                         <div className="space-y-2">
                                             <p className="text-xs font-black text-blue-900 uppercase">Demo Kartlar (test_mode=1 iken)</p>
                                             <ul className="text-[11px] font-mono text-blue-800 space-y-1">
@@ -420,7 +423,7 @@ export default function Settings() {
 
                                 <div className="pt-6 border-t border-border flex justify-end">
                                     <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-                                        <Save size={20} /> Tüm Ödeme Ayarlarını Kaydet
+                                        <Save className="w-5 h-5" aria-hidden="true" /> Tüm Ödeme Ayarlarını Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -431,7 +434,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
-                                        <CreditCard size={24} />
+                                        <CreditCard className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">Iyzico API (Arşiv)</h3>
@@ -452,7 +455,7 @@ export default function Settings() {
                                     {/* Modal based on iyzicoMode */}
                                     <div className="p-6 rounded-[24px] border-2 border-dashed border-border bg-surface-alt/50">
                                         <div className="flex items-center gap-2 mb-6 text-primary">
-                                            <ShieldCheck size={18} />
+                                            <ShieldCheck className="w-[18px] h-[18px]" aria-hidden="true" />
                                             <span className="text-sm font-black uppercase tracking-widest">{iyzicoMode === 'live' ? 'CANLI (LIVE) ANAHTARLAR' : 'TEST (SANDBOX) ANAHTARLAR'}</span>
                                         </div>
                                         <div className="space-y-6">
@@ -492,7 +495,7 @@ export default function Settings() {
                                 {/* Platform Commission Rate Section */}
                                 <div className="p-6 rounded-[24px] border-2 border-dashed border-emerald-100 bg-emerald-50/20">
                                     <div className="flex items-center gap-2 mb-6 text-emerald-600">
-                                        <Building2 size={18} />
+                                        <Building2 className="w-[18px] h-[18px]" aria-hidden="true" />
                                         <span className="text-sm font-black uppercase tracking-widest">Pazar Yeri Komisyon Ayarı</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
@@ -521,7 +524,7 @@ export default function Settings() {
 
                                 <div className="pt-6 border-t border-border flex justify-end">
                                     <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-                                        <Save size={20} /> Ayarları Kaydet
+                                        <Save className="w-5 h-5" aria-hidden="true" /> Ayarları Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -536,7 +539,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                                        <Building2 size={24} />
+                                        <Building2 className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">Banka Hesapları (Havale)</h3>
@@ -547,7 +550,7 @@ export default function Settings() {
                                     onClick={() => setBankAccounts([...bankAccounts, { bank: '', owner: '', iban: 'TR', description: '' }])}
                                     className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-200 hover:scale-105 transition-all"
                                 >
-                                    <Plus size={14} /> Yeni Ekle
+                                    <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Yeni Ekle
                                 </button>
                             </div>
                             <div className="p-8 space-y-6">
@@ -557,7 +560,7 @@ export default function Settings() {
                                             onClick={() => setBankAccounts(bankAccounts.filter((_, i) => i !== index))}
                                             className="absolute top-4 right-4 p-2 text-text-muted hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 className="w-4 h-4" aria-hidden="true" />
                                         </button>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="md:col-span-2">
@@ -607,14 +610,14 @@ export default function Settings() {
                                 {bankAccounts.length > 0 && (
                                     <div className="pt-6 border-t border-border flex justify-end">
                                         <button onClick={handleSaveBanks} className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-                                            <Save size={20} /> Banka Ayarlarını Kaydet
+                                            <Save className="w-5 h-5" aria-hidden="true" /> Banka Ayarlarını Kaydet
                                         </button>
                                     </div>
                                 )}
 
                                 {bankAccounts.length === 0 && (
                                     <div className="py-12 text-center text-text-muted border-2 border-dashed border-border rounded-3xl">
-                                        <Building2 size={40} className="mx-auto mb-4 opacity-20" />
+                                        <Building2 className="w-10 h-10 mx-auto mb-4 opacity-20" aria-hidden="true" />
                                         <p className="text-sm font-bold uppercase tracking-widest">Henüz banka hesabı eklenmemiş</p>
                                     </div>
                                 )}
@@ -629,7 +632,7 @@ export default function Settings() {
                             <div className="p-8 border-b border-border bg-gray-50 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600">
-                                        <Mail size={24} />
+                                        <Mail className="w-6 h-6" aria-hidden="true" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-black text-text-main">E-Posta SMTP Yapılandırması</h3>
@@ -721,7 +724,7 @@ export default function Settings() {
 
                                 {/* Info */}
                                 <div className="p-5 bg-amber-50/50 rounded-2xl border border-amber-100 flex items-start gap-3">
-                                    <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                                    <AlertTriangle className="w-[18px] h-[18px] text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
                                     <p className="text-xs text-amber-800 font-bold leading-relaxed">
                                         Gmail kullanıyorsanız <strong>App Password</strong> oluşturmanız gerekir. Normal şifreniz çalışmaz.
                                         SMTP ayarları yapılandırıldığında, personel davetleri otomatik olarak e-posta ile de gönderilebilir hale gelecektir.
@@ -730,7 +733,7 @@ export default function Settings() {
 
                                 <div className="pt-6 border-t border-border flex justify-end gap-4">
                                     <button type="submit" className="bg-primary text-white px-10 py-3.5 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-                                        <Save size={20} /> E-Posta Ayarlarını Kaydet
+                                        <Save className="w-5 h-5" aria-hidden="true" /> E-Posta Ayarlarını Kaydet
                                     </button>
                                 </div>
                             </form>
@@ -741,7 +744,7 @@ export default function Settings() {
                 {/* Info Center */}
                 <div className="mt-12 bg-blue-50/50 rounded-3xl border border-blue-100 p-8 flex gap-6">
                     <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
-                        <Info size={24} />
+                        <Info className="w-6 h-6" aria-hidden="true" />
                     </div>
                     <div className="space-y-4">
                         <div>

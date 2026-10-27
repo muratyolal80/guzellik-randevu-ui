@@ -3,7 +3,8 @@
 import React, { ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveBranch } from '@/context/ActiveBranchContext';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
+import Skeleton from '@/components/Skeleton';
 import Link from 'next/link';
 import { UserRole } from '@/types';
 
@@ -26,8 +27,9 @@ export default function RoleGuard({
     // 0. Wait for initial state
     if (authLoading || (requireBranchApproval && branchLoading)) {
         return (
-            <div className="flex items-center justify-center p-12">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <div className="space-y-4 p-6" aria-busy="true" aria-label="Yükleniyor">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-48 w-full rounded-2xl" />
             </div>
         );
     }

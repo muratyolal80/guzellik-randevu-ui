@@ -4,12 +4,19 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { MasterDataService } from '@/services/db';
 import { SalonType } from '@/types';
+import { Plus, Pencil, Trash2, X, Store } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import Skeleton from '@/components/Skeleton';
 
 export default function SalonTypeManager() {
     const [types, setTypes] = useState<SalonType[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingType, setEditingType] = useState<Partial<SalonType> | null>(null);
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     // Load data from database
     useEffect(() => {
@@ -33,14 +40,14 @@ export default function SalonTypeManager() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Bu salon tipini silmek istediğinize emin misiniz?')) {
-            try {
-                await MasterDataService.deleteSalonType(id);
-                setTypes(prev => prev.filter(t => t.id !== id));
-            } catch (error) {
-                console.error('Error deleting salon type:', error);
-                alert('Salon tipi silinirken bir hata oluştu.');
-            }
+        if (!(await confirm({ title: 'Salon tipi silinsin mi?', message: 'Bu salon tipini silmek istediğinize emin misiniz?', tone: 'danger' }))) return;
+        try {
+            await MasterDataService.deleteSalonType(id);
+            setTypes(prev => prev.filter(t => t.id !== id));
+            showToast('Salon tipi silindi.', 'success');
+        } catch (error) {
+            console.error('Error deleting salon type:', error);
+            showToast('Salon tipi silinirken bir hata oluştu.', 'error');
         }
     };
 
@@ -69,7 +76,7 @@ export default function SalonTypeManager() {
             setTypes(data);
         } catch (error) {
             console.error('Error saving salon type:', error);
-            alert('Salon tipi kaydedilirken bir hata oluştu.');
+            showToast('Salon tipi kaydedilirken bir hata oluştu.', 'error');
         }
     };
 
@@ -81,11 +88,11 @@ export default function SalonTypeManager() {
                     <p className="text-text-secondary">Platformda yer alan salon kategorilerini yönetin (Örn: Kuaför, Berber).</p>
                 </div>
                 <button onClick={handleCreate} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover shadow-lg flex items-center gap-2">
-                    <span className="material-symbols-outlined">add</span> Yeni Tip Ekle
+                    <Plus className="w-5 h-5" aria-hidden="true" /> Yeni Tip Ekle
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-border shadow-sm overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase tracking-wider text-text-secondary font-semibold">
@@ -95,14 +102,28 @@ export default function SalonTypeManager() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {types.map(type => (
+                        {loading && [0, 1, 2].map(i => (
+                            <tr key={`sk-${i}`}>
+                                <td className="p-4"><Skeleton className="h-5 w-32" /></td>
+                                <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                                <td className="p-4"><Skeleton className="h-8 w-20 ml-auto" /></td>
+                            </tr>
+                        ))}
+                        {!loading && types.length === 0 && (
+                            <tr>
+                                <td colSpan={3}>
+                                    <EmptyState icon={Store} title="Henüz salon tipi yok" description="Yeni Tip Ekle butonuyla ilk salon kategorisini oluşturun." />
+                                </td>
+                            </tr>
+                        )}
+                        {!loading && types.map(type => (
                             <tr key={type.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4 font-bold text-text-main">{type.name}</td>
                                 <td className="p-4 text-sm text-text-secondary">{type.slug}</td>
                                 <td className="p-4 text-right">
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(type)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(type.id)} className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                                        <button onClick={() => handleEdit(type)} aria-label="Düzenle" className="p-2 text-text-secondary hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><Pencil className="w-[18px] h-[18px]" aria-hidden="true" /></button>
+                                        <button onClick={() => handleDelete(type.id)} aria-label="Sil" className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-[18px] h-[18px]" aria-hidden="true" /></button>
                                     </div>
                                 </td>
                             </tr>
@@ -116,7 +137,7 @@ export default function SalonTypeManager() {
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
                         <div className="p-6 border-b border-border flex justify-between items-center">
                             <h3 className="text-xl font-bold text-text-main">{editingType.id ? 'Tipi Düzenle' : 'Yeni Tip Ekle'}</h3>
-                            <button onClick={() => setIsModalOpen(false)}><span className="material-symbols-outlined">close</span></button>
+                            <button onClick={() => setIsModalOpen(false)} aria-label="Kapat"><X className="w-6 h-6" aria-hidden="true" /></button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
                             <div>

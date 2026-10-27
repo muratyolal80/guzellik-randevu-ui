@@ -103,10 +103,11 @@ export default function AdminNewSalonPage() {
         setPlans(p || []);
       } catch (err) {
         console.error("Master data load error:", err);
+        showToast("Şehir ve salon tipi verileri yüklenemedi.", "error");
       }
     };
     fetchData();
-  }, []);
+  }, [showToast]);
 
   // Reload districts on city change
   useEffect(() => {
@@ -139,10 +140,11 @@ export default function AdminNewSalonPage() {
         setLimitStatus({ allowed, limit, current });
       } catch (err) {
         console.error("Limit check error:", err);
+        showToast("Paket limiti kontrol edilemedi.", "error");
       }
     };
     checkOwnerStats();
-  }, [selectedOwner]);
+  }, [selectedOwner, showToast]);
 
   const handleNext = async () => {
     if (currentStep === 1 && !selectedOwner) {
@@ -271,7 +273,7 @@ export default function AdminNewSalonPage() {
           <div className="space-y-4">
              <div className="flex items-center gap-4">
                <div className="w-16 h-16 bg-primary rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-primary/30">
-                  <CheckCircle2 size={32} />
+                  <CheckCircle2 className="w-8 h-8" />
                </div>
                <div className="space-y-1">
                  <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Salon Sihirbazı</h1>
@@ -290,7 +292,7 @@ export default function AdminNewSalonPage() {
                     isActive ? "bg-primary text-white scale-110 shadow-xl shadow-primary/30 ring-4 ring-primary/10" : 
                     isCompleted ? "bg-green-100 text-green-600" : "bg-transparent text-slate-300"
                   }`}>
-                    {isCompleted ? <CheckCircle2 size={20} /> : <span className="font-black text-sm">{step.id}</span>}
+                    {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <span className="font-black text-sm">{step.id}</span>}
                   </div>
                   {step.id < 8 && <div className="w-4 h-1 bg-slate-100 mx-1.5 rounded-full" />}
                 </div>

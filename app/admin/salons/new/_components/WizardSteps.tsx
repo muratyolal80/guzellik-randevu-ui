@@ -18,6 +18,7 @@ import {
 import { Profile, City, District, SalonType } from "@/types";
 import { ProfileService, SubscriptionService, MasterDataService } from "@/services/db";
 import Skeleton from "@/components/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import dynamic from "next/dynamic";
 
 // Managers
@@ -42,6 +43,7 @@ export function Step1OwnerSelection({
   setSelectedOwner: (p: Profile | null) => void,
   onQuickAdd: () => void
 }) {
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [owners, setOwners] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,10 +59,11 @@ export function Step1OwnerSelection({
       setOwners(profiles || []);
     } catch (err) {
       console.error("Owner fetch error:", err);
+      showToast("Salon sahipleri yüklenemedi.", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -73,7 +76,7 @@ export function Step1OwnerSelection({
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" aria-hidden="true" />
           <input
             placeholder="Owner ismi veya e-posta ile ara..."
             className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary outline-none h-14 font-medium"
@@ -85,7 +88,7 @@ export function Step1OwnerSelection({
           onClick={onQuickAdd}
           className="h-14 px-8 rounded-2xl bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 flex items-center gap-2 font-black shadow-sm transition-all active:scale-95"
         >
-          <Plus className="w-5 h-5 text-primary" /> Yeni Sahip
+          <Plus className="w-5 h-5 text-primary" aria-hidden="true" /> Yeni Sahip
         </button>
       </div>
 
@@ -113,7 +116,7 @@ export function Step1OwnerSelection({
             >
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200 group-hover:scale-105 transition-transform">
                 {owner.avatar_url ? (
-                  <img src={owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                  <img src={owner.avatar_url} alt={`${owner.full_name || owner.email} profil fotoğrafı`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-primary font-black text-lg bg-primary/10">
                     {owner.full_name?.charAt(0) || owner.email.charAt(0).toUpperCase()}
@@ -124,17 +127,17 @@ export function Step1OwnerSelection({
                 <h4 className="font-black text-slate-900 truncate uppercase tracking-tight">{owner.full_name || 'İsimsiz'}</h4>
                 <p className="text-xs text-slate-500 truncate font-medium">{owner.email}</p>
                 <div className="flex items-center gap-2 mt-1">
-                   <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-slate-200 text-slate-400 font-black">ID: {owner.id.slice(0,8)}</span>
+                   <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-slate-200 text-slate-400 font-black">ID: {owner.id.slice(0,8)}</span>
                    {owner.phone && <span className="text-[10px] text-slate-400 font-medium">{owner.phone}</span>}
                 </div>
               </div>
               {selectedOwner?.id === owner.id ? (
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20 animate-in zoom-in-75">
-                  <CheckCircle2 className="w-5 h-5" />
+                  <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                 </div>
               ) : (
                 <div className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-300 group-hover:border-primary group-hover:text-primary transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </div>
               )}
             </button>
@@ -142,7 +145,7 @@ export function Step1OwnerSelection({
         ) : (
           <div className="py-20 text-center space-y-4 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto text-slate-300 shadow-sm">
-              <Users className="w-8 h-8" />
+              <Users className="w-8 h-8" aria-hidden="true" />
             </div>
             <div className="space-y-1">
               <p className="font-black text-slate-900 uppercase">Kullanıcı Bulunamadı</p>
@@ -164,7 +167,7 @@ export function Step1OwnerSelection({
         <div className="p-6 bg-primary/5 border border-primary/20 rounded-3xl flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-              <Users className="w-5 h-5" />
+              <Users className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <p className="text-[10px] text-primary font-black uppercase tracking-widest">Seçilen Owner</p>
@@ -196,12 +199,12 @@ export function Step2PlanLimits({
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="p-8 bg-white border border-slate-200 rounded-[2rem] shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-5">
-           <PackageIcon size={120} />
+           <PackageIcon className="w-30 h-30" aria-hidden="true" />
         </div>
         
         <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-            <ShieldCheck className="w-6 h-6" />
+            <ShieldCheck className="w-6 h-6" aria-hidden="true" />
           </div>
           Paket Analizi
         </h3>
@@ -210,7 +213,7 @@ export function Step2PlanLimits({
           <div className="space-y-8">
             <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl flex gap-4 text-amber-900 shadow-sm shadow-amber-900/5">
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm shrink-0">
-                <AlertCircle className="w-6 h-6" />
+                <AlertCircle className="w-6 h-6" aria-hidden="true" />
               </div>
               <div>
                 <p className="font-black text-lg leading-tight mb-1">Abonelik Bulunmuyor</p>
@@ -220,7 +223,7 @@ export function Step2PlanLimits({
             
             <div className="pt-6 border-t border-slate-100">
               <h4 className="font-black text-slate-900 mb-6 flex items-center gap-2 px-2 uppercase text-xs tracking-widest">
-                 <Plus className="w-5 h-5 text-primary" /> Paket Seçimi
+                 <Plus className="w-5 h-5 text-primary" aria-hidden="true" /> Paket Seçimi
               </h4>
               <SubscriptionPlanSelector
                 plans={plans}
@@ -251,7 +254,7 @@ export function Step2PlanLimits({
 
             {!limitStatus?.allowed && (
               <div className="bg-red-50 border border-red-100 p-5 rounded-[1.5rem] flex gap-4 text-red-900">
-                <AlertCircle className="w-6 h-6 shrink-0 mt-0.5 text-red-600" />
+                <AlertCircle className="w-6 h-6 shrink-0 mt-0.5 text-red-600" aria-hidden="true" />
                 <div>
                   <p className="font-black uppercase text-sm">Limit Aşımı!</p>
                   <p className="text-sm font-bold opacity-80">Admin yetkisiyle baypas edilerek devam ediliyor.</p>
@@ -260,7 +263,7 @@ export function Step2PlanLimits({
             )}
 
             <div className="bg-green-50 border border-green-100 p-5 rounded-[1.5rem] flex gap-4 text-green-900">
-              <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5 text-green-600" />
+              <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5 text-green-600" aria-hidden="true" />
               <div>
                 <p className="font-black uppercase text-sm">Yönetici Modu</p>
                 <p className="text-sm font-bold opacity-80">Sistem yöneticisi olarak limit kontrollerini bypass ediyorsunuz.</p>
@@ -391,7 +394,7 @@ export function Step5WorkingHours({ salonId }: { salonId: string }) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4 mb-6">
          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-            <Clock className="w-6 h-6" />
+            <Clock className="w-6 h-6" aria-hidden="true" />
          </div>
          <div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight">Çalışma Saatleri</h3>
@@ -411,7 +414,7 @@ export function Step6Services({ salonId }: { salonId: string }) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4 mb-6">
          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-            <Star className="w-6 h-6" />
+            <Star className="w-6 h-6" aria-hidden="true" />
          </div>
          <div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight">Hizmetler</h3>
@@ -431,7 +434,7 @@ export function Step7Staff({ salonId }: { salonId: string }) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4 mb-6">
          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-            <Users className="w-6 h-6" />
+            <Users className="w-6 h-6" aria-hidden="true" />
          </div>
          <div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight">Personel Ekibi</h3>
@@ -451,7 +454,7 @@ export function Step8FinalPreview({ salonData, salonType, selectedOwner }: any) 
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="relative p-10 bg-slate-900 rounded-[3rem] text-white overflow-hidden shadow-2xl shadow-slate-900/30">
         <div className="absolute top-0 right-0 p-12 opacity-10">
-           <CheckCircle2 size={160} />
+           <CheckCircle2 className="w-40 h-40" aria-hidden="true" />
         </div>
 
         <div className="relative space-y-8">
@@ -485,7 +488,7 @@ export function Step8FinalPreview({ salonData, salonType, selectedOwner }: any) 
            </div>
 
            <div className="flex gap-4 p-6 bg-amber-500/10 border border-amber-500/20 rounded-[1.5rem] text-amber-200 text-xs font-black uppercase tracking-tight leading-relaxed">
-             <AlertCircle className="w-6 h-6 shrink-0 text-amber-500" />
+             <AlertCircle className="w-6 h-6 shrink-0 text-amber-500" aria-hidden="true" />
              <p>Sisteme Ekle ve Onayla butonuna basıldığında salon aktif hale gelecektir.</p>
            </div>
         </div>

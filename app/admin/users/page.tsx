@@ -7,6 +7,7 @@ import { AuditLogService } from "@/services/db/db_support";
 import { SubscriptionService } from "@/services/db/db_finance";
 import { Profile, UserRole, PaymentStatus } from "@/types";
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { 
     Search, 
@@ -71,7 +72,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
 
     if (!data) return (
         <div className="p-10 bg-amber-50 rounded-[32px] border-2 border-amber-100 flex flex-col items-center gap-4 text-center">
-            <AlertCircle className="w-10 h-10 text-amber-500" />
+            <AlertCircle className="w-10 h-10 text-amber-500" aria-hidden="true" />
             <div className="space-y-1">
                 <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Aktif Paket Bulunamadı</p>
                 <p className="text-[11px] font-bold text-amber-700 italic">Bu kullanıcıya henüz bir hizmet paketi tanımlanmamış.</p>
@@ -85,7 +86,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h4 className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.6em] flex items-center gap-4 border-b border-indigo-100 pb-4">
-                <Shield className="w-6 h-6" /> ABONELİK & KONTENJAN DETAYLARI
+                <Shield className="w-6 h-6" aria-hidden="true" /> ABONELİK & KONTENJAN DETAYLARI
             </h4>
 
             {/* Current Plan Summary */}
@@ -103,7 +104,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                 <div className="p-8 bg-slate-50 border-2 border-slate-100 rounded-[32px] space-y-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">İlk Katılım</p>
                     <div className="flex items-center gap-4">
-                        <RotateCcw className="w-6 h-6 text-slate-300" />
+                        <RotateCcw className="w-6 h-6 text-slate-300" aria-hidden="true" />
                         <span className="text-xl font-black text-slate-900">
                             {firstPurchase ? new Date(firstPurchase).toLocaleDateString('tr-TR') : '---'}
                         </span>
@@ -121,7 +122,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                     const Icon = item.icon;
                     return (
                         <div key={idx} className="p-6 bg-white border-2 border-slate-50 rounded-3xl shadow-sm space-y-3">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-tight">{item.label}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">{item.label}</p>
                             <div className="flex items-end justify-between gap-2">
                                 <span className="text-2xl font-black text-slate-900 leading-none">{item.used} <span className="text-slate-300">/</span> {item.limit === -1 ? '∞' : item.limit}</span>
                                 <Icon className={`w-5 h-5 ${item.limit !== -1 && item.used >= item.limit ? 'text-rose-500' : 'text-slate-200'}`} />
@@ -153,7 +154,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                                 disabled={historyPage === 1}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
-                                <ChevronLeft className="w-4 h-4 text-slate-600" />
+                                <ChevronLeft className="w-4 h-4 text-slate-600" aria-hidden="true" />
                             </button>
                             <div className="flex items-center gap-1 px-2">
                                 {[...Array(totalHistoryPages)].map((_, i) => (
@@ -175,7 +176,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                                 disabled={historyPage === totalHistoryPages}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                             >
-                                <ChevronRight className="w-4 h-4 text-slate-600" />
+                                <ChevronRight className="w-4 h-4 text-slate-600" aria-hidden="true" />
                             </button>
                         </div>
                     )}
@@ -202,7 +203,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
                                         {h.subscriptions?.subscription_plans?.display_name || plan?.display_name || 'Özel'}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase border ${
+                                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase border ${
                                             h.payment_method === 'IYZICO' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                             h.payment_method === 'BANK_TRANSFER' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                             h.payment_method === 'CASH' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
@@ -224,6 +225,7 @@ const OwnerSubscriptionSection = ({ data, loading }: { data: any, loading: boole
 
 export default function AdminUserManagementPage() {
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [users, setUsers] = useState<Profile[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -320,6 +322,7 @@ export default function AdminUserManagementPage() {
             setOwnerSubData(data);
         } catch (error) {
             console.error('Failed to fetch owner subscription:', error);
+            showToast('Abonelik bilgileri yüklenemedi.', 'error');
         } finally {
             setLoadingSubData(false);
         }
@@ -387,7 +390,7 @@ export default function AdminUserManagementPage() {
             ? 'DİKKAT! Bu kullanıcıya ait TÜM VERİLER (Salonlar, Randevular vb.) KALICI OLARAK silinecektir. Emin misiniz?' 
             : 'Kullanıcıyı pasife alıp bilgilerini gizlemek istediğinize emin misiniz?';
             
-        if (!confirm(confirmMsg)) return;
+        if (!(await confirm({ title: hardDelete ? 'Kullanıcı kalıcı olarak silinsin mi?' : 'Kullanıcı pasife alınsın mı?', message: confirmMsg, tone: 'danger' }))) return;
 
         handleAction(async () => {
             if (hardDelete) {
@@ -412,14 +415,14 @@ export default function AdminUserManagementPage() {
     };
 
     const exportToCSV = () => {
-        const headers = ["ID", "Full Name", "Email", "Phone", "Role", "Active", "Created At"];
+        const headers = ["ID", "Ad Soyad", "E-posta", "Telefon", "Rol", "Aktif", "Oluşturulma Tarihi"];
         const rows = users.map(u => [
             u.id,
             u.full_name || '',
             u.email || '',
             u.phone || '',
             u.role || '',
-            u.is_active ? 'Yes' : 'No',
+            u.is_active ? 'Evet' : 'Hayır',
             u.created_at || ''
         ]);
 
@@ -439,7 +442,7 @@ export default function AdminUserManagementPage() {
 
     const handleBulkStatusUpdate = async (active: boolean) => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`${selectedIds.length} kullanıcıyı ${active ? 'aktife' : 'pasife'} almak istediğinize emin misiniz?`)) return;
+        if (!(await confirm({ title: 'Toplu durum güncellemesi', message: `${selectedIds.length} kullanıcıyı ${active ? 'aktife' : 'pasife'} almak istediğinize emin misiniz?`, tone: active ? 'default' : 'danger' }))) return;
 
         handleAction(async () => {
             const promises = selectedIds.map(id => ProfileService.adminToggleActive(id, active));
@@ -450,7 +453,7 @@ export default function AdminUserManagementPage() {
 
     const handleBulkDelete = async () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`${selectedIds.length} kullanıcıyı KALICI OLARAK silmek istediğinize emin misiniz? Bu işlem geri alınamaz!`)) return;
+        if (!(await confirm({ title: 'Kullanıcılar kalıcı olarak silinsin mi?', message: `${selectedIds.length} kullanıcıyı KALICI OLARAK silmek istediğinize emin misiniz? Bu işlem geri alınamaz!`, tone: 'danger', confirmText: 'Kalıcı Olarak Sil' }))) return;
 
         handleAction(async () => {
             const promises = selectedIds.map(async (id) => {
@@ -473,7 +476,7 @@ export default function AdminUserManagementPage() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-in fade-in slide-in-from-top-4 duration-700">
                     <div className="space-y-4">
                         <div className="flex items-center gap-4 text-primary bg-primary/10 w-fit px-5 py-2.5 rounded-2xl border border-primary/20">
-                            <Users className="w-5 h-5" />
+                            <Users className="w-5 h-5" aria-hidden="true" />
                             <span className="text-[11px] font-black tracking-[0.2em] uppercase">Sistem Kontrol</span>
                         </div>
                         <h1 className="text-5xl font-black text-slate-900 tracking-tight">
@@ -491,7 +494,7 @@ export default function AdminUserManagementPage() {
                             className={`bg-white border-2 h-24 px-8 rounded-[32px] flex items-center gap-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.03)] group transition-all cursor-pointer border-b-4 ${filter === 'all' ? 'border-primary shadow-primary/10' : 'border-slate-100 hover:bg-slate-50 border-b-slate-200'}`}
                         >
                             <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100 group-hover:bg-white transition-all">
-                                <Users className="w-7 h-7" />
+                                <Users className="w-7 h-7" aria-hidden="true" />
                             </div>
                             <div className="flex flex-col gap-1">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Toplam Kullanıcı</p>
@@ -505,7 +508,7 @@ export default function AdminUserManagementPage() {
                             className="bg-primary text-white h-24 px-10 rounded-[32px] flex items-center gap-5 hover:translate-y-[-4px] active:scale-95 transition-all shadow-[0_20px_50px_-15px_rgba(var(--primary-rgb),0.3)] group overflow-hidden relative border-b-4 border-b-primary-dark/20"
                         >
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-                            <Plus className="w-7 h-7 relative z-10" />
+                            <Plus className="w-7 h-7 relative z-10" aria-hidden="true" />
                             <span className="text-xs font-black uppercase tracking-[0.2em] relative z-10">Yeni Kullanıcı Ekle</span>
                         </button>
                     </div>
@@ -543,13 +546,13 @@ export default function AdminUserManagementPage() {
                                     placeholder="İsim, e-posta veya telefon numarası..."
                                     className="w-full h-16 pl-14 pr-14 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:bg-white focus:border-primary/30 transition-all outline-none"
                                 />
-                                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" />
+                                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-primary transition-colors" aria-hidden="true" />
                                 {searchTerm && (
                                     <button 
                                         onClick={() => setSearchTerm('')}
                                         className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center hover:bg-slate-300 transition-colors"
                                     >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-4 h-4" aria-hidden="true" />
                                     </button>
                                 )}
                             </div>
@@ -558,7 +561,7 @@ export default function AdminUserManagementPage() {
                                 onClick={exportToCSV}
                                 className="bg-white border-2 border-slate-100 h-16 px-8 rounded-2xl flex items-center gap-4 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-50 hover:border-slate-200 transition-all active:scale-95 shadow-sm"
                             >
-                                <Download className="w-5 h-5 text-primary" />
+                                <Download className="w-5 h-5 text-primary" aria-hidden="true" />
                                 CSV Dışa Aktar
                             </button>
                         </div>
@@ -576,7 +579,7 @@ export default function AdminUserManagementPage() {
                                             onClick={handleSelectAll}
                                             className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-all ${selectedIds.length === users.length && users.length > 0 ? 'bg-primary border-primary text-white' : 'bg-white border-slate-200'}`}
                                         >
-                                            {selectedIds.length === users.length && users.length > 0 && <CheckCircle2 className="w-4 h-4" />}
+                                            {selectedIds.length === users.length && users.length > 0 && <CheckCircle2 className="w-4 h-4" aria-hidden="true" />}
                                         </div>
                                     </th>
                                     <th className="px-12 py-7 text-[10px] font-black text-slate-400 uppercase tracking-widest">PROFİL & STATUS</th>
@@ -611,7 +614,7 @@ export default function AdminUserManagementPage() {
                                         <td colSpan={6} className="py-40 text-center">
                                             <div className="flex flex-col items-center gap-8">
                                                 <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center border-2 border-dashed border-slate-200">
-                                                    <UserX className="w-16 h-16 text-slate-200" />
+                                                    <UserX className="w-16 h-16 text-slate-200" aria-hidden="true" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <p className="text-xl font-black uppercase tracking-[0.2em] text-slate-400">Sonuç Bulunamadı</p>
@@ -633,7 +636,7 @@ export default function AdminUserManagementPage() {
                                     >
                                         <td className="px-6 py-9" onClick={(e) => { e.stopPropagation(); handleToggleSelection(u.id); }}>
                                             <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedIds.includes(u.id) ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-white border-slate-200 group-hover:border-primary/30'}`}>
-                                                {selectedIds.includes(u.id) && <CheckCircle2 className="w-4 h-4" />}
+                                                {selectedIds.includes(u.id) && <CheckCircle2 className="w-4 h-4" aria-hidden="true" />}
                                             </div>
                                         </td>
                                         <td className="px-12 py-9" onClick={() => handleOpenDetails(u)}>
@@ -651,7 +654,7 @@ export default function AdminUserManagementPage() {
                                                         </div>
                                                     )}
                                                     <div className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full border-[5px] border-white flex items-center justify-center ${u.is_active ? 'bg-emerald-500 shadow-emerald-200' : 'bg-rose-500 shadow-rose-100'} shadow-lg`}>
-                                                        {u.is_active ? <CheckCircle2 className="w-3 h-3 text-white" /> : <XCircle className="w-3 h-3 text-white" />}
+                                                        {u.is_active ? <CheckCircle2 className="w-3 h-3 text-white" aria-hidden="true" /> : <XCircle className="w-3 h-3 text-white" aria-hidden="true" />}
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col gap-1.5">
@@ -659,12 +662,12 @@ export default function AdminUserManagementPage() {
                                                         <span className="text-lg font-black text-slate-900 group-hover:text-primary transition-colors uppercase tracking-tight">
                                                             {u.full_name || 'İSİMSİZ KULLANICI'}
                                                         </span>
-                                                        <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider border ${u.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${u.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                                                             {u.is_active ? 'AKTİF' : 'ASKIYA ALINDI'}
                                                         </span>
                                                     </div>
                                                     <span className="text-[10px] font-bold text-slate-400 tracking-[0.1em] uppercase bg-slate-100 w-fit px-2 py-0.5 rounded-md flex items-center gap-2">
-                                                        <Key className="w-3 h-3" />
+                                                        <Key className="w-3 h-3" aria-hidden="true" />
                                                         REF: {u.id.substring(0, 8)}...
                                                     </span>
                                                 </div>
@@ -673,12 +676,12 @@ export default function AdminUserManagementPage() {
                                         <td className="px-12 py-9" onClick={() => handleOpenDetails(u)}>
                                             <div className="flex flex-col gap-3">
                                                 <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><Mail className="w-4 h-4 text-slate-400" /></div>
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><Mail className="w-4 h-4 text-slate-400" aria-hidden="true" /></div>
                                                     {u.email}
                                                 </div>
                                                 {u.phone && (
                                                     <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-                                                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><Phone className="w-4 h-4 text-slate-400" /></div>
+                                                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><Phone className="w-4 h-4 text-slate-400" aria-hidden="true" /></div>
                                                         {u.phone}
                                                     </div>
                                                 )}
@@ -707,7 +710,7 @@ export default function AdminUserManagementPage() {
                                             <div className="flex items-center justify-end gap-4 translate-x-6 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                                                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">İncele</span>
                                                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary border border-primary/20">
-                                                    <ChevronRight className="w-6 h-6" />
+                                                    <ChevronRight className="w-6 h-6" aria-hidden="true" />
                                                 </div>
                                             </div>
                                         </td>
@@ -730,7 +733,7 @@ export default function AdminUserManagementPage() {
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             className="w-12 h-12 rounded-full border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:border-primary hover:text-primary disabled:opacity-30 disabled:hover:border-slate-100 disabled:hover:text-slate-400 transition-all active:scale-95"
                         >
-                            <ChevronLeft className="w-6 h-6" />
+                            <ChevronLeft className="w-6 h-6" aria-hidden="true" />
                         </button>
                         
                         <div className="flex items-center gap-2">
@@ -758,7 +761,7 @@ export default function AdminUserManagementPage() {
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                             className="w-12 h-12 rounded-full border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:border-primary hover:text-primary disabled:opacity-30 disabled:hover:border-slate-100 disabled:hover:text-slate-400 transition-all active:scale-95"
                         >
-                            <ChevronRight className="w-6 h-6" />
+                            <ChevronRight className="w-6 h-6" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -777,28 +780,28 @@ export default function AdminUserManagementPage() {
                                     onClick={() => handleBulkStatusUpdate(true)}
                                     className="text-[10px] font-black uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-3 group"
                                 >
-                                    <CheckCircle2 className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
                                     Aktife Al
                                 </button>
                                 <button 
                                     onClick={() => handleBulkStatusUpdate(false)}
                                     className="text-[10px] font-black uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-3 group"
                                 >
-                                    <XCircle className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" />
+                                    <XCircle className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" aria-hidden="true" />
                                     Pasife Al
                                 </button>
                                 <button 
                                     onClick={handleBulkDelete}
                                     className="text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors flex items-center gap-3 group"
                                 >
-                                    <Trash2 className="w-5 h-5 text-rose-600 group-hover:scale-110 transition-transform" />
+                                    <Trash2 className="w-5 h-5 text-rose-600 group-hover:scale-110 transition-transform" aria-hidden="true" />
                                     Toplu Sil
                                 </button>
                                 <button 
                                     onClick={() => setSelectedIds([])}
                                     className="p-3 hover:bg-white/10 rounded-full transition-colors"
                                 >
-                                    <X className="w-5 h-5" />
+                                    <X className="w-5 h-5" aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
@@ -844,7 +847,7 @@ export default function AdminUserManagementPage() {
                                     </div>
                                 </div>
                                 <button onClick={() => setIsDetailsOpen(false)} className="w-16 h-16 rounded-full bg-white hover:bg-slate-100 flex items-center justify-center transition-all border border-slate-100 shadow-xl group">
-                                    <X className="w-8 h-8 text-slate-400 group-hover:text-primary transition-colors" />
+                                    <X className="w-8 h-8 text-slate-400 group-hover:text-primary transition-colors" aria-hidden="true" />
                                 </button>
                             </div>
 
@@ -853,7 +856,7 @@ export default function AdminUserManagementPage() {
                                 {/* Core Info Section */}
                                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
                                     <h4 className="text-[12px] font-black text-primary uppercase tracking-[0.6em] flex items-center gap-4 border-b border-primary/10 pb-4">
-                                        <UserCog className="w-6 h-6" /> KİMLİK & ERİŞİM BİLGİLERİ
+                                        <UserCog className="w-6 h-6" aria-hidden="true" /> KİMLİK & ERİŞİM BİLGİLERİ
                                     </h4>
                                     
                                     <div className="grid grid-cols-1 gap-8">
@@ -866,7 +869,7 @@ export default function AdminUserManagementPage() {
                                                     placeholder="Lütfen ad soyad giriniz"
                                                     className="w-full h-16 px-8 bg-white border border-slate-200 rounded-2xl text-base font-black text-slate-900 focus:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] transition-all outline-none"
                                                 />
-                                                <Shield className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" />
+                                                <Shield className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" aria-hidden="true" />
                                             </div>
                                         </div>
 
@@ -880,7 +883,7 @@ export default function AdminUserManagementPage() {
                                                         placeholder="örnek@mail.com"
                                                         className="w-full h-16 px-8 bg-white border border-slate-200 rounded-2xl text-base font-black text-slate-900 focus:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] transition-all outline-none"
                                                     />
-                                                    <Mail className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" />
+                                                    <Mail className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" aria-hidden="true" />
                                                 </div>
                                             </div>
 
@@ -893,7 +896,7 @@ export default function AdminUserManagementPage() {
                                                         placeholder="+90 XXX XXX XX XX"
                                                         className="w-full h-16 px-8 bg-white border border-slate-200 rounded-2xl text-base font-black text-slate-900 focus:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] transition-all outline-none"
                                                     />
-                                                    <Phone className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" />
+                                                    <Phone className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-primary transition-colors" aria-hidden="true" />
                                                 </div>
                                             </div>
                                         </div>
@@ -912,7 +915,7 @@ export default function AdminUserManagementPage() {
                                                     <option value="SUPER_ADMIN">SİSTEM YÖNETİCİSİ</option>
                                                 </select>
                                                 <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                    <ChevronRight className="w-6 h-6 rotate-90" />
+                                                    <ChevronRight className="w-6 h-6 rotate-90" aria-hidden="true" />
                                                 </div>
                                             </div>
                                         </div>
@@ -927,7 +930,7 @@ export default function AdminUserManagementPage() {
                                 {/* Security & Account Integrity Section */}
                                 <div className="space-y-10 p-10 bg-slate-50/100 border-2 border-slate-100 rounded-[40px] animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
                                     <h4 className="text-[12px] font-black text-slate-900 uppercase tracking-[0.6em] flex items-center gap-4">
-                                        <Shield className="w-6 h-6 text-emerald-600" /> HESAP GÜVENLİK PROTOKOLLERİ
+                                        <Shield className="w-6 h-6 text-emerald-600" aria-hidden="true" /> HESAP GÜVENLİK PROTOKOLLERİ
                                     </h4>
 
                                     <div className="grid grid-cols-1 gap-10">
@@ -959,7 +962,7 @@ export default function AdminUserManagementPage() {
                                                     placeholder="••••••••••••"
                                                     className="w-full h-16 px-8 bg-white border border-slate-200 rounded-2xl text-base font-black text-slate-900 focus:shadow-[0_8px_25px_-10px_rgba(0,0,0,0.1)] transition-all outline-none"
                                                 />
-                                                <Key className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-indigo-500 transition-colors" />
+                                                <Key className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-200 group-focus-within:text-indigo-500 transition-colors" aria-hidden="true" />
                                             </div>
                                         </div>
                                     </div>
@@ -969,7 +972,7 @@ export default function AdminUserManagementPage() {
                                 {!isCreateMode && (
                                     <div className="space-y-10 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
                                         <h4 className="text-[12px] font-black text-rose-600 uppercase tracking-[0.6em] flex items-center gap-4">
-                                            <AlertCircle className="w-6 h-6 border-b-2 border-rose-100" /> KRİTİK İŞLEM MERKEZİ
+                                            <AlertCircle className="w-6 h-6 border-b-2 border-rose-100" aria-hidden="true" /> KRİTİK İŞLEM MERKEZİ
                                         </h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <button 
@@ -977,7 +980,7 @@ export default function AdminUserManagementPage() {
                                                 className="p-10 bg-white border-2 border-slate-100 rounded-[44px] text-left hover:border-rose-100 hover:bg-rose-50/5 transition-all space-y-5 group flex flex-col shadow-sm"
                                             >
                                                 <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-rose-100 group-hover:text-rose-500 transition-all">
-                                                    <RotateCcw className="w-7 h-7" />
+                                                    <RotateCcw className="w-7 h-7" aria-hidden="true" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <p className="text-sm font-black text-slate-900 group-hover:text-rose-700 uppercase tracking-tight">Hesabı Pasifleştir</p>
@@ -990,7 +993,7 @@ export default function AdminUserManagementPage() {
                                                 className="p-10 bg-rose-50 border-2 border-rose-100 rounded-[44px] text-left hover:border-rose-600 hover:bg-rose-100 transition-all space-y-5 group flex flex-col shadow-sm"
                                             >
                                                 <div className="w-14 h-14 rounded-2xl bg-rose-200/50 flex items-center justify-center text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-all">
-                                                    <Trash2 className="w-7 h-7" />
+                                                    <Trash2 className="w-7 h-7" aria-hidden="true" />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <p className="text-sm font-black text-rose-700 uppercase tracking-tight text-white group-hover:text-rose-900">KALICI OLARAK SİL</p>
@@ -1020,7 +1023,7 @@ export default function AdminUserManagementPage() {
                                     {actionLoading ? (
                                         <div className="w-6 h-6 border-3 border-white/20 border-t-white rounded-full animate-spin"></div>
                                     ) : (
-                                        <Save className="w-6 h-6" />
+                                        <Save className="w-6 h-6" aria-hidden="true" />
                                     )}
                                     {isCreateMode ? 'SİSTEME KAYDET' : 'GÜNCELLEMELERİ YAYINLA'}
                                 </button>

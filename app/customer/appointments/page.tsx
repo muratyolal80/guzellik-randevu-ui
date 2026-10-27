@@ -7,28 +7,29 @@ import { CancelRescheduleButtons } from '@/components/customer/CancelRescheduleB
 import { RatingModal } from '@/components/customer/RatingModal';
 import {
     CalendarDays, Clock, Scissors, Star,
-    CheckCircle2, CircleDot, Ban, AlertCircle, X
+    CheckCircle2, CircleDot, Ban, AlertCircle, X, User
 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
     COMPLETED: {
         label: 'Tamamlandı',
-        icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+        icon: <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />,
         className: 'bg-green-100 text-green-700 border-green-300',
     },
     CONFIRMED: {
         label: 'Onaylandı',
-        icon: <CircleDot className="w-3.5 h-3.5" />,
+        icon: <CircleDot className="w-3.5 h-3.5" aria-hidden="true" />,
         className: 'bg-blue-100 text-blue-700 border-blue-300',
     },
     PENDING: {
         label: 'Bekliyor',
-        icon: <AlertCircle className="w-3.5 h-3.5" />,
+        icon: <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />,
         className: 'bg-orange-100 text-orange-700 border-orange-300',
     },
     CANCELLED: {
         label: 'İptal',
-        icon: <Ban className="w-3.5 h-3.5" />,
+        icon: <Ban className="w-3.5 h-3.5" aria-hidden="true" />,
         className: 'bg-red-100 text-red-700 border-red-300',
     },
 };
@@ -57,6 +58,7 @@ function AppointmentSkeleton() {
 }
 
 export default function AppointmentsPage() {
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
     const [appointments, setAppointments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -96,13 +98,14 @@ export default function AppointmentsPage() {
                 setAppointments(data || []);
             } catch (error) {
                 console.error('Error fetching appointments:', error);
+                showToast('Randevular yüklenemedi.', 'error');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchAppointments();
-    }, [user, activeTab]);
+    }, [user, activeTab, showToast]);
 
     const handleCancelAppointment = async (appointmentId: string) => {
         setCancelling(true);
@@ -120,7 +123,7 @@ export default function AppointmentsPage() {
             setConfirmCancelId(null);
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : 'Randevu iptal edilirken bir hata oluştu.';
-            alert(msg);
+            showToast(msg, 'error');
         } finally {
             setCancelling(false);
         }
@@ -140,10 +143,10 @@ export default function AppointmentsPage() {
                     <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
                         <div className="flex items-start justify-between mb-4">
                             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                                <Ban className="w-5 h-5 text-red-600" />
+                                <Ban className="w-5 h-5 text-red-600" aria-hidden="true" />
                             </div>
                             <button onClick={() => setConfirmCancelId(null)} className="text-gray-400 hover:text-gray-600 p-1">
-                                <X className="w-5 h-5" />
+                                <X className="w-5 h-5" aria-hidden="true" />
                             </button>
                         </div>
                         <h3 className="font-bold text-lg text-gray-900 mb-2">Randevuyu İptal Et</h3>
@@ -205,24 +208,24 @@ export default function AppointmentsPage() {
                                         <p className="text-sm text-text-secondary">{apt.salon?.address}</p>
                                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                                             <div className="flex items-center gap-2 text-sm">
-                                                <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                                                <CalendarDays className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                                                 <span className="font-medium">
                                                     {new Date(apt.start_time).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm">
-                                                <Clock className="w-4 h-4 text-primary shrink-0" />
+                                                <Clock className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                                                 <span className="font-medium">
                                                     {new Date(apt.start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                                                     {apt.service?.duration_min ? ` · ${apt.service.duration_min} dk` : ''}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm">
-                                                <Scissors className="w-4 h-4 text-primary shrink-0" />
+                                                <Scissors className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                                                 <span className="font-medium">{apt.service?.global_service?.name || 'Hizmet'}</span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm">
-                                                <span className="material-symbols-outlined text-primary text-base">person</span>
+                                                <User className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                                                 <span className="font-medium">{apt.staff?.name || 'Uzman belirtilmemiş'}</span>
                                             </div>
                                         </div>
@@ -246,7 +249,7 @@ export default function AppointmentsPage() {
                                                 onClick={() => { setSelectedAppointment(apt); setRatingModalOpen(true); }}
                                                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
                                             >
-                                                <Star className="w-4 h-4" />
+                                                <Star className="w-4 h-4" aria-hidden="true" />
                                                 Değerlendir
                                             </button>
                                         )}
@@ -262,7 +265,7 @@ export default function AppointmentsPage() {
                 ) : (
                     <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CalendarDays className="w-8 h-8 text-gray-400" />
+                            <CalendarDays className="w-8 h-8 text-gray-400" aria-hidden="true" />
                         </div>
                         <p className="font-semibold text-gray-700">
                             {activeTab === 'upcoming' ? 'Gelecek randevunuz bulunmamaktadır.' :

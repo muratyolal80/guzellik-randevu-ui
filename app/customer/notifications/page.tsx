@@ -1,10 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Info, Calendar, Tag, Check, Trash2, Loader2 } from 'lucide-react';
+import { Bell, Info, Calendar, Tag, Check, Trash2 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 import { supabase } from '@/lib/supabase';
 
 export default function NotificationsPage() {
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -23,6 +28,7 @@ export default function NotificationsPage() {
             setNotifications(data || []);
         } catch (error) {
             console.error('Error fetching notifications:', error);
+            showToast('Bildirimler yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -45,15 +51,16 @@ export default function NotificationsPage() {
             }
         } catch (error) {
             console.error("Error marking as read", error);
+            showToast('Bildirim güncellenemedi.', 'error');
         }
     };
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'REMINDER': return <Calendar className="w-5 h-5 text-primary" />;
-            case 'PROMOTION': return <Tag className="w-5 h-5 text-pink-600" />;
-            case 'SYSTEM': return <Info className="w-5 h-5 text-blue-600" />;
-            default: return <Bell className="w-5 h-5 text-gray-600" />;
+            case 'REMINDER': return <Calendar className="w-5 h-5 text-primary" aria-hidden="true" />;
+            case 'PROMOTION': return <Tag className="w-5 h-5 text-pink-600" aria-hidden="true" />;
+            case 'SYSTEM': return <Info className="w-5 h-5 text-blue-600" aria-hidden="true" />;
+            default: return <Bell className="w-5 h-5 text-gray-600" aria-hidden="true" />;
         }
     };
 
@@ -67,7 +74,12 @@ export default function NotificationsPage() {
     };
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+        return (
+            <div className="space-y-4 max-w-4xl" aria-busy="true" aria-label="Yükleniyor">
+                <Skeleton className="h-8 w-48 mb-2" />
+                {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+            </div>
+        );
     }
 
     return (
@@ -103,19 +115,20 @@ export default function NotificationsPage() {
                                     onClick={(e) => markAsRead(notif.id, e)}
                                     className="p-2 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-primary" title="Okundu işaretle"
                                 >
-                                    <Check className="w-4 h-4" />
+                                    <Check className="w-4 h-4" aria-hidden="true" />
                                 </button>
                             )}
                             <button
                                 onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (!confirm('Bildirimi silmek istediğinize emin misiniz?')) return;
+                                    if (!(await confirm({ title: 'Bildirim silinsin mi?', message: 'Bildirimi silmek istediğinize emin misiniz?', tone: 'danger', confirmText: 'Sil' }))) return;
                                     const { error } = await supabase.from('notifications').delete().eq('id', notif.id);
                                     if (!error) setNotifications(prev => prev.filter(n => n.id !== notif.id));
+                                    else showToast('Bildirim silinemedi.', 'error');
                                 }}
                                 className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Sil"
                             >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" aria-hidden="true" />
                             </button>
                         </div>
                     </div>

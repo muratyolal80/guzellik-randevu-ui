@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import PanelSkeleton from '@/components/PanelSkeleton';
 
 export default function AdminLayout({
   children,
@@ -27,28 +28,10 @@ export default function AdminLayout({
   }, [loading, user, isAdmin, router]);
 
   // Show loading skeleton while checking auth
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-text-secondary">Yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <PanelSkeleton />;
 
-  // Show nothing while redirecting
-  if (!user || !isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-text-secondary">Yönlendiriliyor...</p>
-        </div>
-      </div>
-    );
-  }
+  // Placeholder while redirecting
+  if (!user || !isAdmin) return <PanelSkeleton label="Yönlendiriliyor" />;
 
   return <>{children}</>;
 }

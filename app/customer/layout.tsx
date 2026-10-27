@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { UserMenu } from '@/components/common/UserMenu';
 import Sidebar from '@/components/dashboard/Sidebar';
+import PanelSkeleton from '@/components/PanelSkeleton';
 
 export default function CustomerDashboardLayout({
     children,
@@ -37,14 +38,7 @@ export default function CustomerDashboardLayout({
     }, [router]);
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-gray-500 text-sm">Yükleniyor...</p>
-                </div>
-            </div>
-        );
+        return <PanelSkeleton />;
     }
 
     if (!user) return null; // Don't render anything if not authenticated (will redirect)

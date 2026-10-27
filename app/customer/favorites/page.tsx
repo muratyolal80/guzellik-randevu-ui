@@ -1,12 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Heart, MapPin, Star, Loader2 } from 'lucide-react';
+import { Heart, MapPin, Star } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import Skeleton from '@/components/Skeleton';
 import Link from 'next/link';
 import { FavoriteService } from '@/services/db';
 import { supabase } from '@/lib/supabase';
 
 export default function FavoritesPage() {
+    const { showToast } = useToast();
+    const { confirm } = useConfirm();
     const [favorites, setFavorites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -18,16 +23,17 @@ export default function FavoritesPage() {
                 setFavorites(data || []);
             } catch (error) {
                 console.error('Error fetching favorites:', error);
+                showToast('Favoriler yüklenemedi.', 'error');
             } finally {
                 setLoading(false);
             }
         }
         fetchFavorites();
-    }, []);
+    }, [showToast]);
 
     const removeFavorite = async (salonId: string, e: React.MouseEvent) => {
         e.preventDefault();
-        if (!confirm('Bu salonu favorilerinizden çıkarmak istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Favorilerden çıkarılsın mı?', message: 'Bu salonu favorilerinizden çıkarmak istediğinize emin misiniz?', tone: 'danger', confirmText: 'Çıkar' }))) return;
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
@@ -45,12 +51,19 @@ export default function FavoritesPage() {
 
         } catch (error) {
             console.error('Error removing favorite:', error);
-            alert('Favori silinirken bir hata oluştu.');
+            showToast('Favori silinirken bir hata oluştu.', 'error');
         }
     };
 
     if (loading) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+        return (
+            <div className="space-y-6" aria-busy="true" aria-label="Yükleniyor">
+                <div className="space-y-2"><Skeleton className="h-8 w-56" /><Skeleton className="h-4 w-72" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[0, 1, 2].map(i => <Skeleton key={i} className="h-72 rounded-2xl" />)}
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -75,11 +88,11 @@ export default function FavoritesPage() {
                                     onClick={(e) => removeFavorite(fav.salon.id, e)}
                                     className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm hover:bg-white text-red-500 transition-colors"
                                 >
-                                    <Heart className="w-5 h-5 fill-current" />
+                                    <Heart className="w-5 h-5 fill-current" aria-hidden="true" />
                                 </button>
                                 {/* Rating */}
                                 <div className="absolute top-3 left-3 flex items-center gap-1 bg-primary text-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">
-                                    <Star className="w-3 h-3 fill-current" /> {fav.salon?.average_rating || 0}
+                                    <Star className="w-3 h-3 fill-current" aria-hidden="true" /> {fav.salon?.average_rating || 0}
                                 </div>
                             </div>
 
@@ -87,7 +100,7 @@ export default function FavoritesPage() {
                             <div className="p-5">
                                 <h3 className="font-bold text-lg text-gray-900 mb-1">{fav.salon?.name}</h3>
                                 <div className="flex items-center text-gray-500 text-sm mb-4">
-                                    <MapPin className="w-4 h-4 mr-1" />
+                                    <MapPin className="w-4 h-4 mr-1" aria-hidden="true" />
                                     {fav.salon?.district_name}, {fav.salon?.city_name}
                                 </div>
 
@@ -105,7 +118,7 @@ export default function FavoritesPage() {
                 </div>
             ) : (
                 <div className="p-12 text-center bg-white rounded-2xl border border-dashed border-gray-200">
-                    <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" aria-hidden="true" />
                     <h3 className="text-lg font-bold text-gray-900">Henüz Favoriniz Yok</h3>
                     <p className="text-gray-500 mt-1">Salonları inceleyerek beğendiklerinizi buraya ekleyebilirsiniz.</p>
                 </div>

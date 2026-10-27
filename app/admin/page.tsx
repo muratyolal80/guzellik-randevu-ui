@@ -18,7 +18,7 @@ import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 const StatCard = ({ title, value, icon: Icon, color }: { title: string, value: string, icon: any, color: string }) => (
     <div className={`bg-white rounded-[32px] border border-border p-8 shadow-card flex items-center gap-6 hover:scale-[1.02] transition-all`}>
         <div className={`size-16 rounded-2xl flex items-center justify-center ${color} text-white shadow-lg`}>
-            <Icon size={32} />
+            <Icon className="w-8 h-8" />
         </div>
         <div>
             <p className="text-[11px] font-black text-text-muted uppercase tracking-widest mb-1">{title}</p>
@@ -104,7 +104,7 @@ export default function Dashboard() {
                     <div className={`size-16 rounded-2xl flex items-center justify-center shadow-lg ${
                         pendingApprovals > 0 ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'
                     }`}>
-                        <ShieldCheck size={32} />
+                        <ShieldCheck className="w-8 h-8" />
                     </div>
                     <div>
                         <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${pendingApprovals > 0 ? 'text-white/80' : 'text-text-muted'}`}>Bekleyen Onay</p>
@@ -120,7 +120,7 @@ export default function Dashboard() {
                 {/* Chart Section */}
                 <div className="bg-white rounded-[40px] border border-border p-10 shadow-card">
                     <div className="flex items-center gap-3 mb-8">
-                        <TrendingUp className="text-primary" size={24} />
+                        <TrendingUp className="w-6 h-6 text-primary" />
                         <h3 className="font-black text-xl text-text-main tracking-tight uppercase">Randevu Grafiği</h3>
                     </div>
                     <div className="h-64 w-full">
@@ -165,7 +165,7 @@ export default function Dashboard() {
                 {/* Activities Section */}
                 <div className="bg-white rounded-[40px] border border-border p-10 shadow-card">
                     <div className="flex items-center gap-3 mb-8">
-                        <Activity className="text-primary" size={24} />
+                        <Activity className="w-6 h-6 text-primary" />
                         <h3 className="font-black text-xl text-text-main tracking-tight uppercase">Son Aktiviteler</h3>
                     </div>
                     <ul className="space-y-4">

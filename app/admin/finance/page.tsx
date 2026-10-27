@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { FinanceService } from '@/services/db';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import {
     TrendingUp,
@@ -27,6 +28,7 @@ import RefundModal, { RefundableTransaction } from '@/components/Admin/RefundMod
 
 export default function FinanceAdmin() {
     const { showToast } = useToast();
+    const { confirm, prompt } = useConfirm();
     const [view, setView] = useState<'approvals' | 'reports' | 'ghosts'>('approvals');
     const [pendingPayments, setPendingPayments] = useState<any[]>([]);
     const [ghostSubscriptions, setGhostSubscriptions] = useState<any[]>([]);
@@ -61,7 +63,10 @@ export default function FinanceAdmin() {
     };
 
     const handleAction = async (id: string, status: 'SUCCESS' | 'FAILED') => {
-        const note = prompt(status === 'SUCCESS' ? 'Onay notu (opsiyonel):' : 'Red nedeni:');
+        const note = await prompt(status === 'SUCCESS'
+            ? { title: 'Ödemeyi onayla', label: 'Onay notu (opsiyonel)', multiline: true, confirmText: 'Onayla' }
+            : { title: 'Ödemeyi reddet', label: 'Red nedeni', required: true, multiline: true, tone: 'danger', confirmText: 'Reddet' });
+        if (note === null) return;
         if (status === 'FAILED' && !note) return;
 
         try {
@@ -77,7 +82,7 @@ export default function FinanceAdmin() {
     };
 
     const handleHardDeleteGhost = async (id: string) => {
-        if (!confirm('Bu hayalet kaydı KALICI OLARAK silmek istediğinize emin misiniz?')) return;
+        if (!(await confirm({ title: 'Kayıt kalıcı olarak silinsin mi?', message: 'Bu hayalet kaydı KALICI OLARAK silmek istediğinize emin misiniz?', tone: 'danger', confirmText: 'Kalıcı Olarak Sil' }))) return;
         try {
             setProcessingId(id);
             await FinanceService.hardDeleteSubscription(id);
@@ -109,7 +114,7 @@ export default function FinanceAdmin() {
                         href="/admin/finance/purchase"
                         className="bg-primary text-white px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.03] active:scale-[0.97] transition-all flex items-center gap-2"
                     >
-                        <ShoppingCart size={16} className="text-amber-300" /> Paket Satın Al
+                        <ShoppingCart className="w-4 h-4 text-amber-300" aria-hidden="true" /> Paket Satın Al
                     </Link>
                 </div>
 
@@ -118,20 +123,20 @@ export default function FinanceAdmin() {
                         onClick={() => setView('approvals')}
                         className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${view === 'approvals' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                     >
-                        <Clock size={16} /> Onaylar
+                        <Clock className="w-4 h-4" aria-hidden="true" /> Onaylar
                         {pendingPayments.length > 0 && <span className="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full">{pendingPayments.length}</span>}
                     </button>
                     <button
                         onClick={() => setView('reports')}
                         className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${view === 'reports' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                     >
-                        <TrendingUp size={16} /> Raporlar
+                        <TrendingUp className="w-4 h-4" aria-hidden="true" /> Raporlar
                     </button>
                     <button
                         onClick={() => setView('ghosts')}
                         className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${view === 'ghosts' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                     >
-                        <Ghost size={16} /> Hayalet Kayıtlar
+                        <Ghost className="w-4 h-4" aria-hidden="true" /> Hayalet Kayıtlar
                         {ghostSubscriptions.length > 0 && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full">{ghostSubscriptions.length}</span>}
                     </button>
                 </div>
@@ -182,7 +187,7 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
     if (payments.length === 0) {
         return (
             <div className="bg-white rounded-[40px] border-2 border-dashed border-gray-200 p-20 text-center">
-                <CheckCircle2 size={64} className="mx-auto text-emerald-200 mb-6" />
+                <CheckCircle2 className="w-16 h-16 mx-auto text-emerald-200 mb-6" aria-hidden="true" />
                 <h3 className="text-xl font-black text-text-main uppercase tracking-tight">Tüm İşlemler Güncel</h3>
                 <p className="text-text-secondary font-medium mt-2">Onay bekleyen herhangi bir havale/EFT bildirimi bulunmuyor.</p>
             </div>
@@ -197,7 +202,7 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
                         {/* Sol Bilgi Bölümü */}
                         <div className="p-8 flex-1 flex flex-col md:flex-row gap-8 items-start">
                             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
-                                <Building2 size={32} />
+                                <Building2 className="w-8 h-8" aria-hidden="true" />
                             </div>
                             <div className="space-y-4 flex-1">
                                 <div>
@@ -211,11 +216,11 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
                                 </div>
                                 <div className="flex flex-wrap gap-6">
                                     <div className="space-y-1">
-                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1"><CreditCard size={12} /> Ödeme Yöntemi</span>
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1"><CreditCard className="w-3 h-3" aria-hidden="true" /> Ödeme Yöntemi</span>
                                         <p className="text-sm font-black text-text-main">{payment.payment_method}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1"><TrendingUp size={12} /> Tutar</span>
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1"><TrendingUp className="w-3 h-3" aria-hidden="true" /> Tutar</span>
                                         <p className="text-xl font-black text-primary">{formatCurrency(payment.amount)}</p>
                                     </div>
                                 </div>
@@ -229,14 +234,14 @@ function PendingPaymentsList({ payments, onAction, processingId, formatCurrency 
                                 onClick={() => onAction(payment.id, 'SUCCESS')}
                                 className="w-full bg-emerald-600 text-white h-14 rounded-2xl font-black shadow-lg shadow-emerald-200 hover:scale-[1.03] active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                <CheckCircle2 size={20} /> Onayla
+                                <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> Onayla
                             </button>
                             <button
                                 disabled={processingId === payment.id}
                                 onClick={() => onAction(payment.id, 'FAILED')}
                                 className="w-full bg-white text-red-600 border border-red-100 h-14 rounded-2xl font-black hover:bg-red-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                <XCircle size={20} /> Reddet
+                                <XCircle className="w-5 h-5" aria-hidden="true" /> Reddet
                             </button>
                         </div>
                     </div>
@@ -272,10 +277,10 @@ function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: 
                     <h3 className="text-xl font-black text-text-main tracking-tight uppercase">Son İşlemler</h3>
                     <div className="flex gap-2">
                         <button className="p-3 bg-white border border-border rounded-xl text-text-secondary hover:text-primary transition-colors">
-                            <Filter size={18} />
+                            <Filter className="w-[18px] h-[18px]" aria-hidden="true" />
                         </button>
                         <button className="p-3 bg-white border border-border rounded-xl text-text-secondary hover:text-primary transition-colors">
-                            <Download size={18} />
+                            <Download className="w-[18px] h-[18px]" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -324,7 +329,7 @@ function FinancialReportsView({ reports, formatCurrency, onRefund }: { reports: 
                                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition"
                                                 title="PayTR üzerinden iade et"
                                             >
-                                                <RotateCcw size={12} /> İade Et
+                                                <RotateCcw className="w-3 h-3" aria-hidden="true" /> İade Et
                                             </button>
                                         ) : tr.payment_type === 'REFUND' ? (
                                             <span className="text-[10px] font-bold text-gray-400 italic">İade Kaydı</span>
@@ -353,7 +358,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string, value: a
     return (
         <div className="bg-white p-8 rounded-[32px] border border-border shadow-card hover:scale-[1.02] transition-all">
             <div className={`w-12 h-12 ${colorMap[color]} rounded-2xl flex items-center justify-center mb-6`}>
-                <Icon size={24} />
+                <Icon className="w-6 h-6" />
             </div>
             <p className="text-[11px] font-black text-text-muted uppercase tracking-widest mb-1">{label}</p>
             <p className="text-2xl font-black text-text-main tracking-tight leading-none">{value}</p>
@@ -381,7 +386,7 @@ function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
         return (
             <div className="bg-white rounded-[40px] border border-border p-20 text-center">
                 <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 size={40} className="text-emerald-500" />
+                    <CheckCircle2 className="w-10 h-10 text-emerald-500" aria-hidden="true" />
                 </div>
                 <h3 className="text-xl font-black text-text-main uppercase tracking-tight">Tertemiz Veri Seti</h3>
                 <p className="text-text-secondary font-medium mt-2">Sistemde herhangi bir orphaned (sahipsiz) veya tutarsız abonelik kaydı bulunamadı.</p>
@@ -392,7 +397,7 @@ function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
     return (
         <div className="space-y-6">
             <div className="bg-amber-50 border border-amber-100 p-6 rounded-[32px] flex items-center gap-4">
-                <AlertTriangle className="text-amber-600 shrink-0" size={24} />
+                <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" aria-hidden="true" />
                 <p className="text-sm font-bold text-amber-800">
                     Aşağıdaki kayıtlar silinmiş işletmelere aittir veya sistem tarafından "Expired" yapılması gerekirken hala "Active" görünen tutarsız kayıtlardır. 
                     Veritabanı sağlığı için bu kayıtları temizlemeniz önerilir.
@@ -404,7 +409,7 @@ function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
                     <div key={ghost.id} className="bg-white p-8 rounded-[32px] border border-border flex flex-col md:flex-row items-center justify-between gap-6 hover:border-rose-200 transition-all">
                         <div className="flex items-center gap-6">
                             <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500">
-                                <Ghost size={28} />
+                                <Ghost className="w-7 h-7" aria-hidden="true" />
                             </div>
                             <div>
                                 <h4 className="text-lg font-black text-text-main">{ghost.salons?.name || 'TANIMSIZ SALON'}</h4>
@@ -423,7 +428,7 @@ function GhostSubscriptionsList({ ghosts, onDelete, processingId }: any) {
                             onClick={() => onDelete(ghost.id)}
                             className="h-14 px-8 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 disabled:opacity-50"
                         >
-                            <Trash2 size={18} /> Kaydı Temizle
+                            <Trash2 className="w-[18px] h-[18px]" aria-hidden="true" /> Kaydı Temizle
                         </button>
                     </div>
                 ))}

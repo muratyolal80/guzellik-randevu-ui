@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
+import { CalendarDays, XCircle } from 'lucide-react';
 
 interface CancelRescheduleButtonsProps {
     appointment: any;
@@ -65,16 +66,16 @@ export function CancelRescheduleButtons({ appointment, onUpdate }: CancelResched
                         onClick={handleReschedule}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                     >
-                        <span className="material-symbols-outlined text-sm">calendar_month</span>
+                        <CalendarDays className="w-4 h-4" aria-hidden="true" />
                         Yeniden Planla
                     </button>
 
                     <button
-                        onClick={() => canCancel() ? setShowConfirm(true) : alert('Randevuya 3 saatten az kaldı. İptal edilemez.')}
+                        onClick={() => canCancel() ? setShowConfirm(true) : showToast('Randevuya 3 saatten az kaldı. İptal edilemez.', 'warning')}
                         disabled={!canCancel()}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <span className="material-symbols-outlined text-sm">cancel</span>
+                        <XCircle className="w-4 h-4" aria-hidden="true" />
                         İptal Et
                     </button>
                 </>

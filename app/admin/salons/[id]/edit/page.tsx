@@ -8,6 +8,8 @@ import { GeocodingService } from '@/lib/geocoding/geocoding';
 import { City, SalonDetail, SalonType, District } from '@/types';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/ImageUpload';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 import {
     Store,
     MapPin,
@@ -53,6 +55,7 @@ interface SalonFormData {
 
 export default function AdminEditSalonPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const params = useParams();
     const salonId = params.id as string;
 
@@ -134,6 +137,7 @@ export default function AdminEditSalonPage() {
             }
         } catch (error) {
             console.error('Geocoding error:', error);
+            showToast('Adres konuma çevrilemedi.', 'warning');
         } finally {
             setIsGeocoding(false);
         }
@@ -163,6 +167,7 @@ export default function AdminEditSalonPage() {
             setSalonTypes(typesData);
         } catch (error) {
             console.error('Master data load error:', error);
+            showToast('Şehir ve salon tipi verileri yüklenemedi.', 'error');
         }
     };
 
@@ -172,6 +177,7 @@ export default function AdminEditSalonPage() {
             setDistricts(data);
         } catch (error) {
             console.error("Districts error:", error);
+            showToast('İlçeler yüklenemedi.', 'error');
         }
     };
 
@@ -206,6 +212,7 @@ export default function AdminEditSalonPage() {
             }
         } catch (error) {
             console.error('Salon data load error:', error);
+            showToast('Salon bilgileri yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -219,17 +226,25 @@ export default function AdminEditSalonPage() {
                 ...formData,
                 type_id: formData.primary_type_id,
             });
-            alert('Bilgiler admin tarafından güncellendi.');
+            showToast('Bilgiler admin tarafından güncellendi.', 'success');
             router.push('/admin/salons/approvals');
         } catch (error) {
             console.error('Update error:', error);
-            alert('Güncelleme sırasında hata oluştu.');
+            showToast('Güncelleme sırasında hata oluştu.', 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div className="p-20 text-center">Yükleniyor...</div>;
+    if (loading) return (
+        <AdminLayout>
+            <div className="space-y-6" aria-busy="true" aria-label="Yükleniyor">
+                <Skeleton className="h-10 w-64" />
+                <div className="flex gap-2">{[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-32 rounded-xl" />)}</div>
+                <Skeleton className="h-96 w-full rounded-2xl" />
+            </div>
+        </AdminLayout>
+    );
 
     const tabs = [
         { id: 'profile', label: 'Profil & Konum', icon: Store },
@@ -245,7 +260,7 @@ export default function AdminEditSalonPage() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link href="/admin/salons/approvals" className="p-2 hover:bg-gray-200 rounded-lg">
-                            <ChevronLeft className="w-6 h-6" />
+                            <ChevronLeft className="w-6 h-6" aria-hidden="true" />
                         </Link>
                         <h1 className="text-2xl font-black text-text-main">Salon Düzenle (Yönetici)</h1>
                     </div>
@@ -255,7 +270,7 @@ export default function AdminEditSalonPage() {
                             disabled={saving}
                             className="bg-primary text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg"
                         >
-                            <Save className="w-5 h-5" />
+                            <Save className="w-5 h-5" aria-hidden="true" />
                             {saving ? 'Kaydediliyor...' : 'Yönetici Olarak Kaydet'}
                         </button>
                     )}
@@ -469,7 +484,7 @@ export default function AdminEditSalonPage() {
                                     />
                                 </div>
                                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 italic text-sm text-blue-800">
-                                    <AlertCircle className="w-5 h-5 mb-2" />
+                                    <AlertCircle className="w-5 h-5 mb-2" aria-hidden="true" />
                                     Yönetici olarak yaptığınız değişiklikler doğrudan veritabanına kaydedilir ve onay statüsünü değiştirmez.
                                 </div>
                             </div>

@@ -22,6 +22,11 @@ import {
 import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
+
+const ROLE_LABELS: Record<string, string> = {
+    CUSTOMER: 'Müşteri', STAFF: 'Personel', MANAGER: 'Yönetici', SALON_OWNER: 'Salon Sahibi', ADMIN: 'Admin', SUPER_ADMIN: 'Destek Ekibi',
+};
 
 export default function AdminSupportManagement() {
     const { user } = useAuth();
@@ -60,6 +65,7 @@ export default function AdminSupportManagement() {
             setMessages(ticketMsgs);
         } catch (err) {
             console.error('Mesajlar çekilemedi:', err);
+            showToast('Mesajlar yüklenemedi.', 'error');
         }
     };
 
@@ -103,9 +109,15 @@ export default function AdminSupportManagement() {
 
     if (loading && tickets.length === 0) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
+            <AdminLayout>
+                <div className="space-y-6 mt-6" aria-busy="true" aria-label="Yükleniyor">
+                    <Skeleton className="h-28 w-full rounded-[40px]" />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="space-y-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
+                        <Skeleton className="lg:col-span-2 h-96 rounded-[32px]" />
+                    </div>
+                </div>
+            </AdminLayout>
         );
     }
 
@@ -168,7 +180,7 @@ export default function AdminSupportManagement() {
                                     </div>
                                     <div className="overflow-hidden">
                                         <p className="text-[11px] font-bold text-text-main truncate">{ticket.user?.full_name}</p>
-                                        <p className="text-[9px] font-medium text-text-muted italic">{new Date(ticket.created_at).toLocaleDateString('tr-TR')}</p>
+                                        <p className="text-[10px] font-medium text-text-muted italic">{new Date(ticket.created_at).toLocaleDateString('tr-TR')}</p>
                                     </div>
                                 </div>
                                 <div className="absolute right-6 bottom-6 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -225,8 +237,8 @@ export default function AdminSupportManagement() {
                                         <div className={`max-w-xl p-6 rounded-[32px] shadow-sm flex flex-col gap-2 ${msg.sender_role === 'SUPER_ADMIN' ? 'bg-primary text-white rounded-tr-none' : 'bg-white border border-border rounded-tl-none'
                                             }`}>
                                             <div className="flex items-center justify-between gap-10">
-                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-70">{msg.sender_role}</span>
-                                                <span className="text-[9px] font-medium opacity-50">
+                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{ROLE_LABELS[msg.sender_role] ?? msg.sender_role}</span>
+                                                <span className="text-[10px] font-medium opacity-50">
                                                     {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : ''}
                                                 </span>
                                             </div>

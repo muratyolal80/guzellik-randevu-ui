@@ -6,10 +6,13 @@ import { ProfileService } from '@/services/db';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import ImageUpload from '@/components/ImageUpload';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function ProfilePage() {
     const router = useRouter();
     const { user, refreshProfile } = useAuth();
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(!user);
     const [saving, setSaving] = useState(false);
 
@@ -54,9 +57,9 @@ export default function ProfilePage() {
                 avatar_url: avatarUrl || undefined,
             });
             await refreshProfile();
-            alert('Profiliniz başarıyla güncellendi.');
-        } catch (error: any) {
-            alert(`Profil güncellenirken bir hata oluştu: ${error.message || error}`);
+            showToast('Profiliniz başarıyla güncellendi.', 'success');
+        } catch (error: unknown) {
+            showToast(`Profil güncellenirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`, 'error');
         } finally {
             setSaving(false);
         }
@@ -64,8 +67,10 @@ export default function ProfilePage() {
 
     if (loading) {
         return (
-            <div className="flex justify-center py-20">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="space-y-6" aria-busy="true" aria-label="Yükleniyor">
+                <div className="space-y-2"><Skeleton className="h-8 w-48" /><Skeleton className="h-4 w-72" /></div>
+                <Skeleton className="h-96 w-full rounded-2xl" />
+                <Skeleton className="h-64 w-full rounded-2xl" />
             </div>
         );
     }
@@ -97,7 +102,7 @@ export default function ProfilePage() {
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                         <h3 className="font-bold text-lg text-gray-900 mb-5 flex items-center gap-2">
-                            <UserIcon className="w-5 h-5 text-gray-400" /> Kişisel Bilgiler
+                            <UserIcon className="w-5 h-5 text-gray-400" aria-hidden="true" /> Kişisel Bilgiler
                         </h3>
 
                         <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -127,7 +132,7 @@ export default function ProfilePage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
                                     <div className="relative">
-                                        <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                                         <input
                                             type="tel"
                                             inputMode="numeric"
@@ -143,7 +148,7 @@ export default function ProfilePage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
                                     <div className="relative">
-                                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                                         <input
                                             type="email"
                                             value={formData.email}
@@ -157,7 +162,7 @@ export default function ProfilePage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Doğum Tarihi</label>
                                 <div className="relative">
-                                    <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <Calendar className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                                     <input
                                         type="date"
                                         value={formData.birth_date}
@@ -173,7 +178,7 @@ export default function ProfilePage() {
                                     disabled={saving}
                                     className="bg-primary hover:bg-primary text-white px-6 py-2.5 rounded-xl font-medium shadow-sm shadow-amber-200 transition-colors flex items-center gap-2 disabled:opacity-70"
                                 >
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
                                     {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
                                 </button>
                             </div>
@@ -182,7 +187,7 @@ export default function ProfilePage() {
 
                     <div id="password-section" className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                         <h3 className="font-bold text-lg text-gray-900 mb-5 flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-gray-400" /> Şifre Değiştir
+                            <Lock className="w-5 h-5 text-gray-400" aria-hidden="true" /> Şifre Değiştir
                         </h3>
                         <PasswordChangeForm />
                     </div>
@@ -193,6 +198,7 @@ export default function ProfilePage() {
 }
 
 function PasswordChangeForm() {
+    const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         currentPassword: '',
@@ -203,7 +209,7 @@ function PasswordChangeForm() {
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.newPassword !== formData.confirmPassword) {
-            alert('Şifreler eşleşmiyor!');
+            showToast('Şifreler eşleşmiyor!', 'warning');
             return;
         }
 
@@ -216,10 +222,10 @@ function PasswordChangeForm() {
 
             if (authError) throw authError;
 
-            alert('Şifreniz başarıyla güncellendi.');
+            showToast('Şifreniz başarıyla güncellendi.', 'success');
             setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (error: any) {
-            alert(`Hata: ${error.message || error}`);
+        } catch (error: unknown) {
+            showToast(`Hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
         } finally {
             setLoading(false);
         }

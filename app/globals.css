@@ -54,11 +54,6 @@
   z-index: 0;
 }
 
-/* Material Icons styles */
-.material-symbols-outlined.filled {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-}
-
 /* Body styles */
 body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;

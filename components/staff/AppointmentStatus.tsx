@@ -8,6 +8,8 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuditService } from '@/services/audit';
+import { ChevronDown, CheckCircle2, CircleCheckBig, XCircle } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 interface AppointmentStatusProps {
     appointment: any;
@@ -36,6 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function AppointmentStatus({ appointment, onUpdate }: AppointmentStatusProps) {
+    const { showToast } = useToast();
     const [isUpdating, setIsUpdating] = useState(false);
     const [showActions, setShowActions] = useState(false);
 
@@ -65,7 +68,7 @@ export function AppointmentStatus({ appointment, onUpdate }: AppointmentStatusPr
             setShowActions(false);
         } catch (err) {
             console.error('Status update failed:', err);
-            alert('Durum güncellenemedi. Lütfen tekrar deneyin.');
+            showToast('Durum güncellenemedi. Lütfen tekrar deneyin.', 'error');
         } finally {
             setIsUpdating(false);
         }
@@ -86,7 +89,7 @@ export function AppointmentStatus({ appointment, onUpdate }: AppointmentStatusPr
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2 hover:scale-105 transition-transform ${STATUS_COLORS[currentStatus]}`}
             >
                 {STATUS_LABELS[currentStatus]}
-                <span className="material-symbols-outlined text-xs">expand_more</span>
+                <ChevronDown className="w-3 h-3" aria-hidden="true" />
             </button>
 
             {showActions && (
@@ -105,10 +108,8 @@ export function AppointmentStatus({ appointment, onUpdate }: AppointmentStatusPr
                                             'text-red-700'
                                     }`}
                             >
-                                <span className="material-symbols-outlined text-sm">
-                                    {status === 'CONFIRMED' ? 'check_circle' :
-                                        status === 'COMPLETED' ? 'task_alt' : 'cancel'}
-                                </span>
+                                {status === 'CONFIRMED' ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> :
+                                    status === 'COMPLETED' ? <CircleCheckBig className="w-4 h-4" aria-hidden="true" /> : <XCircle className="w-4 h-4" aria-hidden="true" />}
                                 {STATUS_LABELS[status]}
                             </button>
                         ))}

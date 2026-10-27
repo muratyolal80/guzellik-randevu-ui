@@ -7,9 +7,11 @@ import { Transaction } from '@/types';
 import { CreditCard, History, Search, Filter, ArrowUpRight, ArrowDownLeft, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { useToast } from '@/components/ui/Toast';
 
 export default function CustomerPaymentsPage() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +29,7 @@ export default function CustomerPaymentsPage() {
             setTransactions(data);
         } catch (error) {
             console.error('Ödemeler yüklenirken hata:', error);
+            showToast('Ödemeler yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }

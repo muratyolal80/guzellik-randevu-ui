@@ -8,9 +8,12 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { useToast } from '@/components/ui/Toast';
+import Skeleton from '@/components/Skeleton';
 
 export default function NotificationCenter() {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -53,6 +56,7 @@ export default function NotificationCenter() {
             setNotifications(data);
         } catch (error) {
             console.error('Error fetching notifications:', error);
+            showToast('Bildirimler yüklenemedi.', 'error');
         } finally {
             setLoading(false);
         }
@@ -64,6 +68,7 @@ export default function NotificationCenter() {
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
         } catch (error) {
             console.error('Error marking as read:', error);
+            showToast('Bildirim güncellenemedi.', 'error');
         }
     };
 
@@ -74,17 +79,18 @@ export default function NotificationCenter() {
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         } catch (error) {
             console.error('Error marking all as read:', error);
+            showToast('Bildirimler güncellenemedi.', 'error');
         }
     };
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'SUCCESS': return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-            case 'WARNING': return <AlertCircle className="w-5 h-5 text-amber-500" />;
-            case 'ERROR': return <AlertCircle className="w-5 h-5 text-red-500" />;
-            case 'APPOINTMENT': return <Calendar className="w-5 h-5 text-primary" />;
-            case 'REVIEW': return <MessageSquare className="w-5 h-5 text-purple-500" />;
-            default: return <Info className="w-5 h-5 text-blue-500" />;
+            case 'SUCCESS': return <CheckCircle2 className="w-5 h-5 text-green-500" aria-hidden="true" />;
+            case 'WARNING': return <AlertCircle className="w-5 h-5 text-amber-500" aria-hidden="true" />;
+            case 'ERROR': return <AlertCircle className="w-5 h-5 text-red-500" aria-hidden="true" />;
+            case 'APPOINTMENT': return <Calendar className="w-5 h-5 text-primary" aria-hidden="true" />;
+            case 'REVIEW': return <MessageSquare className="w-5 h-5 text-purple-500" aria-hidden="true" />;
+            default: return <Info className="w-5 h-5 text-blue-500" aria-hidden="true" />;
         }
     };
 
@@ -119,7 +125,7 @@ export default function NotificationCenter() {
                                     onClick={handleMarkAllAsRead}
                                     className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
                                 >
-                                    <Check className="w-3 h-3" />
+                                    <Check className="w-3 h-3" aria-hidden="true" />
                                     Tümünü oku
                                 </button>
                             )}
@@ -128,14 +134,18 @@ export default function NotificationCenter() {
                         {/* Notifications List */}
                         <div className="max-h-[420px] overflow-y-auto no-scrollbar">
                             {loading ? (
-                                <div className="p-8 text-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-                                    <p className="text-sm text-gray-500">Yükleniyor...</p>
+                                <div className="p-4 space-y-3" aria-busy="true" aria-label="Yükleniyor">
+                                    {[0, 1, 2].map(i => (
+                                        <div key={i} className="flex gap-3">
+                                            <Skeleton className="size-10 rounded-full shrink-0" />
+                                            <div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : notifications.length === 0 ? (
                                 <div className="p-10 text-center">
                                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <Bell className="w-8 h-8 text-gray-300" />
+                                        <Bell className="w-8 h-8 text-gray-300" aria-hidden="true" />
                                     </div>
                                     <h4 className="font-medium text-gray-900 mb-1">Henüz bildirim yok</h4>
                                     <p className="text-sm text-gray-500">Yeni bir gelişme olduğunda burada görünecek.</p>

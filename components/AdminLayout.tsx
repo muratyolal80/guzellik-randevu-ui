@@ -36,7 +36,7 @@ const AdminSidebar: React.FC = () => {
         );
     };
     const menuItems = [
-        { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+        { name: 'Panel', path: '/admin', icon: LayoutDashboard },
         { 
             name: 'Operasyon & Onay', 
             icon: ShieldCheck,
@@ -81,10 +81,10 @@ const AdminSidebar: React.FC = () => {
                                     className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl font-bold text-sm transition-all text-text-secondary hover:bg-gray-100 group`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <item.icon size={18} className="opacity-70 group-hover:opacity-100" />
+                                        <item.icon className="w-[18px] h-[18px] opacity-70 group-hover:opacity-100" />
                                         {item.name}
                                     </div>
-                                    <ChevronDown size={14} className={`transition-transform duration-300 ${expandedItems.includes(item.name) ? 'rotate-180' : ''}`} />
+                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${expandedItems.includes(item.name) ? 'rotate-180' : ''}`} aria-hidden="true" />
                                 </button>
                                 <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedItems.includes(item.name) ? 'max-h-96 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
                                     <div className="flex flex-col gap-1 pl-4 ml-3 border-l-2 border-primary/10">
@@ -97,7 +97,7 @@ const AdminSidebar: React.FC = () => {
                                                     : 'text-text-muted hover:bg-gray-50 hover:text-text-secondary'
                                                     }`}
                                             >
-                                                <child.icon size={16} />
+                                                <child.icon className="w-4 h-4" />
                                                 {child.name}
                                             </Link>
                                         ))}
@@ -112,7 +112,7 @@ const AdminSidebar: React.FC = () => {
                                     : 'text-text-secondary hover:bg-gray-100 group'
                                     }`}
                             >
-                                <item.icon size={18} className={`${pathname === item.path ? 'text-white' : 'text-text-muted opacity-70 group-hover:opacity-100'}`} />
+                                <item.icon className={`w-[18px] h-[18px] ${pathname === item.path ? 'text-white' : 'text-text-muted opacity-70 group-hover:opacity-100'}`} />
                                 {item.name}
                             </Link>
                         )}

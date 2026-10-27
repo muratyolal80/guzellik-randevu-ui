@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Breadcrumbs } from '@/components/Admin/Breadcrumbs';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import SubscriptionPlanSelector from '@/components/owner/SubscriptionPlanSelector';
 import PayTRPaymentModal from '@/components/payment/PayTRPaymentModal';
 import { SubscriptionService, PaymentService, SalonDataService, FinanceService, ProfileService } from '@/services/db';
@@ -48,27 +49,27 @@ const PlanIcon = ({ name, className = "w-6 h-6" }: { name: string; className?: s
     switch (name) {
         case 'STARTER':  return (
             <div className={`${base} w-10 h-10 bg-slate-100 text-slate-500`}>
-                <ShieldCheck className={className} />
+                <ShieldCheck className={className} aria-hidden="true" />
             </div>
         );
         case 'PRO':      return (
             <div className={`${base} w-10 h-10 bg-amber-50 text-amber-500 border border-amber-100`}>
-                <Zap className={className} />
+                <Zap className={className} aria-hidden="true" />
             </div>
         );
         case 'BUSINESS': return (
             <div className={`${base} w-10 h-10 bg-blue-50 text-blue-600 border border-blue-100`}>
-                <Briefcase className={className} />
+                <Briefcase className={className} aria-hidden="true" />
             </div>
         );
         case 'ELITE':    return (
             <div className={`${base} w-10 h-10 bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-indigo-100/50`}>
-                <Crown className={className} />
+                <Crown className={className} aria-hidden="true" />
             </div>
         );
         default:         return (
             <div className={`${base} w-10 h-10 bg-gray-50 text-gray-400`}>
-                <Zap className={className} />
+                <Zap className={className} aria-hidden="true" />
             </div>
         );
     }
@@ -119,7 +120,7 @@ function ProgressSteps({ step }: { step: 1 | 2 }) {
                 <React.Fragment key={s.n}>
                     <div className="flex items-center gap-3">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${step >= s.n ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-gray-100 text-text-muted'}`}>
-                            {step > s.n ? <Check className="w-4 h-4" /> : s.n}
+                            {step > s.n ? <Check className="w-4 h-4" aria-hidden="true" /> : s.n}
                         </div>
                         <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap ${step >= s.n ? 'text-text-main' : 'text-text-muted'}`}>{s.label}</span>
                     </div>
@@ -135,6 +136,7 @@ function ProgressSteps({ step }: { step: 1 | 2 }) {
 // ─── Step 1: Owner Select ─────────────────────────────────────────────────────
 
 function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => void }) {
+    const { showToast } = useToast();
     const [owners, setOwners]   = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery]     = useState('');
@@ -164,13 +166,14 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                 setOwners(enriched);
             } catch (err) {
                 console.error('Owner list error:', err);
+                showToast('İşletme sahipleri yüklenemedi.', 'error');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchOwners();
-    }, []);
+    }, [showToast]);
 
     const filtered = owners.filter(o => {
         const q = query.toLowerCase();
@@ -194,7 +197,7 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             {/* Search */}
             <div className="relative max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
                 <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
@@ -203,14 +206,14 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                 />
                 {query && (
                     <button onClick={() => setQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main">
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4" aria-hidden="true" />
                     </button>
                 )}
             </div>
 
             {filtered.length === 0 ? (
                 <div className="bg-white rounded-[32px] border border-border p-16 text-center">
-                    <User className="w-12 h-12 text-text-muted mx-auto mb-4" />
+                    <User className="w-12 h-12 text-text-muted mx-auto mb-4" aria-hidden="true" />
                     <h3 className="font-black text-text-main">İşletme Sahibi Bulunamadı</h3>
                     <p className="text-sm text-text-secondary mt-1">Arama kriterlerinizi değiştirin.</p>
                 </div>
@@ -232,7 +235,7 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                                 className="group bg-white border border-border rounded-[32px] p-6 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer relative overflow-hidden flex flex-col items-center text-center gap-4"
                             >
                                 {/* Status Badge */}
-                                <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                     hasActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'
                                 }`}>
                                     {hasActive ? 'AKTİF' : 'PAKET YOK'}
@@ -249,7 +252,7 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                                     </div>
                                     {hasActive && (
                                         <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full flex items-center justify-center">
-                                            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                            <CheckCircle2 className="w-2.5 h-2.5 text-white" aria-hidden="true" />
                                         </div>
                                     )}
                                 </div>
@@ -263,11 +266,11 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
 
                                 <div className="w-full pt-4 border-t border-border/50 grid grid-cols-2 gap-4">
                                     <div className="flex flex-col items-center">
-                                        <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Şube</span>
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Şube</span>
                                         <span className="text-sm font-bold text-text-main">{owner.salonCount || 0}</span>
                                     </div>
                                     <div className="flex flex-col items-center">
-                                        <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Plan</span>
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Plan</span>
                                         <span className={`text-[10px] font-black uppercase truncate max-w-full ${hasActive ? 'text-primary' : 'text-text-muted'}`}>
                                             {owner.activeSub?.subscription_plans?.display_name || 'YOK'}
                                         </span>
@@ -277,7 +280,7 @@ function OwnerSelectStep({ onSelect }: { onSelect: (owner: any, sub: any) => voi
                                 <div className="mt-2 w-full">
                                     <div className="w-full bg-slate-50 rounded-xl py-2 group-hover:bg-primary/5 transition-colors">
                                         <span className="text-[10px] font-black group-hover:text-primary flex items-center justify-center gap-2 text-primary">
-                                            DETAYLARI GÖR <ChevronRight className="w-3 h-3" />
+                                            DETAYLARI GÖR <ChevronRight className="w-3 h-3" aria-hidden="true" />
                                         </span>
                                     </div>
                                 </div>
@@ -320,6 +323,7 @@ function ProgressBar({ label, icon, current, max }: { label: string; icon: React
 
 export default function AdminPurchasePage() {
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     const searchParams = useSearchParams();
     const urlPlanId = searchParams.get('plan');
@@ -414,7 +418,7 @@ export default function AdminPurchasePage() {
             return;
         }
 
-        if (!window.confirm(`"${plan?.display_name}" paketini "${selectedOwner.full_name || selectedOwner.email}" için başlatmak istiyor musunuz?`)) return;
+        if (!(await confirm({ title: 'Paket başlatılsın mı?', message: `"${plan?.display_name}" paketini "${selectedOwner.full_name || selectedOwner.email}" için başlatmak istiyor musunuz?`, confirmText: 'Başlat' }))) return;
 
         setPurchasing(true);
         try {
@@ -500,7 +504,7 @@ export default function AdminPurchasePage() {
                             onClick={handleBack}
                             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white border border-border text-sm font-black text-text-secondary hover:text-primary hover:border-primary/30 transition-all"
                         >
-                            <ArrowLeft className="w-4 h-4" />
+                            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                             Sahibi Değiştir
                         </button>
                     )}
@@ -523,17 +527,17 @@ export default function AdminPurchasePage() {
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
                             <div className="relative z-10 flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-                                    <User className="w-6 h-6 text-white" />
+                                    <User className="w-6 h-6 text-white" aria-hidden="true" />
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-0.5">Seçili İşletme Sahibi</p>
                                     <h2 className="font-black text-xl tracking-tight">{selectedOwner.full_name || 'İsimsiz'}</h2>
                                     <div className="flex flex-wrap items-center gap-3 mt-1">
                                         <span className="flex items-center gap-1.5 text-[11px] text-white/70 font-medium">
-                                            <Mail className="w-3 h-3" /> {selectedOwner.email}
+                                            <Mail className="w-3 h-3" aria-hidden="true" /> {selectedOwner.email}
                                         </span>
-                                        <span className="text-[11px] text-white/70 font-medium">
-                                            🏢 {selectedOwner.salonCount} Şube
+                                        <span className="flex items-center gap-1.5 text-[11px] text-white/70 font-medium">
+                                            <Building2 className="w-3 h-3" aria-hidden="true" /> {selectedOwner.salonCount} Şube
                                         </span>
                                     </div>
                                 </div>
@@ -545,7 +549,7 @@ export default function AdminPurchasePage() {
                                             <div className="flex flex-col px-7 py-3 bg-gradient-to-br from-slate-800 to-slate-900 border-r border-white/10">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <div className={`w-1.5 h-1.5 rounded-full ${currentSub.status === 'ACTIVE' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]'}`} />
-                                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">AKTİF PLAN</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">AKTİF PLAN</span>
                                                 </div>
                                                 <span className="text-lg font-black tracking-tight uppercase leading-none text-white">
                                                     {currentSub.subscription_plans?.display_name}
@@ -556,21 +560,21 @@ export default function AdminPurchasePage() {
                                             {limits && (
                                                 <div className="flex items-center gap-6 px-8 py-3 bg-[#0f172a] divide-x divide-white/5">
                                                     <div className="flex flex-col items-center">
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">ŞUBELER</span>
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">ŞUBELER</span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-sm font-black text-white">{limits.branches.current}</span>
                                                             <span className="text-[10px] font-bold text-slate-600">/ {limits.branches.max === -1 ? '∞' : limits.branches.max}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-center pl-6">
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">PERSONEL</span>
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">PERSONEL</span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-sm font-black text-white">{limits.staff.current}</span>
                                                             <span className="text-[10px] font-bold text-slate-600">/ {limits.staff.max === -1 ? '∞' : limits.staff.max}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-center pl-6">
-                                                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">GALERİ</span>
+                                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">GALERİ</span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-sm font-black text-white">{limits.gallery.current}</span>
                                                             <span className="text-[10px] font-bold text-slate-600">/ {limits.gallery.max === -1 ? '∞' : limits.gallery.max}</span>
@@ -594,7 +598,7 @@ export default function AdminPurchasePage() {
                                 {hasPendingPayment ? (
                                     <>
                                         <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                                            <Clock className="w-6 h-6 text-indigo-600 animate-pulse" />
+                                            <Clock className="w-6 h-6 text-indigo-600 animate-pulse" aria-hidden="true" />
                                         </div>
                                         <div className="flex-1">
                                             <p className="font-black text-indigo-900 text-sm">Bekleyen Ödeme Talebi Bulunuyor!</p>
@@ -603,7 +607,7 @@ export default function AdminPurchasePage() {
                                     </>
                                 ) : (
                                     <>
-                                        <AlertCircle className="w-7 h-7 text-red-500 shrink-0" />
+                                        <AlertCircle className="w-7 h-7 text-red-500 shrink-0" aria-hidden="true" />
                                         <div className="flex-1">
                                             <p className="font-black text-red-800 text-sm">Bu salonun aboneliği sona ermiş veya iptal edilmiş.</p>
                                             <p className="text-red-600/80 text-xs font-medium mt-0.5">Sistemi kullanmaya devam edebilmesi için yeni bir paket başlatın.</p>
@@ -654,7 +658,7 @@ export default function AdminPurchasePage() {
                                             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
                                             <div className="relative z-10 text-center md:text-left">
                                                 <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 border border-amber-200">
-                                                    <Clock className="w-3 h-3" /> Ödeme Onayı Bekleniyor
+                                                    <Clock className="w-3 h-3" aria-hidden="true" /> Ödeme Onayı Bekleniyor
                                                 </div>
                                                 <h2 className="text-2xl font-black text-amber-900">{currentSub.subscription_plans?.display_name} paketi hazırlanıyor…</h2>
                                                 <p className="text-amber-800/70 text-sm font-medium mt-2">Finans departmanı kontrolünden sonra aktif edilecektir.</p>
@@ -669,7 +673,7 @@ export default function AdminPurchasePage() {
                                                     <span className="text-4xl font-black">{currentSub.subscription_plans?.display_name || 'STARTER'}</span>
                                                     {isActive && (
                                                         <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-emerald-500/20">
-                                                            <CheckCircle2 className="w-3 h-3" /> Aktif
+                                                            <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Aktif
                                                         </span>
                                                     )}
                                                 </div>
@@ -684,7 +688,7 @@ export default function AdminPurchasePage() {
                                                     onClick={() => setActiveTab('UPGRADE')}
                                                     className="bg-white text-text-main px-7 py-3.5 rounded-2xl font-black text-sm shadow-xl hover:scale-[1.02] transition-all flex items-center gap-2"
                                                 >
-                                                    <Zap className="w-4 h-4 text-amber-500" /> Planı Değiştir
+                                                    <Zap className="w-4 h-4 text-amber-500" aria-hidden="true" /> Planı Değiştir
                                                 </button>
                                             </div>
                                         </div>
@@ -692,7 +696,7 @@ export default function AdminPurchasePage() {
                                 ) : (
                                     <div className="bg-white p-10 rounded-[36px] border-4 border-dashed border-border flex flex-col items-center text-center gap-5 hover:border-primary/30 transition-colors group">
                                         <div className="w-16 h-16 bg-surface-alt rounded-[26px] flex items-center justify-center text-text-muted group-hover:scale-110 transition-transform">
-                                            <Package className="w-8 h-8" />
+                                            <Package className="w-8 h-8" aria-hidden="true" />
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-black text-text-main">Bu Kullanıcı İçin Aktif Paket Yok</h3>
@@ -702,7 +706,7 @@ export default function AdminPurchasePage() {
                                             onClick={() => setActiveTab('UPGRADE')}
                                             className="bg-primary text-white px-8 py-4 rounded-[20px] font-black text-sm shadow-xl shadow-primary/25 hover:scale-[1.05] transition-all flex items-center gap-2"
                                         >
-                                            <Zap className="w-4 h-4 text-amber-300" /> Paket Seç ve Başlat
+                                            <Zap className="w-4 h-4 text-amber-300" aria-hidden="true" /> Paket Seç ve Başlat
                                         </button>
                                     </div>
                                 )}
@@ -710,9 +714,9 @@ export default function AdminPurchasePage() {
                                 {/* Usage Limits */}
                                 {limits && (
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                        <ProgressBar label="Şube Kullanımı"   icon={<Building2 className="w-4 h-4" />}  current={isActive ? limits.branches.current : 0} max={isActive ? limits.branches.max : 0} />
-                                        <ProgressBar label="Personel Kullanımı" icon={<Users className="w-4 h-4" />}  current={isActive ? limits.staff.current : 0}    max={isActive ? limits.staff.max : 0} />
-                                        <ProgressBar label="Galeri Kullanımı" icon={<ImageIcon className="w-4 h-4" />} current={isActive ? limits.gallery.current : 0}  max={isActive ? limits.gallery.max : 0} />
+                                        <ProgressBar label="Şube Kullanımı"   icon={<Building2 className="w-4 h-4" aria-hidden="true" />}  current={isActive ? limits.branches.current : 0} max={isActive ? limits.branches.max : 0} />
+                                        <ProgressBar label="Personel Kullanımı" icon={<Users className="w-4 h-4" aria-hidden="true" />}  current={isActive ? limits.staff.current : 0}    max={isActive ? limits.staff.max : 0} />
+                                        <ProgressBar label="Galeri Kullanımı" icon={<ImageIcon className="w-4 h-4" aria-hidden="true" />} current={isActive ? limits.gallery.current : 0}  max={isActive ? limits.gallery.max : 0} />
                                     </div>
                                 )}
                             </div>
@@ -787,7 +791,7 @@ export default function AdminPurchasePage() {
                                                                 >
                                                                     {isSelected && (
                                                                         <div className="absolute top-3 right-3 w-5 h-5 bg-primary rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                                                                            <Check className="w-3 h-3 text-white" />
+                                                                            <Check className="w-3 h-3 text-white" aria-hidden="true" />
                                                                         </div>
                                                                     )}
                                                                     <m.icon className={`w-8 h-8 mb-3 transition-colors ${isSelected ? '' : 'text-text-muted'}`} />
@@ -803,7 +807,7 @@ export default function AdminPurchasePage() {
                                                         <div className="bg-blue-50/50 border-2 border-blue-100 p-6 md:p-8 rounded-[28px] space-y-6 animate-in slide-in-from-top-4 duration-500">
                                                             <div className="flex items-center gap-3 mb-2">
                                                                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                                                                    <Info className="w-4 h-4" />
+                                                                    <Info className="w-4 h-4" aria-hidden="true" />
                                                                 </div>
                                                                 <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">Havale Bildirim Detayları</h4>
                                                             </div>
@@ -850,7 +854,7 @@ export default function AdminPurchasePage() {
                                                         <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[24px] flex items-center justify-between group hover:border-emerald-200 transition-colors">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-600/20">
-                                                                    <ShieldCheck className="w-5 h-5" />
+                                                                    <ShieldCheck className="w-5 h-5" aria-hidden="true" />
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-[13px] font-black text-emerald-900 tracking-tight">Hemen Aktifleştir (Admin Bypass)</p>
@@ -893,14 +897,14 @@ export default function AdminPurchasePage() {
                                                         if (newPrice < currentPrice) {
                                                             return (
                                                                 <p className="flex items-center gap-1.5 text-amber-600 text-[11px] font-black uppercase tracking-tight mt-2 animate-in slide-in-from-left-2 transition-all">
-                                                                    <AlertCircle className="w-3.5 h-3.5" /> Paket düşürme: Özellikler kısıtlanabilir
+                                                                    <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" /> Paket düşürme: Özellikler kısıtlanabilir
                                                                 </p>
                                                             );
                                                         }
                                                         if (newPrice > currentPrice) {
                                                             return (
                                                                 <p className="flex items-center gap-1.5 text-emerald-600 text-[11px] font-black uppercase tracking-tight mt-2 animate-in slide-in-from-left-2 transition-all">
-                                                                    <Star className="w-3.5 h-3.5 fill-current" /> Paket yükseltme: Yeni özellikler açılacak
+                                                                    <Star className="w-3.5 h-3.5 fill-current" aria-hidden="true" /> Paket yükseltme: Yeni özellikler açılacak
                                                                 </p>
                                                             );
                                                         }
@@ -913,10 +917,10 @@ export default function AdminPurchasePage() {
                                                     className={`px-12 py-5 rounded-[22px] font-black text-sm uppercase tracking-widest shadow-2xl transition-all flex items-center gap-3 disabled:opacity-60 disabled:pointer-events-none hover:scale-[1.03] active:scale-95 ${immediateActivate ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-primary text-white shadow-primary/20'}`}
                                                 >
                                                     {purchasing
-                                                        ? <><Loader2 className="w-5 h-5 animate-spin" /> İşleniyor…</>
+                                                        ? <><Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> İşleniyor…</>
                                                         : (
                                                             <>
-                                                                {immediateActivate ? <ShieldCheck className="w-5 h-5" /> : <ArrowRight className="w-5 h-5" />}
+                                                                {immediateActivate ? <ShieldCheck className="w-5 h-5" aria-hidden="true" /> : <ArrowRight className="w-5 h-5" aria-hidden="true" />}
                                                                 {immediateActivate ? 'Hemen Aktifleştir' : 'Talebi Oluştur'}
                                                             </>
                                                         )
@@ -927,7 +931,7 @@ export default function AdminPurchasePage() {
                                             {/* Info note */}
                                             {!isFree && (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'CASH') && (
                                                 <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4 text-[12px] text-blue-800 font-medium">
-                                                    <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                                    <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
                                                     <span>Havale/EFT yönteminde abonelik, Finans → Ödeme Onayları ekranından onaylandıktan sonra aktif olacaktır.</span>
                                                 </div>
                                             )}
@@ -968,7 +972,7 @@ export default function AdminPurchasePage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-8 py-5">
-                                                            <span className="px-2 py-1 bg-slate-100 rounded text-[9px] font-black uppercase text-slate-500 tracking-wider">
+                                                            <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-black uppercase text-slate-500 tracking-wider">
                                                                 {sub.billing_cycle === 'YEARLY' ? 'Yıllık' : 'Aylık'}
                                                             </span>
                                                         </td>
@@ -1009,7 +1013,7 @@ export default function AdminPurchasePage() {
                                         <div className="p-8 border-b border-border/50 flex items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-surface-alt flex items-center justify-center text-text-main shadow-inner">
-                                                    <HistoryIcon className="w-6 h-6" />
+                                                    <HistoryIcon className="w-6 h-6" aria-hidden="true" />
                                                 </div>
                                                 <div>
                                                     <h2 className="text-xl font-black text-text-main tracking-tight uppercase">Ödeme Geçmişi</h2>
@@ -1023,7 +1027,7 @@ export default function AdminPurchasePage() {
                                                         disabled={historyPage === 1}
                                                         className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
                                                     >
-                                                        <ArrowLeft className="w-4 h-4" />
+                                                        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                                                     </button>
                                                     <div className="flex items-center gap-1.5 px-3">
                                                         {[...Array(totalPages)].map((_, i) => (
@@ -1041,7 +1045,7 @@ export default function AdminPurchasePage() {
                                                         disabled={historyPage === totalPages}
                                                         className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-gray-50 disabled:opacity-30 transition-all shadow-sm"
                                                     >
-                                                        <ArrowRight className="w-4 h-4" />
+                                                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                                                     </button>
                                                 </div>
                                             )}
@@ -1049,7 +1053,7 @@ export default function AdminPurchasePage() {
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left">
                                                 <thead>
-                                                    <tr className="bg-surface-alt/30 border-b border-border text-[9px] font-black tracking-[0.2em] uppercase text-text-muted">
+                                                    <tr className="bg-surface-alt/30 border-b border-border text-[10px] font-black tracking-[0.2em] uppercase text-text-muted">
                                                         {['İşlem Tarihi', 'Dönem', 'Paket / Açıklama', 'Ödeme Yöntemi', 'Tutar', 'Durum'].map(h => (
                                                             <th key={h} className={`px-8 py-5 ${h === 'Durum' ? 'text-right' : ''}`}>{h}</th>
                                                         ))}
@@ -1060,7 +1064,7 @@ export default function AdminPurchasePage() {
                                                         <tr>
                                                             <td colSpan={6} className="px-8 py-20 text-center">
                                                                 <div className="flex flex-col items-center gap-3 opacity-30">
-                                                                    <HistoryIcon className="w-12 h-12" />
+                                                                    <HistoryIcon className="w-12 h-12" aria-hidden="true" />
                                                                     <p className="text-xs font-black uppercase tracking-widest">Henüz ödeme kaydı bulunmuyor</p>
                                                                 </div>
                                                             </td>
@@ -1137,7 +1141,7 @@ export default function AdminPurchasePage() {
                                     
                                     <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-200/60 flex items-start gap-4">
                                         <div className="w-10 h-10 bg-white rounded-xl border border-slate-200 flex items-center justify-center text-primary shrink-0">
-                                            <Info className="w-5 h-5" />
+                                            <Info className="w-5 h-5" aria-hidden="true" />
                                         </div>
                                         <div>
                                             <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Ödeme Geçmişi Hakkında</p>
