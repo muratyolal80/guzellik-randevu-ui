@@ -11,7 +11,7 @@
 #     Şema değişikliğini ASLA bu yolla yukarı taşıma; onun için migration kullan.
 #
 # Kullanım:
-#   PROD_SSH_HOST=45.81.113.82 PROD_SSH_USER=root ./scripts/prod-pull-db.sh
+#   PROD_SSH_HOST=<prod-ip> PROD_SSH_USER=root ./scripts/prod-pull-db.sh
 #   (otomatik onay: --yes ; maskelemeyi atlamak: --no-mask — önerilmez)
 #
 # Akış (docs/infrastructure/deployment-and-alignment.md §6):
@@ -23,7 +23,7 @@ set -euo pipefail
 
 # --- Yapılandırma (env ile override edilebilir) ---------------------------
 PROD_SSH_USER="${PROD_SSH_USER:-root}"
-PROD_SSH_HOST="${PROD_SSH_HOST:-45.81.113.82}"
+PROD_SSH_HOST="${PROD_SSH_HOST:?set PROD_SSH_HOST=<prod-ip>}"
 PROD_SSH_PORT="${PROD_SSH_PORT:-22}"
 PROD_DB_CONTAINER="${PROD_DB_CONTAINER:-supabase-db}"   # recon ile doğrula
 LOCAL_DB_CONTAINER="${LOCAL_DB_CONTAINER:-supabase-db}"

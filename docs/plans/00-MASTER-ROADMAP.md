@@ -2,15 +2,15 @@
 
 > Bu belge tüm projenin **gün gün** ne yapıldığı, **şu an** nerede olduğumuz, **neyin kaldığı** ve **senden hangi aksiyonların beklendiğinin** tek doğruluk kaynağıdır.
 >
-> **Son güncelleme:** 2026-10-26
-> **Aktif branch:** `salonara` (staging) → `kuaforara` (prod, oluşturulacak)
-> **Yazılım sürümü:** `1.1.5`
+> **Son güncelleme:** 2026-10-27
+> **Aktif branch:** `salonara` (staging) → `kuaforara` (prod — **yeni VDS'e sıfırdan kurulacak**)
+> **Yazılım sürümü:** `1.1.10`
 >
 > **Nasıl takip edilir:** Bu belgenin en üstündeki **"🧭 GÜNCEL YOL HARİTASI"** tek takip noktasıdır. Her faz bittikçe ⏳ → ✅ yapılır, commit hash yazılır. Alttaki bölümler (Haziran) geçmiş kaydıdır.
 
 ---
 
-## 🧭 GÜNCEL YOL HARİTASI (2026-10-26)
+## 🧭 GÜNCEL YOL HARİTASI (2026-10-27)
 
 **Durum:** Özellik geliştirme büyük ölçüde tamam. **Prod'da gerçek müşteri verisi olmadan önce** 3 iş şart: kritik güvenlik açıklarını kapatmak, güvenli bir DB release süreci kurmak, deploy zincirini (`salonara` → `kuaforara`) bağlamak.
 
@@ -29,12 +29,20 @@
 | 10-26 | Local Supabase ayağa kaldırıldı ("Failed to fetch" çözüldü), DB + RLS + UI tam denetim yapıldı | — |
 | 10-26 | Belgeler toparlandı: kök md'ler → `docs/archive/`, deployment & alignment analizi, `docs/critical/` (git dışı) | `81b45b9` |
 | 10-26 | **F1+F2:** New-33 güvenlik sertleştirmesi (local'de uygulandı + saldırı senaryolarıyla doğrulandı), `scripts/migrate.sh`, davet kabul akışı (RPC yoktu) + admin aktif/pasif bug'ı + login open redirect | `757582f` |
+| 10-26 | **F0/F3–F5:** prod denetim SQL'i, `release.sh`, maskeli prod→local çekme, storage sync, yedek + restore testi | `baf90a8` |
+| 10-26 | **F6:** kod güvenliği (hesap ele geçirme, OTP brute-force, IDOR, 1 TL kapora, webhook imza…), New-34…36 | `5c33f65` |
+| 10-26 | **F7:** renk/kontrast token'ları | `a50900c` |
+| 10-27 | **F11 randevu:** iptal slotu kilidi (New-37), TZ kayması, "herhangi bir personel", çoklu hizmet | `00dbd5b` |
+| 10-27 | **F8–F10:** lucide ikonlar, toast/useConfirm, skeleton, metadata, mobil | `31b38a2` `cf9972e` `f69060f` |
+| 10-27 | **F11 kalite:** veri katmanı, `any` 470 → 0, gizli hatalar | `e6da845` `4c72cda` |
+| 10-27 | Commit'ler `salonara`'ya push edildi (kullanıcı) | — |
+| 10-27 | **Yeni VDS kararı:** prod sıfırdan kurulacak → `scripts/bootstrap-prod.sh` (boş Supabase'e şema + referans veri; test edildi), script'lerden eski prod IP varsayılanı kaldırıldı, `vds-upload-db.sh` korumaya alındı | (bu commit) |
 
 ### ⏳ Yapılacak — Fazlar (sırayla)
 
 | Faz | İş | Neden | Detay | Durum |
 |-----|----|-------|-------|-------|
-| **F0** | **Prod keşfi (salt okunur):** prod `_migrations`, şema diff, aşağıdaki açıklar prod'da var mı? | Prod'un gerçek durumu bilinmiyor | [deployment-and-alignment §9-10](../infrastructure/deployment-and-alignment.md) | 🟡 script hazır — prod erişimi senin ([adımlar](../infrastructure/deployment-and-alignment.md#senin-yapacağın-adımlar-prod-erişimi-gerektiren)) |
+| **F0** | ~~Prod keşfi~~ → **yeni VDS'e sıfırdan kurulum** (`bootstrap-prod.sh`) | Prod'da müşteri verisi yok; hizalamak yerine temiz kurulum | [deployment-and-alignment §11](../infrastructure/deployment-and-alignment.md) | ✅ script + test · ⏳ sunucu kurulumu senin |
 | **F1** 🔴 | **Kritik güvenlik — `New-33-Security-Hardening.sql`** | Herkes kendini admin yapabiliyor, personel TC/telefon herkese açık | aşağıda "F1 detay" | ✅ local |
 | **F2** | **Migration runner** `scripts/migrate.sh` (transaction + otomatik kayıt + prod yedeği) | Elle takip bozuldu (New-26b…32 kayıtsız, New-26 iki kez) | [§5](../infrastructure/deployment-and-alignment.md) | ✅ |
 | **F3** | **Deploy zinciri:** `kuaforara` branch, GitHub branch protection, Coolify prod=`kuaforara`, staging=`salonara` | Push → staging, merge → prod | [§2-3](../infrastructure/deployment-and-alignment.md) | 🟡 `scripts/release.sh` hazır — GitHub/Coolify ayarı senin |
@@ -134,17 +142,50 @@
 | `owner@demo.com` hesabının salonu yok | Owner testi onboarding'e düşer | Test verisi: bir salon bağla veya `demo-owner@example.com`'u auth'a ekle |
 | `demo-owner@example.com` auth.users'ta yok | Bu hesapla giriş yapılamaz, davet FK'si patlar | Seed düzeltmesi |
 
-### 👤 Senden beklenen manuel adımlar (güncel)
+## 📌 AÇIK NOKTALAR (2026-10-27) — tek liste
 
-| # | İş | Faz |
-|---|----|-----|
-| 1 | `docs/critical/credentials.md`'deki prod/staging boşluklarını doldur (Coolify, SSH, Studio, 3. parti paneller) | F0 |
-| 2 | Prod'a SSH erişimini doğrula (`ssh root@45.81.113.82`) — F0 keşfini birlikte yaparız | F0 |
-| 3 | Prod'da `admin@demo.com / password123` varsa şifresini değiştir veya hesabı sil | F1 |
-| 3b | 🔴 **Anahtar rotasyonu:** `.env` git geçmişinde → `GEMINI_API_KEY` (Google AI Studio) ve iyzico anahtarlarını yenile. Prod'da `CRON_SECRET` set et (yoksa cron artık kapalı) | F6 |
-| 3c | Diğer geliştirici `git pull` yapmadan önce `.env`'ini yedeklesin — takipten çıkarıldığı için pull'da diskinden silinir | F6 |
-| 4 | Coolify'da prod Application branch'ini `kuaforara` yap (F3'te birlikte) | F3 |
-| 5 | Eski listeden hâlâ açık olanlar: İYS hesabı, NetGSM prod, PayTR canlı + `test_mode=0`, Resend, `CRON_SECRET` — bkz. [PROD-LAUNCH-CHECKLIST](../PROD-LAUNCH-CHECKLIST.md) | Launch |
+> Kapandıkça ✅ yapılır. Komutlar: [deployment-and-alignment §11](../infrastructure/deployment-and-alignment.md).
+
+### A. Yeni VDS — kuaforara prod kurulumu (senin, sırayla)
+
+| # | İş | Durum |
+|---|----|-------|
+| A1 | VDS: Ubuntu + Coolify, SSH sadece anahtar, firewall 22/80/443 (Postgres dışarı kapalı) | ⏳ |
+| A2 | Coolify'da Supabase servisi — **yeni** JWT/anon/service-role anahtarları → `docs/critical/credentials.md` | ⏳ |
+| A3 | `bootstrap-prod.sh prod --dry-run` → `bootstrap-prod.sh prod` (şema + referans veri) | ⏳ |
+| A4 | `git push origin salonara:kuaforara` + GitHub branch protection | ⏳ |
+| A5 | Coolify Application: branch `kuaforara`, env'ler (`CRON_SECRET`, `OTP_DEMO_MODE=false`, NetGSM, yeni Supabase anahtarları) | ⏳ |
+| A6 | DNS: `kuaforara.com.tr` + `*.kuaforara.com.tr` → yeni IP, wildcard SSL | ⏳ |
+| A7 | Siteden admin kaydı → `bootstrap-prod.sh prod --promote-admin <e-posta>` | ⏳ |
+| A8 | `prod-backup.sh` + cron + off-site yedek (ilk günden) | ⏳ |
+| A9 | Smoke test: OTP SMS, salon başvurusu → onay → randevu | ⏳ |
+
+### B. Hesap / anahtar (senin)
+
+| # | İş | Durum |
+|---|----|-------|
+| B1 | Gemini kullanılmıyor, iyzico kullanılmayacak (kod arşivde kalır) → git geçmişindeki anahtarları ilgili panelden **iptal et** (yenilemeye gerek yok) | ⏳ |
+| B2 | PayTR canlı hesap — bilgiler gelince Admin → Ayarlar → PayTR + `test_mode=0` (kod hazır) | ⏳ PayTR bekleniyor |
+| B3 | İYS hesap + API key (yasal launch blocker) | ⏳ |
+| B4 | NetGSM prod bilgileri | ⏳ |
+| B5 | Resend API key, Google OAuth (opsiyonel) | ⏳ |
+| B6 | `docs/critical/credentials.md` prod/staging alanları | ⏳ |
+| ✅ | Dev server yeniden başlatıldı, `salonara` push edildi; ikinci geliştirici yok (`.env` pull uyarısı geçersiz) | ✅ |
+
+### C. Karar bekleyen (söylersen uygularım)
+
+| # | Karar | Öneri |
+|---|-------|-------|
+| C1 | **salonara (eski sunucu `45.81.113.82`)** staging olarak mı kalacak, yeni VDS'e mi taşınacak? İçinde korunacak gerçek veri var mı? | Kalırsa `migrate.sh staging` ile New-33…37 uygulanır |
+| C2 | 15 kullanılmayan dosya (liste yukarıda) + `scripts/vds-upload-db.sh` (veriyi yukarı taşıyor) | 12'si + vds-upload silinsin; Turnstile/ErrorBoundary/slot-lock kalsın |
+| C3 | Altın buton kontrastı A/B/C (F7 detay) | A (koyu yazı) |
+| C4 | `appointment_services` tablosu (çoklu hizmet raporlarda) | Raporlama ihtiyacı doğunca |
+| C5 | Seed: `owner@demo.com` salonsuz, `demo-owner` auth'ta yok | Local test için düzelt (prod'a gitmez) |
+| C6 | `profiles → auth.users` FK | Soft-delete akışıyla birlikte |
+
+### D. Launch sonrası (opsiyonel)
+
+Tam CSP · GitHub Actions ile migration · marker cluster · dinamik OG görseli · Apple Sign-In · tek sayfa randevu akışı · anlık form doğrulama · PayTR kayıtlı kart.
 
 ---
 
@@ -264,7 +305,7 @@
 
 ---
 
-## ⏳ KALAN İŞLER
+## ⏳ KALAN İŞLER (Haziran — güncel liste yukarıda: "📌 AÇIK NOKTALAR")
 
 ### A. KOD TARAFI (devam edebilir, bekleniyor)
 

@@ -12,7 +12,7 @@
 #
 # Remote targets (SSH, DB accessed via `docker exec` on the server):
 #   STAGING_SSH=root@host  STAGING_DB_CONTAINER=supabase-db
-#   PROD_SSH=root@45.81.113.82  PROD_DB_CONTAINER=supabase-db
+#   PROD_SSH=root@<prod-ip>  PROD_DB_CONTAINER=supabase-db   (no default — always explicit)
 #
 # Markers (first lines of a migration file):
 #   -- @no-transaction   run without --single-transaction (e.g. CREATE INDEX CONCURRENTLY)
@@ -38,7 +38,7 @@ done
 case "$ENV_NAME" in
   local)   SSH=""; CONTAINER="${LOCAL_DB_CONTAINER:-supabase-db}" ;;
   staging) SSH="${STAGING_SSH:?set STAGING_SSH=user@host}"; CONTAINER="${STAGING_DB_CONTAINER:-supabase-db}" ;;
-  prod)    SSH="${PROD_SSH:-root@45.81.113.82}"; CONTAINER="${PROD_DB_CONTAINER:-supabase-db}" ;;
+  prod)    SSH="${PROD_SSH:?set PROD_SSH=root@<prod-ip>}"; CONTAINER="${PROD_DB_CONTAINER:-supabase-db}" ;;
   *) echo "Usage: $0 <local|staging|prod> [--dry-run] [--yes] [--baseline New-XX]"; exit 2 ;;
 esac
 

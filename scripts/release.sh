@@ -4,7 +4,7 @@
 # docs/infrastructure/deployment-and-alignment.md §3:
 #   migrations BEFORE code; every migration backward compatible with running code.
 #
-#   STAGING_SSH=root@<staging> PROD_SSH=root@45.81.113.82 ./scripts/release.sh
+#   STAGING_SSH=root@<staging> PROD_SSH=root@<prod-ip> ./scripts/release.sh
 #
 # Steps (each asks for confirmation):
 #   1. preflight: clean tree, on salonara, pushed, tsc + tests green

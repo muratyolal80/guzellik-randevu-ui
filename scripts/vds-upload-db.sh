@@ -7,11 +7,13 @@
 # yedeği uzak VDS sunucusuna gönderip ordaki
 # PostgreSQL veritabanına yükler.
 
-# VDS (Uzak Sunucu) Ayarları
-# BU DEĞERLERİ KENDİ SİSTEMİNİZE GÖRE DÜZENLEYİN
-VDS_SSH_USER="root"
-# Örnek IP: 192.168.1.10
-VDS_SSH_HOST="45.81.113.82"
+# ⚠️ ESKİ SCRIPT: local veriyi sunucuya YUKARI taşır — "veri sadece aşağı akar"
+# kuralına aykırıdır. Yeni sunucu kurulumu için: scripts/bootstrap-prod.sh
+# (sadece şema + referans verisi). Prod müşteri verisinin üstüne ASLA çalıştırma.
+VDS_SSH_USER="${VDS_SSH_USER:-root}"
+VDS_SSH_HOST="${VDS_SSH_HOST:?set VDS_SSH_HOST=<server-ip> (no default)}"
+read -r -p "⚠️  $VDS_SSH_HOST üzerindeki DB'ye local yedek yüklenecek. Onay için sunucu IP'sini yaz: " ans
+[ "$ans" = "$VDS_SSH_HOST" ] || { echo "İptal."; exit 1; }
 
 # VDS Veritabanı Ayarları (VDS'teki PostgreSQL bilgileri)
 VDS_DB_NAME="postgres"

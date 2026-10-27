@@ -319,42 +319,17 @@ Kural: **Studio'dan prod'da elle şema değişikliği yapılmaz.** Acil bir duru
 
 | Faz | İş | Çıktı | Durum |
 |-----|----|-------|-------|
-| **0** | Prod keşfi (salt okunur) | [`initdb/helpersql/security-audit.sql`](../../initdb/helpersql/security-audit.sql) + `migrate.sh prod --dry-run` | 🟡 Script hazır — **senin çalıştırman gerek** (aşağıda) |
-| **1** | `New-33-Security-Hardening.sql` + kod (staff kolon listesi, invite RPC) | §9 maddeleri 1–6, 8 | ✅ local · ⏳ prod |
+| **0** | ~~Prod keşfi~~ — **gerek kalmadı**: prod yeni VDS'e sıfırdan kuruluyor (§11). `security-audit.sql` eski sunucu (salonara) için duruyor | — | ➖ |
+| **1** | `New-33…37` güvenlik + randevu düzeltmeleri | §9 maddeleri 1–6, 8 | ✅ local · yeni prod'a `bootstrap-prod.sh` ile hazır gelir |
 | **2** | `scripts/migrate.sh` + checksum + `--baseline` | Tek komutla migration | ✅ |
 | **3** | Branch modeli + release sırası | [`scripts/release.sh`](../../scripts/release.sh) | 🟡 Script hazır — GitHub/Coolify ayarı **senin** |
 | **4** | Alignment | [`prod-pull-db.sh`](../../scripts/prod-pull-db.sh) (yedek + hata sayımı + maskeleme + hizalama), [`mask-pii.sql`](../../scripts/mask-pii.sql), [`sync-storage.mjs`](../../scripts/sync-storage.mjs) | ✅ (local'de test edildi) |
 | **5** | Yedekleme | [`scripts/server/prod-backup.sh`](../../scripts/server/prod-backup.sh) (cron, 7/4/3 saklama, off-site rsync), [`restore-test.sh`](../../scripts/restore-test.sh) | ✅ script · ⏳ sunucuya kurulum |
 | **6** | GitHub Actions ile prod migration (onay adımlı) | Tam otomasyon | ⏳ (opsiyonel, süreç oturunca) |
 
-### Senin yapacağın adımlar (prod erişimi gerektiren)
+### Senin yapacağın adımlar
 
-```bash
-# F0 — Prod keşfi (salt okunur, hiçbir şey değiştirmez)
-ssh root@45.81.113.82 'docker ps --format "{{.Names}}" | grep -i db'      # DB container adını doğrula
-ssh root@45.81.113.82 'docker exec -i <db-container> psql -U postgres -d postgres' < initdb/helpersql/security-audit.sql
-PROD_DB_CONTAINER=<db-container> ./scripts/migrate.sh prod --dry-run      # prod'da bekleyen migration'lar
-
-#   Prod _migrations'ta New-26b…32 kayıtsız ama şema uygulanmışsa (local'deki gibi):
-#   ./scripts/migrate.sh prod --baseline New-32     (sadece kayıt, SQL çalışmaz)
-
-# F1 — Güvenlik migration'ını prod'a uygula (yedek otomatik alınır)
-PROD_DB_CONTAINER=<db-container> ./scripts/migrate.sh prod
-
-# F3 — Branch + Coolify
-git push origin salonara:kuaforara                 # kuaforara branch'ini oluştur (bir kez)
-#   GitHub → Settings → Branches → kuaforara: "Require a pull request before merging"
-#   Coolify prod App  → Source → Branch: kuaforara
-#   Coolify staging App (salonara.com.tr) → Branch: salonara
-#   Sonraki her release: STAGING_SSH=... ./scripts/release.sh
-
-# F5 — Yedek cron'u (prod sunucusunda)
-scp scripts/server/prod-backup.sh root@45.81.113.82:/opt/kuaforara/
-ssh root@45.81.113.82 'chmod +x /opt/kuaforara/prod-backup.sh && /opt/kuaforara/prod-backup.sh'
-#   crontab: 15 3 * * * /opt/kuaforara/prod-backup.sh >> /var/log/kuaforara-backup.log 2>&1
-#   Off-site: /opt/kuaforara/backup.env → OFFSITE_RSYNC=user@yedek-sunucu:/backups/kuaforara
-#   Ayda bir: yedeği indir → ./scripts/restore-test.sh <dosya.dump>
-```
+> **2026-10-27 karar değişikliği:** prod (`kuaforara.com.tr`) **yeni VDS'e sıfırdan** kurulur → adımlar §11'de. Eski sunucu (`45.81.113.82`) şimdilik salonara/staging olarak kalır. Script'lerde artık **varsayılan prod IP'si yok** — `PROD_SSH` her seferinde açıkça verilir (yanlış sunucuya migration riski).
 
 ### Release checklist (her prod çıkışında)
 
@@ -366,3 +341,74 @@ ssh root@45.81.113.82 'chmod +x /opt/kuaforara/prod-backup.sh && /opt/kuaforara/
 - [ ] `salonara` → `kuaforara` merge
 - [ ] Coolify deploy yeşil, prod smoke test
 - [ ] `docs/SPECIFICATIONS.md` sürüm geçmişi güncel
+
+---
+
+## 11. Yeni Sunucuya Sıfırdan Kurulum (kuaforara — yeni VDS, 2026-10-27)
+
+**Neden sıfırdan?** Prod'da henüz müşteri verisi yok → eski prod'u hizalamak (`--baseline`, F0 keşfi) yerine temiz kurulum. Şema **local DB'den** alınır (tüm New-01…37 uygulanmış + saldırı testleriyle doğrulanmış). Master + New-* dosyalarını boş DB'de sırayla çalıştırmak hiç denenmedi → kullanılmaz.
+
+### 11.1 `scripts/bootstrap-prod.sh` ne yapar?
+
+| Taşınır ✅ | Taşınmaz ❌ |
+|-----------|------------|
+| `public` şema: tablolar, fonksiyonlar, trigger'lar, RLS, GRANT'lar (kolon bazlı dahil) | Kullanıcılar, salonlar, randevular, yorumlar |
+| `auth.users → handle_new_user` trigger'ı | Demo hesaplar (`*@demo.com`) |
+| Storage bucket'ları (boyut/MIME limitleriyle) + storage politikaları | PayTR anahtarları, banka hesapları (`platform_settings`) |
+| Referans veri: 81 il, 975 ilçe, salon tip/kategori, 63 global hizmet, 4 abonelik planı, `active_payment_provider`, `kvkk_version` | Storage dosyaları (resimler) |
+| `_migrations` kayıtları → `migrate.sh` New-38'den devam eder | |
+
+Korumalar: hedefte `salons/profiles/appointments` tablosu varsa **çalışmaz** (dolu DB'yi ezemez); tek transaction (yarım kalırsa hiçbir şey yazılmaz); sonunda `db-health-check`.
+
+**Test (2026-10-27):** boş `supabase/postgres:15.8.1.085` container'ına kuruldu → health check 0 bulgu; tablo/kolon/fonksiyon yetkileri + 130 politika local ile **birebir aynı** (fark sadece PostGIS'in kendi katalog view'ları); `migrate.sh` "0 pending"; metadata'da `SUPER_ADMIN` ile kayıt → `CUSTOMER` oldu; `--promote-admin` çalıştı.
+
+> ⚠️ Yakalanan tuzak: boş Supabase `public`'teki her yeni tabloyu otomatik `anon/authenticated`'a açar (default privileges). `pg_dump` REVOKE'ları yeniden kurmaz → ilk denemede **personel TC/telefon yeniden herkese açıldı**. Script bunu şemadan önce varsayılanları kaldırarak çözüyor. Elle `pg_dump | psql` ile kurulum **yapma**.
+
+### 11.2 Adım adım
+
+```bash
+# 1) Sunucu (VDS): Ubuntu + Coolify. SSH sadece anahtar, root şifreli giriş kapalı.
+#    Firewall: yalnızca 22, 80, 443. Postgres portu (5432/54322) DIŞARI AÇILMAZ.
+
+# 2) Coolify → New Resource → Supabase (servis şablonu)
+#    JWT_SECRET / ANON_KEY / SERVICE_ROLE_KEY / DB şifresi YENİ üretilir (salonara'nınki kopyalanmaz)
+#    → docs/critical/credentials.md "prod" bölümüne yaz
+#    Studio açılsın, storage servisi bir kez ayağa kalksın (bucket kolonlarını o oluşturur)
+
+# 3) DB container adını bul (Coolify isimleri: supabase-db-<id>)
+ssh root@<yeni-ip> 'docker ps --format "{{.Names}}" | grep -i db'
+
+# 4) Önce kuru çalıştır (sadece SQL üretir, hiçbir yere yazmaz) → sonra gerçek kurulum
+PROD_SSH=root@<yeni-ip> PROD_DB_CONTAINER=<db-container> ./scripts/bootstrap-prod.sh prod --dry-run | less
+PROD_SSH=root@<yeni-ip> PROD_DB_CONTAINER=<db-container> ./scripts/bootstrap-prod.sh prod
+
+# 5) Coolify → New Resource → Application (GitHub, branch: kuaforara, domain: kuaforara.com.tr)
+git push origin salonara:kuaforara          # branch yoksa, bir kez
+#    Env: NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, SUPABASE_SERVICE_ROLE_KEY (yeni stack'in),
+#         CRON_SECRET (openssl rand -hex 32), OTP_DEMO_MODE=false, NETGSM_*, NEXT_PUBLIC_SITE_URL,
+#         NEXT_PUBLIC_IMAGE_HOSTS=<supabase-domain>   (tam liste: .env.example)
+#    GitHub → Settings → Branches → kuaforara: "Require a pull request before merging"
+
+# 6) DNS: kuaforara.com.tr + *.kuaforara.com.tr (wildcard, salon subdomain'leri) → yeni IP; SSL (wildcard için DNS challenge)
+
+# 7) Admin hesabı: siteden normal kayıt ol (güçlü yeni şifre) → yetki ver
+PROD_SSH=root@<yeni-ip> PROD_DB_CONTAINER=<db-container> ./scripts/bootstrap-prod.sh prod --promote-admin <e-posta>
+
+# 8) Admin panel → Ayarlar → PayTR: merchant bilgileri + test_mode=0 (PayTR hesabı onaylanınca)
+
+# 9) Yedek (ilk günden)
+scp scripts/server/prod-backup.sh root@<yeni-ip>:/opt/kuaforara/
+ssh root@<yeni-ip> 'chmod +x /opt/kuaforara/prod-backup.sh && DB_CONTAINER=<db-container> /opt/kuaforara/prod-backup.sh'
+#   crontab: 15 3 * * * /opt/kuaforara/prod-backup.sh >> /var/log/kuaforara-backup.log 2>&1
+#   /opt/kuaforara/backup.env → DB_CONTAINER=<db-container>  (cron bunu buradan okur)
+#                               OFFSITE_RSYNC=user@yedek-sunucu:/backups/kuaforara
+
+# 10) Smoke test: kayıt/giriş (OTP SMS gerçekten geliyor mu), salon başvurusu → admin onayı → randevu
+```
+
+Bundan sonraki her şema değişikliği normal akışla: `New-XX.sql` → staging → `PROD_SSH=... ./scripts/migrate.sh prod` (§3, §5).
+
+### 11.3 Açık noktalar
+
+- **salonara (eski sunucu `45.81.113.82`)**: staging olarak kalacak mı, o da yeni VDS'e mi taşınacak? İçinde korunması gereken gerçek veri var mı? → karar bekliyor. Eski sunucunun şeması New-33…37'yi almadı; staging olarak kalırsa `security-audit.sql` + `migrate.sh staging --dry-run` ile hizalanır.
+- `scripts/vds-upload-db.sh` local veriyi sunucuya yükler (veri yukarı akar → kural dışı). Varsayılan IP kaldırıldı + onay eklendi; **silinmesi önerilir** (onay bekliyor).
